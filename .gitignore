@@ -1,0 +1,33 @@
+# Java / Spring Boot
+backend/.gradle/
+backend/build/
+backend/out/
+*.class
+*.jar
+*.war
+
+# Node
+frontend-public/node_modules/
+frontend-public/.next/
+frontend-app/node_modules/
+frontend-app/dist/
+
+# Environment files (NEVER commit these)
+.env
+.env.local
+.env.*.local
+application-local.yml
+application-secrets.yml
+
+# IDE
+.idea/
+.vscode/settings.json
+*.iml
+
+# Azure
+infrastructure/.terraform/
+*.tfstate
+
+# OS
+.DS_Store
+Thumbs.db

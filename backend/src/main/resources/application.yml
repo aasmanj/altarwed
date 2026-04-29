@@ -1,0 +1,93 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: altarwed-backend
+
+  # Virtual threads — uses Java 21 carrier threads for Tomcat and async tasks
+  threads:
+    virtual:
+      enabled: true
+
+  datasource:
+    url: ${AZURE_SQL_URL}
+    username: ${AZURE_SQL_USERNAME}
+    password: ${AZURE_SQL_PASSWORD}
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    hikari:
+      connection-timeout: 30000
+      maximum-pool-size: 20
+      minimum-idle: 5
+
+  jpa:
+    database-platform: org.hibernate.dialect.SQLServerDialect
+    hibernate:
+      # NEVER use create or update — Flyway owns the schema
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    out-of-order: false
+
+# JWT — secret and expiry pulled from environment / Azure Key Vault
+altarwed:
+  jwt:
+    secret: ${JWT_SECRET}
+    access-token-expiry-ms: 900000       # 15 minutes
+    refresh-token-expiry-ms: 604800000   # 7 days
+
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+
+  azure:
+    storage:
+      connection-string: ${AZURE_STORAGE_CONNECTION_STRING}
+      container-name: ${AZURE_STORAGE_CONTAINER_NAME:altarwed-media}
+
+# SpringDoc / Swagger UI
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+
+# Actuator — expose health and info; restrict others
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+---
+# Local development profile — override with: -Dspring.profiles.active=local
+# Create application-local.yml (gitignored) with real local values
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: ${LOCAL_SQL_URL:jdbc:sqlserver://localhost:1433;databaseName=altarwed;encrypt=false}
+    username: ${LOCAL_SQL_USERNAME:sa}
+    password: ${LOCAL_SQL_PASSWORD:Password123!}
+  jpa:
+    show-sql: true
+
+springdoc:
+  swagger-ui:
+    enabled: true
