@@ -25,7 +25,7 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
           app_location: /frontend-public
-          output_location: ''
+          output_location: .next
         env:
           # Runtime env vars — set these in Azure SWA Application Settings too
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
