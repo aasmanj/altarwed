@@ -1,6 +1,7 @@
 package com.altarwed.web.exception;
 
 import com.altarwed.domain.exception.CoupleNotFoundException;
+import com.altarwed.domain.exception.InvalidRefreshTokenException;
 import com.altarwed.domain.exception.DenominationNotFoundException;
 import com.altarwed.domain.exception.EmailAlreadyExistsException;
 import com.altarwed.domain.exception.VendorNotFoundException;
@@ -60,6 +61,15 @@ public class GlobalExceptionHandler {
         pd.setType(URI.create("https://altarwed.com/problems/account-disabled"));
         pd.setTitle("Account Disabled");
         pd.setDetail("This account has been deactivated");
+        return pd;
+    }
+
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public ProblemDetail handleInvalidRefreshToken(InvalidRefreshTokenException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.UNAUTHORIZED);
+        pd.setType(URI.create("https://altarwed.com/problems/invalid-refresh-token"));
+        pd.setTitle("Invalid Refresh Token");
+        pd.setDetail(ex.getMessage());
         return pd;
     }
 

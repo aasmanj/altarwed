@@ -50,7 +50,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/v1/auth/**",
-                                "/api/v1/couples/register"
+                                "/api/v1/couples/register",
+                                "/api/v1/vendors/register"
                         ).permitAll()
                         .requestMatchers("GET", "/api/v1/vendors/**").permitAll()
                         .requestMatchers("GET", "/api/v1/denominations/**").permitAll()
@@ -67,8 +68,7 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
-        var provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(userDetailsService);
+        var provider = new DaoAuthenticationProvider(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder());
         return provider;
     }

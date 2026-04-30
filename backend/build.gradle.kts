@@ -25,7 +25,7 @@ repositories {
 
 val jjwtVersion = "0.12.6"
 val springdocVersion = "3.0.0"
-val mssqlVersion = "12.8.1.jre21"
+val mssqlVersion = "12.8.1.jre11"
 
 dependencies {
     // Web

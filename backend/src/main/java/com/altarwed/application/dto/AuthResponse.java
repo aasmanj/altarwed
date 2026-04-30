@@ -6,10 +6,10 @@ public record AuthResponse(
         String accessToken,
         String refreshToken,
         String tokenType,
-        UUID coupleId,
+        UUID userId,
         String email
 ) {
-    public static AuthResponse of(String accessToken, String refreshToken, UUID coupleId, String email) {
-        return new AuthResponse(accessToken, refreshToken, "Bearer", coupleId, email);
+    public static AuthResponse of(String accessToken, String refreshToken, UUID userId, String email) {
+        return new AuthResponse(accessToken, refreshToken, "Bearer", userId, email);
     }
 }

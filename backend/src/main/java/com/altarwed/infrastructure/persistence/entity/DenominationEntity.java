@@ -1,12 +1,9 @@
 package com.altarwed.infrastructure.persistence.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -31,7 +28,6 @@ public class DenominationEntity {
     @Column(name = "slug", nullable = false, unique = true, length = 100)
     private String slug;
 
-    // Stored in a separate table: denomination_traditions
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(
             name = "denomination_traditions",
@@ -40,4 +36,21 @@ public class DenominationEntity {
     @Column(name = "tradition", nullable = false, length = 100)
     @Builder.Default
     private List<String> traditions = new ArrayList<>();
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }
