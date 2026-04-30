@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": {
+      "value": "prod"
+    },
+    "location": {
+      "value": "eastus2"
+    },
+    "sqlAdminUsername": {
+      "value": "altarwed-admin"
+    },
+    "sqlAdminPassword": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
+        },
+        "secretName": "sql-admin-password"
+      }
+    },
+    "jwtSecret": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
+        },
+        "secretName": "jwt-secret"
+      }
+    },
+    "resendApiKey": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
+        },
+        "secretName": "resend-api-key"
+      }
+    }
+  }
+}
