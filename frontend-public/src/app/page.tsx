@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import WaitlistForm from '@/components/WaitlistForm'
 
 export const metadata: Metadata = {
@@ -92,9 +93,9 @@ export default function HomePage() {
       {/* ── Nav ─────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 bg-ivory/90 backdrop-blur-sm border-b border-gold/10">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <a href="/" className="font-serif text-xl font-bold text-brown tracking-wide">
+          <Link href="/" className="font-serif text-xl font-bold text-brown tracking-wide">
             AltarWed
-          </a>
+          </Link>
           <a
             href="#waitlist"
             className="hidden sm:inline-flex items-center px-4 py-2 rounded-lg bg-gold text-white text-sm font-semibold hover:bg-gold-dark transition shadow-sm"
