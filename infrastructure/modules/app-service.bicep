@@ -14,7 +14,7 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
     httpsOnly: true
     siteConfig: {
       linuxFxVersion: 'JAVA|21-java21'
-      alwaysOn: false  // F1 free tier does not support AlwaysOn; upgrade plan to B1+ to enable
+      alwaysOn: true
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       appSettings: [

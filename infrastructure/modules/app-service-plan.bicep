@@ -5,8 +5,8 @@ resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: name
   location: location
   sku: {
-    name: 'F1'
-    tier: 'Free'
+    name: 'B2'
+    tier: 'Basic'
   }
   kind: 'linux'
   properties: {
