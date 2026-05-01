@@ -8,7 +8,9 @@ param sqlPassword string
 param jwtSecret string
 @secure()
 param resendApiKey string
-param storageConnectionString string
+@secure()
+param storageAccountKey string
+param storageAccountName string
 
 resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: name
@@ -61,7 +63,7 @@ resource secretResend 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
 resource secretStorage 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: kv
   name: 'AZURE-STORAGE-CONNECTION-STRING'
-  properties: { value: storageConnectionString }
+  properties: { value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};AccountKey=${storageAccountKey};EndpointSuffix=core.windows.net' }
 }
 
 output name string = kv.name

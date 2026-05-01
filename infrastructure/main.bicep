@@ -57,7 +57,8 @@ module keyVault 'modules/keyvault.bicep' = {
     sqlPassword: sqlAdminPassword
     jwtSecret: jwtSecret
     resendApiKey: resendApiKey
-    storageConnectionString: storage.outputs.connectionString
+    storageAccountKey: storage.outputs.accountKey
+    storageAccountName: storage.outputs.accountName
   }
 }
 
