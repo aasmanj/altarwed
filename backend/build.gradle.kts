@@ -38,8 +38,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
 
-    // Flyway — core + SQL Server dialect support
-    implementation("org.flywaydb:flyway-core")
+    // Flyway — starter ensures Spring Boot 4 autoconfiguration triggers; sqlserver adds T-SQL support
+    implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-sqlserver")
 
     // Azure SQL (SQL Server JDBC driver — runtime only, not needed at compile time)
