@@ -4,6 +4,7 @@ import { ProtectedRoute } from '@/core/auth/ProtectedRoute'
 import LoginPage from '@/features/auth/LoginPage'
 import CoupleDashboard from '@/features/couple/CoupleDashboard'
 import VendorDashboard from '@/features/vendor/VendorDashboard'
+import WeddingWebsitePage from '@/features/couple/website/WeddingWebsitePage'
 
 export default function App() {
   return (
@@ -17,6 +18,15 @@ export default function App() {
             element={
               <ProtectedRoute role="COUPLE">
                 <CoupleDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/dashboard/website"
+            element={
+              <ProtectedRoute role="COUPLE">
+                <WeddingWebsitePage />
               </ProtectedRoute>
             }
           />

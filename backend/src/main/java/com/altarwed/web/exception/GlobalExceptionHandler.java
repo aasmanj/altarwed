@@ -4,7 +4,9 @@ import com.altarwed.domain.exception.CoupleNotFoundException;
 import com.altarwed.domain.exception.InvalidRefreshTokenException;
 import com.altarwed.domain.exception.DenominationNotFoundException;
 import com.altarwed.domain.exception.EmailAlreadyExistsException;
+import com.altarwed.domain.exception.SlugAlreadyTakenException;
 import com.altarwed.domain.exception.VendorNotFoundException;
+import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
 import io.jsonwebtoken.JwtException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -35,6 +37,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DenominationNotFoundException.class)
     public ProblemDetail handleDenominationNotFound(DenominationNotFoundException ex) {
         return notFound("denomination-not-found", ex.getMessage());
+    }
+
+    @ExceptionHandler(WeddingWebsiteNotFoundException.class)
+    public ProblemDetail handleWeddingWebsiteNotFound(WeddingWebsiteNotFoundException ex) {
+        return notFound("wedding-website-not-found", ex.getMessage());
+    }
+
+    @ExceptionHandler(SlugAlreadyTakenException.class)
+    public ProblemDetail handleSlugAlreadyTaken(SlugAlreadyTakenException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+        pd.setType(URI.create("https://altarwed.com/problems/slug-already-taken"));
+        pd.setTitle("Slug Already Taken");
+        pd.setDetail(ex.getMessage());
+        return pd;
     }
 
     @ExceptionHandler(EmailAlreadyExistsException.class)

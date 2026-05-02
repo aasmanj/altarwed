@@ -1,11 +1,36 @@
 
 # AltarWed — AI Assistant Instructions
 
+## How to Communicate With Jordan
+Jordan is learning as he builds — every explanation should be framed so he could defend it in a senior engineering interview. This means:
+- Explain the **why** behind every decision, not just the what
+- Call out trade-offs (why this approach over alternatives)
+- Use correct technical vocabulary with a one-line definition when introducing a new term
+- When fixing an error, explain what caused it and what the fix actually does
+- Flag patterns that commonly appear in system design or DevOps interviews
+
 ## What We Are Building
-AltarWed is a faith-first Christian wedding planning platform — a 
-two-sided marketplace connecting engaged Christian couples with 
-faith-aligned wedding vendors. Think The Knot, but built for Christian 
-couples with covenant, scripture, and denomination at the center.
+AltarWed is a faith-first Christian wedding planning platform — a two-sided marketplace
+connecting engaged Christian couples with faith-aligned wedding vendors. Think The Knot
+or Zola, but built for Christian couples with covenant, scripture, and denomination at
+the center.
+
+**Core differentiator:** Every couple gets a shareable public wedding website at
+`altarwed.com/wedding/[slug]` (e.g. `/wedding/jordan-and-sara`). Custom domain support
+is a future paid feature. This is the primary viral/social sharing surface — every
+couple who creates a site drives organic traffic and brand awareness.
+
+**Go-to-market strategy:**
+- Jordan and his fiancée will be the first couple to create their wedding website
+- Their site will be used in Facebook ads, Pinterest campaigns, and organic social content
+  to generate buzz and waitlist signups before the platform is fully open
+- Vendors are NOT the initial focus — couples come first. Vendor self-serve and Stripe
+  billing come after real couple usage is established (Phase 4+)
+- The waitlist (already live at altarwed.com) captures early interest via Resend
+
+**Reliability goal:** Spare no expense within reason. Current: B2 App Service.
+Upgrade path when traffic grows: B2 → P1v3 (auto-scale), add Azure Front Door (CDN +
+global failover), Azure SQL Business Critical tier. Do not over-provision prematurely.
 
 ## Monorepo Structure
 - backend/          → Spring Boot 4 REST API (Java 21, Gradle Kotlin DSL)
@@ -54,12 +79,17 @@ domain has ZERO imports from: Spring, JPA, infrastructure, web.
 If you find yourself importing springframework.* in domain/ — STOP and restructure.
 
 ## Domain Entities
+### Built and in production (V1–V6 Flyway migrations):
 - Couple (UUID id, partnerOneName, partnerTwoName, email, weddingDate, denominationId)
 - Vendor (UUID id, businessName, category, city, state, isChristianOwned, denominationIds)
+- Denomination (UUID id, name, slug, traditions) — 10 seeded
+- RefreshToken (UUID id, tokenHash, userId, userRole, expiresAt, revoked)
+- VendorSubscription (UUID id, vendorId, planTier, status, stripeCustomerId, ...)
+
+### Planned (not yet built):
+- WeddingWebsite (UUID id, coupleId, slug, heroPhotoUrl, story, venueDetails, registryLinks, isPublished)
+- Guest (UUID id, coupleId, name, email, rsvpStatus, dietaryRestrictions, tableNumber)
 - Ceremony (UUID id, coupleId, denomination, scriptureVerses, vowText, orderOfService)
-- Guest (UUID id, coupleId, name, email, rsvpStatus, dietaryRestrictions)
-- Denomination (UUID id, name, slug, traditions)
-- VendorSubscription (UUID id, vendorId, planTier, status, renewalDate)
 - Review (UUID id, vendorId, coupleId, rating, body, createdAt)
 
 ## User Roles
@@ -141,6 +171,30 @@ If you find yourself importing springframework.* in domain/ — STOP and restruc
 - Couples have free and paid tiers (Covenant Plan $9/mo)
 - Church partnerships: churches pay $99/mo for congregation access
 - Stripe is the payment processor — VendorSubscription entity tracks this
+- **Payments are Phase 4+ — do NOT add Stripe until real couple usage exists**
+
+## Build Phases (reference for prioritization)
+- **Phase 1 — DONE:** Backend API (auth, couples, vendors, denominations), marketing homepage,
+  waitlist, CI/CD, Azure infrastructure, JWT auth, Flyway schema
+- **Phase 2 — NEXT:** Couple wedding website (public page at /wedding/[slug]) — this is the
+  core viral feature. Lives in frontend-public (Next.js SSR). Backend: WeddingWebsite entity,
+  API endpoints, Blob Storage for hero photo upload.
+- **Phase 3:** Guest list + RSVP in frontend-app dashboard. Email invites via Resend.
+- **Phase 4:** Vendor browsing (read-only, free) — vendor self-serve listings, couple can
+  browse and favorite vendors
+- **Phase 5:** Stripe billing (vendor subscriptions), couple premium tier
+- **Phase 6:** Ceremony builder, scripture tools, denomination-aware content
+
+## Wedding Website Feature (Phase 2) — key design decisions
+- URL pattern: `altarwed.com/wedding/[slug]` (e.g. /wedding/jordan-and-sara)
+- Slug is chosen by couple at setup, must be unique, URL-safe, lowercase-hyphenated
+- Page is SSR (Next.js) for social sharing previews — Open Graph image with couple names
+- Sections: hero photo, countdown to wedding date, our story, event details, registry links,
+  RSVP link, scripture verse, denomination context
+- Photos stored in Azure Blob Storage, served via Azure CDN
+- Page is public by default (shareable link); couple can set to private/password-protected
+- Custom domain (e.g. jordanandsara.com) is a future paid feature — design slug system
+  to support it without breaking changes
 
 ## When You Are Unsure
 - Follow hexagonal architecture over convenience

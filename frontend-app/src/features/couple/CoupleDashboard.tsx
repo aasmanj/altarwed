@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 
 export default function CoupleDashboard() {
@@ -25,26 +26,41 @@ export default function CoupleDashboard() {
         <p className="text-brown-light mb-8">Your wedding planning dashboard</p>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <DashboardCard title="My Wedding Website" description="Build and share your public wedding page" href="/dashboard/website" live />
           <DashboardCard title="Guest List" description="Manage guests and track RSVPs" href="#" />
           <DashboardCard title="Ceremony Builder" description="Scripture, vows, and order of service" href="#" />
           <DashboardCard title="Find Vendors" description="Browse faith-aligned vendors near you" href="#" />
           <DashboardCard title="Wedding Checklist" description="Stay on track with every detail" href="#" />
           <DashboardCard title="Budget Tracker" description="Plan and track wedding spending" href="#" />
-          <DashboardCard title="Subscription" description="Manage your Covenant Plan" href="#" />
         </div>
       </main>
     </div>
   )
 }
 
-function DashboardCard({ title, description, href }: { title: string; description: string; href: string }) {
+function DashboardCard({ title, description, href, live }: { title: string; description: string; href: string; live?: boolean }) {
+  const cls = 'block rounded-xl border bg-white p-6 transition ' +
+    (live ? 'border-gold hover:shadow-md' : 'border-gold-light opacity-60 cursor-not-allowed')
+
+  if (live && href !== '#') {
+    return (
+      <Link to={href} className={cls}>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="font-serif text-lg font-semibold text-brown">{title}</h3>
+          <span className="text-xs bg-gold/10 text-gold font-medium px-2 py-0.5 rounded-full">Live</span>
+        </div>
+        <p className="text-sm text-brown-light">{description}</p>
+      </Link>
+    )
+  }
+
   return (
-    <a
-      href={href}
-      className="block rounded-xl border border-gold-light bg-white p-6 hover:border-gold hover:shadow-sm transition"
-    >
-      <h3 className="font-serif text-lg font-semibold text-brown mb-1">{title}</h3>
+    <div className={cls}>
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="font-serif text-lg font-semibold text-brown">{title}</h3>
+        <span className="text-xs bg-gray-100 text-gray-400 font-medium px-2 py-0.5 rounded-full">Soon</span>
+      </div>
       <p className="text-sm text-brown-light">{description}</p>
-    </a>
+    </div>
   )
 }

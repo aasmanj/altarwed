@@ -1,0 +1,247 @@
+import { useState } from 'react'
+import { useUpdateWeddingWebsite, usePublishWeddingWebsite, type WeddingWebsite } from './useWeddingWebsite'
+
+interface Props {
+  website: WeddingWebsite
+  coupleId: string
+}
+
+export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
+  const update = useUpdateWeddingWebsite(coupleId)
+  const publish = usePublishWeddingWebsite(coupleId)
+
+  const [saved, setSaved] = useState(false)
+  const [activeTab, setActiveTab] = useState<Tab>('story')
+
+  // Local form state — mirror of the website fields
+  const [form, setForm] = useState({
+    partnerOneName:    website.partnerOneName,
+    partnerTwoName:    website.partnerTwoName,
+    weddingDate:       website.weddingDate ?? '',
+    ourStory:          website.ourStory ?? '',
+    testimony:         website.testimony ?? '',
+    covenantStatement: website.covenantStatement ?? '',
+    scriptureReference:website.scriptureReference ?? '',
+    scriptureText:     website.scriptureText ?? '',
+    venueName:         website.venueName ?? '',
+    venueAddress:      website.venueAddress ?? '',
+    venueCity:         website.venueCity ?? '',
+    venueState:        website.venueState ?? '',
+    ceremonyTime:      website.ceremonyTime ?? '',
+    dressCode:         website.dressCode ?? '',
+    hotelName:         website.hotelName ?? '',
+    hotelUrl:          website.hotelUrl ?? '',
+    hotelDetails:      website.hotelDetails ?? '',
+    registryUrl1:      website.registryUrl1 ?? '',
+    registryLabel1:    website.registryLabel1 ?? '',
+    registryUrl2:      website.registryUrl2 ?? '',
+    registryLabel2:    website.registryLabel2 ?? '',
+    registryUrl3:      website.registryUrl3 ?? '',
+    registryLabel3:    website.registryLabel3 ?? '',
+    rsvpDeadline:      website.rsvpDeadline ?? '',
+  })
+
+  const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setForm(prev => ({ ...prev, [field]: e.target.value }))
+    setSaved(false)
+  }
+
+  const handleSave = async () => {
+    await update.mutateAsync({
+      ...form,
+      weddingDate:  form.weddingDate  || null,
+      rsvpDeadline: form.rsvpDeadline || null,
+    } as Parameters<typeof update.mutateAsync>[0])
+    setSaved(true)
+  }
+
+  const handlePublishToggle = () => publish.mutate(!website.isPublished)
+
+  const publicUrl = `https://www.altarwed.com/wedding/${website.slug}`
+
+  return (
+    <div className="max-w-3xl mx-auto py-8 px-6">
+
+      {/* Header */}
+      <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
+        <div>
+          <h2 className="font-serif text-2xl font-bold text-brown">Your Wedding Website</h2>
+          <a href={publicUrl} target="_blank" rel="noopener noreferrer"
+            className="text-sm text-gold hover:underline mt-1 inline-block">
+            {publicUrl} ↗
+          </a>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${website.isPublished ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+            {website.isPublished ? 'Published' : 'Draft'}
+          </span>
+          <button
+            onClick={handlePublishToggle}
+            disabled={publish.isPending}
+            className="rounded-lg border border-gold px-4 py-1.5 text-sm font-medium text-brown hover:bg-gold/10 disabled:opacity-60 transition"
+          >
+            {publish.isPending ? '…' : website.isPublished ? 'Unpublish' : 'Publish'}
+          </button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-8 border-b border-gold-light overflow-x-auto">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition border-b-2 -mb-px ${
+              activeTab === t.id
+                ? 'border-gold text-brown'
+                : 'border-transparent text-brown-light hover:text-brown'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      <div className="space-y-6">
+        {activeTab === 'story' && <>
+          <Row label="Groom / Partner 1 name">
+            <Input value={form.partnerOneName} onChange={set('partnerOneName')} />
+          </Row>
+          <Row label="Bride / Partner 2 name">
+            <Input value={form.partnerTwoName} onChange={set('partnerTwoName')} />
+          </Row>
+          <Row label="Wedding date">
+            <Input type="date" value={form.weddingDate} onChange={set('weddingDate')} />
+          </Row>
+          <Row label="Our story" hint="Share how you met and fell in love.">
+            <Textarea value={form.ourStory} onChange={set('ourStory')} rows={6} />
+          </Row>
+          <Row label="Our testimony" hint="Share your shared faith journey.">
+            <Textarea value={form.testimony} onChange={set('testimony')} rows={6} />
+          </Row>
+          <Row label="Why we chose a covenant ceremony" hint="Help your guests understand the significance.">
+            <Textarea value={form.covenantStatement} onChange={set('covenantStatement')} rows={5} />
+          </Row>
+        </>}
+
+        {activeTab === 'scripture' && <>
+          <Row label="Scripture reference" hint='e.g. "1 Corinthians 13:4-7"'>
+            <Input value={form.scriptureReference} onChange={set('scriptureReference')} />
+          </Row>
+          <Row label="Scripture text">
+            <Textarea value={form.scriptureText} onChange={set('scriptureText')} rows={5} />
+          </Row>
+        </>}
+
+        {activeTab === 'details' && <>
+          <Row label="Ceremony time" hint='e.g. "3:00 PM"'>
+            <Input value={form.ceremonyTime} onChange={set('ceremonyTime')} />
+          </Row>
+          <Row label="Venue name">
+            <Input value={form.venueName} onChange={set('venueName')} />
+          </Row>
+          <Row label="Street address">
+            <Input value={form.venueAddress} onChange={set('venueAddress')} />
+          </Row>
+          <div className="grid grid-cols-2 gap-4">
+            <Row label="City">
+              <Input value={form.venueCity} onChange={set('venueCity')} />
+            </Row>
+            <Row label="State">
+              <Input value={form.venueState} onChange={set('venueState')} />
+            </Row>
+          </div>
+          <Row label="Dress code" hint='e.g. "Black tie optional" or "Garden formal"'>
+            <Input value={form.dressCode} onChange={set('dressCode')} />
+          </Row>
+          <Row label="RSVP deadline">
+            <Input type="date" value={form.rsvpDeadline} onChange={set('rsvpDeadline')} />
+          </Row>
+        </>}
+
+        {activeTab === 'hotel' && <>
+          <Row label="Hotel name">
+            <Input value={form.hotelName} onChange={set('hotelName')} />
+          </Row>
+          <Row label="Booking link">
+            <Input type="url" placeholder="https://" value={form.hotelUrl} onChange={set('hotelUrl')} />
+          </Row>
+          <Row label="Details for guests" hint="Room block code, cut-off date, etc.">
+            <Textarea value={form.hotelDetails} onChange={set('hotelDetails')} rows={4} />
+          </Row>
+        </>}
+
+        {activeTab === 'registry' && <>
+          {([1, 2, 3] as const).map(n => (
+            <div key={n} className="rounded-xl border border-gold-light p-5 space-y-4">
+              <p className="text-sm font-medium text-brown">Registry {n}</p>
+              <Row label="Label" hint='e.g. "Amazon" or "Williams Sonoma"'>
+                <Input
+                  value={form[`registryLabel${n}`]}
+                  onChange={set(`registryLabel${n}`)}
+                />
+              </Row>
+              <Row label="Link">
+                <Input
+                  type="url"
+                  placeholder="https://"
+                  value={form[`registryUrl${n}`]}
+                  onChange={set(`registryUrl${n}`)}
+                />
+              </Row>
+            </div>
+          ))}
+        </>}
+      </div>
+
+      {/* Save bar */}
+      <div className="mt-10 flex items-center justify-between gap-4 pt-6 border-t border-gold-light">
+        {saved
+          ? <span className="text-sm text-green-600 font-medium">Saved ✓</span>
+          : <span className="text-sm text-brown-light">Unsaved changes</span>
+        }
+        <button
+          onClick={handleSave}
+          disabled={update.isPending}
+          className="rounded-lg bg-gold px-6 py-2.5 font-semibold text-white hover:bg-gold-dark disabled:opacity-60 transition"
+        >
+          {update.isPending ? 'Saving…' : 'Save changes'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+type Tab = 'story' | 'scripture' | 'details' | 'hotel' | 'registry'
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'story',     label: 'Our Story' },
+  { id: 'scripture', label: 'Scripture' },
+  { id: 'details',   label: 'Event Details' },
+  { id: 'hotel',     label: 'Hotel' },
+  { id: 'registry',  label: 'Registry' },
+]
+
+const inputCls = 'w-full rounded-lg border border-gold-light px-4 py-2.5 text-brown text-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold'
+
+function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return <input {...props} className={inputCls} />
+}
+
+function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea {...props} className={`${inputCls} resize-none`} />
+}
+
+function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-brown mb-1">{label}</label>
+      {hint && <p className="text-xs text-brown-light mb-1.5">{hint}</p>}
+      {children}
+    </div>
+  )
+}
