@@ -13,6 +13,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -53,8 +54,8 @@ public class SecurityConfig {
                                 "/api/v1/couples/register",
                                 "/api/v1/vendors/register"
                         ).permitAll()
-                        .requestMatchers("GET", "/api/v1/vendors/**").permitAll()
-                        .requestMatchers("GET", "/api/v1/denominations/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/vendors/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/denominations/**").permitAll()
                         // OpenAPI / Swagger — dev convenience
                         .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         // Actuator health
