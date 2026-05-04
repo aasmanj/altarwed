@@ -176,25 +176,31 @@ If you find yourself importing springframework.* in domain/ — STOP and restruc
 ## Build Phases (reference for prioritization)
 - **Phase 1 — DONE:** Backend API (auth, couples, vendors, denominations), marketing homepage,
   waitlist, CI/CD, Azure infrastructure, JWT auth, Flyway schema
-- **Phase 2 — NEXT:** Couple wedding website (public page at /wedding/[slug]) — this is the
-  core viral feature. Lives in frontend-public (Next.js SSR). Backend: WeddingWebsite entity,
-  API endpoints, Blob Storage for hero photo upload.
-- **Phase 3:** Guest list + RSVP in frontend-app dashboard. Email invites via Resend.
+- **Phase 2 — DONE:** Couple wedding website live at altarwed.com/wedding/[slug]. Backend:
+  WeddingWebsite entity (V7 migration), full CRUD API, soft delete (V8 migration), duplicate
+  protection. Frontend: Next.js SSR public page. Dashboard: app.altarwed.com deployed to Azure
+  Static Web Apps with custom domain. Auth flow working end to end. Security hardened:
+  rate limiting (Bucket4j), Swagger disabled in prod, catch-all exception handlers.
+- **Phase 3 — NEXT:** 
+  (a) Password reset flow — forgot password endpoint, time-limited token, Resend email, reset endpoint.
+      Needed before showing to real users.
+  (b) Fill in Jordan's real wedding content in the dashboard (Our Story, scripture, venue, etc.)
+      for Facebook/Pinterest ad campaigns.
+  (c) Guest list + RSVP in frontend-app dashboard. Email invites via Resend.
 - **Phase 4:** Vendor browsing (read-only, free) — vendor self-serve listings, couple can
   browse and favorite vendors
 - **Phase 5:** Stripe billing (vendor subscriptions), couple premium tier
 - **Phase 6:** Ceremony builder, scripture tools, denomination-aware content
 
-## Wedding Website Feature (Phase 2) — key design decisions
-- URL pattern: `altarwed.com/wedding/[slug]` (e.g. /wedding/jordan-and-sara)
-- Slug is chosen by couple at setup, must be unique, URL-safe, lowercase-hyphenated
-- Page is SSR (Next.js) for social sharing previews — Open Graph image with couple names
-- Sections: hero photo, countdown to wedding date, our story, event details, registry links,
-  RSVP link, scripture verse, denomination context
-- Photos stored in Azure Blob Storage, served via Azure CDN
-- Page is public by default (shareable link); couple can set to private/password-protected
-- Custom domain (e.g. jordanandsara.com) is a future paid feature — design slug system
-  to support it without breaking changes
+## Wedding Website Feature (Phase 2) — COMPLETE
+- Live URL: altarwed.com/wedding/jordan-and-eden-faith
+- Dashboard: app.altarwed.com (React + Vite, Azure Static Web Apps)
+- Slug system: unique, URL-safe, lowercase-hyphenated, chosen at setup
+- SSR via Next.js for Open Graph social sharing previews
+- Soft delete: DELETE /api/v1/wedding-websites/couple/{id} — data preserved, page returns 404
+- One couple = one website enforced at service layer (domain invariant)
+- Photos: Azure Blob Storage + CDN (upload UI not yet built)
+- Custom domain per couple: future paid feature — slug system already supports it
 
 ## When You Are Unsure
 - Follow hexagonal architecture over convenience
