@@ -5,6 +5,7 @@ import com.altarwed.domain.exception.InvalidRefreshTokenException;
 import com.altarwed.domain.exception.DenominationNotFoundException;
 import com.altarwed.domain.exception.EmailAlreadyExistsException;
 import com.altarwed.domain.exception.SlugAlreadyTakenException;
+import com.altarwed.domain.exception.WeddingWebsiteAlreadyExistsException;
 import com.altarwed.domain.exception.VendorNotFoundException;
 import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
 import io.jsonwebtoken.JwtException;
@@ -49,6 +50,15 @@ public class GlobalExceptionHandler {
         var pd = ProblemDetail.forStatus(HttpStatus.CONFLICT);
         pd.setType(URI.create("https://altarwed.com/problems/slug-already-taken"));
         pd.setTitle("Slug Already Taken");
+        pd.setDetail(ex.getMessage());
+        return pd;
+    }
+
+    @ExceptionHandler(WeddingWebsiteAlreadyExistsException.class)
+    public ProblemDetail handleWeddingWebsiteAlreadyExists(WeddingWebsiteAlreadyExistsException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+        pd.setType(URI.create("https://altarwed.com/problems/website-already-exists"));
+        pd.setTitle("Website Already Exists");
         pd.setDetail(ex.getMessage());
         return pd;
     }

@@ -3,6 +3,7 @@ package com.altarwed.application.service;
 import com.altarwed.application.dto.CreateWeddingWebsiteRequest;
 import com.altarwed.application.dto.UpdateWeddingWebsiteRequest;
 import com.altarwed.domain.exception.SlugAlreadyTakenException;
+import com.altarwed.domain.exception.WeddingWebsiteAlreadyExistsException;
 import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
 import com.altarwed.domain.model.WeddingWebsite;
 import com.altarwed.domain.port.WeddingWebsiteRepository;
@@ -23,6 +24,9 @@ public class WeddingWebsiteService {
 
     @Transactional
     public WeddingWebsite create(UUID coupleId, CreateWeddingWebsiteRequest request) {
+        if (websiteRepository.existsByCoupleId(coupleId)) {
+            throw new WeddingWebsiteAlreadyExistsException(coupleId);
+        }
         String slug = request.slug().toLowerCase();
         if (websiteRepository.existsBySlug(slug)) {
             throw new SlugAlreadyTakenException(slug);
