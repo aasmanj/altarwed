@@ -96,6 +96,8 @@ public class SecurityConfig {
 
         var source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", config);
+        source.registerCorsConfiguration("/swagger-ui/**", config);
+        source.registerCorsConfiguration("/api-docs/**", config);
         return source;
     }
 }
