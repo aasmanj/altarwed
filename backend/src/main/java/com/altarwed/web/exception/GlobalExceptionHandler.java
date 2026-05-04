@@ -9,8 +9,10 @@ import com.altarwed.domain.exception.WeddingWebsiteAlreadyExistsException;
 import com.altarwed.domain.exception.VendorNotFoundException;
 import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
 import io.jsonwebtoken.JwtException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.validation.FieldError;
@@ -130,6 +132,36 @@ public class GlobalExceptionHandler {
         pd.setType(URI.create("https://altarwed.com/problems/bad-request"));
         pd.setTitle("Bad Request");
         pd.setDetail(ex.getMessage());
+        return pd;
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ProblemDetail handleUnreadableMessage(HttpMessageNotReadableException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        pd.setType(URI.create("https://altarwed.com/problems/malformed-request"));
+        pd.setTitle("Malformed Request");
+        pd.setDetail("Request body is missing or contains invalid JSON");
+        return pd;
+    }
+
+    // Catches DB unique constraint violations that slip past service-layer checks
+    // (e.g. two simultaneous registrations with the same email — race condition)
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+        pd.setType(URI.create("https://altarwed.com/problems/data-conflict"));
+        pd.setTitle("Data Conflict");
+        pd.setDetail("A record with this information already exists");
+        return pd;
+    }
+
+    // Safety net — catches anything not handled above so stack traces never leak
+    @ExceptionHandler(Exception.class)
+    public ProblemDetail handleUnexpected(Exception ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+        pd.setType(URI.create("https://altarwed.com/problems/internal-error"));
+        pd.setTitle("Internal Server Error");
+        pd.setDetail("An unexpected error occurred. Please try again later.");
         return pd;
     }
 
