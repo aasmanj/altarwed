@@ -26,6 +26,7 @@ repositories {
 val jjwtVersion = "0.12.6"
 val springdocVersion = "3.0.0"
 val mssqlVersion = "12.8.1.jre11"
+val bucket4jVersion = "8.10.1"
 
 dependencies {
     // Web
@@ -59,6 +60,9 @@ dependencies {
 
     // Actuator (health checks, metrics for Azure App Insights)
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+
+    // Rate limiting — token bucket algorithm, no Redis required (in-memory per instance)
+    implementation("com.bucket4j:bucket4j-core:$bucket4jVersion")
 
     // ---- Test dependencies ----
     testImplementation("org.springframework.boot:spring-boot-starter-test")

@@ -95,3 +95,16 @@ spring:
 springdoc:
   swagger-ui:
     enabled: true
+
+---
+# Production profile — activated by SPRING_PROFILES_ACTIVE=prod on Azure App Service
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
