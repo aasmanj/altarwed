@@ -14,7 +14,7 @@
     "sqlAdminPassword": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
+          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
         },
         "secretName": "sql-admin-password"
       }
@@ -22,7 +22,7 @@
     "jwtSecret": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
+          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
         },
         "secretName": "jwt-secret"
       }
@@ -30,7 +30,7 @@
     "resendApiKey": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
+          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
         },
         "secretName": "resend-api-key"
       }

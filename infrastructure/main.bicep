@@ -91,8 +91,23 @@ module keyVaultAccess 'modules/keyvault-access.bicep' = {
   }
 }
 
+// ── Frontend App Static Web App ──────────────────────────────────────────────
+// Hosts the React + Vite authenticated dashboard (couples & vendors).
+// SKU = Standard: required for custom auth providers and custom domains later.
+module frontendApp 'modules/static-web-app.bicep' = {
+  name: 'frontendApp'
+  params: {
+    name: '${prefix}-app'
+    location: location
+    sku: 'Standard'
+  }
+}
+
 // ── Outputs ──────────────────────────────────────────────────────────────────
 output appServiceUrl string = appService.outputs.url
 output sqlServerFqdn string = sql.outputs.serverFqdn
 output keyVaultUri string = keyVault.outputs.uri
 output storageAccountName string = storage.outputs.accountName
+output frontendAppUrl string = 'https://${frontendApp.outputs.defaultHostname}'
+@description('Add this value as GitHub secret: AZURE_STATIC_WEB_APPS_APP_API_TOKEN')
+output frontendAppDeployToken string = frontendApp.outputs.deployToken

@@ -1,6 +1,7 @@
 # Java / Spring Boot
 backend/.gradle/
 backend/build/
+backend/bin/
 backend/out/
 *.class
 *.jar
@@ -31,3 +32,7 @@ infrastructure/.terraform/
 # OS
 .DS_Store
 Thumbs.db
+
+# Log downloads
+*.zip
+app_logs/

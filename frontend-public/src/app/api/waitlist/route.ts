@@ -11,14 +11,14 @@ export async function POST(req: NextRequest) {
   const name: string = typeof body.name === 'string' ? body.name.trim() : ''
 
   const apiKey = process.env.RESEND_API_KEY
+  const audienceId = process.env.RESEND_AUDIENCE_ID
 
-  if (!apiKey) {
-    // Dev fallback: log the signup when RESEND_API_KEY isn't set
+  if (!apiKey || !audienceId) {
     console.log(`[waitlist] New signup — email: ${email}, name: ${name || '(not provided)'}`)
     return NextResponse.json({ ok: true })
   }
 
-  const res = await fetch('https://api.resend.com/contacts', {
+  const res = await fetch(`https://api.resend.com/audiences/${audienceId}/contacts`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
