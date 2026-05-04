@@ -62,4 +62,10 @@ public class WeddingWebsiteController {
     public ResponseEntity<WeddingWebsiteResponse> unpublish(@PathVariable UUID coupleId) {
         return ResponseEntity.ok(mapper.toResponse(websiteService.unpublish(coupleId)));
     }
+
+    @DeleteMapping("/couple/{coupleId}")
+    public ResponseEntity<Void> delete(@PathVariable UUID coupleId) {
+        websiteService.delete(coupleId);
+        return ResponseEntity.noContent().build();
+    }
 }

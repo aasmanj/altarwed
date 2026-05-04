@@ -41,6 +41,9 @@ public record WeddingWebsite(
 
         LocalDate rsvpDeadline,
 
+        boolean isDeleted,
+        LocalDateTime deletedAt,
+
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -52,7 +55,7 @@ public record WeddingWebsite(
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
-                rsvpDeadline, createdAt, LocalDateTime.now());
+                rsvpDeadline, isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
     public WeddingWebsite unpublished() {
@@ -63,6 +66,17 @@ public record WeddingWebsite(
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
-                rsvpDeadline, createdAt, LocalDateTime.now());
+                rsvpDeadline, isDeleted, deletedAt, createdAt, LocalDateTime.now());
+    }
+
+    public WeddingWebsite deleted() {
+        return new WeddingWebsite(id, coupleId, slug, false,
+                partnerOneName, partnerTwoName, weddingDate,
+                heroPhotoUrl, ourStory, testimony, covenantStatement,
+                scriptureReference, scriptureText,
+                venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
+                hotelName, hotelUrl, hotelDetails,
+                registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
+                rsvpDeadline, true, LocalDateTime.now(), createdAt, LocalDateTime.now());
     }
 }

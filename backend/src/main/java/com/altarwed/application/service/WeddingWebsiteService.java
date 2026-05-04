@@ -40,6 +40,7 @@ public class WeddingWebsiteService {
                 null, null, null,
                 null, null, null, null, null, null,
                 null,
+                false, null,
                 LocalDateTime.now(), LocalDateTime.now()
         );
         return websiteRepository.save(website);
@@ -53,8 +54,15 @@ public class WeddingWebsiteService {
 
     @Transactional(readOnly = true)
     public WeddingWebsite getBySlug(String slug) {
-        return websiteRepository.findBySlug(slug)
+        WeddingWebsite website = websiteRepository.findBySlug(slug)
                 .orElseThrow(() -> new WeddingWebsiteNotFoundException(slug));
+        if (website.isDeleted()) throw new WeddingWebsiteNotFoundException(slug);
+        return website;
+    }
+
+    @Transactional
+    public void delete(UUID coupleId) {
+        websiteRepository.save(getByCoupleId(coupleId).deleted());
     }
 
     @Transactional
@@ -99,6 +107,7 @@ public class WeddingWebsiteService {
 
                 req.rsvpDeadline()      != null ? req.rsvpDeadline()      : existing.rsvpDeadline(),
 
+                existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(),
                 LocalDateTime.now()
         );

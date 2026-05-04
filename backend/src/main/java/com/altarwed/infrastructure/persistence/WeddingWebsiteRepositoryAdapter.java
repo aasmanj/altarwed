@@ -63,6 +63,7 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 e.getRegistryUrl2(), e.getRegistryLabel2(),
                 e.getRegistryUrl3(), e.getRegistryLabel3(),
                 e.getRsvpDeadline(),
+                e.isDeleted(), e.getDeletedAt(),
                 e.getCreatedAt(), e.getUpdatedAt()
         );
     }
@@ -98,6 +99,8 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 .registryUrl3(w.registryUrl3())
                 .registryLabel3(w.registryLabel3())
                 .rsvpDeadline(w.rsvpDeadline())
+                .isDeleted(w.isDeleted())
+                .deletedAt(w.deletedAt())
                 .createdAt(w.createdAt())
                 .updatedAt(w.updatedAt())
                 .build();

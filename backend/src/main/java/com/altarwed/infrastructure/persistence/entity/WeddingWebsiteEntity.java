@@ -105,6 +105,12 @@ public class WeddingWebsiteEntity {
     @Column(name = "rsvp_deadline")
     private LocalDate rsvpDeadline;
 
+    @Column(name = "is_deleted", nullable = false)
+    private boolean isDeleted;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
