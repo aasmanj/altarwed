@@ -60,6 +60,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/vendors/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/denominations/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/wedding-websites/slug/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/wedding-websites/published").permitAll()
                         // OpenAPI / Swagger — dev convenience
                         .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         // Actuator health

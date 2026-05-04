@@ -7,6 +7,7 @@ import com.altarwed.infrastructure.persistence.repository.WeddingWebsiteJpaRepos
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +35,12 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
     @Override
     public Optional<WeddingWebsite> findBySlug(String slug) {
         return jpaRepository.findBySlug(slug).map(this::toDomain);
+    }
+
+    @Override
+    public List<WeddingWebsite> findAllPublished() {
+        return jpaRepository.findAllByIsPublishedTrueAndIsDeletedFalse()
+                .stream().map(this::toDomain).toList();
     }
 
     @Override

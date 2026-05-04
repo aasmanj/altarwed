@@ -3,6 +3,7 @@ package com.altarwed.web.controller;
 import com.altarwed.application.dto.CreateWeddingWebsiteRequest;
 import com.altarwed.application.dto.UpdateWeddingWebsiteRequest;
 import com.altarwed.application.dto.WeddingWebsiteResponse;
+import com.altarwed.application.dto.WeddingWebsiteSitemapEntry;
 import com.altarwed.application.service.WeddingWebsiteService;
 import com.altarwed.web.mapper.WeddingWebsiteMapper;
 import jakarta.validation.Valid;
@@ -10,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -28,6 +30,16 @@ public class WeddingWebsiteController {
     @GetMapping("/slug/{slug}")
     public ResponseEntity<WeddingWebsiteResponse> getBySlug(@PathVariable String slug) {
         return ResponseEntity.ok(mapper.toResponse(websiteService.getBySlug(slug)));
+    }
+
+    // Public — fetched by sitemap.ts to build /sitemap.xml (slug + updatedAt only, no PII)
+    @GetMapping("/published")
+    public ResponseEntity<List<WeddingWebsiteSitemapEntry>> getAllPublished() {
+        List<WeddingWebsiteSitemapEntry> entries = websiteService.getAllPublished()
+                .stream()
+                .map(w -> new WeddingWebsiteSitemapEntry(w.slug(), w.updatedAt()))
+                .toList();
+        return ResponseEntity.ok(entries);
     }
 
     // Authenticated — couple managing their own website
