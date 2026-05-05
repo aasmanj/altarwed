@@ -62,6 +62,10 @@ altarwed:
   app:
     base-url: ${APP_BASE_URL:https://app.altarwed.com}
 
+  nextjs:
+    base-url: ${NEXTJS_BASE_URL:https://www.altarwed.com}
+    revalidation-secret: ${REVALIDATION_SECRET}
+
   azure:
     storage:
       connection-string: ${AZURE_STORAGE_CONNECTION_STRING}

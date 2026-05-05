@@ -6,6 +6,7 @@ import com.altarwed.domain.exception.SlugAlreadyTakenException;
 import com.altarwed.domain.exception.WeddingWebsiteAlreadyExistsException;
 import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
 import com.altarwed.domain.model.WeddingWebsite;
+import com.altarwed.domain.port.RevalidationPort;
 import com.altarwed.domain.port.WeddingWebsiteRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,9 +19,14 @@ import java.util.UUID;
 public class WeddingWebsiteService {
 
     private final WeddingWebsiteRepository websiteRepository;
+    private final RevalidationPort revalidationPort;
 
-    public WeddingWebsiteService(WeddingWebsiteRepository websiteRepository) {
+    public WeddingWebsiteService(
+            WeddingWebsiteRepository websiteRepository,
+            RevalidationPort revalidationPort
+    ) {
         this.websiteRepository = websiteRepository;
+        this.revalidationPort = revalidationPort;
     }
 
     @Transactional
@@ -117,16 +123,22 @@ public class WeddingWebsiteService {
                 existing.createdAt(),
                 LocalDateTime.now()
         );
-        return websiteRepository.save(updated);
+        WeddingWebsite saved = websiteRepository.save(updated);
+        revalidationPort.revalidateWeddingPage(saved.slug());
+        return saved;
     }
 
     @Transactional
     public WeddingWebsite publish(UUID coupleId) {
-        return websiteRepository.save(getByCoupleId(coupleId).published());
+        WeddingWebsite saved = websiteRepository.save(getByCoupleId(coupleId).published());
+        revalidationPort.revalidateWeddingPage(saved.slug());
+        return saved;
     }
 
     @Transactional
     public WeddingWebsite unpublish(UUID coupleId) {
-        return websiteRepository.save(getByCoupleId(coupleId).unpublished());
+        WeddingWebsite saved = websiteRepository.save(getByCoupleId(coupleId).unpublished());
+        revalidationPort.revalidateWeddingPage(saved.slug());
+        return saved;
     }
 }
