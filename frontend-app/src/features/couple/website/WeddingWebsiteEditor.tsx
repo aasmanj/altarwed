@@ -131,12 +131,16 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
         </>}
 
         {activeTab === 'scripture' && <>
-          <Row label="Scripture reference" hint='e.g. "1 Corinthians 13:4-7"'>
-            <Input value={form.scriptureReference} onChange={set('scriptureReference')} />
-          </Row>
-          <Row label="Scripture text">
-            <Textarea value={form.scriptureText} onChange={set('scriptureText')} rows={5} />
-          </Row>
+          <ScriptureTab
+            reference={form.scriptureReference}
+            text={form.scriptureText}
+            onReferenceChange={set('scriptureReference')}
+            onTextChange={set('scriptureText')}
+            onFetched={(ref, text) => {
+              setForm(prev => ({ ...prev, scriptureReference: ref, scriptureText: text }))
+              setSaved(false)
+            }}
+          />
         </>}
 
         {activeTab === 'details' && <>
@@ -248,5 +252,59 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
       {hint && <p className="text-xs text-brown-light mb-1.5">{hint}</p>}
       {children}
     </div>
+  )
+}
+
+function ScriptureTab({
+  reference, text, onReferenceChange, onTextChange, onFetched,
+}: {
+  reference: string
+  text: string
+  onReferenceChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onTextChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
+  onFetched: (ref: string, text: string) => void
+}) {
+  const [fetching, setFetching] = useState(false)
+  const [fetchError, setFetchError] = useState('')
+
+  const handleFetch = async () => {
+    if (!reference.trim()) return
+    setFetching(true)
+    setFetchError('')
+    try {
+      // bible-api.com is free, no API key, supports references like "1 corinthians 13"
+      const query = encodeURIComponent(reference.trim())
+      const res = await fetch(`https://bible-api.com/${query}`)
+      if (!res.ok) throw new Error('Not found')
+      const data = await res.json()
+      if (!data.text) throw new Error('No text returned')
+      onFetched(data.reference ?? reference, data.text.trim())
+    } catch {
+      setFetchError('Could not find that reference. Try a format like "1 Corinthians 13" or "John 3:16".')
+    } finally {
+      setFetching(false)
+    }
+  }
+
+  return (
+    <>
+      <Row label="Scripture reference" hint='e.g. "1 Corinthians 13" or "John 3:16-17"'>
+        <div className="flex gap-2">
+          <Input value={reference} onChange={onReferenceChange} className={inputCls + ' flex-1'} />
+          <button
+            type="button"
+            onClick={handleFetch}
+            disabled={fetching || !reference.trim()}
+            className="rounded-lg border border-gold px-3 py-2 text-sm font-medium text-brown hover:bg-gold/10 disabled:opacity-50 transition whitespace-nowrap"
+          >
+            {fetching ? 'Fetching…' : 'Autofill text'}
+          </button>
+        </div>
+        {fetchError && <p className="mt-1.5 text-xs text-red-600">{fetchError}</p>}
+      </Row>
+      <Row label="Scripture text" hint="Edit freely after autofilling.">
+        <Textarea value={text} onChange={onTextChange} rows={8} />
+      </Row>
+    </>
   )
 }

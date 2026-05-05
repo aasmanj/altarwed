@@ -176,9 +176,15 @@ export default async function WeddingPage(
       {(wedding.scriptureText || wedding.scriptureReference) && (
         <section className="bg-[#3b2f2f] py-16 px-6 text-center">
           {wedding.scriptureText && (
-            <blockquote className="font-serif text-xl sm:text-2xl italic text-[#fdfaf6]/90 max-w-2xl mx-auto leading-relaxed">
-              &ldquo;{wedding.scriptureText}&rdquo;
-            </blockquote>
+            <div className="max-w-2xl mx-auto">
+              <blockquote className={`font-serif italic text-[#fdfaf6]/90 leading-relaxed ${
+                wedding.scriptureText.length > 400
+                  ? 'text-sm sm:text-base max-h-64 overflow-y-auto text-left px-2'
+                  : 'text-xl sm:text-2xl'
+              }`}>
+                &ldquo;{wedding.scriptureText}&rdquo;
+              </blockquote>
+            </div>
           )}
           {wedding.scriptureReference && (
             <p className="mt-4 text-[#d4af6a] text-sm tracking-widest uppercase">
