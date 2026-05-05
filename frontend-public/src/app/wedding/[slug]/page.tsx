@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import Image from 'next/image'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -139,10 +140,12 @@ export default async function WeddingPage(
 
       {/* ── Hero ── */}
       <section className="relative h-[90vh] min-h-[560px] flex items-center justify-center text-center overflow-hidden">
-        <img
+        <Image
           src={heroImage}
           alt={`${wedding.partnerOneName} and ${wedding.partnerTwoName}`}
-          className="absolute inset-0 w-full h-full object-cover"
+          fill
+          className="object-cover"
+          priority
         />
         <div className="absolute inset-0 bg-black/45" />
         <div className="relative z-10 px-6">

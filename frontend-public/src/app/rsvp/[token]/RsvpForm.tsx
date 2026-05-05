@@ -52,8 +52,8 @@ export default function RsvpForm({
         </p>
         <p className="text-[#6b5344] text-sm">
           {status === 'ATTENDING'
-            ? "We can't wait to celebrate with you."
-            : 'We\'ll miss you and appreciate you responding.'}
+            ? "We can&apos;t wait to celebrate with you."
+            : "We&apos;ll miss you and appreciate you responding."}
         </p>
       </div>
     )
