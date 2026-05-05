@@ -8,7 +8,7 @@ export default function VendorDashboard() {
       <header className="border-b border-gold-light bg-white px-6 py-4 flex items-center justify-between">
         <span className="font-serif text-xl font-bold text-brown">AltarWed</span>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-brown-light">{user?.name}</span>
+          <span className="text-sm text-brown-light">{user?.email}</span>
           <button
             onClick={logout}
             className="text-sm text-brown-light hover:text-brown transition"
@@ -22,7 +22,7 @@ export default function VendorDashboard() {
         <h2 className="font-serif text-2xl font-bold text-brown mb-2">
           Vendor Dashboard
         </h2>
-        <p className="text-brown-light mb-8">{user?.name}</p>
+        <p className="text-brown-light mb-8">{user?.email}</p>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <DashboardCard title="My Listing" description="Edit your business profile and photos" href="#" />

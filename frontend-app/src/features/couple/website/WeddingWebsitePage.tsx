@@ -32,7 +32,7 @@ export default function WeddingWebsitePage() {
     return (
       <WeddingWebsiteSetup
         coupleId={coupleId}
-        defaultPartnerOne={user?.name?.split(' ')[0] ?? ''}
+        defaultPartnerOne={user?.partnerOneName ?? ''}
         defaultPartnerTwo=""
         defaultWeddingDate=""
       />
