@@ -1,0 +1,66 @@
+package com.altarwed.infrastructure.email;
+
+import com.altarwed.domain.port.EmailPort;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+
+import java.util.List;
+import java.util.Map;
+
+@Component
+public class ResendEmailAdapter implements EmailPort {
+
+    private final RestClient restClient;
+    private final String fromEmail;
+    private final String appBaseUrl;
+
+    public ResendEmailAdapter(
+            @Value("${altarwed.resend.api-key}") String apiKey,
+            @Value("${altarwed.resend.from-email}") String fromEmail,
+            @Value("${altarwed.app.base-url}") String appBaseUrl
+    ) {
+        this.fromEmail = fromEmail;
+        this.appBaseUrl = appBaseUrl;
+        this.restClient = RestClient.builder()
+                .baseUrl("https://api.resend.com")
+                .defaultHeader("Authorization", "Bearer " + apiKey)
+                .build();
+    }
+
+    @Override
+    public void sendPasswordResetEmail(String toEmail, String resetToken) {
+        String resetUrl = appBaseUrl + "/reset-password?token=" + resetToken;
+
+        String html = """
+                <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+                  <h2 style="color: #4a1942;">Reset your AltarWed password</h2>
+                  <p>We received a request to reset the password for your AltarWed account.</p>
+                  <p>Click the button below to choose a new password. This link expires in <strong>15 minutes</strong>.</p>
+                  <a href="%s"
+                     style="display:inline-block;padding:12px 24px;background:#4a1942;color:#fff;text-decoration:none;border-radius:6px;margin:16px 0;">
+                    Reset Password
+                  </a>
+                  <p style="color:#666;font-size:13px;">
+                    If you did not request this, you can safely ignore this email.<br>
+                    Your password will not change until you click the link above.
+                  </p>
+                </div>
+                """.formatted(resetUrl);
+
+        Map<String, Object> body = Map.of(
+                "from", fromEmail,
+                "to", List.of(toEmail),
+                "subject", "Reset your AltarWed password",
+                "html", html
+        );
+
+        restClient.post()
+                .uri("/emails")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .toBodilessEntity();
+    }
+}

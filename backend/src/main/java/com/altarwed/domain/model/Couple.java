@@ -30,4 +30,9 @@ public record Couple(
         return new Couple(id, partnerOneName, partnerTwoName, email, passwordHash,
                 weddingDate, denominationId, false, createdAt, LocalDateTime.now());
     }
+
+    public Couple withPasswordHash(String newPasswordHash) {
+        return new Couple(id, partnerOneName, partnerTwoName, email, newPasswordHash,
+                weddingDate, denominationId, isActive, createdAt, LocalDateTime.now());
+    }
 }

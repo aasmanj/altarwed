@@ -55,6 +55,13 @@ altarwed:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
 
+  resend:
+    api-key: ${RESEND_API_KEY}
+    from-email: ${RESEND_FROM_EMAIL:noreply@altarwed.com}
+
+  app:
+    base-url: ${APP_BASE_URL:https://app.altarwed.com}
+
   azure:
     storage:
       connection-string: ${AZURE_STORAGE_CONNECTION_STRING}

@@ -1,6 +1,7 @@
 package com.altarwed.web.exception;
 
 import com.altarwed.domain.exception.CoupleNotFoundException;
+import com.altarwed.domain.exception.InvalidPasswordResetTokenException;
 import com.altarwed.domain.exception.InvalidRefreshTokenException;
 import com.altarwed.domain.exception.DenominationNotFoundException;
 import com.altarwed.domain.exception.EmailAlreadyExistsException;
@@ -45,6 +46,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(WeddingWebsiteNotFoundException.class)
     public ProblemDetail handleWeddingWebsiteNotFound(WeddingWebsiteNotFoundException ex) {
         return notFound("wedding-website-not-found", ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidPasswordResetTokenException.class)
+    public ProblemDetail handleInvalidPasswordResetToken(InvalidPasswordResetTokenException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        pd.setType(URI.create("https://altarwed.com/problems/invalid-password-reset-token"));
+        pd.setTitle("Invalid Password Reset Token");
+        pd.setDetail(ex.getMessage());
+        return pd;
     }
 
     @ExceptionHandler(SlugAlreadyTakenException.class)
