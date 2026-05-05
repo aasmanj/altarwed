@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { authApi } from '@/core/api/authApi'
+import { setupAuthInterceptor } from '@/core/api/client'
 
 export type UserRole = 'COUPLE' | 'VENDOR'
 
@@ -61,6 +62,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return refreshPromise.current
   }, [])
+
+  // Wire the axios interceptor so every request gets the current token,
+  // and 401/403 responses trigger a silent refresh via the httpOnly cookie.
+  useEffect(() => {
+    setupAuthInterceptor(
+      () => state.accessToken,
+      refreshAccessToken,
+    )
+  }, [state.accessToken, refreshAccessToken])
 
   const value = useMemo<AuthContextValue>(
     () => ({

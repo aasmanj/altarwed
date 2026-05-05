@@ -14,8 +14,13 @@ export default function ForgotPasswordPage() {
     try {
       await apiClient.post('/api/v1/auth/forgot-password', { email })
       setSubmitted(true)
-    } catch {
-      setError('Something went wrong. Please try again.')
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status
+      if (status === 429) {
+        setError('Too many attempts. Please wait a minute and try again.')
+      } else {
+        setError('Something went wrong. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
