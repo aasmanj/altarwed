@@ -52,7 +52,7 @@ public class ResendEmailAdapter implements EmailPort {
                 """.formatted(guestName, coupleNames, weddingDate, rsvpUrl);
 
         Map<String, Object> body = Map.of(
-                "from", fromEmail,
+                "from", "You're Invited 💍 <" + fromEmail + ">",
                 "to", List.of(toEmail),
                 "subject", "You're invited to " + coupleNames + "'s wedding!",
                 "html", html
@@ -87,7 +87,7 @@ public class ResendEmailAdapter implements EmailPort {
                 """.formatted(resetUrl);
 
         Map<String, Object> body = Map.of(
-                "from", fromEmail,
+                "from", "AltarWed <" + fromEmail + ">",
                 "to", List.of(toEmail),
                 "subject", "Reset your AltarWed password",
                 "html", html
