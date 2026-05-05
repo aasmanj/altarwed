@@ -29,7 +29,7 @@ export default function CoupleDashboard() {
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <DashboardCard title="My Wedding Website" description="Build and share your public wedding page" href="/dashboard/website" live />
-          <DashboardCard title="Guest List" description="Manage guests and track RSVPs" href="#" />
+          <DashboardCard title="Guest List" description="Manage guests and track RSVPs" href="/dashboard/guests" live />
           <DashboardCard title="Ceremony Builder" description="Scripture, vows, and order of service" href="#" />
           <DashboardCard title="Find Vendors" description="Browse faith-aligned vendors near you" href="#" />
           <DashboardCard title="Wedding Checklist" description="Stay on track with every detail" href="#" />

@@ -1,8 +1,10 @@
 package com.altarwed.web.exception;
 
 import com.altarwed.domain.exception.CoupleNotFoundException;
+import com.altarwed.domain.exception.GuestNotFoundException;
 import com.altarwed.domain.exception.InvalidPasswordResetTokenException;
 import com.altarwed.domain.exception.InvalidRefreshTokenException;
+import com.altarwed.domain.exception.InvalidRsvpTokenException;
 import com.altarwed.domain.exception.DenominationNotFoundException;
 import com.altarwed.domain.exception.EmailAlreadyExistsException;
 import com.altarwed.domain.exception.SlugAlreadyTakenException;
@@ -46,6 +48,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(WeddingWebsiteNotFoundException.class)
     public ProblemDetail handleWeddingWebsiteNotFound(WeddingWebsiteNotFoundException ex) {
         return notFound("wedding-website-not-found", ex.getMessage());
+    }
+
+    @ExceptionHandler(GuestNotFoundException.class)
+    public ProblemDetail handleGuestNotFound(GuestNotFoundException ex) {
+        return notFound("guest-not-found", ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidRsvpTokenException.class)
+    public ProblemDetail handleInvalidRsvpToken(InvalidRsvpTokenException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        pd.setType(URI.create("https://altarwed.com/problems/invalid-rsvp-token"));
+        pd.setTitle("Invalid RSVP Token");
+        pd.setDetail(ex.getMessage());
+        return pd;
     }
 
     @ExceptionHandler(InvalidPasswordResetTokenException.class)

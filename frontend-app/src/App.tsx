@@ -7,6 +7,7 @@ import ResetPasswordPage from '@/features/auth/ResetPasswordPage'
 import CoupleDashboard from '@/features/couple/CoupleDashboard'
 import VendorDashboard from '@/features/vendor/VendorDashboard'
 import WeddingWebsitePage from '@/features/couple/website/WeddingWebsitePage'
+import GuestListPage from '@/features/couple/guests/GuestListPage'
 
 export default function App() {
   return (
@@ -22,6 +23,15 @@ export default function App() {
             element={
               <ProtectedRoute role="COUPLE">
                 <CoupleDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/dashboard/guests"
+            element={
+              <ProtectedRoute role="COUPLE">
+                <GuestListPage />
               </ProtectedRoute>
             }
           />
