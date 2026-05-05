@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useUpdateWeddingWebsite, usePublishWeddingWebsite, type WeddingWebsite } from './useWeddingWebsite'
 
 interface Props {
@@ -61,6 +62,10 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-6">
+
+      <Link to="/dashboard" className="inline-flex items-center gap-1 text-sm text-brown-light hover:text-brown mb-6">
+        ← Dashboard
+      </Link>
 
       {/* Header */}
       <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">

@@ -21,6 +21,14 @@ export default function WeddingWebsitePage() {
 
   // No website yet — show the creation wizard
   if (isNotFound || !website) {
+    if (error && !isNotFound) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+          <p className="text-brown font-medium">Something went wrong loading your website.</p>
+          <p className="text-sm text-brown-light">Try refreshing, or <a href="/dashboard" className="text-gold hover:underline">go back to the dashboard</a>.</p>
+        </div>
+      )
+    }
     return (
       <WeddingWebsiteSetup
         coupleId={coupleId}
