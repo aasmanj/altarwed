@@ -14,6 +14,7 @@ interface BackendAuthResponse {
 // Shape AuthContext expects
 export interface AuthResponse {
   accessToken: string
+  refreshToken: string
   user: {
     id: string
     email: string
@@ -25,6 +26,7 @@ export interface AuthResponse {
 function mapResponse(data: BackendAuthResponse): AuthResponse {
   return {
     accessToken: data.accessToken,
+    refreshToken: data.refreshToken,
     user: {
       id: data.userId,
       email: data.email,
@@ -40,12 +42,12 @@ export const authApi = {
     return mapResponse(data)
   },
 
-  refresh: async (): Promise<AuthResponse> => {
-    const { data } = await apiClient.post<BackendAuthResponse>('/api/v1/auth/refresh')
+  refresh: async (refreshToken: string): Promise<AuthResponse> => {
+    const { data } = await apiClient.post<BackendAuthResponse>('/api/v1/auth/refresh', { refreshToken })
     return mapResponse(data)
   },
 
-  logout: async (): Promise<void> => {
-    await apiClient.post('/api/v1/auth/logout')
+  logout: async (refreshToken: string | null): Promise<void> => {
+    if (refreshToken) await apiClient.post('/api/v1/auth/logout', { refreshToken })
   },
 }

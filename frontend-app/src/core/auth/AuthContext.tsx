@@ -15,6 +15,7 @@ interface AuthUser {
 interface AuthState {
   user: AuthUser | null
   accessToken: string | null
+  refreshToken: string | null
 }
 
 interface AuthContextValue extends AuthState {
@@ -28,32 +29,37 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   // Access token stored in memory only — never localStorage (XSS risk)
-  const [state, setState] = useState<AuthState>({ user: null, accessToken: null })
+  const [state, setState] = useState<AuthState>({ user: null, accessToken: null, refreshToken: null })
   const refreshPromise = useRef<Promise<string | null> | null>(null)
 
   const login = useCallback(async (email: string, password: string) => {
-    const { accessToken, user } = await authApi.login(email, password)
-    // Refresh token is set as httpOnly cookie by the backend — we never touch it
-    setState({ user, accessToken })
+    const { accessToken, refreshToken, user } = await authApi.login(email, password)
+    setState({ user, accessToken, refreshToken })
   }, [])
 
   const logout = useCallback(async () => {
-    await authApi.logout().catch(() => {})
-    setState({ user: null, accessToken: null })
-  }, [])
+    await authApi.logout(state.refreshToken).catch(() => {})
+    setState({ user: null, accessToken: null, refreshToken: null })
+  }, [state.refreshToken])
 
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
     // Deduplicate concurrent refresh calls
     if (refreshPromise.current) return refreshPromise.current
 
+    const currentRefreshToken = state.refreshToken
+    if (!currentRefreshToken) {
+      setState({ user: null, accessToken: null, refreshToken: null })
+      return null
+    }
+
     refreshPromise.current = authApi
-      .refresh()
-      .then(({ accessToken, user }) => {
-        setState({ user, accessToken })
+      .refresh(currentRefreshToken)
+      .then(({ accessToken, refreshToken, user }) => {
+        setState({ user, accessToken, refreshToken })
         return accessToken
       })
       .catch(() => {
-        setState({ user: null, accessToken: null })
+        setState({ user: null, accessToken: null, refreshToken: null })
         return null
       })
       .finally(() => {
@@ -61,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
 
     return refreshPromise.current
-  }, [])
+  }, [state.refreshToken])
 
   // Wire the axios interceptor so every request gets the current token,
   // and 401/403 responses trigger a silent refresh via the httpOnly cookie.
