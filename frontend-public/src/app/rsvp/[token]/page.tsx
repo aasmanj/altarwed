@@ -62,7 +62,7 @@ export default async function RsvpPage(
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
       {/* Header */}
       <div className="bg-[#3b2f2f] py-12 px-6 text-center">
-        <p className="text-[#d4af6a] text-xs uppercase tracking-widest mb-3">You're invited</p>
+        <p className="text-[#d4af6a] text-xs uppercase tracking-widest mb-3">You&apos;re invited</p>
         <h1 className="font-serif text-3xl sm:text-4xl font-bold text-white mb-2">
           {data.coupleNames}
         </h1>
@@ -78,7 +78,7 @@ export default async function RsvpPage(
       <div className="max-w-lg mx-auto px-4 py-12">
         <div className="bg-white rounded-2xl border border-[#e8dcc8] shadow-sm p-8">
           <p className="text-[#6b5344] mb-6 text-center">
-            Dear <strong className="text-[#3b2f2f]">{data.guestName}</strong>, please let us know if you'll be joining us.
+            Dear <strong className="text-[#3b2f2f]">{data.guestName}</strong>, please let us know if you&apos;ll be joining us.
           </p>
           <RsvpForm token={token} plusOneAllowed={data.plusOneAllowed} apiUrl={API} />
         </div>
