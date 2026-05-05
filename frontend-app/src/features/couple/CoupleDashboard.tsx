@@ -9,7 +9,7 @@ export default function CoupleDashboard() {
       <header className="border-b border-gold-light bg-white px-6 py-4 flex items-center justify-between">
         <span className="font-serif text-xl font-bold text-brown">AltarWed</span>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-brown-light">{user?.name}</span>
+          <span className="text-sm text-brown-light">{user?.partnerOneName ?? user?.email}</span>
           <button
             onClick={logout}
             className="text-sm text-brown-light hover:text-brown transition"
@@ -21,7 +21,9 @@ export default function CoupleDashboard() {
 
       <main className="mx-auto max-w-5xl px-6 py-10">
         <h2 className="font-serif text-2xl font-bold text-brown mb-2">
-          Welcome back, {user?.name?.split(' ')[0]} 🕊️
+          Welcome back, {user?.partnerOneName && user?.partnerTwoName
+            ? `${user.partnerOneName} & ${user.partnerTwoName}`
+            : user?.partnerOneName ?? user?.email}
         </h2>
         <p className="text-brown-light mb-8">Your wedding planning dashboard</p>
 

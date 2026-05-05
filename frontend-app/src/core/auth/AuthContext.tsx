@@ -9,7 +9,8 @@ interface AuthUser {
   id: string
   email: string
   role: UserRole
-  name: string
+  partnerOneName: string | null
+  partnerTwoName: string | null
 }
 
 interface AuthState {

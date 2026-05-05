@@ -9,6 +9,8 @@ interface BackendAuthResponse {
   userId: string
   email: string
   role: UserRole
+  partnerOneName: string | null
+  partnerTwoName: string | null
 }
 
 // Shape AuthContext expects
@@ -19,7 +21,8 @@ export interface AuthResponse {
     id: string
     email: string
     role: UserRole
-    name: string
+    partnerOneName: string | null
+    partnerTwoName: string | null
   }
 }
 
@@ -31,7 +34,8 @@ function mapResponse(data: BackendAuthResponse): AuthResponse {
       id: data.userId,
       email: data.email,
       role: data.role ?? 'COUPLE',
-      name: data.email, // backend doesn't return name yet — use email as fallback
+      partnerOneName: data.partnerOneName ?? null,
+      partnerTwoName: data.partnerTwoName ?? null,
     },
   }
 }

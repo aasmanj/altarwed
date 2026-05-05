@@ -69,7 +69,8 @@ public class AuthService {
         String rawRefresh = jwtService.generateRefreshToken(saved.email(), ROLE_COUPLE, saved.id());
         persistRefreshToken(rawRefresh, saved.id(), ROLE_COUPLE);
 
-        return AuthResponse.of(accessToken, rawRefresh, saved.id(), saved.email());
+        return AuthResponse.of(accessToken, rawRefresh, saved.id(), saved.email(),
+                saved.partnerOneName(), saved.partnerTwoName());
     }
 
     @Transactional
@@ -88,7 +89,8 @@ public class AuthService {
         String rawRefresh = jwtService.generateRefreshToken(couple.email(), ROLE_COUPLE, couple.id());
         persistRefreshToken(rawRefresh, couple.id(), ROLE_COUPLE);
 
-        return AuthResponse.of(accessToken, rawRefresh, couple.id(), couple.email());
+        return AuthResponse.of(accessToken, rawRefresh, couple.id(), couple.email(),
+                couple.partnerOneName(), couple.partnerTwoName());
     }
 
     @Transactional
@@ -115,7 +117,12 @@ public class AuthService {
         String newRawRefresh = jwtService.generateRefreshToken(email, role, userId);
         persistRefreshToken(newRawRefresh, userId, role);
 
-        return AuthResponse.of(newAccessToken, newRawRefresh, userId, email);
+        // Load couple to return partner names — needed so the frontend can display them after a token refresh
+        Couple couple = coupleRepository.findByEmail(email).orElse(null);
+        String partnerOneName = couple != null ? couple.partnerOneName() : null;
+        String partnerTwoName = couple != null ? couple.partnerTwoName() : null;
+
+        return AuthResponse.of(newAccessToken, newRawRefresh, userId, email, partnerOneName, partnerTwoName);
     }
 
     @Transactional

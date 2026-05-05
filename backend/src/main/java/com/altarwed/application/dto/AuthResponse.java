@@ -7,9 +7,12 @@ public record AuthResponse(
         String refreshToken,
         String tokenType,
         UUID userId,
-        String email
+        String email,
+        String partnerOneName,
+        String partnerTwoName
 ) {
-    public static AuthResponse of(String accessToken, String refreshToken, UUID userId, String email) {
-        return new AuthResponse(accessToken, refreshToken, "Bearer", userId, email);
+    public static AuthResponse of(String accessToken, String refreshToken, UUID userId, String email,
+                                   String partnerOneName, String partnerTwoName) {
+        return new AuthResponse(accessToken, refreshToken, "Bearer", userId, email, partnerOneName, partnerTwoName);
     }
 }

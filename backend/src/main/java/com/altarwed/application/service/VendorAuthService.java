@@ -66,7 +66,7 @@ public class VendorAuthService {
         String rawRefresh = jwtService.generateRefreshToken(saved.email(), ROLE_VENDOR, saved.id());
         persistRefreshToken(rawRefresh, saved.id(), ROLE_VENDOR);
 
-        return AuthResponse.of(accessToken, rawRefresh, saved.id(), saved.email());
+        return AuthResponse.of(accessToken, rawRefresh, saved.id(), saved.email(), null, null);
     }
 
     // -------------------------------------------------------------------------
