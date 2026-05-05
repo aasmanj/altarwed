@@ -71,7 +71,27 @@ export function useUpdateWeddingWebsite(coupleId: string) {
   return useMutation({
     mutationFn: (payload: UpdateWebsitePayload) =>
       apiClient.patch(`/api/v1/wedding-websites/couple/${coupleId}`, payload).then(r => r.data),
+
+    // Optimistic update: write new values to the cache instantly so the UI
+    // reflects the change before the server responds.
+    onMutate: async (payload) => {
+      await qc.cancelQueries({ queryKey: ['wedding-website', coupleId] })
+      const previous = qc.getQueryData<WeddingWebsite>(['wedding-website', coupleId])
+      qc.setQueryData(['wedding-website', coupleId], (old: WeddingWebsite | undefined) =>
+        old ? { ...old, ...payload } : old
+      )
+      return { previous }
+    },
+
+    // Server response wins — replace optimistic data with the real saved record.
     onSuccess: (data) => qc.setQueryData(['wedding-website', coupleId], data),
+
+    // If the PATCH fails, roll back to what was in the cache before the mutation.
+    onError: (_err, _payload, context) => {
+      if (context?.previous) {
+        qc.setQueryData(['wedding-website', coupleId], context.previous)
+      }
+    },
   })
 }
 
