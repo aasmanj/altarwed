@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
+import PageHeader from '@/components/PageHeader'
 import {
   DndContext,
   DragEndEvent,
@@ -255,29 +255,26 @@ export default function SeatingPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-2 border-amber-600 border-t-transparent rounded-full" />
+      <div className="min-h-screen bg-ivory flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-2 border-gold border-t-transparent rounded-full" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 flex flex-col">
-      {/* Header */}
-      <div className="bg-white border-b border-stone-200 px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link to="/dashboard" className="text-sm text-stone-400 hover:text-stone-700 transition">← Dashboard</Link>
-            <h1 className="text-2xl font-semibold text-stone-900">Seating Chart</h1>
-          </div>
+    <div className="min-h-screen bg-ivory flex flex-col">
+      <PageHeader
+        title="Seating Chart"
+        subtitle="Drag guests between tables to assign seats"
+        action={
           <button
             onClick={() => setEditingTable('new')}
-            className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors"
+            className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark transition"
           >
-            + Add Table
+            + Add table
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Board */}
       <div className="flex-1 px-6 py-6 overflow-auto">

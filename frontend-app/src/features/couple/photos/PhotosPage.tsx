@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
+import PageHeader from '@/components/PageHeader'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
@@ -87,19 +87,17 @@ export default function PhotosPage() {
   const publicUrl = `https://www.altarwed.com/wedding/${website?.slug}/photos`
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <div className="bg-white border-b border-stone-200 px-6 py-4">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link to="/dashboard" className="text-sm text-stone-400 hover:text-stone-700 transition">← Dashboard</Link>
-            <h1 className="text-2xl font-semibold text-stone-900">Wedding Photos</h1>
-          </div>
+    <div className="min-h-screen bg-ivory">
+      <PageHeader
+        title="Wedding Photos"
+        subtitle="Share your memories with guests"
+        action={
           <a href={publicUrl} target="_blank" rel="noopener noreferrer"
-            className="text-sm text-amber-600 hover:underline">
+            className="text-sm text-gold hover:underline">
             View public page ↗
           </a>
-        </div>
-      </div>
+        }
+      />
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
 

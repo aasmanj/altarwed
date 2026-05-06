@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
+import PageHeader from '@/components/PageHeader'
 import { useMutation } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
@@ -34,13 +35,8 @@ export default function SaveTheDatePage() {
     : 'https://www.altarwed.com'
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <div className="bg-white border-b border-stone-200 px-6 py-4">
-        <div className="max-w-3xl mx-auto flex items-center gap-4">
-          <Link to="/dashboard" className="text-sm text-stone-400 hover:text-stone-700 transition">← Dashboard</Link>
-          <h1 className="text-2xl font-semibold text-stone-900">Save the Dates</h1>
-        </div>
-      </div>
+    <div className="min-h-screen bg-ivory">
+      <PageHeader title="Save the Dates" subtitle="Send a faith-themed email to all your guests" />
 
       <div className="max-w-3xl mx-auto px-6 py-10 space-y-8">
 

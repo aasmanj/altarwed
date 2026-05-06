@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useUpdateWeddingWebsite, usePublishWeddingWebsite, type WeddingWebsite } from './useWeddingWebsite'
+import PageHeader from '@/components/PageHeader'
 
 interface Props {
   website: WeddingWebsite
@@ -62,34 +62,31 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
   const publicUrl = `https://www.altarwed.com/wedding/${website.slug}`
 
   return (
-    <div className="max-w-3xl mx-auto py-8 px-6">
+    <div>
+      <PageHeader
+        title="Wedding Website"
+        subtitle={publicUrl}
+        action={
+          <div className="flex items-center gap-3">
+            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${website.isPublished ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+              {website.isPublished ? 'Published' : 'Draft'}
+            </span>
+            <a href={publicUrl} target="_blank" rel="noopener noreferrer"
+              className="text-sm text-gold hover:underline hidden sm:inline">
+              View ↗
+            </a>
+            <button
+              onClick={handlePublishToggle}
+              disabled={publish.isPending}
+              className="rounded-lg border border-gold px-4 py-1.5 text-sm font-medium text-brown hover:bg-gold/10 disabled:opacity-60 transition"
+            >
+              {publish.isPending ? '…' : website.isPublished ? 'Unpublish' : 'Publish'}
+            </button>
+          </div>
+        }
+      />
 
-      <Link to="/dashboard" className="inline-flex items-center gap-1 text-sm text-brown-light hover:text-brown mb-6">
-        ← Dashboard
-      </Link>
-
-      {/* Header */}
-      <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
-        <div>
-          <h2 className="font-serif text-2xl font-bold text-brown">Your Wedding Website</h2>
-          <a href={publicUrl} target="_blank" rel="noopener noreferrer"
-            className="text-sm text-gold hover:underline mt-1 inline-block">
-            {publicUrl} ↗
-          </a>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${website.isPublished ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-            {website.isPublished ? 'Published' : 'Draft'}
-          </span>
-          <button
-            onClick={handlePublishToggle}
-            disabled={publish.isPending}
-            className="rounded-lg border border-gold px-4 py-1.5 text-sm font-medium text-brown hover:bg-gold/10 disabled:opacity-60 transition"
-          >
-            {publish.isPending ? '…' : website.isPublished ? 'Unpublish' : 'Publish'}
-          </button>
-        </div>
-      </div>
+      <div className="max-w-3xl mx-auto py-8 px-6">
 
       {/* Tabs */}
       <div className="flex gap-1 mb-8 border-b border-gold-light overflow-x-auto">
@@ -221,6 +218,7 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
           {update.isPending ? 'Saving…' : 'Save changes'}
         </button>
       </div>
+    </div>
     </div>
   )
 }

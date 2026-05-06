@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '@/core/auth/AuthContext'
+import PageHeader from '@/components/PageHeader'
 import {
   useBudget,
   useCreateBudgetItem,
@@ -92,8 +93,8 @@ export default function BudgetPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-2 border-amber-600 border-t-transparent rounded-full" />
+      <div className="min-h-screen bg-ivory flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-2 border-gold border-t-transparent rounded-full" />
       </div>
     )
   }
@@ -104,22 +105,19 @@ export default function BudgetPage() {
     : 0
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      {/* Header */}
-      <div className="bg-white border-b border-stone-200 px-6 py-4">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-stone-900">Budget Tracker</h1>
-            <p className="text-sm text-stone-500 mt-0.5">Track your wedding costs with peace of mind</p>
-          </div>
+    <div className="min-h-screen bg-ivory">
+      <PageHeader
+        title="Budget Tracker"
+        subtitle="Track your wedding costs with peace of mind"
+        action={
           <button
             onClick={openAddForm}
-            className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors"
+            className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark transition"
           >
-            + Add Item
+            + Add item
           </button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
         {/* Summary cards */}

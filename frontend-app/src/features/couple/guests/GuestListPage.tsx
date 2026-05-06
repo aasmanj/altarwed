@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
+import PageHeader from '@/components/PageHeader'
 import {
   useGuests, useAddGuest, useUpdateGuest, useRemoveGuest,
   useSendInvite, useSendAllInvites,
@@ -42,19 +42,10 @@ export default function GuestListPage() {
 
   return (
     <div className="min-h-screen bg-ivory">
-      <header className="border-b border-gold-light bg-white px-6 py-4 flex items-center justify-between">
-        <Link to="/dashboard" className="font-serif text-xl font-bold text-brown">AltarWed</Link>
-        <Link to="/dashboard" className="text-sm text-brown-light hover:text-brown transition">
-          ← Dashboard
-        </Link>
-      </header>
-
-      <main className="mx-auto max-w-5xl px-6 py-10">
-        <div className="flex items-center justify-between mb-8 gap-4 flex-wrap">
-          <div>
-            <h1 className="font-serif text-2xl font-bold text-brown">Guest List</h1>
-            <p className="text-brown-light text-sm mt-1">Manage invites and track RSVPs</p>
-          </div>
+      <PageHeader
+        title="Guest List"
+        subtitle="Manage invites and track RSVPs"
+        action={
           <div className="flex gap-3">
             <button
               onClick={() => sendAll.mutate()}
@@ -70,7 +61,10 @@ export default function GuestListPage() {
               + Add guest
             </button>
           </div>
-        </div>
+        }
+      />
+
+      <main className="mx-auto max-w-5xl px-6 py-10">
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
