@@ -5,6 +5,11 @@ spring:
   application:
     name: altarwed-backend
 
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 16MB
+
   # Virtual threads — uses Java 21 carrier threads for Tomcat and async tasks
   threads:
     virtual:
@@ -54,6 +59,17 @@ altarwed:
 
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+
+  resend:
+    api-key: ${RESEND_API_KEY}
+    from-email: ${RESEND_FROM_EMAIL:noreply@altarwed.com}
+
+  app:
+    base-url: ${APP_BASE_URL:https://app.altarwed.com}
+
+  nextjs:
+    base-url: ${NEXTJS_BASE_URL:https://www.altarwed.com}
+    revalidation-secret: ${REVALIDATION_SECRET}
 
   azure:
     storage:

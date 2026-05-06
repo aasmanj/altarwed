@@ -1,8 +1,18 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
+import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
+import OnboardingWizard from '@/features/couple/onboarding/OnboardingWizard'
 
 export default function CoupleDashboard() {
   const { user, logout } = useAuth()
+  const coupleId = user?.id ?? ''
+  const { data: website, isLoading: siteLoading, error: siteError } = useWeddingWebsite(coupleId)
+  const isNotFound = (siteError as { response?: { status?: number } } | null)?.response?.status === 404
+
+  // New user — no website yet. Show the onboarding wizard instead of the dashboard.
+  if (!siteLoading && (isNotFound || (!siteError && !website && !siteLoading))) {
+    if (isNotFound) return <OnboardingWizard />
+  }
 
   return (
     <div className="min-h-screen bg-ivory">
@@ -32,7 +42,7 @@ export default function CoupleDashboard() {
           <DashboardCard title="Guest List" description="Manage guests and track RSVPs" href="/dashboard/guests" live />
           <DashboardCard title="Wedding Checklist" description="Faith-first planning, step by step" href="/dashboard/checklist" live />
           <DashboardCard title="Wedding Party" description="Add your party members and officiant" href="/dashboard/wedding-party" live />
-          <DashboardCard title="Find Vendors" description="Browse faith-aligned vendors near you" href="#" />
+          <DashboardCard title="Find Vendors" description="Browse faith-aligned vendors near you" href="https://www.altarwed.com/vendors" external live />
           <DashboardCard title="Budget Tracker" description="Plan and track wedding spending" href="#" />
         </div>
       </main>
@@ -40,29 +50,28 @@ export default function CoupleDashboard() {
   )
 }
 
-function DashboardCard({ title, description, href, live }: { title: string; description: string; href: string; live?: boolean }) {
+function DashboardCard({ title, description, href, live, external }: {
+  title: string; description: string; href: string; live?: boolean; external?: boolean
+}) {
   const cls = 'block rounded-xl border bg-white p-6 transition ' +
     (live ? 'border-gold hover:shadow-md' : 'border-gold-light opacity-60 cursor-not-allowed')
 
-  if (live && href !== '#') {
-    return (
-      <Link to={href} className={cls}>
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="font-serif text-lg font-semibold text-brown">{title}</h3>
-          <span className="text-xs bg-gold/10 text-gold font-medium px-2 py-0.5 rounded-full">Live</span>
-        </div>
-        <p className="text-sm text-brown-light">{description}</p>
-      </Link>
-    )
-  }
-
-  return (
-    <div className={cls}>
+  const badge = <span className="text-xs bg-gold/10 text-gold font-medium px-2 py-0.5 rounded-full">Live</span>
+  const content = (
+    <>
       <div className="flex items-center justify-between mb-1">
         <h3 className="font-serif text-lg font-semibold text-brown">{title}</h3>
-        <span className="text-xs bg-gray-100 text-gray-400 font-medium px-2 py-0.5 rounded-full">Soon</span>
+        {live ? badge : <span className="text-xs bg-gray-100 text-gray-400 font-medium px-2 py-0.5 rounded-full">Soon</span>}
       </div>
       <p className="text-sm text-brown-light">{description}</p>
-    </div>
+    </>
   )
+
+  if (live && external) {
+    return <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>{content}</a>
+  }
+  if (live && href !== '#') {
+    return <Link to={href} className={cls}>{content}</Link>
+  }
+  return <div className={cls}>{content}</div>
 }

@@ -7,6 +7,8 @@ import ForgotPasswordPage from '@/features/auth/ForgotPasswordPage'
 import ResetPasswordPage from '@/features/auth/ResetPasswordPage'
 import CoupleDashboard from '@/features/couple/CoupleDashboard'
 import VendorDashboard from '@/features/vendor/VendorDashboard'
+import RegisterVendorPage from '@/features/vendor/RegisterVendorPage'
+import VendorListingPage from '@/features/vendor/VendorListingPage'
 import WeddingWebsitePage from '@/features/couple/website/WeddingWebsitePage'
 import GuestListPage from '@/features/couple/guests/GuestListPage'
 import ChecklistPage from '@/features/couple/checklist/ChecklistPage'
@@ -21,6 +23,7 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/register/vendor" element={<RegisterVendorPage />} />
 
           <Route
             path="/dashboard"
@@ -72,6 +75,15 @@ export default function App() {
             element={
               <ProtectedRoute role="VENDOR">
                 <VendorDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/vendor/listing"
+            element={
+              <ProtectedRoute role="VENDOR">
+                <VendorListingPage />
               </ProtectedRoute>
             }
           />

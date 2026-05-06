@@ -1,7 +1,21 @@
 {
   "permissions": {
     "allow": [
-      "Bash(az webapp *)"
+      "Bash(az webapp *)",
+      "Bash(get-childitem -recurse -directory -name \"*wedding*\" -erroraction silentlycontinue)",
+      "Bash(select-object -unique)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(powershell *)",
+      "Bash(xargs grep -l -i \"forgot\\\\|password.*reset\\\\|resetpassword\")",
+      "Bash(nslookup *)",
+      "WebSearch",
+      "Bash(./gradlew compileJava)",
+      "Bash(xargs grep -l \"sendRsvp\\\\|EmailService\\\\|ResendEmail\\\\|emailPort\")",
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "WebFetch(domain:www.theknot.com)"
     ]
   }
 }

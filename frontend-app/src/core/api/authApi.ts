@@ -48,6 +48,16 @@ export interface RegisterCouplePayload {
   weddingDate?: string | null
 }
 
+export interface RegisterVendorPayload {
+  businessName: string
+  category: string
+  city: string
+  state: string
+  email: string
+  password: string
+  isChristianOwned: boolean
+}
+
 export const authApi = {
   login: async (email: string, password: string): Promise<AuthResponse> => {
     const { data } = await apiClient.post<BackendAuthResponse>('/api/v1/auth/login', { email, password })
@@ -56,6 +66,11 @@ export const authApi = {
 
   register: async (payload: RegisterCouplePayload): Promise<AuthResponse> => {
     const { data } = await apiClient.post<BackendAuthResponse>('/api/v1/couples/register', payload)
+    return mapResponse(data)
+  },
+
+  registerVendor: async (payload: RegisterVendorPayload): Promise<AuthResponse> => {
+    const { data } = await apiClient.post<BackendAuthResponse>('/api/v1/vendors/register', payload)
     return mapResponse(data)
   },
 
