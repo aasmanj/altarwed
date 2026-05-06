@@ -290,6 +290,9 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
   const [status, setStatus]       = useState(guest.rsvpStatus)
   const [table, setTable]         = useState(guest.tableNumber?.toString() ?? '')
   const [plusOne, setPlusOne]     = useState(guest.plusOneAllowed)
+  const [meal, setMeal]           = useState(guest.mealPreference ?? '')
+  const [song, setSong]           = useState(guest.songRequest ?? '')
+  const [shuttle, setShuttle]     = useState(guest.shuttleNeeded ?? false)
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
@@ -299,6 +302,9 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
       rsvpStatus: status,
       tableNumber: table ? parseInt(table) : undefined,
       plusOneAllowed: plusOne,
+      mealPreference: meal || undefined,
+      songRequest: song || undefined,
+      shuttleNeeded: shuttle,
     })
   }
 
@@ -328,11 +334,24 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
           <Field label="Table #">
             <input type="number" min="1" value={table} onChange={e => setTable(e.target.value)} className={inputCls} />
           </Field>
-          <div className="flex items-end pb-0.5">
+          <Field label="Meal preference">
+            <input value={meal} onChange={e => setMeal(e.target.value)}
+              placeholder="e.g. Chicken, Vegetarian" className={inputCls} />
+          </Field>
+          <Field label="Song request">
+            <input value={song} onChange={e => setSong(e.target.value)}
+              placeholder="e.g. How Great Thou Art" className={inputCls} />
+          </Field>
+          <div className="flex items-end gap-6 pb-0.5">
             <label className="flex items-center gap-2 text-sm text-brown">
               <input type="checkbox" checked={plusOne} onChange={e => setPlusOne(e.target.checked)}
                 className="rounded border-gold-light" />
               Allow +1
+            </label>
+            <label className="flex items-center gap-2 text-sm text-brown">
+              <input type="checkbox" checked={shuttle} onChange={e => setShuttle(e.target.checked)}
+                className="rounded border-gold-light" />
+              Needs shuttle
             </label>
           </div>
           <div className="sm:col-span-3 flex gap-3 pt-1">

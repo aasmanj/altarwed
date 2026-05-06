@@ -194,6 +194,9 @@ If you find yourself importing springframework.* in domain/ — STOP and restruc
       song requests, shuttle needs. Backend: RsvpAnswer entity, flexible question/answer schema.
   (c) Prayer wall — guests visiting the wedding website can leave a prayer/blessing for the couple.
       Backend: WeddingPrayer entity scoped to WeddingWebsite. Public-facing, viral on Christian social.
+  (d) Wedding party page — WeddingPartyMember entity (V15 migration): name, role, side (BRIDE/GROOM),
+      bio, photoUrl, sortOrder. Pastor/officiant as first-class role — faith-first differentiator.
+      Dashboard: add/edit/reorder members. Public wedding page: photo grid by side.
 - **Phase 4 — Vendor portal + couple open beta:**
   (a) Vendor self-serve portal — vendor registration in frontend-app, vendor dashboard (name, category,
       photos, bio, location, denomination, isChristianOwned). Public /vendors browse page in

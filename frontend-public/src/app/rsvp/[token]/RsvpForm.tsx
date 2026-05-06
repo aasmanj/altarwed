@@ -11,12 +11,15 @@ export default function RsvpForm({
   plusOneAllowed: boolean
   apiUrl: string
 }) {
-  const [status, setStatus]     = useState<Status | null>(null)
-  const [plusOne, setPlusOne]   = useState('')
-  const [dietary, setDietary]   = useState('')
+  const [status, setStatus]       = useState<Status | null>(null)
+  const [plusOne, setPlusOne]     = useState('')
+  const [dietary, setDietary]     = useState('')
+  const [meal, setMeal]           = useState('')
+  const [song, setSong]           = useState('')
+  const [shuttle, setShuttle]     = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [done, setDone]         = useState(false)
-  const [error, setError]       = useState('')
+  const [done, setDone]           = useState(false)
+  const [error, setError]         = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,6 +35,9 @@ export default function RsvpForm({
           status,
           plusOneName: plusOne || undefined,
           dietaryRestrictions: dietary || undefined,
+          mealPreference: meal || undefined,
+          songRequest: song || undefined,
+          shuttleNeeded: shuttle || undefined,
         }),
       })
       if (!res.ok) throw new Error('Failed')
@@ -103,20 +109,55 @@ export default function RsvpForm({
         </div>
       )}
 
-      {/* Dietary restrictions — show when attending */}
+      {/* Attending-only fields */}
       {status === 'ATTENDING' && (
-        <div>
-          <label className="block text-sm font-medium text-[#3b2f2f] mb-1.5">
-            Dietary restrictions <span className="text-[#a08060] font-normal">(optional)</span>
+        <>
+          <div>
+            <label className="block text-sm font-medium text-[#3b2f2f] mb-1.5">
+              Meal preference <span className="text-[#a08060] font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={meal}
+              onChange={e => setMeal(e.target.value)}
+              placeholder="e.g. Chicken, Fish, Vegetarian"
+              className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#3b2f2f] mb-1.5">
+              Dietary restrictions <span className="text-[#a08060] font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={dietary}
+              onChange={e => setDietary(e.target.value)}
+              placeholder="e.g. vegetarian, gluten-free, nut allergy"
+              className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#3b2f2f] mb-1.5">
+              Song request <span className="text-[#a08060] font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={song}
+              onChange={e => setSong(e.target.value)}
+              placeholder="e.g. How Great Thou Art"
+              className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
+            />
+          </div>
+          <label className="flex items-center gap-3 text-sm text-[#3b2f2f] cursor-pointer">
+            <input
+              type="checkbox"
+              checked={shuttle}
+              onChange={e => setShuttle(e.target.checked)}
+              className="h-4 w-4 rounded border-[#e8dcc8] accent-[#4a1942]"
+            />
+            I&apos;ll need shuttle transportation
           </label>
-          <input
-            type="text"
-            value={dietary}
-            onChange={e => setDietary(e.target.value)}
-            placeholder="e.g. vegetarian, gluten-free, nut allergy"
-            className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
-          />
-        </div>
+        </>
       )}
 
       {error && (

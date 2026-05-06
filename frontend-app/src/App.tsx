@@ -9,6 +9,8 @@ import CoupleDashboard from '@/features/couple/CoupleDashboard'
 import VendorDashboard from '@/features/vendor/VendorDashboard'
 import WeddingWebsitePage from '@/features/couple/website/WeddingWebsitePage'
 import GuestListPage from '@/features/couple/guests/GuestListPage'
+import ChecklistPage from '@/features/couple/checklist/ChecklistPage'
+import WeddingPartyPage from '@/features/couple/weddingparty/WeddingPartyPage'
 
 export default function App() {
   return (
@@ -43,6 +45,24 @@ export default function App() {
             element={
               <ProtectedRoute role="COUPLE">
                 <WeddingWebsitePage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/dashboard/checklist"
+            element={
+              <ProtectedRoute role="COUPLE">
+                <ChecklistPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/dashboard/wedding-party"
+            element={
+              <ProtectedRoute role="COUPLE">
+                <WeddingPartyPage />
               </ProtectedRoute>
             }
           />

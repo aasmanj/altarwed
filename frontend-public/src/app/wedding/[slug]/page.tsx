@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
+import PrayerWallSection from './PrayerWallSection'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -9,6 +10,23 @@ import Image from 'next/image'
 interface RegistryItem {
   label: string
   url: string
+}
+
+interface WeddingPartyMember {
+  id: string
+  name: string
+  role: string
+  side: 'BRIDE' | 'GROOM'
+  bio: string | null
+  photoUrl: string | null
+  sortOrder: number
+}
+
+interface Prayer {
+  id: string
+  guestName: string
+  prayerText: string
+  createdAt: string
 }
 
 interface WeddingWebsite {
@@ -45,6 +63,30 @@ interface WeddingWebsite {
 // ---------------------------------------------------------------------------
 // Data fetching
 // ---------------------------------------------------------------------------
+
+async function getWeddingParty(websiteId: string, apiUrl: string): Promise<WeddingPartyMember[]> {
+  try {
+    const res = await fetch(`${apiUrl}/api/v1/wedding-party/website/${websiteId}`, {
+      next: { revalidate: 60 },
+    })
+    if (!res.ok) return []
+    return res.json()
+  } catch {
+    return []
+  }
+}
+
+async function getPrayers(slug: string, apiUrl: string): Promise<Prayer[]> {
+  try {
+    const res = await fetch(`${apiUrl}/api/v1/prayers/website/${slug}`, {
+      next: { revalidate: 30 },
+    })
+    if (!res.ok) return []
+    return res.json()
+  } catch {
+    return []
+  }
+}
 
 async function getWedding(slug: string): Promise<WeddingWebsite | null> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
@@ -126,6 +168,7 @@ export default async function WeddingPage(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
   const wedding = await getWedding(slug)
 
   if (!wedding || !wedding.isPublished) notFound()
@@ -134,6 +177,14 @@ export default async function WeddingPage(
     ?? 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1600&q=80'
   const countdown = wedding.weddingDate ? daysUntil(wedding.weddingDate) : null
   const registry = registryLinks(wedding)
+
+  const [weddingParty, prayers] = await Promise.all([
+    getWeddingParty(wedding.id, apiUrl),
+    getPrayers(slug, apiUrl),
+  ])
+
+  const brideParty = weddingParty.filter(m => m.side === 'BRIDE')
+  const groomParty = weddingParty.filter(m => m.side === 'GROOM')
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
@@ -300,6 +351,46 @@ export default async function WeddingPage(
             </div>
           </Section>
         )}
+
+        {/* ── Wedding Party ── */}
+        {weddingParty.length > 0 && (
+          <Section title="Wedding Party">
+            {[
+              { label: "Bride's side", members: brideParty },
+              { label: "Groom's side", members: groomParty },
+            ].map(({ label, members }) => members.length > 0 && (
+              <div key={label} className="mb-10 last:mb-0">
+                <h3 className="text-center text-sm uppercase tracking-widest text-[#a08060] mb-6">{label}</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
+                  {members.map(member => (
+                    <div key={member.id} className="text-center">
+                      {member.photoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={member.photoUrl}
+                          alt={member.name}
+                          className="h-24 w-24 rounded-full object-cover mx-auto mb-3 border-2 border-[#e8dcc8]"
+                        />
+                      ) : (
+                        <div className="h-24 w-24 rounded-full bg-[#f5ede0] border-2 border-[#e8dcc8] flex items-center justify-center mx-auto mb-3">
+                          <span className="font-serif text-3xl text-[#a08060]">{member.name.charAt(0)}</span>
+                        </div>
+                      )}
+                      <p className="font-serif font-semibold text-[#3b2f2f] text-sm">{member.name}</p>
+                      <p className="text-xs text-[#d4af6a] font-medium mt-0.5">{member.role}</p>
+                      {member.bio && (
+                        <p className="text-xs text-[#6b5344] mt-1.5 leading-relaxed line-clamp-3">{member.bio}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </Section>
+        )}
+
+        {/* ── Prayer Wall ── */}
+        <PrayerWallSection slug={slug} initialPrayers={prayers} apiUrl={apiUrl} />
 
       </div>
 
