@@ -181,16 +181,47 @@ If you find yourself importing springframework.* in domain/ — STOP and restruc
   protection. Frontend: Next.js SSR public page. Dashboard: app.altarwed.com deployed to Azure
   Static Web Apps with custom domain. Auth flow working end to end. Security hardened:
   rate limiting (Bucket4j), Swagger disabled in prod, catch-all exception handlers.
-- **Phase 3 — NEXT:** 
-  (a) Password reset flow — forgot password endpoint, time-limited token, Resend email, reset endpoint.
-      Needed before showing to real users.
-  (b) Fill in Jordan's real wedding content in the dashboard (Our Story, scripture, venue, etc.)
-      for Facebook/Pinterest ad campaigns.
-  (c) Guest list + RSVP in frontend-app dashboard. Email invites via Resend.
-- **Phase 4:** Vendor browsing (read-only, free) — vendor self-serve listings, couple can
-  browse and favorite vendors
-- **Phase 5:** Stripe billing (vendor subscriptions), couple premium tier
-- **Phase 6:** Ceremony builder, scripture tools, denomination-aware content
+- **Phase 3 — COMPLETE:**
+  (a) Password reset flow — done. V9 migration, Resend email, time-limited token.
+  (b) Guest list + RSVP — done. V10 (guests) + V11 (rsvp invite tokens) migrations live in prod.
+      RSVP emails send from "Jordan & Eden-Faith" via Resend. Public RSVP page at altarwed.com/rsvp/[token].
+  (c) Email deliverability — SPF + DKIM + DMARC configured. 10/10 mail-tester.com score.
+- **Phase 3b — IN PROGRESS (current focus):**
+  (a) Wedding planning checklist / timeline — faith-first checklist with items like book pre-marital
+      counseling, choose scripture readings, meet with pastor. Backend: PlanningTask entity + API.
+      Dashboard: checklist UI with completion tracking. Differentiator: denomination-aware tasks.
+  (b) Custom RSVP questions — extend RSVP to collect meal preference, dietary restrictions,
+      song requests, shuttle needs. Backend: RsvpAnswer entity, flexible question/answer schema.
+  (c) Prayer wall — guests visiting the wedding website can leave a prayer/blessing for the couple.
+      Backend: WeddingPrayer entity scoped to WeddingWebsite. Public-facing, viral on Christian social.
+- **Phase 4 — Vendor portal + couple open beta:**
+  (a) Vendor self-serve portal — vendor registration in frontend-app, vendor dashboard (name, category,
+      photos, bio, location, denomination, isChristianOwned). Public /vendors browse page in
+      frontend-public. Goal: onboard Jordan's photographer friends as first real vendors.
+      Backend entity + endpoints already exist — frontend work is the gap.
+  (b) Open couple signup — app.altarwed.com registration is already live. Share publicly.
+      Any couple can sign up and their site goes live at altarwed.com/wedding/[slug].
+      Polish onboarding UX so first-time couples can self-serve without help.
+  (c) Registry links section — couples add Amazon/Target/Crate & Barrel registry URLs.
+      Displayed beautifully on public wedding website. Low effort, high perceived completeness.
+  (d) Accommodations section — hotel block details, Airbnb links, travel info on wedding website.
+      Just content fields on WeddingWebsite entity.
+- **Phase 5 — Engagement + retention features:**
+  (a) Budget tracker — tracks vendor costs, total budget, payments. Locks couples into platform.
+      Faith angle: optional tithing/donation goal line item.
+  (b) Seating chart — drag-and-drop guest table assignments. Guest data already exists from Phase 3.
+  (c) Digital save-the-dates — designed email template generator. Scripture verse + faith motifs.
+  (d) Wedding website password protection — optional PIN so only invited guests can view.
+  (e) Guest photo sharing / album — guests upload photos post-wedding. Azure Blob already wired.
+      Crowd-sourced album, real-time slideshow for reception. WithJoy's best feature.
+- **Phase 6 — Faith-first differentiators (no competitor has these):**
+  (a) Scripture builder — searchable ESV/NIV scripture library, curated wedding verses,
+      couples pin verses to their wedding website. Zero competitors have this.
+  (b) Vow builder — guided vow writing tool with prompts and optional scripture integration.
+  (c) Denomination-aware content — Catholic couples see Pre-Cana reminders, Baptist couples
+      see different ceremony structure prompts. Uses existing Denomination entity.
+  (d) Ceremony builder — order of service, scripture readings, vow text (Phase 6 original scope).
+- **Phase 7:** Stripe billing (vendor subscriptions $29/$79/$149), couple premium tier ($9/mo Covenant Plan)
 
 ## Wedding Website Feature (Phase 2) — COMPLETE
 - Live URL: altarwed.com/wedding/jordan-and-eden-faith

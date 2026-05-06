@@ -13,6 +13,9 @@ public record UpdateGuestRequest(
         Boolean plusOneAllowed,
         @Size(max = 200) String plusOneName,
         @Size(max = 500) String dietaryRestrictions,
+        @Size(max = 100) String mealPreference,
+        @Size(max = 200) String songRequest,
+        Boolean shuttleNeeded,
         Integer tableNumber,
         GuestSide side,
         String notes

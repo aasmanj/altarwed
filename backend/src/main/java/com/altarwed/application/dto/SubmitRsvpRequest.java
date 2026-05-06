@@ -9,5 +9,8 @@ public record SubmitRsvpRequest(
         @NotBlank String token,
         @NotNull GuestRsvpStatus status,
         @Size(max = 200) String plusOneName,
-        @Size(max = 500) String dietaryRestrictions
+        @Size(max = 500) String dietaryRestrictions,
+        @Size(max = 100) String mealPreference,
+        @Size(max = 200) String songRequest,
+        Boolean shuttleNeeded
 ) {}

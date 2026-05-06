@@ -63,6 +63,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/wedding-websites/published").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/guests/rsvp/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/guests/rsvp").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/prayers/website/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/prayers/website/**").permitAll()
                         // OpenAPI / Swagger — dev convenience
                         .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         // Actuator health

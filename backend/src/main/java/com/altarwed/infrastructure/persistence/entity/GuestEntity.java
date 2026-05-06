@@ -47,6 +47,15 @@ public class GuestEntity {
     @Column(name = "dietary_restrictions", length = 500)
     private String dietaryRestrictions;
 
+    @Column(name = "meal_preference", length = 100)
+    private String mealPreference;
+
+    @Column(name = "song_request", length = 200)
+    private String songRequest;
+
+    @Column(name = "shuttle_needed")
+    private Boolean shuttleNeeded;
+
     @Column(name = "table_number")
     private Integer tableNumber;
 

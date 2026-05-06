@@ -51,11 +51,26 @@ public class ResendEmailAdapter implements EmailPort {
                 </div>
                 """.formatted(guestName, coupleNames, weddingDate, rsvpUrl);
 
+        String text = """
+                You're invited!
+
+                Dear %s,
+
+                %s have joyfully invited you to celebrate their wedding on %s.
+
+                Please RSVP by visiting this link:
+                %s
+
+                This link expires in 30 days.
+                If you have any questions, reply to this email.
+                """.formatted(guestName, coupleNames, weddingDate, rsvpUrl);
+
         Map<String, Object> body = Map.of(
                 "from", coupleNames + " <" + fromEmail + ">",
                 "to", List.of(toEmail),
                 "subject", "You're invited to " + coupleNames + "'s wedding!",
-                "html", html
+                "html", html,
+                "text", text
         );
 
         restClient.post()
@@ -86,11 +101,23 @@ public class ResendEmailAdapter implements EmailPort {
                 </div>
                 """.formatted(resetUrl);
 
+        String text = """
+                Reset your AltarWed password
+
+                We received a request to reset your password.
+
+                Click this link to choose a new password (expires in 15 minutes):
+                %s
+
+                If you did not request this, you can safely ignore this email.
+                """.formatted(resetUrl);
+
         Map<String, Object> body = Map.of(
                 "from", "AltarWed <" + fromEmail + ">",
                 "to", List.of(toEmail),
                 "subject", "Reset your AltarWed password",
-                "html", html
+                "html", html,
+                "text", text
         );
 
         restClient.post()

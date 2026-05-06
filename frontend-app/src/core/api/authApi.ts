@@ -40,9 +40,22 @@ function mapResponse(data: BackendAuthResponse): AuthResponse {
   }
 }
 
+export interface RegisterCouplePayload {
+  partnerOneName: string
+  partnerTwoName: string
+  email: string
+  password: string
+  weddingDate?: string | null
+}
+
 export const authApi = {
   login: async (email: string, password: string): Promise<AuthResponse> => {
     const { data } = await apiClient.post<BackendAuthResponse>('/api/v1/auth/login', { email, password })
+    return mapResponse(data)
+  },
+
+  register: async (payload: RegisterCouplePayload): Promise<AuthResponse> => {
+    const { data } = await apiClient.post<BackendAuthResponse>('/api/v1/couples/register', payload)
     return mapResponse(data)
   },
 

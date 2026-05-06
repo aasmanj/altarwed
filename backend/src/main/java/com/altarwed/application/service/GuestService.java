@@ -47,7 +47,8 @@ public class GuestService {
         Guest guest = new Guest(
                 null, coupleId, req.name(), req.email(), req.phone(),
                 GuestRsvpStatus.PENDING, req.plusOneAllowed(), null,
-                req.dietaryRestrictions(), null, req.side(), req.notes(),
+                req.dietaryRestrictions(), null, null, null,
+                null, req.side(), req.notes(),
                 null, null, LocalDateTime.now(), LocalDateTime.now()
         );
         return guestRepository.save(guest);
@@ -70,6 +71,9 @@ public class GuestService {
                 req.plusOneAllowed()     != null ? req.plusOneAllowed()     : existing.plusOneAllowed(),
                 req.plusOneName()        != null ? req.plusOneName()        : existing.plusOneName(),
                 req.dietaryRestrictions()!= null ? req.dietaryRestrictions(): existing.dietaryRestrictions(),
+                req.mealPreference()     != null ? req.mealPreference()     : existing.mealPreference(),
+                req.songRequest()        != null ? req.songRequest()        : existing.songRequest(),
+                req.shuttleNeeded()      != null ? req.shuttleNeeded()      : existing.shuttleNeeded(),
                 req.tableNumber()        != null ? req.tableNumber()        : existing.tableNumber(),
                 req.side()               != null ? req.side()               : existing.side(),
                 req.notes()              != null ? req.notes()              : existing.notes(),
@@ -143,8 +147,11 @@ public class GuestService {
                 guest.id(), guest.coupleId(), guest.name(), guest.email(), guest.phone(),
                 req.status(),
                 guest.plusOneAllowed(),
-                req.plusOneName() != null ? req.plusOneName() : guest.plusOneName(),
+                req.plusOneName()         != null ? req.plusOneName()         : guest.plusOneName(),
                 req.dietaryRestrictions() != null ? req.dietaryRestrictions() : guest.dietaryRestrictions(),
+                req.mealPreference()      != null ? req.mealPreference()      : guest.mealPreference(),
+                req.songRequest()         != null ? req.songRequest()         : guest.songRequest(),
+                req.shuttleNeeded()       != null ? req.shuttleNeeded()       : guest.shuttleNeeded(),
                 guest.tableNumber(), guest.side(), guest.notes(),
                 guest.inviteSentAt(), LocalDateTime.now(),
                 guest.createdAt(), LocalDateTime.now()
@@ -197,7 +204,8 @@ public class GuestService {
         Guest updated = new Guest(
                 guest.id(), guest.coupleId(), guest.name(), guest.email(), guest.phone(),
                 guest.rsvpStatus(), guest.plusOneAllowed(), guest.plusOneName(),
-                guest.dietaryRestrictions(), guest.tableNumber(), guest.side(), guest.notes(),
+                guest.dietaryRestrictions(), guest.mealPreference(), guest.songRequest(), guest.shuttleNeeded(),
+                guest.tableNumber(), guest.side(), guest.notes(),
                 LocalDateTime.now(), guest.respondedAt(),
                 guest.createdAt(), LocalDateTime.now()
         );

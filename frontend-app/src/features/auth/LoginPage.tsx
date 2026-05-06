@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 
 export default function LoginPage() {
@@ -84,10 +84,17 @@ export default function LoginPage() {
           </button>
 
           <div className="mt-4 text-center">
-            <a href="/forgot-password" className="text-sm text-gold hover:underline">
+            <Link to="/forgot-password" className="text-sm text-gold hover:underline">
               Forgot password?
-            </a>
+            </Link>
           </div>
+
+          <p className="mt-3 text-center text-sm text-brown-light">
+            Don't have an account?{' '}
+            <Link to="/register" className="text-gold hover:underline">
+              Sign up
+            </Link>
+          </p>
         </form>
       </div>
     </div>

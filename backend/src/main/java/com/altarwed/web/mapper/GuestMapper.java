@@ -11,7 +11,8 @@ public class GuestMapper {
         return new GuestResponse(
                 g.id(), g.coupleId(), g.name(), g.email(), g.phone(),
                 g.rsvpStatus(), g.plusOneAllowed(), g.plusOneName(),
-                g.dietaryRestrictions(), g.tableNumber(), g.side(), g.notes(),
+                g.dietaryRestrictions(), g.mealPreference(), g.songRequest(), g.shuttleNeeded(),
+                g.tableNumber(), g.side(), g.notes(),
                 g.inviteSentAt(), g.respondedAt(), g.createdAt(), g.updatedAt()
         );
     }

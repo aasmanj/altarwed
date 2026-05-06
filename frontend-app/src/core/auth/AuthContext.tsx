@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { authApi } from '@/core/api/authApi'
+import type { RegisterCouplePayload } from '@/core/api/authApi'
 import { setupAuthInterceptor } from '@/core/api/client'
 
 export type UserRole = 'COUPLE' | 'VENDOR'
@@ -21,6 +22,7 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>
+  register: (payload: RegisterCouplePayload) => Promise<void>
   logout: () => Promise<void>
   refreshAccessToken: () => Promise<string | null>
   isAuthenticated: boolean
@@ -35,6 +37,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const { accessToken, refreshToken, user } = await authApi.login(email, password)
+    setState({ user, accessToken, refreshToken })
+  }, [])
+
+  const register = useCallback(async (payload: RegisterCouplePayload) => {
+    const { accessToken, refreshToken, user } = await authApi.register(payload)
     setState({ user, accessToken, refreshToken })
   }, [])
 
@@ -83,11 +90,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       ...state,
       login,
+      register,
       logout,
       refreshAccessToken,
       isAuthenticated: state.user !== null,
     }),
-    [state, login, logout, refreshAccessToken],
+    [state, login, register, logout, refreshAccessToken],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
