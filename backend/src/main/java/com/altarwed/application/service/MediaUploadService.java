@@ -27,6 +27,13 @@ public class MediaUploadService {
         return blobStorage.upload(blobName, file.getInputStream(), file.getSize(), file.getContentType());
     }
 
+    public String uploadWeddingPhoto(UUID websiteId, MultipartFile file) throws IOException {
+        validate(file);
+        String ext = getExtension(file.getContentType());
+        String blobName = "wedding-photos/" + websiteId + "/" + UUID.randomUUID() + ext;
+        return blobStorage.upload(blobName, file.getInputStream(), file.getSize(), file.getContentType());
+    }
+
     public String uploadHeroPhoto(UUID websiteId, MultipartFile file) throws IOException {
         validate(file);
         String ext = getExtension(file.getContentType());

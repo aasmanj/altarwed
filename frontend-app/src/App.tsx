@@ -13,6 +13,7 @@ import WeddingWebsitePage from '@/features/couple/website/WeddingWebsitePage'
 import GuestListPage from '@/features/couple/guests/GuestListPage'
 import ChecklistPage from '@/features/couple/checklist/ChecklistPage'
 import WeddingPartyPage from '@/features/couple/weddingparty/WeddingPartyPage'
+import BudgetPage from '@/features/couple/budget/BudgetPage'
 
 export default function App() {
   return (
@@ -66,6 +67,15 @@ export default function App() {
             element={
               <ProtectedRoute role="COUPLE">
                 <WeddingPartyPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/dashboard/budget"
+            element={
+              <ProtectedRoute role="COUPLE">
+                <BudgetPage />
               </ProtectedRoute>
             }
           />

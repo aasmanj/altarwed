@@ -1,0 +1,18 @@
+package com.altarwed.domain.model;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+public record BudgetItem(
+        UUID id,
+        UUID coupleId,
+        BudgetCategory category,
+        String vendorName,
+        BigDecimal estimatedCost,
+        BigDecimal actualCost,
+        boolean isPaid,
+        String notes,
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt
+) {}

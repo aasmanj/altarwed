@@ -1,79 +1,65 @@
 'use client'
 
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
-interface Tab { id: string; label: string }
-
-export default function WeddingNav({
-  hasStory, hasDetails, hasParty, hasRegistry, hasTravel,
-}: {
+interface Props {
+  slug: string
   hasStory: boolean
   hasDetails: boolean
   hasParty: boolean
   hasRegistry: boolean
   hasTravel: boolean
-}) {
-  const tabs: Tab[] = [
-    hasStory    && { id: 'story',    label: 'Our Story' },
-    hasDetails  && { id: 'details',  label: 'Details' },
-    hasParty    && { id: 'party',    label: 'Wedding Party' },
-    hasRegistry && { id: 'registry', label: 'Registry' },
-    hasTravel   && { id: 'travel',   label: 'Travel' },
-    { id: 'prayer', label: 'Prayer Wall' },
-  ].filter(Boolean) as Tab[]
+}
 
-  const [active, setActive] = useState<string>(tabs[0]?.id ?? '')
-  const [stuck, setStuck] = useState(false)
+export default function WeddingNav({ slug, hasStory, hasDetails, hasParty, hasRegistry, hasTravel }: Props) {
+  const pathname = usePathname()
+  const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
-    const onScroll = () => {
-      setStuck(window.scrollY > 60)
-
-      // Highlight active section based on scroll position
-      for (const tab of [...tabs].reverse()) {
-        const el = document.getElementById(tab.id)
-        if (el && el.getBoundingClientRect().top <= 120) {
-          setActive(tab.id)
-          break
-        }
-      }
-    }
+    const onScroll = () => setScrolled(window.scrollY > 40)
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
-  }, [tabs])
+  }, [])
 
-  const scrollTo = (id: string) => {
-    const el = document.getElementById(id)
-    if (!el) return
-    const offset = 72 // nav height
-    const top = el.getBoundingClientRect().top + window.scrollY - offset
-    window.scrollTo({ top, behavior: 'smooth' })
-    setActive(id)
+  const base = `/wedding/${slug}`
+
+  const tabs = [
+    { label: 'Home',          href: base,                    show: true },
+    { label: 'Our Story',     href: `${base}/story`,         show: hasStory },
+    { label: 'The Wedding',   href: `${base}/details`,       show: hasDetails },
+    { label: 'Wedding Party', href: `${base}/wedding-party`, show: hasParty },
+    { label: 'Travel',        href: `${base}/travel`,        show: hasTravel },
+    { label: 'Registry',      href: `${base}/registry`,      show: hasRegistry },
+    { label: 'Photos',        href: `${base}/photos`,        show: true },
+    { label: 'Prayers',       href: `${base}/prayers`,       show: true },
+  ].filter(t => t.show)
+
+  function isActive(href: string) {
+    if (href === base) return pathname === base
+    return pathname.startsWith(href)
   }
 
-  if (tabs.length === 0) return null
-
   return (
-    <div className={`sticky top-0 z-40 transition-shadow ${
-      stuck ? 'bg-white shadow-sm border-b border-[#e8dcc8]' : 'bg-white/95 backdrop-blur border-b border-[#e8dcc8]'
+    <div className={`sticky top-0 z-40 bg-[#fdfaf6] border-b border-[#e8dcc8] transition-shadow duration-200 ${
+      scrolled ? 'shadow-sm' : ''
     }`}>
-      <div className="max-w-3xl mx-auto px-4 overflow-x-auto">
-        <nav className="flex gap-0">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => scrollTo(tab.id)}
-              className={`px-4 py-4 text-sm font-medium whitespace-nowrap transition border-b-2 ${
-                active === tab.id
-                  ? 'border-[#d4af6a] text-[#3b2f2f]'
-                  : 'border-transparent text-[#a08060] hover:text-[#3b2f2f]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
+      <nav className="max-w-3xl mx-auto flex overflow-x-auto">
+        {tabs.map(tab => (
+          <Link
+            key={tab.href}
+            href={tab.href}
+            className={`flex-shrink-0 px-5 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              isActive(tab.href)
+                ? 'border-[#d4af6a] text-[#3b2f2f]'
+                : 'border-transparent text-[#a08060] hover:text-[#3b2f2f]'
+            }`}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </nav>
     </div>
   )
 }

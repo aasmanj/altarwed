@@ -30,7 +30,7 @@ public class VendorService {
     @Transactional(readOnly = true)
     public Vendor getByEmail(String email) {
         return vendorRepository.findByEmail(email)
-                .orElseThrow(() -> new VendorNotFoundException(null));
+                .orElseThrow(() -> new VendorNotFoundException(email));
     }
 
     @Transactional

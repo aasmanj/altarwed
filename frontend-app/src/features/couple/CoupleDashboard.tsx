@@ -43,7 +43,7 @@ export default function CoupleDashboard() {
           <DashboardCard title="Wedding Checklist" description="Faith-first planning, step by step" href="/dashboard/checklist" live />
           <DashboardCard title="Wedding Party" description="Add your party members and officiant" href="/dashboard/wedding-party" live />
           <DashboardCard title="Find Vendors" description="Browse faith-aligned vendors near you" href="https://www.altarwed.com/vendors" external live />
-          <DashboardCard title="Budget Tracker" description="Plan and track wedding spending" href="#" />
+          <DashboardCard title="Budget Tracker" description="Plan and track wedding spending" href="/dashboard/budget" live />
         </div>
       </main>
     </div>

@@ -1,8 +1,10 @@
 package com.altarwed.web.exception;
 
+import com.altarwed.domain.exception.BudgetItemNotFoundException;
 import com.altarwed.domain.exception.CoupleNotFoundException;
 import com.altarwed.domain.exception.GuestNotFoundException;
 import com.altarwed.domain.exception.WeddingPartyMemberNotFoundException;
+import com.altarwed.domain.exception.WeddingPhotoNotFoundException;
 import com.altarwed.domain.exception.WeddingPrayerNotFoundException;
 import com.altarwed.domain.exception.InvalidPasswordResetTokenException;
 import com.altarwed.domain.exception.InvalidRefreshTokenException;
@@ -65,6 +67,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(WeddingPrayerNotFoundException.class)
     public ProblemDetail handleWeddingPrayerNotFound(WeddingPrayerNotFoundException ex) {
         return notFound("wedding-prayer-not-found", ex.getMessage());
+    }
+
+    @ExceptionHandler(WeddingPhotoNotFoundException.class)
+    public ProblemDetail handleWeddingPhotoNotFound(WeddingPhotoNotFoundException ex) {
+        return notFound("wedding-photo-not-found", ex.getMessage());
+    }
+
+    @ExceptionHandler(BudgetItemNotFoundException.class)
+    public ProblemDetail handleBudgetItemNotFound(BudgetItemNotFoundException ex) {
+        return notFound("budget-item-not-found", ex.getMessage());
     }
 
     @ExceptionHandler(InvalidRsvpTokenException.class)
