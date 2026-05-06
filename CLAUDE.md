@@ -8,6 +8,7 @@ Jordan is learning as he builds — every explanation should be framed so he cou
 - Use correct technical vocabulary with a one-line definition when introducing a new term
 - When fixing an error, explain what caused it and what the fix actually does
 - Flag patterns that commonly appear in system design or DevOps interviews
+- **After every coding response, include a "Senior engineer thinking" section** — 2–4 bullet points connecting what was just built to a broader CS/system design concept Jordan should be able to explain in an interview (e.g. ISR vs SSR trade-offs, optimistic updates, hexagonal architecture decisions, cache invalidation strategies, why we use boxed vs primitive types in DTOs, etc.)
 
 ## What We Are Building
 AltarWed is a faith-first Christian wedding planning platform — a two-sided marketplace
@@ -16,7 +17,7 @@ or Zola, but built for Christian couples with covenant, scripture, and denominat
 the center.
 
 **Core differentiator:** Every couple gets a shareable public wedding website at
-`altarwed.com/wedding/[slug]` (e.g. `/wedding/jordan-and-sara`). Custom domain support
+`altarwed.com/wedding/[slug]` (e.g. `/wedding/jordan-and-eden-faith`). Custom domain support
 is a future paid feature. This is the primary viral/social sharing surface — every
 couple who creates a site drives organic traffic and brand awareness.
 
@@ -27,6 +28,7 @@ couple who creates a site drives organic traffic and brand awareness.
 - Vendors are NOT the initial focus — couples come first. Vendor self-serve and Stripe
   billing come after real couple usage is established (Phase 4+)
 - The waitlist (already live at altarwed.com) captures early interest via Resend
+- Business Pinterest and Facebook accounts are created and ready for content
 
 **Reliability goal:** Spare no expense within reason. Current: B2 App Service.
 Upgrade path when traffic grows: B2 → P1v3 (auto-scale), add Azure Front Door (CDN +
@@ -47,7 +49,7 @@ global failover), Azure SQL Business Critical tier. Do not over-provision premat
 - JWT auth: access tokens (15 min) + refresh tokens (7 days)
 - Spring Data JPA + Flyway migrations
 - Azure SQL Database (SQL Server dialect)
-- Azure Blob Storage (vendor photos, wedding media)
+- Azure Blob Storage (vendor photos, wedding media) — SDK wired, container: altarwed-media
 - SpringDoc OpenAPI (auto-generated API docs)
 
 ## Frontend Stack
@@ -78,19 +80,20 @@ web → application → domain ← infrastructure
 domain has ZERO imports from: Spring, JPA, infrastructure, web.
 If you find yourself importing springframework.* in domain/ — STOP and restructure.
 
-## Domain Entities
-### Built and in production (V1–V6 Flyway migrations):
-- Couple (UUID id, partnerOneName, partnerTwoName, email, weddingDate, denominationId)
-- Vendor (UUID id, businessName, category, city, state, isChristianOwned, denominationIds)
-- Denomination (UUID id, name, slug, traditions) — 10 seeded
-- RefreshToken (UUID id, tokenHash, userId, userRole, expiresAt, revoked)
-- VendorSubscription (UUID id, vendorId, planTier, status, stripeCustomerId, ...)
-
-### Planned (not yet built):
-- WeddingWebsite (UUID id, coupleId, slug, heroPhotoUrl, story, venueDetails, registryLinks, isPublished)
-- Guest (UUID id, coupleId, name, email, rsvpStatus, dietaryRestrictions, tableNumber)
-- Ceremony (UUID id, coupleId, denomination, scriptureVerses, vowText, orderOfService)
-- Review (UUID id, vendorId, coupleId, rating, body, createdAt)
+## Domain Entities — Built and Live
+All entities below have Flyway migrations in production (V1–V15):
+- **Couple** — partnerOneName, partnerTwoName, email, weddingDate, denominationId
+- **Vendor** — businessName, category, city, state, isChristianOwned, denominationIds, isActive, isVerified
+- **Denomination** — 10 seeded (Baptist, Catholic, Presbyterian, etc.)
+- **RefreshToken** — tokenHash, userId, userRole, expiresAt, revoked
+- **VendorSubscription** — vendorId, planTier, status, stripeCustomerId (Stripe not yet wired)
+- **WeddingWebsite** (V7+V8) — slug, heroPhotoUrl, ourStory, testimony, covenantStatement, scripture, venue, hotel, registry (3 slots), rsvpDeadline, isPublished, soft-delete
+- **PasswordResetToken** (V9) — tokenHash, coupleId, expiresAt, used
+- **Guest** (V10) — coupleId, name, email, rsvpStatus, plusOneName, mealPreference, dietaryRestrictions, songRequest, shuttleNeeded
+- **RsvpInviteToken** (V11) — guestId, tokenHash, expiresAt, used
+- **PlanningTask** (V13) — coupleId, title, category, dueDateMonthsBefore, isCompleted, isSeeded, sortOrder
+- **WeddingPrayer** (V14) — weddingWebsiteId, guestName, prayerText, createdAt
+- **WeddingPartyMember** (V15) — weddingWebsiteId, name, role, side (BRIDE/GROOM/NEUTRAL), bio, photoUrl, sortOrder
 
 ## User Roles
 - COUPLE → can manage their wedding, guests, ceremony, vendor messaging
@@ -108,6 +111,7 @@ If you find yourself importing springframework.* in domain/ — STOP and restruc
 - Always separate the JPA entity from the domain model
 - Write a mapper (toDomain / toEntity) in the adapter class
 - API versioning: all endpoints under /api/v1/
+- Use boxed types (Integer, Boolean) in DTOs — never primitives. Primitives can't represent "not provided" in JSON; Jackson fails rather than defaulting.
 
 ### Testing:
 - domain/ tests: pure JUnit 5, no Spring context
@@ -126,22 +130,29 @@ If you find yourself importing springframework.* in domain/ — STOP and restruc
 - NEVER use spring.jpa.hibernate.ddl-auto=create or update in any environment
 - ALL schema changes go through Flyway migrations in db/migration/
 - Migration naming: V{number}__{description}.sql (e.g. V1__create_couples_table.sql)
+- Next migration number: V16
 - UUID primary keys on all tables
 
 ## Security Rules
 - Passwords hashed with BCrypt (strength 12)
 - JWT signed with HS256
-- Public endpoints (whitelist): POST /api/v1/auth/**, POST /api/v1/couples/register, 
-  GET /api/v1/vendors/**, GET /api/v1/denominations/**
+- JWT principal is email string; userId is a custom claim extracted via JwtService.extractUserId()
+- Public endpoints (whitelist): POST /api/v1/auth/**, POST /api/v1/couples/register,
+  GET /api/v1/vendors/**, GET /api/v1/denominations/**,
+  GET /api/v1/wedding-websites/slug/**, GET /api/v1/wedding-websites/published,
+  GET+POST /api/v1/prayers/website/**, GET /api/v1/guests/rsvp/**, POST /api/v1/guests/rsvp,
+  GET /api/v1/wedding-party/website/**
 - All other endpoints require authentication
 - CSRF disabled (stateless REST API)
 - CORS configured for frontend origins only
+- Rate limiting via Bucket4j (in-memory, per instance)
+- Swagger/OpenAPI disabled in prod profile
 
 ## Azure Configuration
-- App Service: backend Spring Boot JAR
+- App Service: backend Spring Boot JAR (B2 tier)
 - Static Web Apps: frontend-public (Next.js) and frontend-app (React)
 - Azure SQL: primary database
-- Azure Blob Storage: media files
+- Azure Blob Storage: media files — connection string via AZURE_STORAGE_CONNECTION_STRING, container: altarwed-media. Set container public access to "Blob" for image URLs to be publicly readable.
 - Azure Key Vault: all secrets (never hardcode secrets)
 - Azure CDN: static assets and media delivery
 - Azure Application Insights: observability
@@ -153,6 +164,7 @@ If you find yourself importing springframework.* in domain/ — STOP and restruc
 - Blog posts need Article schema.org JSON-LD
 - Dynamic sitemap generated from DB at /sitemap.xml
 - URLs are lowercase, hyphenated, keyword-rich
+- ISR (revalidate) values: wedding pages = 60s, vendor pages = 15s (new vendors appear quickly), prayers = 30s
 
 ## What NOT to Do — Ever
 - Never put @Entity on a domain model Record
@@ -165,76 +177,66 @@ If you find yourself importing springframework.* in domain/ — STOP and restruc
 - Never skip Flyway — all migrations are versioned and irreversible
 - Never use WebSecurityConfigurerAdapter (removed in Spring Security 6+)
 - Never use RestTemplate for new code (use RestClient or @HttpExchange)
+- Never use primitive types in DTO Records (use boxed: Integer not int, Boolean not boolean)
 
 ## Monetization Context (affects data model decisions)
 - Vendors pay monthly subscriptions (BASIC $29, FEATURED $79, PREMIUM $149)
 - Couples have free and paid tiers (Covenant Plan $9/mo)
 - Church partnerships: churches pay $99/mo for congregation access
 - Stripe is the payment processor — VendorSubscription entity tracks this
-- **Payments are Phase 4+ — do NOT add Stripe until real couple usage exists**
+- **Payments are Phase 7 — do NOT add Stripe until vendor + couple usage is established**
 
-## Build Phases (reference for prioritization)
-- **Phase 1 — DONE:** Backend API (auth, couples, vendors, denominations), marketing homepage,
-  waitlist, CI/CD, Azure infrastructure, JWT auth, Flyway schema
-- **Phase 2 — DONE:** Couple wedding website live at altarwed.com/wedding/[slug]. Backend:
-  WeddingWebsite entity (V7 migration), full CRUD API, soft delete (V8 migration), duplicate
-  protection. Frontend: Next.js SSR public page. Dashboard: app.altarwed.com deployed to Azure
-  Static Web Apps with custom domain. Auth flow working end to end. Security hardened:
-  rate limiting (Bucket4j), Swagger disabled in prod, catch-all exception handlers.
-- **Phase 3 — COMPLETE:**
-  (a) Password reset flow — done. V9 migration, Resend email, time-limited token.
-  (b) Guest list + RSVP — done. V10 (guests) + V11 (rsvp invite tokens) migrations live in prod.
-      RSVP emails send from "Jordan & Eden-Faith" via Resend. Public RSVP page at altarwed.com/rsvp/[token].
-  (c) Email deliverability — SPF + DKIM + DMARC configured. 10/10 mail-tester.com score.
-- **Phase 3b — IN PROGRESS (current focus):**
-  (a) Wedding planning checklist / timeline — faith-first checklist with items like book pre-marital
-      counseling, choose scripture readings, meet with pastor. Backend: PlanningTask entity + API.
-      Dashboard: checklist UI with completion tracking. Differentiator: denomination-aware tasks.
-  (b) Custom RSVP questions — extend RSVP to collect meal preference, dietary restrictions,
-      song requests, shuttle needs. Backend: RsvpAnswer entity, flexible question/answer schema.
-  (c) Prayer wall — guests visiting the wedding website can leave a prayer/blessing for the couple.
-      Backend: WeddingPrayer entity scoped to WeddingWebsite. Public-facing, viral on Christian social.
-  (d) Wedding party page — WeddingPartyMember entity (V15 migration): name, role, side (BRIDE/GROOM),
-      bio, photoUrl, sortOrder. Pastor/officiant as first-class role — faith-first differentiator.
-      Dashboard: add/edit/reorder members. Public wedding page: photo grid by side.
-- **Phase 4 — Vendor portal + couple open beta:**
-  (a) Vendor self-serve portal — vendor registration in frontend-app, vendor dashboard (name, category,
-      photos, bio, location, denomination, isChristianOwned). Public /vendors browse page in
-      frontend-public. Goal: onboard Jordan's photographer friends as first real vendors.
-      Backend entity + endpoints already exist — frontend work is the gap.
-  (b) Open couple signup — app.altarwed.com registration is already live. Share publicly.
-      Any couple can sign up and their site goes live at altarwed.com/wedding/[slug].
-      Polish onboarding UX so first-time couples can self-serve without help.
-  (c) Registry links section — couples add Amazon/Target/Crate & Barrel registry URLs.
-      Displayed beautifully on public wedding website. Low effort, high perceived completeness.
-  (d) Accommodations section — hotel block details, Airbnb links, travel info on wedding website.
-      Just content fields on WeddingWebsite entity.
-- **Phase 5 — Engagement + retention features:**
-  (a) Budget tracker — tracks vendor costs, total budget, payments. Locks couples into platform.
-      Faith angle: optional tithing/donation goal line item.
-  (b) Seating chart — drag-and-drop guest table assignments. Guest data already exists from Phase 3.
-  (c) Digital save-the-dates — designed email template generator. Scripture verse + faith motifs.
-  (d) Wedding website password protection — optional PIN so only invited guests can view.
-  (e) Guest photo sharing / album — guests upload photos post-wedding. Azure Blob already wired.
-      Crowd-sourced album, real-time slideshow for reception. WithJoy's best feature.
-- **Phase 6 — Faith-first differentiators (no competitor has these):**
-  (a) Scripture builder — searchable ESV/NIV scripture library, curated wedding verses,
-      couples pin verses to their wedding website. Zero competitors have this.
-  (b) Vow builder — guided vow writing tool with prompts and optional scripture integration.
-  (c) Denomination-aware content — Catholic couples see Pre-Cana reminders, Baptist couples
-      see different ceremony structure prompts. Uses existing Denomination entity.
-  (d) Ceremony builder — order of service, scripture readings, vow text (Phase 6 original scope).
-- **Phase 7:** Stripe billing (vendor subscriptions $29/$79/$149), couple premium tier ($9/mo Covenant Plan)
+## Build Phases — Current Status
 
-## Wedding Website Feature (Phase 2) — COMPLETE
-- Live URL: altarwed.com/wedding/jordan-and-eden-faith
-- Dashboard: app.altarwed.com (React + Vite, Azure Static Web Apps)
-- Slug system: unique, URL-safe, lowercase-hyphenated, chosen at setup
-- SSR via Next.js for Open Graph social sharing previews
-- Soft delete: DELETE /api/v1/wedding-websites/couple/{id} — data preserved, page returns 404
-- One couple = one website enforced at service layer (domain invariant)
-- Photos: Azure Blob Storage + CDN (upload UI not yet built)
-- Custom domain per couple: future paid feature — slug system already supports it
+### ✅ Phase 1 — COMPLETE
+Backend API (auth, couples, vendors, denominations), marketing homepage, waitlist, CI/CD, Azure infrastructure, JWT auth, Flyway schema.
+
+### ✅ Phase 2 — COMPLETE
+Couple wedding website live at altarwed.com/wedding/[slug]. WeddingWebsite entity (V7+V8), full CRUD + soft delete, duplicate slug protection. Next.js SSR public page. Dashboard at app.altarwed.com (Azure Static Web Apps, custom domain). Auth end-to-end. Rate limiting (Bucket4j), Swagger disabled in prod, global exception handler.
+
+### ✅ Phase 3 — COMPLETE
+(a) Password reset — V9 migration, Resend email, time-limited token.
+(b) Guest list + RSVP — V10 (guests) + V11 (rsvp tokens). Custom RSVP fields: meal preference, dietary restrictions, song request, shuttle. RSVP emails from "Jordan & Eden-Faith" via Resend. Public RSVP page at altarwed.com/rsvp/[token].
+(c) Email deliverability — SPF + DKIM + DMARC. 10/10 mail-tester.com score.
+
+### ✅ Phase 3b — COMPLETE
+(a) Wedding planning checklist — V13 migration. PlanningTask entity. 27 faith-first seeded tasks (lazy-seeded on first GET). Dashboard checklist UI with progress bar, category grouping, category filters, custom task support.
+(b) Custom RSVP fields — meal, dietary, song request, shuttle. Frontend wired.
+(c) Prayer wall — V14 migration. WeddingPrayer entity. Public submit + list on wedding page. PrayerWallSection client component with optimistic update.
+(d) Wedding party — V15 migration. WeddingPartyMember entity. Side: BRIDE/GROOM/NEUTRAL (officiant, readers, musicians). Photo upload via Azure Blob (15 MB limit, JPEG/PNG/WebP). Dashboard add/edit/delete/photo. Public wedding page: photo grid grouped by side, NEUTRAL shown first as "Ceremony".
+
+### ✅ Phase 4 — COMPLETE
+(a) Vendor portal — GET/PATCH /api/v1/vendors/me. Vendor registration at app.altarwed.com/register/vendor. Vendor listing editor at /vendor/listing. VendorDashboard links live.
+(b) Open couple signup — 3-step onboarding wizard (names → URL slug + date → confirm). Auto-generates slug from partner names. Shows for new users with no website.
+(c) Registry links — already in WeddingWebsite entity. Editor tab live. Displayed on public wedding page.
+(d) Accommodations — hotel block fields already in WeddingWebsite entity. Editor "Hotel" tab live. Displayed on public wedding page.
+(e) Public vendor directory — altarwed.com/vendors (SSR, category filter chips, city search). altarwed.com/vendors/[id] detail page with Open Graph metadata.
+(f) Public wedding page redesign — sticky tab nav (Our Story/Details/Wedding Party/Registry/Travel/Prayer Wall), gradient hero, gold ornament section headings, RSVP callout card, partner names used as section labels.
+(g) Site-wide navigation — shared SiteHeader (sticky, all public pages) + SiteFooter (4-column). Homepage nav updated. Wedding pages show discreet "Created with AltarWed" bar for viral discovery.
+
+### 🔜 Phase 5 — Engagement + retention (NEXT)
+(a) **Budget tracker** — tracks vendor costs, total budget, payments. Locks couples into platform. Faith angle: optional tithing/donation goal. New entity: BudgetItem (coupleId, category, vendorName, estimatedCost, actualCost, isPaid, notes).
+(b) Seating chart — drag-and-drop guest table assignments. Guest data already exists.
+(c) Digital save-the-dates — designed email template generator. Scripture verse + faith motifs.
+(d) Wedding website password protection — optional PIN so only invited guests can view.
+(e) Guest photo sharing / album — post-wedding upload. Azure Blob already wired.
+
+### 🔜 Phase 6 — Faith-first differentiators
+(a) Scripture builder — searchable ESV/NIV library, curated wedding verses, pin to website.
+(b) Vow builder — guided writing tool with scripture integration.
+(c) Denomination-aware content — Pre-Cana reminders for Catholics, etc.
+(d) Ceremony builder — order of service, scripture readings, vow text.
+
+### 🔜 Phase 7 — Stripe billing
+Vendor subscriptions ($29/$79/$149), couple Covenant Plan ($9/mo).
+
+## Wedding Website Feature — Live Details
+- URL pattern: altarwed.com/wedding/[slug]
+- Dashboard: app.altarwed.com/dashboard/website
+- Hero photo upload: POST /api/v1/uploads/wedding-websites/{websiteId}/hero
+- Wedding party photo upload: POST /api/v1/uploads/wedding-party/{websiteId}/{memberId}/photo
+- Both upload endpoints require authentication and validate file type + 15 MB size limit
+- Soft delete: website data preserved, public page returns 404
 
 ## When You Are Unsure
 - Follow hexagonal architecture over convenience
