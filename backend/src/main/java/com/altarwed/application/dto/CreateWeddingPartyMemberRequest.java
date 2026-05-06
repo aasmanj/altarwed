@@ -11,5 +11,5 @@ public record CreateWeddingPartyMemberRequest(
         @NotNull WeddingPartySide side,
         @Size(max = 1000) String bio,
         @Size(max = 500) String photoUrl,
-        int sortOrder
+        Integer sortOrder
 ) {}

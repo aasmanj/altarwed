@@ -30,7 +30,7 @@ public class WeddingPartyMemberService {
     public WeddingPartyMember addMember(UUID weddingWebsiteId, CreateWeddingPartyMemberRequest req) {
         WeddingPartyMember member = new WeddingPartyMember(
                 null, weddingWebsiteId, req.name(), req.role(), req.side(),
-                req.bio(), req.photoUrl(), req.sortOrder(),
+                req.bio(), req.photoUrl(), req.sortOrder() != null ? req.sortOrder() : 0,
                 LocalDateTime.now(), LocalDateTime.now()
         );
         return repository.save(member);
