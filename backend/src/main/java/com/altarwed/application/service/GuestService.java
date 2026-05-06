@@ -26,14 +26,14 @@ public class GuestService {
     private final RsvpInviteTokenRepository tokenRepository;
     private final WeddingWebsiteRepository websiteRepository;
     private final CoupleRepository coupleRepository;
-    private final EmailPort emailPort;
+    private final AsyncEmailService emailPort;
 
     public GuestService(
             GuestRepository guestRepository,
             RsvpInviteTokenRepository tokenRepository,
             WeddingWebsiteRepository websiteRepository,
             CoupleRepository coupleRepository,
-            EmailPort emailPort
+            AsyncEmailService emailPort
     ) {
         this.guestRepository = guestRepository;
         this.tokenRepository = tokenRepository;

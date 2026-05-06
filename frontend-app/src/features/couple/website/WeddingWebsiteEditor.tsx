@@ -182,42 +182,7 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
           </Row>
         </>}
 
-        {activeTab === 'privacy' && <>
-          <div className="rounded-xl border border-gold-light p-5 space-y-4">
-            <div>
-              <p className="text-sm font-medium text-brown mb-1">Page PIN</p>
-              <p className="text-xs text-brown-light mb-3">
-                Set a PIN so only guests you share it with can view the tab content on your wedding page.
-                Guests will see the hero photo and your names, but must enter the PIN to read your story, details, and registry.
-                Leave blank to keep the page public.
-                {website.isPinProtected && <span className="ml-1 text-amber-600 font-medium">A PIN is currently set.</span>}
-              </p>
-              <Input
-                type="password"
-                inputMode="numeric"
-                maxLength={10}
-                value={form.websitePin}
-                onChange={set('websitePin')}
-                placeholder={website.isPinProtected ? 'Enter new PIN to change, or leave blank' : 'e.g. 1234'}
-              />
-              {form.websitePin === '' && website.isPinProtected && (
-                <p className="text-xs text-stone-400 mt-1">Leave blank and save to keep the existing PIN unchanged.</p>
-              )}
-            </div>
-            {website.isPinProtected && (
-              <button
-                type="button"
-                onClick={() => {
-                  setForm(prev => ({ ...prev, websitePin: ' ' }))
-                  setSaved(false)
-                }}
-                className="text-sm text-rose-600 hover:underline"
-              >
-                Remove PIN (make page public)
-              </button>
-            )}
-          </div>
-        </>}
+        {activeTab === 'privacy' && <PrivacyTab website={website} form={form} setForm={setForm} setSaved={setSaved} />}
 
         {activeTab === 'registry' && <>
           {([1, 2, 3] as const).map(n => (
@@ -290,6 +255,77 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
       <label className="block text-sm font-medium text-brown mb-1">{label}</label>
       {hint && <p className="text-xs text-brown-light mb-1.5">{hint}</p>}
       {children}
+    </div>
+  )
+}
+
+function PrivacyTab({
+  website,
+  form,
+  setForm,
+  setSaved,
+}: {
+  website: WeddingWebsite
+  form: { websitePin: string }
+  setForm: React.Dispatch<React.SetStateAction<any>>
+  setSaved: React.Dispatch<React.SetStateAction<boolean>>
+}) {
+  const [pinEnabled, setPinEnabled] = useState(
+    website.isPinProtected || form.websitePin.trim().length > 0
+  )
+
+  function handleToggle(checked: boolean) {
+    setPinEnabled(checked)
+    if (!checked) {
+      // Empty string signals backend to clear the PIN
+      setForm((prev: any) => ({ ...prev, websitePin: ' ' }))
+      setSaved(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-xl border border-gold-light p-5 space-y-4">
+        <div className="flex items-start gap-3">
+          <input
+            id="pin-toggle"
+            type="checkbox"
+            checked={pinEnabled}
+            onChange={e => handleToggle(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-gold-light text-gold focus:ring-gold"
+          />
+          <div>
+            <label htmlFor="pin-toggle" className="text-sm font-medium text-brown cursor-pointer">
+              Enable PIN protection
+            </label>
+            <p className="text-xs text-brown-light mt-0.5">
+              Guests must enter a PIN to view your wedding details. Your hero photo and names will still be visible — only the tabs (story, details, etc.) are gated.
+            </p>
+          </div>
+        </div>
+
+        {pinEnabled && (
+          <Row label="PIN" hint="4–10 characters. Share this privately with your invited guests.">
+            <input
+              type="text"
+              maxLength={10}
+              placeholder="e.g. 1234"
+              value={form.websitePin.trim()}
+              onChange={e => {
+                setForm((prev: any) => ({ ...prev, websitePin: e.target.value }))
+                setSaved(false)
+              }}
+              className={inputCls + ' max-w-[160px]'}
+            />
+          </Row>
+        )}
+
+        {!pinEnabled && website.isPinProtected && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            PIN protection is currently active. Save changes to remove it.
+          </p>
+        )}
+      </div>
     </div>
   )
 }

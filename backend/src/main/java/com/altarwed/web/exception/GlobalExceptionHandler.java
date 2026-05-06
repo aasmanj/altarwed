@@ -1,6 +1,7 @@
 package com.altarwed.web.exception;
 
 import com.altarwed.domain.exception.BudgetItemNotFoundException;
+import com.altarwed.domain.exception.SeatingTableNotFoundException;
 import com.altarwed.domain.exception.CoupleNotFoundException;
 import com.altarwed.domain.exception.GuestNotFoundException;
 import com.altarwed.domain.exception.WeddingPartyMemberNotFoundException;
@@ -203,6 +204,11 @@ public class GlobalExceptionHandler {
         pd.setTitle("Data Conflict");
         pd.setDetail("A record with this information already exists");
         return pd;
+    }
+
+    @ExceptionHandler(SeatingTableNotFoundException.class)
+    public ProblemDetail handleSeatingTableNotFound(SeatingTableNotFoundException ex) {
+        return notFound("seating-table-not-found", ex.getMessage());
     }
 
     // Safety net — catches anything not handled above so stack traces never leak

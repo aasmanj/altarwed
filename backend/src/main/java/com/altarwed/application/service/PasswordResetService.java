@@ -3,7 +3,7 @@ package com.altarwed.application.service;
 import com.altarwed.domain.exception.InvalidPasswordResetTokenException;
 import com.altarwed.domain.model.PasswordResetToken;
 import com.altarwed.domain.port.CoupleRepository;
-import com.altarwed.domain.port.EmailPort;
+import com.altarwed.application.service.AsyncEmailService;
 import com.altarwed.domain.port.PasswordResetTokenRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -25,13 +25,13 @@ public class PasswordResetService {
     private final PasswordResetTokenRepository tokenRepository;
     private final CoupleRepository coupleRepository;
     private final PasswordEncoder passwordEncoder;
-    private final EmailPort emailPort;
+    private final AsyncEmailService emailPort;
 
     public PasswordResetService(
             PasswordResetTokenRepository tokenRepository,
             CoupleRepository coupleRepository,
             PasswordEncoder passwordEncoder,
-            EmailPort emailPort
+            AsyncEmailService emailPort
     ) {
         this.tokenRepository = tokenRepository;
         this.coupleRepository = coupleRepository;

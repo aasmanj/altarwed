@@ -17,7 +17,10 @@
       "Bash(npx tsc *)",
       "WebFetch(domain:www.theknot.com)",
       "Bash(Get-ChildItem \"C:\\\\Users\\\\Jordan\\\\altarwed\\\\frontend-public\\\\src\\\\app\\\\wedding\\\\[slug]\" -Recurse)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(sed -i 's|from '\\\\''../layout'\\\\''|from '\\\\''../data'\\\\''|g' 'C:/Users/Jordan/altarwed/frontend-public/src/app/wedding/\\\\[slug\\\\]/details/page.tsx' 'C:/Users/Jordan/altarwed/frontend-public/src/app/wedding/\\\\[slug\\\\]/photos/page.tsx' 'C:/Users/Jordan/altarwed/frontend-public/src/app/wedding/\\\\[slug\\\\]/prayers/page.tsx' 'C:/Users/Jordan/altarwed/frontend-public/src/app/wedding/\\\\[slug\\\\]/registry/page.tsx' 'C:/Users/Jordan/altarwed/frontend-public/src/app/wedding/\\\\[slug\\\\]/story/page.tsx' 'C:/Users/Jordan/altarwed/frontend-public/src/app/wedding/\\\\[slug\\\\]/travel/page.tsx' 'C:/Users/Jordan/altarwed/frontend-public/src/app/wedding/\\\\[slug\\\\]/wedding-party/page.tsx')",
+      "Bash(sed -i 's|from '\\\\''./layout'\\\\''|from '\\\\''./data'\\\\''|g' 'C:/Users/Jordan/altarwed/frontend-public/src/app/wedding/\\\\[slug\\\\]/page.tsx')",
+      "Bash(npm install *)"
     ]
   }
 }
