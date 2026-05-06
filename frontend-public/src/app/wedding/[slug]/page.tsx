@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getWedding } from './layout'
+import { getWedding } from './data'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', {

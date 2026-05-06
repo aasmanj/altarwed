@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { getWedding } from '../layout'
+import { getWedding } from '../data'
 import PrayerWallClient from './PrayerWallClient'
 
 interface Prayer {

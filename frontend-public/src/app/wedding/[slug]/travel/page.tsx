@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { getWedding } from '../layout'
+import { getWedding } from '../data'
 
 export default async function TravelPage(
   { params }: { params: Promise<{ slug: string }> }
