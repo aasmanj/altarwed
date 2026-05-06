@@ -28,6 +28,9 @@ export default function WeddingPartyPage() {
   const updateMember = useUpdateMember(websiteId)
   const deleteMember = useDeleteMember(websiteId)
   const uploadPhoto  = useUploadMemberPhoto(websiteId)
+  const uploadError  = uploadPhoto.error
+    ? ((uploadPhoto.error as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? 'Upload failed. Please try again.')
+    : null
 
   const [showAdd, setShowAdd] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -102,6 +105,12 @@ export default function WeddingPartyPage() {
                 {f === 'ALL' ? 'All' : f === 'BRIDE' ? "Bride's side" : f === 'GROOM' ? "Groom's side" : 'Ceremony'}
               </button>
             ))}
+          </div>
+        )}
+
+        {uploadError && (
+          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 mb-4 text-sm text-red-700">
+            {uploadError}
           </div>
         )}
 

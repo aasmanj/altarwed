@@ -5,6 +5,11 @@ spring:
   application:
     name: altarwed-backend
 
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 16MB
+
   # Virtual threads — uses Java 21 carrier threads for Tomcat and async tasks
   threads:
     virtual:

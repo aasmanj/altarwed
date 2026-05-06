@@ -12,7 +12,7 @@ import java.util.UUID;
 public class MediaUploadService {
 
     private static final Set<String> ALLOWED_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
-    private static final long MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+    private static final long MAX_BYTES = 15 * 1024 * 1024; // 15 MB
 
     private final BlobStoragePort blobStorage;
 
@@ -39,7 +39,7 @@ public class MediaUploadService {
         if (!ALLOWED_TYPES.contains(file.getContentType()))
             throw new IllegalArgumentException("Only JPEG, PNG, and WebP images are allowed");
         if (file.getSize() > MAX_BYTES)
-            throw new IllegalArgumentException("File must be under 5 MB");
+            throw new IllegalArgumentException("File must be under 15 MB");
     }
 
     private String getExtension(String contentType) {
