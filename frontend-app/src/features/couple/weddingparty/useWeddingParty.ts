@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 
-export type PartySide = 'BRIDE' | 'GROOM'
+export type PartySide = 'BRIDE' | 'GROOM' | 'NEUTRAL'
 
 export interface WeddingPartyMember {
   id: string
@@ -58,6 +58,25 @@ export function useUpdateMember(websiteId: string) {
     onSuccess: (updated: WeddingPartyMember) =>
       qc.setQueryData<WeddingPartyMember[]>(key(websiteId), old =>
         old?.map(m => m.id === updated.id ? updated : m) ?? []
+      ),
+  })
+}
+
+export function useUploadMemberPhoto(websiteId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ memberId, file }: { memberId: string; file: File }) => {
+      const form = new FormData()
+      form.append('file', file)
+      return apiClient
+        .post(`/api/v1/uploads/wedding-party/${websiteId}/${memberId}/photo`, form, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+        .then(r => r.data as { photoUrl: string })
+    },
+    onSuccess: (data, { memberId }) =>
+      qc.setQueryData<WeddingPartyMember[]>(key(websiteId), old =>
+        old?.map(m => m.id === memberId ? { ...m, photoUrl: data.photoUrl } : m) ?? []
       ),
   })
 }

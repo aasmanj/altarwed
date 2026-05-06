@@ -27,6 +27,7 @@ val jjwtVersion = "0.12.6"
 val springdocVersion = "3.0.0"
 val mssqlVersion = "12.8.1.jre11"
 val bucket4jVersion = "8.10.1"
+val azureStorageVersion = "12.29.0"
 
 dependencies {
     // Web
@@ -63,6 +64,9 @@ dependencies {
 
     // Rate limiting — token bucket algorithm, no Redis required (in-memory per instance)
     implementation("com.bucket4j:bucket4j-core:$bucket4jVersion")
+
+    // Azure Blob Storage — media uploads (wedding photos, wedding party headshots)
+    implementation("com.azure:azure-storage-blob:$azureStorageVersion")
 
     // ---- Test dependencies ----
     testImplementation("org.springframework.boot:spring-boot-starter-test")

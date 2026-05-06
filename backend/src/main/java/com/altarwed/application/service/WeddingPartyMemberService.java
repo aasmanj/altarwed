@@ -60,6 +60,22 @@ public class WeddingPartyMemberService {
         repository.deleteById(memberId);
     }
 
+    public WeddingPartyMember getMemberForUpload(UUID weddingWebsiteId, UUID memberId) {
+        return getMember(weddingWebsiteId, memberId);
+    }
+
+    @Transactional
+    public void updatePhotoUrl(UUID weddingWebsiteId, UUID memberId, String photoUrl) {
+        WeddingPartyMember existing = getMember(weddingWebsiteId, memberId);
+        WeddingPartyMember updated = new WeddingPartyMember(
+                existing.id(), existing.weddingWebsiteId(),
+                existing.name(), existing.role(), existing.side(),
+                existing.bio(), photoUrl, existing.sortOrder(),
+                existing.createdAt(), LocalDateTime.now()
+        );
+        repository.save(updated);
+    }
+
     private WeddingPartyMember getMember(UUID weddingWebsiteId, UUID memberId) {
         WeddingPartyMember member = repository.findById(memberId)
                 .orElseThrow(() -> new WeddingPartyMemberNotFoundException(memberId.toString()));

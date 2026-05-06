@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import {
-  useWeddingParty, useAddMember, useUpdateMember, useDeleteMember,
+  useWeddingParty, useAddMember, useUpdateMember, useDeleteMember, useUploadMemberPhoto,
   type WeddingPartyMember, type PartySide,
 } from './useWeddingParty'
 
@@ -27,14 +27,16 @@ export default function WeddingPartyPage() {
   const addMember    = useAddMember(websiteId)
   const updateMember = useUpdateMember(websiteId)
   const deleteMember = useDeleteMember(websiteId)
+  const uploadPhoto  = useUploadMemberPhoto(websiteId)
 
   const [showAdd, setShowAdd] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [sideFilter, setSideFilter] = useState<PartySide | 'ALL'>('ALL')
 
-  const brideParty = members.filter(m => m.side === 'BRIDE')
-  const groomParty = members.filter(m => m.side === 'GROOM')
-  const displayed  = sideFilter === 'ALL' ? members
+  const brideParty   = members.filter(m => m.side === 'BRIDE')
+  const groomParty   = members.filter(m => m.side === 'GROOM')
+  const neutralParty = members.filter(m => m.side === 'NEUTRAL')
+  const displayed    = sideFilter === 'ALL' ? members
     : members.filter(m => m.side === sideFilter)
 
   return (
@@ -52,7 +54,7 @@ export default function WeddingPartyPage() {
             <h1 className="font-serif text-2xl font-bold text-brown">Wedding Party</h1>
             <p className="text-brown-light text-sm mt-1">
               {members.length > 0
-                ? `${brideParty.length} on the bride's side · ${groomParty.length} on the groom's side`
+                ? `${brideParty.length} bride's · ${groomParty.length} groom's${neutralParty.length > 0 ? ` · ${neutralParty.length} ceremony` : ''}`
                 : 'Add your wedding party members'}
             </p>
           </div>
@@ -89,7 +91,7 @@ export default function WeddingPartyPage() {
         {/* Side filter */}
         {members.length > 0 && (
           <div className="flex gap-1 mb-6 border-b border-gold-light">
-            {(['ALL', 'BRIDE', 'GROOM'] as const).map(f => (
+            {(['ALL', 'BRIDE', 'GROOM', 'NEUTRAL'] as const).map(f => (
               <button
                 key={f}
                 onClick={() => setSideFilter(f)}
@@ -97,7 +99,7 @@ export default function WeddingPartyPage() {
                   sideFilter === f ? 'border-gold text-brown' : 'border-transparent text-brown-light hover:text-brown'
                 }`}
               >
-                {f === 'ALL' ? 'All' : f === 'BRIDE' ? "Bride's side" : "Groom's side"}
+                {f === 'ALL' ? 'All' : f === 'BRIDE' ? "Bride's side" : f === 'GROOM' ? "Groom's side" : 'Ceremony'}
               </button>
             ))}
           </div>
@@ -133,6 +135,8 @@ export default function WeddingPartyPage() {
                   onDelete={() => {
                     if (confirm(`Remove ${member.name}?`)) deleteMember.mutate(member.id)
                   }}
+                  onPhotoUpload={(file) => uploadPhoto.mutate({ memberId: member.id, file })}
+                  isUploading={uploadPhoto.isPending}
                 />
               )
             ))}
@@ -143,33 +147,60 @@ export default function WeddingPartyPage() {
   )
 }
 
-function MemberCard({ member, onEdit, onDelete }: {
+function MemberCard({ member, onEdit, onDelete, onPhotoUpload, isUploading }: {
   member: WeddingPartyMember
   onEdit: () => void
   onDelete: () => void
+  onPhotoUpload: (file: File) => void
+  isUploading: boolean
 }) {
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+
   return (
     <div className="rounded-xl border border-gold-light bg-white p-5 flex gap-5 items-start">
-      {member.photoUrl ? (
-        <img
-          src={member.photoUrl}
-          alt={member.name}
-          className="h-16 w-16 rounded-full object-cover shrink-0 border border-gold-light"
+      <div className="relative shrink-0 group">
+        {member.photoUrl ? (
+          <img
+            src={member.photoUrl}
+            alt={member.name}
+            className="h-16 w-16 rounded-full object-cover border border-gold-light"
+          />
+        ) : (
+          <div className="h-16 w-16 rounded-full bg-ivory border border-gold-light flex items-center justify-center">
+            <span className="text-2xl text-brown-light font-serif">{member.name.charAt(0)}</span>
+          </div>
+        )}
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+          className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center disabled:cursor-wait"
+          title="Upload photo"
+        >
+          <span className="text-white text-xs font-medium">{isUploading ? '…' : '📷'}</span>
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={e => {
+            const file = e.target.files?.[0]
+            if (file) onPhotoUpload(file)
+            e.target.value = ''
+          }}
         />
-      ) : (
-        <div className="h-16 w-16 rounded-full bg-ivory border border-gold-light flex items-center justify-center shrink-0">
-          <span className="text-2xl text-brown-light font-serif">{member.name.charAt(0)}</span>
-        </div>
-      )}
+      </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="font-serif font-semibold text-brown">{member.name}</p>
             <p className="text-sm text-gold font-medium">{member.role}</p>
             <span className={`text-xs px-2 py-0.5 rounded-full mt-1 inline-block font-medium ${
-              member.side === 'BRIDE' ? 'bg-pink-50 text-pink-700' : 'bg-blue-50 text-blue-700'
+              member.side === 'BRIDE' ? 'bg-pink-50 text-pink-700'
+              : member.side === 'GROOM' ? 'bg-blue-50 text-blue-700'
+              : 'bg-amber-50 text-amber-700'
             }`}>
-              {member.side === 'BRIDE' ? "Bride's side" : "Groom's side"}
+              {member.side === 'BRIDE' ? "Bride's side" : member.side === 'GROOM' ? "Groom's side" : 'Ceremony'}
             </span>
           </div>
           <div className="flex gap-3 shrink-0">
@@ -216,6 +247,7 @@ function MemberForm({ initial, onSubmit, onCancel, isPending }: {
           <select value={side} onChange={e => setSide(e.target.value as PartySide)} className={inputCls}>
             <option value="BRIDE">Bride's side</option>
             <option value="GROOM">Groom's side</option>
+            <option value="NEUTRAL">Ceremony (officiant, readers, musicians)</option>
           </select>
         </div>
         <div>

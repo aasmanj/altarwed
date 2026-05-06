@@ -16,7 +16,7 @@ interface WeddingPartyMember {
   id: string
   name: string
   role: string
-  side: 'BRIDE' | 'GROOM'
+  side: 'BRIDE' | 'GROOM' | 'NEUTRAL'
   bio: string | null
   photoUrl: string | null
   sortOrder: number
@@ -183,8 +183,9 @@ export default async function WeddingPage(
     getPrayers(slug, apiUrl),
   ])
 
-  const brideParty = weddingParty.filter(m => m.side === 'BRIDE')
-  const groomParty = weddingParty.filter(m => m.side === 'GROOM')
+  const brideParty   = weddingParty.filter(m => m.side === 'BRIDE')
+  const groomParty   = weddingParty.filter(m => m.side === 'GROOM')
+  const neutralParty = weddingParty.filter(m => m.side === 'NEUTRAL')
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
@@ -356,6 +357,7 @@ export default async function WeddingPage(
         {weddingParty.length > 0 && (
           <Section title="Wedding Party">
             {[
+              { label: 'Ceremony', members: neutralParty },
               { label: "Bride's side", members: brideParty },
               { label: "Groom's side", members: groomParty },
             ].map(({ label, members }) => members.length > 0 && (

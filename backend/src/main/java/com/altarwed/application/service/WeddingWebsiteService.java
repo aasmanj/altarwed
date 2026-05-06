@@ -129,6 +129,30 @@ public class WeddingWebsiteService {
     }
 
     @Transactional
+    public void updateHeroPhoto(UUID websiteId, String photoUrl) {
+        WeddingWebsite existing = websiteRepository.findById(websiteId)
+                .orElseThrow(() -> new WeddingWebsiteNotFoundException(websiteId.toString()));
+        WeddingWebsite updated = new WeddingWebsite(
+                existing.id(), existing.coupleId(), existing.slug(), existing.isPublished(),
+                existing.partnerOneName(), existing.partnerTwoName(), existing.weddingDate(),
+                photoUrl,
+                existing.ourStory(), existing.testimony(), existing.covenantStatement(),
+                existing.scriptureReference(), existing.scriptureText(),
+                existing.venueName(), existing.venueAddress(), existing.venueCity(),
+                existing.venueState(), existing.ceremonyTime(), existing.dressCode(),
+                existing.hotelName(), existing.hotelUrl(), existing.hotelDetails(),
+                existing.registryUrl1(), existing.registryLabel1(),
+                existing.registryUrl2(), existing.registryLabel2(),
+                existing.registryUrl3(), existing.registryLabel3(),
+                existing.rsvpDeadline(),
+                existing.isDeleted(), existing.deletedAt(),
+                existing.createdAt(), LocalDateTime.now()
+        );
+        WeddingWebsite saved = websiteRepository.save(updated);
+        revalidationPort.revalidateWeddingPage(saved.slug());
+    }
+
+    @Transactional
     public WeddingWebsite publish(UUID coupleId) {
         WeddingWebsite saved = websiteRepository.save(getByCoupleId(coupleId).published());
         revalidationPort.revalidateWeddingPage(saved.slug());
