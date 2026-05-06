@@ -40,6 +40,7 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
     registryUrl3:      website.registryUrl3 ?? '',
     registryLabel3:    website.registryLabel3 ?? '',
     rsvpDeadline:      website.rsvpDeadline ?? '',
+    websitePin:        '',
   })
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -181,6 +182,43 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
           </Row>
         </>}
 
+        {activeTab === 'privacy' && <>
+          <div className="rounded-xl border border-gold-light p-5 space-y-4">
+            <div>
+              <p className="text-sm font-medium text-brown mb-1">Page PIN</p>
+              <p className="text-xs text-brown-light mb-3">
+                Set a PIN so only guests you share it with can view the tab content on your wedding page.
+                Guests will see the hero photo and your names, but must enter the PIN to read your story, details, and registry.
+                Leave blank to keep the page public.
+                {website.isPinProtected && <span className="ml-1 text-amber-600 font-medium">A PIN is currently set.</span>}
+              </p>
+              <Input
+                type="password"
+                inputMode="numeric"
+                maxLength={10}
+                value={form.websitePin}
+                onChange={set('websitePin')}
+                placeholder={website.isPinProtected ? 'Enter new PIN to change, or leave blank' : 'e.g. 1234'}
+              />
+              {form.websitePin === '' && website.isPinProtected && (
+                <p className="text-xs text-stone-400 mt-1">Leave blank and save to keep the existing PIN unchanged.</p>
+              )}
+            </div>
+            {website.isPinProtected && (
+              <button
+                type="button"
+                onClick={() => {
+                  setForm(prev => ({ ...prev, websitePin: ' ' }))
+                  setSaved(false)
+                }}
+                className="text-sm text-rose-600 hover:underline"
+              >
+                Remove PIN (make page public)
+              </button>
+            )}
+          </div>
+        </>}
+
         {activeTab === 'registry' && <>
           {([1, 2, 3] as const).map(n => (
             <div key={n} className="rounded-xl border border-gold-light p-5 space-y-4">
@@ -226,13 +264,14 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-type Tab = 'story' | 'scripture' | 'details' | 'hotel' | 'registry'
+type Tab = 'story' | 'scripture' | 'details' | 'hotel' | 'registry' | 'privacy'
 const TABS: { id: Tab; label: string }[] = [
   { id: 'story',     label: 'Our Story' },
   { id: 'scripture', label: 'Scripture' },
   { id: 'details',   label: 'Event Details' },
   { id: 'hotel',     label: 'Hotel' },
   { id: 'registry',  label: 'Registry' },
+  { id: 'privacy',   label: 'Privacy' },
 ]
 
 const inputCls = 'w-full rounded-lg border border-gold-light px-4 py-2.5 text-brown text-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold'

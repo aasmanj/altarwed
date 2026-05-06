@@ -44,6 +44,9 @@ export default function CoupleDashboard() {
           <DashboardCard title="Wedding Party" description="Add your party members and officiant" href="/dashboard/wedding-party" live />
           <DashboardCard title="Find Vendors" description="Browse faith-aligned vendors near you" href="https://www.altarwed.com/vendors" external live />
           <DashboardCard title="Budget Tracker" description="Plan and track wedding spending" href="/dashboard/budget" live />
+          <DashboardCard title="Save the Dates" description="Design and send save-the-date emails" href="/dashboard/save-the-date" live />
+          <DashboardCard title="Wedding Photos" description="Upload and share photos with guests" href="/dashboard/photos" live />
+          <DashboardCard title="Seating Chart" description="Drag-and-drop guest table assignments" href="/dashboard/seating" live />
         </div>
       </main>
     </div>

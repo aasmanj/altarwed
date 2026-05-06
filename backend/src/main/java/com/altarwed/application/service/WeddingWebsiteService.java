@@ -46,7 +46,7 @@ public class WeddingWebsiteService {
                 null, null, null, null, null, null,
                 null, null, null,
                 null, null, null, null, null, null,
-                null,
+                null, null,
                 false, null,
                 LocalDateTime.now(), LocalDateTime.now()
         );
@@ -81,7 +81,11 @@ public class WeddingWebsiteService {
     public WeddingWebsite update(UUID coupleId, UpdateWeddingWebsiteRequest req) {
         WeddingWebsite existing = getByCoupleId(coupleId);
 
-        // Patch semantics: only overwrite fields that are non-null in the request
+        // websitePin: null = don't change, "" = clear, non-empty = set
+        String updatedPin = req.websitePin() != null
+                ? (req.websitePin().isBlank() ? null : req.websitePin())
+                : existing.websitePin();
+
         WeddingWebsite updated = new WeddingWebsite(
                 existing.id(),
                 existing.coupleId(),
@@ -118,6 +122,7 @@ public class WeddingWebsiteService {
                 req.registryLabel3()    != null ? req.registryLabel3()    : existing.registryLabel3(),
 
                 req.rsvpDeadline()      != null ? req.rsvpDeadline()      : existing.rsvpDeadline(),
+                updatedPin,
 
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(),
@@ -144,12 +149,18 @@ public class WeddingWebsiteService {
                 existing.registryUrl1(), existing.registryLabel1(),
                 existing.registryUrl2(), existing.registryLabel2(),
                 existing.registryUrl3(), existing.registryLabel3(),
-                existing.rsvpDeadline(),
+                existing.rsvpDeadline(), existing.websitePin(),
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );
         WeddingWebsite saved = websiteRepository.save(updated);
         revalidationPort.revalidateWeddingPage(saved.slug());
+    }
+
+    public boolean verifyPin(String slug, String pin) {
+        WeddingWebsite website = getBySlug(slug);
+        if (website.websitePin() == null) return true; // not protected
+        return website.websitePin().equals(pin);
     }
 
     @Transactional

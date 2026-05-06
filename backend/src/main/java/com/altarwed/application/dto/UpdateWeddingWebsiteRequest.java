@@ -4,7 +4,8 @@ import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 
-// All fields nullable — only non-null fields are applied (patch semantics)
+// All fields nullable — only non-null fields are applied (patch semantics).
+// websitePin: null = don't change, empty string = clear pin, non-empty = set pin.
 public record UpdateWeddingWebsiteRequest(
 
         @Size(max = 100) String partnerOneName,
@@ -36,5 +37,7 @@ public record UpdateWeddingWebsiteRequest(
         @Size(max = 500) String registryUrl3,
         @Size(max = 100) String registryLabel3,
 
-        LocalDate rsvpDeadline
+        LocalDate rsvpDeadline,
+
+        @Size(max = 10) String websitePin
 ) {}

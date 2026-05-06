@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import WeddingNav from './WeddingNav'
+import PinGate from './PinGate'
 import { getWedding } from '@/app/wedding/[slug]/data'
 
 export async function generateMetadata(
@@ -49,6 +50,7 @@ export default async function WeddingLayout({
   const { slug } = await params
   const wedding = await getWedding(slug)
   if (!wedding || !wedding.isPublished) notFound()
+
 
   const heroImage = wedding.heroPhotoUrl
     ?? 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1600&q=80'
@@ -137,9 +139,11 @@ export default async function WeddingLayout({
         hasTravel={hasTravel}
       />
 
-      {/* ── Tab content ── */}
+      {/* ── Tab content — gated by PIN if couple has enabled it ── */}
       <div className="max-w-3xl mx-auto px-6 py-14">
-        {children}
+        {wedding.isPinProtected
+          ? <PinGate slug={slug}>{children}</PinGate>
+          : children}
       </div>
 
       {/* Footer */}

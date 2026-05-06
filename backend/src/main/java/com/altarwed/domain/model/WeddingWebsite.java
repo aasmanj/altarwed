@@ -40,6 +40,7 @@ public record WeddingWebsite(
         String registryLabel3,
 
         LocalDate rsvpDeadline,
+        String websitePin,
 
         boolean isDeleted,
         LocalDateTime deletedAt,
@@ -55,7 +56,7 @@ public record WeddingWebsite(
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
-                rsvpDeadline, isDeleted, deletedAt, createdAt, LocalDateTime.now());
+                rsvpDeadline, websitePin, isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
     public WeddingWebsite unpublished() {
@@ -66,7 +67,7 @@ public record WeddingWebsite(
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
-                rsvpDeadline, isDeleted, deletedAt, createdAt, LocalDateTime.now());
+                rsvpDeadline, websitePin, isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
     public WeddingWebsite deleted() {
@@ -77,6 +78,6 @@ public record WeddingWebsite(
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
-                rsvpDeadline, true, LocalDateTime.now(), createdAt, LocalDateTime.now());
+                rsvpDeadline, websitePin, true, LocalDateTime.now(), createdAt, LocalDateTime.now());
     }
 }

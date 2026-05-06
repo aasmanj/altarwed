@@ -2,6 +2,7 @@ package com.altarwed.web.controller;
 
 import com.altarwed.application.dto.CreateWeddingWebsiteRequest;
 import com.altarwed.application.dto.UpdateWeddingWebsiteRequest;
+import com.altarwed.application.dto.VerifyPinRequest;
 import com.altarwed.application.dto.WeddingWebsiteResponse;
 import com.altarwed.application.dto.WeddingWebsiteSitemapEntry;
 import com.altarwed.application.service.WeddingWebsiteService;
@@ -30,6 +31,18 @@ public class WeddingWebsiteController {
     @GetMapping("/slug/{slug}")
     public ResponseEntity<WeddingWebsiteResponse> getBySlug(@PathVariable String slug) {
         return ResponseEntity.ok(mapper.toResponse(websiteService.getBySlug(slug)));
+    }
+
+    // Public — guests verify the PIN to access a protected wedding page
+    @PostMapping("/slug/{slug}/verify-pin")
+    public ResponseEntity<Void> verifyPin(
+            @PathVariable String slug,
+            @Valid @RequestBody VerifyPinRequest request
+    ) {
+        if (websiteService.verifyPin(slug, request.pin())) {
+            return ResponseEntity.ok().build();
+        }
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
 
     // Public — fetched by sitemap.ts to build /sitemap.xml (slug + updatedAt only, no PII)

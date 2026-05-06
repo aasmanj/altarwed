@@ -82,6 +82,60 @@ public class ResendEmailAdapter implements EmailPort {
     }
 
     @Override
+    public void sendSaveTheDateEmail(String toEmail, String guestName, String coupleNames,
+                                     String weddingDate, String weddingUrl) {
+        String html = """
+                <div style="font-family: Georgia, serif; max-width: 540px; margin: 0 auto; background: #fdfaf6; padding: 40px; border-radius: 8px;">
+                  <p style="text-align:center; color:#a08060; font-size:12px; letter-spacing:0.2em; text-transform:uppercase; margin-bottom:8px;">Save the Date</p>
+                  <h1 style="text-align:center; color:#3b2f2f; font-size:36px; margin:0 0 8px;">%s</h1>
+                  <p style="text-align:center; color:#d4af6a; font-size:22px; margin:0 0 24px;">&amp;</p>
+                  <p style="text-align:center; color:#3b2f2f; font-size:18px; margin:0 0 32px;">are getting married on <strong>%s</strong></p>
+                  <div style="border-top:1px solid #e8dcc8; border-bottom:1px solid #e8dcc8; padding:20px 0; margin-bottom:32px; text-align:center;">
+                    <p style="color:#a08060; font-size:13px; margin:0 0 4px;">Dear %s,</p>
+                    <p style="color:#3b2f2f; margin:0;">You are joyfully invited to celebrate their covenant. Formal invitation to follow.</p>
+                  </div>
+                  <div style="text-align:center;">
+                    <a href="%s"
+                       style="display:inline-block;padding:14px 32px;background:#3b2f2f;color:#d4af6a;text-decoration:none;border-radius:4px;font-size:14px;letter-spacing:0.1em;text-transform:uppercase;">
+                      Visit Our Wedding Website
+                    </a>
+                  </div>
+                  <p style="text-align:center; color:#a08060; font-size:11px; margin-top:32px;">
+                    "And over all these virtues put on love, which binds them all together in perfect unity." — Colossians 3:14
+                  </p>
+                </div>
+                """.formatted(coupleNames.replace(" & ", "</h1><p style=\"text-align:center; color:#d4af6a; font-size:22px; margin:0 0 8px;\">&amp;</p><h1 style=\"text-align:center; color:#3b2f2f; font-size:36px; margin:0 0 24px;\">"),
+                weddingDate, guestName, weddingUrl);
+
+        String text = """
+                Save the Date
+
+                %s are getting married on %s!
+
+                Dear %s, you are joyfully invited to celebrate their covenant. Formal invitation to follow.
+
+                Visit their wedding website: %s
+
+                "And over all these virtues put on love, which binds them all together in perfect unity." — Colossians 3:14
+                """.formatted(coupleNames, weddingDate, guestName, weddingUrl);
+
+        Map<String, Object> body = Map.of(
+                "from", coupleNames + " <" + fromEmail + ">",
+                "to", List.of(toEmail),
+                "subject", "Save the Date — " + coupleNames + " are getting married!",
+                "html", html,
+                "text", text
+        );
+
+        restClient.post()
+                .uri("/emails")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .toBodilessEntity();
+    }
+
+    @Override
     public void sendPasswordResetEmail(String toEmail, String resetToken) {
         String resetUrl = appBaseUrl + "/reset-password?token=" + resetToken;
 

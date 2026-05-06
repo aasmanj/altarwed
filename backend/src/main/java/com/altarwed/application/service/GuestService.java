@@ -98,6 +98,30 @@ public class GuestService {
     }
 
     @Transactional
+    public int sendSaveDates(UUID coupleId) {
+        var website = websiteRepository.findByCoupleId(coupleId).orElse(null);
+        var couple  = coupleRepository.findById(coupleId).orElse(null);
+        String coupleNames = couple != null
+                ? couple.partnerOneName() + " & " + couple.partnerTwoName()
+                : "The Couple";
+        String weddingDate = (website != null && website.weddingDate() != null)
+                ? website.weddingDate().format(java.time.format.DateTimeFormatter.ofPattern("MMMM d, yyyy"))
+                : "TBD";
+        String weddingUrl = website != null
+                ? "https://www.altarwed.com/wedding/" + website.slug()
+                : "https://www.altarwed.com";
+
+        List<Guest> toSend = guestRepository.findAllByCoupleId(coupleId).stream()
+                .filter(g -> g.email() != null && !g.email().isBlank())
+                .toList();
+
+        for (Guest guest : toSend) {
+            emailPort.sendSaveTheDateEmail(guest.email(), guest.name(), coupleNames, weddingDate, weddingUrl);
+        }
+        return toSend.size();
+    }
+
+    @Transactional
     public int sendAllPendingInvites(UUID coupleId) {
         List<Guest> toInvite = guestRepository.findAllByCoupleId(coupleId).stream()
                 .filter(g -> g.email() != null && !g.email().isBlank())

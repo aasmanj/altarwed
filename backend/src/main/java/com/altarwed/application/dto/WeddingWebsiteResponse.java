@@ -40,6 +40,7 @@ public record WeddingWebsiteResponse(
         String registryLabel3,
 
         LocalDate rsvpDeadline,
+        Boolean isPinProtected,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {}

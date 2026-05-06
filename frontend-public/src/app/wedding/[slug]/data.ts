@@ -27,6 +27,7 @@ export interface WeddingWebsite {
   registryUrl3: string | null
   registryLabel3: string | null
   rsvpDeadline: string | null
+  isPinProtected: boolean
 }
 
 export async function getWedding(slug: string): Promise<WeddingWebsite | null> {

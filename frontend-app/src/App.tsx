@@ -14,6 +14,9 @@ import GuestListPage from '@/features/couple/guests/GuestListPage'
 import ChecklistPage from '@/features/couple/checklist/ChecklistPage'
 import WeddingPartyPage from '@/features/couple/weddingparty/WeddingPartyPage'
 import BudgetPage from '@/features/couple/budget/BudgetPage'
+import SaveTheDatePage from '@/features/couple/savethedate/SaveTheDatePage'
+import PhotosPage from '@/features/couple/photos/PhotosPage'
+import SeatingPage from '@/features/couple/seating/SeatingPage'
 
 export default function App() {
   return (
@@ -34,7 +37,6 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/dashboard/guests"
             element={
@@ -43,7 +45,6 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/dashboard/website"
             element={
@@ -52,7 +53,6 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/dashboard/checklist"
             element={
@@ -61,7 +61,6 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/dashboard/wedding-party"
             element={
@@ -70,12 +69,35 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/dashboard/budget"
             element={
               <ProtectedRoute role="COUPLE">
                 <BudgetPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/save-the-date"
+            element={
+              <ProtectedRoute role="COUPLE">
+                <SaveTheDatePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/photos"
+            element={
+              <ProtectedRoute role="COUPLE">
+                <PhotosPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/seating"
+            element={
+              <ProtectedRoute role="COUPLE">
+                <SeatingPage />
               </ProtectedRoute>
             }
           />
@@ -88,7 +110,6 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/vendor/listing"
             element={

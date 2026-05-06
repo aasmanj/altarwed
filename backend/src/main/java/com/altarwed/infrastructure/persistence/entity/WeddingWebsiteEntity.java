@@ -105,6 +105,9 @@ public class WeddingWebsiteEntity {
     @Column(name = "rsvp_deadline")
     private LocalDate rsvpDeadline;
 
+    @Column(name = "website_pin", length = 10)
+    private String websitePin;
+
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted;
 
