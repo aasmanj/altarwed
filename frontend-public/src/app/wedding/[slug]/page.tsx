@@ -181,6 +181,13 @@ export default async function WeddingPage(
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
 
+      {/* ── Discreet platform bar ── */}
+      <div className="bg-[#3b2f2f] py-2 px-6 text-center">
+        <a href="https://www.altarwed.com" className="text-xs text-[#d4af6a]/80 hover:text-[#d4af6a] transition">
+          Created with <span className="font-semibold text-[#d4af6a]">AltarWed</span> · Faith-first wedding planning
+        </a>
+      </div>
+
       {/* ── Hero ── */}
       <section className="relative h-[85vh] min-h-[520px] flex items-end justify-center overflow-hidden">
         <Image

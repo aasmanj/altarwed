@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import SiteHeader from '@/components/SiteHeader'
+import SiteFooter from '@/components/SiteFooter'
 
 interface Vendor {
   id: string
@@ -64,16 +66,13 @@ export default async function VendorDetailPage(
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
-      <header className="border-b border-[#e8dcc8] bg-white px-6 py-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <Link href="/" className="font-serif text-xl font-bold text-[#3b2f2f]">AltarWed</Link>
-          <Link href="/vendors" className="text-sm text-[#a08060] hover:text-[#3b2f2f] transition">
-            ← All vendors
-          </Link>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="max-w-3xl mx-auto px-6 py-12">
+        <Link href="/vendors" className="inline-flex items-center gap-1 text-sm text-[#a08060] hover:text-[#3b2f2f] mb-8 transition">
+          ← All vendors
+        </Link>
+
         {/* Profile header */}
         <div className="flex items-start gap-6 mb-8">
           <div className="h-20 w-20 rounded-full bg-[#f5ede0] border-2 border-[#e8dcc8] flex items-center justify-center shrink-0">
@@ -136,11 +135,7 @@ export default async function VendorDetailPage(
         </div>
       </main>
 
-      <footer className="border-t border-[#e8dcc8] py-8 text-center text-sm text-[#a08060] mt-10">
-        <Link href="/" className="font-serif text-[#3b2f2f] font-semibold hover:underline">AltarWed</Link>
-        <span className="mx-2">·</span>
-        Faith-first wedding planning
-      </footer>
+      <SiteFooter />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import WaitlistForm from '@/components/WaitlistForm'
+import SiteFooter from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
   title: 'AltarWed — Christian Wedding Planning Platform | Join the Waitlist',
@@ -92,13 +93,24 @@ export default function HomePage() {
 
       {/* ── Nav ─────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 bg-ivory/90 backdrop-blur-sm border-b border-gold/10">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="font-serif text-xl font-bold text-brown tracking-wide">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
+          <Link href="/" className="font-serif text-xl font-bold text-brown tracking-wide shrink-0">
             AltarWed
           </Link>
+          <nav className="hidden md:flex items-center gap-1">
+            <Link href="/vendors" className="px-3 py-1.5 text-sm font-medium text-brown/60 hover:text-brown rounded-lg hover:bg-cream transition">
+              Find Vendors
+            </Link>
+            <a href="https://app.altarwed.com/register/vendor" className="px-3 py-1.5 text-sm font-medium text-brown/60 hover:text-brown rounded-lg hover:bg-cream transition">
+              List Your Business
+            </a>
+            <a href="https://app.altarwed.com/login" className="px-3 py-1.5 text-sm font-medium text-brown/60 hover:text-brown rounded-lg hover:bg-cream transition">
+              Sign In
+            </a>
+          </nav>
           <a
             href="#waitlist"
-            className="hidden sm:inline-flex items-center px-4 py-2 rounded-lg bg-gold text-white text-sm font-semibold hover:bg-gold-dark transition shadow-sm"
+            className="inline-flex items-center px-4 py-2 rounded-lg bg-gold text-white text-sm font-semibold hover:bg-gold-dark transition shadow-sm shrink-0"
           >
             Join the Waitlist
           </a>
@@ -258,8 +270,8 @@ export default function HomePage() {
             &copy; {new Date().getFullYear()} AltarWed. All rights reserved.
           </p>
           <div className="flex gap-5">
-            <a href="/privacy" className="hover:text-brown/70 transition">Privacy</a>
-            <a href="/terms" className="hover:text-brown/70 transition">Terms</a>
+            <Link href="/vendors" className="hover:text-brown/70 transition">Find Vendors</Link>
+            <a href="https://app.altarwed.com/register/vendor" className="hover:text-brown/70 transition">List Business</a>
             <a href="mailto:hello@altarwed.com" className="hover:text-brown/70 transition">Contact</a>
           </div>
         </div>

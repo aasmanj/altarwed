@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import SiteHeader from '@/components/SiteHeader'
+import SiteFooter from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
   title: 'Find Christian Wedding Vendors — AltarWed',
@@ -37,8 +39,9 @@ async function getVendors(category?: string, city?: string): Promise<Vendor[]> {
   const params = new URLSearchParams()
   if (category) params.set('category', category)
   if (city) params.set('city', city)
+  // Short cache — new vendors should appear within 15 seconds
   try {
-    const res = await fetch(`${apiUrl}/api/v1/vendors?${params}`, { next: { revalidate: 120 } })
+    const res = await fetch(`${apiUrl}/api/v1/vendors?${params}`, { next: { revalidate: 15 } })
     if (!res.ok) return []
     return res.json()
   } catch {
@@ -58,15 +61,7 @@ export default async function VendorsPage({
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
-      {/* Header */}
-      <header className="border-b border-[#e8dcc8] bg-white px-6 py-4">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <Link href="/" className="font-serif text-xl font-bold text-[#3b2f2f]">AltarWed</Link>
-          <Link href="https://app.altarwed.com" className="text-sm text-[#a08060] hover:text-[#3b2f2f] transition">
-            Plan your wedding →
-          </Link>
-        </div>
-      </header>
+      <SiteHeader />
 
       {/* Hero */}
       <section className="bg-[#3b2f2f] py-14 px-6 text-center">
@@ -160,11 +155,7 @@ export default async function VendorsPage({
         )}
       </div>
 
-      <footer className="border-t border-[#e8dcc8] py-8 text-center text-sm text-[#a08060] mt-10">
-        <Link href="/" className="font-serif text-[#3b2f2f] font-semibold hover:underline">AltarWed</Link>
-        <span className="mx-2">·</span>
-        Faith-first wedding planning
-      </footer>
+      <SiteFooter />
     </div>
   )
 }
