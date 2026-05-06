@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import WeddingNav from './WeddingNav'
-import { getWedding } from './data'
+import { getWedding } from '@/app/wedding/[slug]/data'
 
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
