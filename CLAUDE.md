@@ -94,6 +94,10 @@ All entities below have Flyway migrations in production (V1–V15):
 - **PlanningTask** (V13) — coupleId, title, category, dueDateMonthsBefore, isCompleted, isSeeded, sortOrder
 - **WeddingPrayer** (V14) — weddingWebsiteId, guestName, prayerText, createdAt
 - **WeddingPartyMember** (V15) — weddingWebsiteId, name, role, side (BRIDE/GROOM/NEUTRAL), bio, photoUrl, sortOrder
+- **BudgetItem** (V16) — coupleId, category, vendorName, estimatedCost, actualCost, isPaid, notes
+- **WeddingPhoto** (V17) — weddingWebsiteId, blobUrl, caption, sortOrder, uploadedAt
+- **WeddingWebsite** (V18 patch) — websitePin column added (NVARCHAR 10, nullable)
+- **SeatingTable** (V19) — coupleId, name, capacity, sortOrder; guests linked by tableNumber (1-based index)
 
 ## User Roles
 - COUPLE → can manage their wedding, guests, ceremony, vendor messaging
@@ -214,14 +218,17 @@ Couple wedding website live at altarwed.com/wedding/[slug]. WeddingWebsite entit
 (f) Public wedding page redesign — sticky tab nav (Our Story/Details/Wedding Party/Registry/Travel/Prayer Wall), gradient hero, gold ornament section headings, RSVP callout card, partner names used as section labels.
 (g) Site-wide navigation — shared SiteHeader (sticky, all public pages) + SiteFooter (4-column). Homepage nav updated. Wedding pages show discreet "Created with AltarWed" bar for viral discovery.
 
-### 🔜 Phase 5 — Engagement + retention (NEXT)
-(a) **Budget tracker** — tracks vendor costs, total budget, payments. Locks couples into platform. Faith angle: optional tithing/donation goal. New entity: BudgetItem (coupleId, category, vendorName, estimatedCost, actualCost, isPaid, notes).
-(b) Seating chart — drag-and-drop guest table assignments. Guest data already exists.
-(c) Digital save-the-dates — designed email template generator. Scripture verse + faith motifs.
-(d) Wedding website password protection — optional PIN so only invited guests can view.
-(e) Guest photo sharing / album — post-wedding upload. Azure Blob already wired.
+### ✅ Phase 5 — COMPLETE
+(a) Budget tracker — V16 migration. BudgetItem entity. Dashboard UI: category grouping, estimated vs actual, paid toggle, running totals.
+(b) Seating chart — V19 migration. SeatingTable entity (named tables, per-table capacity). Drag-and-drop with @dnd-kit/core. Over-capacity indicator. Guests linked by tableNumber (1-based index into sorted tables array). Full create/edit/delete modal.
+(c) Digital save-the-dates — Faith-themed HTML email (Colossians 3:14 footer, gold/cream palette). SendTheDateController: POST /api/v1/save-the-dates/couple/{coupleId}/send. Dashboard preview + send UI.
+(d) Wedding website PIN protection — V18 migration (website_pin column). Opt-in toggle in Privacy tab. PinGate client component (sessionStorage-backed). Hero/names visible; tabs gated. PIN never returned in API response (only isPinProtected boolean). Public verify-pin endpoint whitelisted.
+(e) Guest photo sharing / album — V17 migration. WeddingPhoto entity. Azure Blob upload at POST /api/v1/uploads/wedding-websites/{websiteId}/photos. Dashboard grid UI with caption edit + delete. ⚠️ Verify this backend endpoint exists before testing — may need to be built.
+- Async email — AsyncConfig (ThreadPoolTaskExecutor, 4–10 threads, queue 200, CallerRunsPolicy). AsyncEmailService wraps all sends with @Async. GuestService + PasswordResetService updated.
+- @/ path alias enforced — .eslintrc.json no-restricted-imports bans relative parent imports across frontend-public.
+- Next Flyway migration: V20
 
-### 🔜 Phase 6 — Faith-first differentiators
+### 🔜 Phase 6 — Faith-first differentiators (NEXT)
 (a) Scripture builder — searchable ESV/NIV library, curated wedding verses, pin to website.
 (b) Vow builder — guided writing tool with scripture integration.
 (c) Denomination-aware content — Pre-Cana reminders for Catholics, etc.
@@ -235,7 +242,8 @@ Vendor subscriptions ($29/$79/$149), couple Covenant Plan ($9/mo).
 - Dashboard: app.altarwed.com/dashboard/website
 - Hero photo upload: POST /api/v1/uploads/wedding-websites/{websiteId}/hero
 - Wedding party photo upload: POST /api/v1/uploads/wedding-party/{websiteId}/{memberId}/photo
-- Both upload endpoints require authentication and validate file type + 15 MB size limit
+- Photo album upload: POST /api/v1/uploads/wedding-websites/{websiteId}/photos (⚠️ verify exists)
+- All upload endpoints require authentication and validate file type + 15 MB size limit
 - Soft delete: website data preserved, public page returns 404
 
 ## When You Are Unsure
