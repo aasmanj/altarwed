@@ -41,6 +41,7 @@ async function getPosts(): Promise<Post[]> {
   try {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/blog/posts`, {
       next: { revalidate: 3600 },
+      signal: AbortSignal.timeout(5000),
     })
     if (!res.ok) return []
     return res.json()

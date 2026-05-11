@@ -23,6 +23,7 @@ async function getPost(slug: string): Promise<Post | null> {
   try {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/blog/posts/${slug}`, {
       next: { revalidate: 3600 },
+      signal: AbortSignal.timeout(5000),
     })
     if (res.status === 404) return null
     if (!res.ok) return null
