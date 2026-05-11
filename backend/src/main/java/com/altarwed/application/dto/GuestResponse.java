@@ -22,6 +22,7 @@ public record GuestResponse(
         Integer tableNumber,
         GuestSide side,
         String notes,
+        String mailAddress,
         LocalDateTime inviteSentAt,
         LocalDateTime respondedAt,
         LocalDateTime createdAt,

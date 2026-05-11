@@ -20,6 +20,7 @@ export interface Guest {
   tableNumber: number | null
   side: GuestSide | null
   notes: string | null
+  mailAddress: string | null
   inviteSentAt: string | null
   respondedAt: string | null
 }
@@ -32,6 +33,7 @@ export interface CreateGuestPayload {
   side?: GuestSide
   dietaryRestrictions?: string
   notes?: string
+  mailAddress?: string
 }
 
 export interface UpdateGuestPayload {
@@ -48,6 +50,7 @@ export interface UpdateGuestPayload {
   tableNumber?: number
   side?: GuestSide
   notes?: string
+  mailAddress?: string
 }
 
 const key = (coupleId: string) => ['guests', coupleId]

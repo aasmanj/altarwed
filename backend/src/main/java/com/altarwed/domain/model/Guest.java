@@ -19,6 +19,7 @@ public record Guest(
         Integer tableNumber,
         GuestSide side,
         String notes,
+        String mailAddress,
         LocalDateTime inviteSentAt,
         LocalDateTime respondedAt,
         LocalDateTime createdAt,

@@ -48,7 +48,7 @@ public class GuestService {
                 null, coupleId, req.name(), req.email(), req.phone(),
                 GuestRsvpStatus.PENDING, req.plusOneAllowed(), null,
                 req.dietaryRestrictions(), null, null, null,
-                null, req.side(), req.notes(),
+                null, req.side(), req.notes(), req.mailAddress(),
                 null, null, LocalDateTime.now(), LocalDateTime.now()
         );
         return guestRepository.save(guest);
@@ -77,6 +77,7 @@ public class GuestService {
                 req.tableNumber()        != null ? req.tableNumber()        : existing.tableNumber(),
                 req.side()               != null ? req.side()               : existing.side(),
                 req.notes()              != null ? req.notes()              : existing.notes(),
+                req.mailAddress()        != null ? req.mailAddress()        : existing.mailAddress(),
                 existing.inviteSentAt(), existing.respondedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );
@@ -176,7 +177,7 @@ public class GuestService {
                 req.mealPreference()      != null ? req.mealPreference()      : guest.mealPreference(),
                 req.songRequest()         != null ? req.songRequest()         : guest.songRequest(),
                 req.shuttleNeeded()       != null ? req.shuttleNeeded()       : guest.shuttleNeeded(),
-                guest.tableNumber(), guest.side(), guest.notes(),
+                guest.tableNumber(), guest.side(), guest.notes(), guest.mailAddress(),
                 guest.inviteSentAt(), LocalDateTime.now(),
                 guest.createdAt(), LocalDateTime.now()
         );
@@ -229,7 +230,7 @@ public class GuestService {
                 guest.id(), guest.coupleId(), guest.name(), guest.email(), guest.phone(),
                 guest.rsvpStatus(), guest.plusOneAllowed(), guest.plusOneName(),
                 guest.dietaryRestrictions(), guest.mealPreference(), guest.songRequest(), guest.shuttleNeeded(),
-                guest.tableNumber(), guest.side(), guest.notes(),
+                guest.tableNumber(), guest.side(), guest.notes(), guest.mailAddress(),
                 LocalDateTime.now(), guest.respondedAt(),
                 guest.createdAt(), LocalDateTime.now()
         );

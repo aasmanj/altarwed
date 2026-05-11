@@ -214,6 +214,7 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
   const [phone, setPhone]             = useState('')
   const [side, setSide]               = useState<GuestSide | ''>('')
   const [plusOne, setPlusOne]         = useState(false)
+  const [mailAddress, setMailAddress] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -223,6 +224,7 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
       phone: phone || undefined,
       plusOneAllowed: plusOne,
       side: side || undefined,
+      mailAddress: mailAddress || undefined,
     })
   }
 
@@ -248,6 +250,10 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
             <option value="">— Select —</option>
             {SIDES.map(s => <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>)}
           </select>
+        </Field>
+        <Field label="Mailing address">
+          <input value={mailAddress} onChange={e => setMailAddress(e.target.value)}
+            className={inputCls} placeholder="123 Main St, Dallas TX 75201" />
         </Field>
       </div>
       <label className="flex items-center gap-2 text-sm text-brown">
@@ -278,15 +284,16 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
   onCancel: () => void
   isPending: boolean
 }) {
-  const [name, setName]           = useState(guest.name)
-  const [email, setEmail]         = useState(guest.email ?? '')
-  const [side, setSide]           = useState<GuestSide | ''>(guest.side ?? '')
-  const [status, setStatus]       = useState(guest.rsvpStatus)
-  const [table, setTable]         = useState(guest.tableNumber?.toString() ?? '')
-  const [plusOne, setPlusOne]     = useState(guest.plusOneAllowed)
-  const [meal, setMeal]           = useState(guest.mealPreference ?? '')
-  const [song, setSong]           = useState(guest.songRequest ?? '')
-  const [shuttle, setShuttle]     = useState(guest.shuttleNeeded ?? false)
+  const [name, setName]               = useState(guest.name)
+  const [email, setEmail]             = useState(guest.email ?? '')
+  const [side, setSide]               = useState<GuestSide | ''>(guest.side ?? '')
+  const [status, setStatus]           = useState(guest.rsvpStatus)
+  const [table, setTable]             = useState(guest.tableNumber?.toString() ?? '')
+  const [plusOne, setPlusOne]         = useState(guest.plusOneAllowed)
+  const [meal, setMeal]               = useState(guest.mealPreference ?? '')
+  const [song, setSong]               = useState(guest.songRequest ?? '')
+  const [shuttle, setShuttle]         = useState(guest.shuttleNeeded ?? false)
+  const [mailAddress, setMailAddress] = useState(guest.mailAddress ?? '')
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
@@ -299,6 +306,7 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
       mealPreference: meal || undefined,
       songRequest: song || undefined,
       shuttleNeeded: shuttle,
+      mailAddress: mailAddress || undefined,
     })
   }
 
@@ -335,6 +343,10 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
           <Field label="Song request">
             <input value={song} onChange={e => setSong(e.target.value)}
               placeholder="e.g. How Great Thou Art" className={inputCls} />
+          </Field>
+          <Field label="Mailing address">
+            <input value={mailAddress} onChange={e => setMailAddress(e.target.value)}
+              placeholder="123 Main St, Dallas TX 75201" className={inputCls} />
           </Field>
           <div className="flex items-end gap-6 pb-0.5">
             <label className="flex items-center gap-2 text-sm text-brown">

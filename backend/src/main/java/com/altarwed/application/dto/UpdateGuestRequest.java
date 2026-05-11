@@ -18,5 +18,6 @@ public record UpdateGuestRequest(
         Boolean shuttleNeeded,
         Integer tableNumber,
         GuestSide side,
-        String notes
+        String notes,
+        @Size(max = 500) String mailAddress
 ) {}

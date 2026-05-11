@@ -66,6 +66,9 @@ public class GuestEntity {
     @Column(name = "notes", columnDefinition = "NVARCHAR(MAX)")
     private String notes;
 
+    @Column(name = "mail_address", length = 500)
+    private String mailAddress;
+
     @Column(name = "invite_sent_at")
     private LocalDateTime inviteSentAt;
 

@@ -12,5 +12,6 @@ public record CreateGuestRequest(
         boolean plusOneAllowed,
         GuestSide side,
         @Size(max = 500) String dietaryRestrictions,
-        String notes
+        String notes,
+        @Size(max = 500) String mailAddress
 ) {}
