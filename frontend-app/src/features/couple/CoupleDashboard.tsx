@@ -58,6 +58,7 @@ export default function CoupleDashboard() {
           <DashboardCard title="Seating Chart" description="Drag-and-drop guest table assignments" href="/dashboard/seating" live />
           <DashboardCard title="Scripture Builder" description="Browse wedding verses and pin one to your site" href="/dashboard/scripture" live />
           <DashboardCard title="Vow Builder" description="Write and save your wedding vows — just for the two of you" href="/dashboard/vows" live />
+          <DashboardCard title="Ceremony Builder" description="Plan your order of service with scripture, vows, and music" href="/dashboard/ceremony" live />
         </div>
       </main>
     </div>

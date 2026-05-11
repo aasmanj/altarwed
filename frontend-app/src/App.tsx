@@ -19,6 +19,7 @@ import PhotosPage from '@/features/couple/photos/PhotosPage'
 import SeatingPage from '@/features/couple/seating/SeatingPage'
 import ScripturePage from '@/features/couple/scripture/ScripturePage'
 import VowsPage from '@/features/couple/vows/VowsPage'
+import CeremonyPage from '@/features/couple/ceremony/CeremonyPage'
 
 export default function App() {
   return (
@@ -116,6 +117,14 @@ export default function App() {
             element={
               <ProtectedRoute role="COUPLE">
                 <VowsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/ceremony"
+            element={
+              <ProtectedRoute role="COUPLE">
+                <CeremonyPage />
               </ProtectedRoute>
             }
           />
