@@ -4,6 +4,8 @@ import Link from 'next/link'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 
+export const dynamic = 'force-dynamic'
+
 interface Post {
   id: string
   slug: string
