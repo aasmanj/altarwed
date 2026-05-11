@@ -19,7 +19,9 @@ public class WeddingWebsiteMapper {
                 w.registryUrl1(), w.registryLabel1(),
                 w.registryUrl2(), w.registryLabel2(),
                 w.registryUrl3(), w.registryLabel3(),
-                w.rsvpDeadline(), w.websitePin() != null, w.createdAt(), w.updatedAt()
+                w.rsvpDeadline(), w.websitePin() != null,
+                w.partnerOneVows(), w.partnerTwoVows(),
+                w.createdAt(), w.updatedAt()
         );
     }
 }

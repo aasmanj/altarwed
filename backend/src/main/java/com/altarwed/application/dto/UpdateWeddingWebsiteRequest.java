@@ -39,5 +39,8 @@ public record UpdateWeddingWebsiteRequest(
 
         LocalDate rsvpDeadline,
 
-        @Size(max = 10) String websitePin
+        @Size(max = 10) String websitePin,
+
+        String partnerOneVows,
+        String partnerTwoVows
 ) {}

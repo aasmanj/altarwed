@@ -32,6 +32,8 @@ export interface WeddingWebsite {
   registryLabel3: string | null
   rsvpDeadline: string | null
   isPinProtected: boolean
+  partnerOneVows: string | null
+  partnerTwoVows: string | null
 }
 
 export interface CreateWebsitePayload {

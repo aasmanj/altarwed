@@ -41,6 +41,10 @@ public record WeddingWebsiteResponse(
 
         LocalDate rsvpDeadline,
         Boolean isPinProtected,
+
+        String partnerOneVows,
+        String partnerTwoVows,
+
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {}

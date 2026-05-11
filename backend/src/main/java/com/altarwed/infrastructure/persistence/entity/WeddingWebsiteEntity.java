@@ -108,6 +108,12 @@ public class WeddingWebsiteEntity {
     @Column(name = "website_pin", length = 10)
     private String websitePin;
 
+    @Column(name = "partner_one_vows", columnDefinition = "NVARCHAR(MAX)")
+    private String partnerOneVows;
+
+    @Column(name = "partner_two_vows", columnDefinition = "NVARCHAR(MAX)")
+    private String partnerTwoVows;
+
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted;
 

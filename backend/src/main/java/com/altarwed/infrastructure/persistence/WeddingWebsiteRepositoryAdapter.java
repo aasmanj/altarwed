@@ -79,6 +79,7 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 e.getRegistryUrl2(), e.getRegistryLabel2(),
                 e.getRegistryUrl3(), e.getRegistryLabel3(),
                 e.getRsvpDeadline(), e.getWebsitePin(),
+                e.getPartnerOneVows(), e.getPartnerTwoVows(),
                 e.isDeleted(), e.getDeletedAt(),
                 e.getCreatedAt(), e.getUpdatedAt()
         );
@@ -116,6 +117,8 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 .registryLabel3(w.registryLabel3())
                 .rsvpDeadline(w.rsvpDeadline())
                 .websitePin(w.websitePin())
+                .partnerOneVows(w.partnerOneVows())
+                .partnerTwoVows(w.partnerTwoVows())
                 .isDeleted(w.isDeleted())
                 .deletedAt(w.deletedAt())
                 .createdAt(w.createdAt())
