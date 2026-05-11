@@ -134,7 +134,7 @@ All entities below have Flyway migrations in production (V1–V15):
 - NEVER use spring.jpa.hibernate.ddl-auto=create or update in any environment
 - ALL schema changes go through Flyway migrations in db/migration/
 - Migration naming: V{number}__{description}.sql (e.g. V1__create_couples_table.sql)
-- Next migration number: V16
+- Next migration number: V20
 - UUID primary keys on all tables
 
 ## Security Rules
@@ -144,8 +144,10 @@ All entities below have Flyway migrations in production (V1–V15):
 - Public endpoints (whitelist): POST /api/v1/auth/**, POST /api/v1/couples/register,
   GET /api/v1/vendors/**, GET /api/v1/denominations/**,
   GET /api/v1/wedding-websites/slug/**, GET /api/v1/wedding-websites/published,
+  GET /api/v1/wedding-websites/search,
   GET+POST /api/v1/prayers/website/**, GET /api/v1/guests/rsvp/**, POST /api/v1/guests/rsvp,
-  GET /api/v1/wedding-party/website/**
+  GET /api/v1/wedding-party/website/**,
+  GET /api/v1/scripture/**
 - All other endpoints require authentication
 - CSRF disabled (stateless REST API)
 - CORS configured for frontend origins only
@@ -189,6 +191,7 @@ All entities below have Flyway migrations in production (V1–V15):
 - Church partnerships: churches pay $99/mo for congregation access
 - Stripe is the payment processor — VendorSubscription entity tracks this
 - **Payments are Phase 7 — do NOT add Stripe until vendor + couple usage is established**
+- Affiliate links: Amazon and Target (registry product links), "The Meaning of Marriage" by Timothy Keller, "The Five Love Languages" by Gary Chapman — add to a /resources page (Phase 6c)
 
 ## Build Phases — Current Status
 
@@ -223,16 +226,42 @@ Couple wedding website live at altarwed.com/wedding/[slug]. WeddingWebsite entit
 (b) Seating chart — V19 migration. SeatingTable entity (named tables, per-table capacity). Drag-and-drop with @dnd-kit/core. Over-capacity indicator. Guests linked by tableNumber (1-based index into sorted tables array). Full create/edit/delete modal.
 (c) Digital save-the-dates — Faith-themed HTML email (Colossians 3:14 footer, gold/cream palette). SendTheDateController: POST /api/v1/save-the-dates/couple/{coupleId}/send. Dashboard preview + send UI.
 (d) Wedding website PIN protection — V18 migration (website_pin column). Opt-in toggle in Privacy tab. PinGate client component (sessionStorage-backed). Hero/names visible; tabs gated. PIN never returned in API response (only isPinProtected boolean). Public verify-pin endpoint whitelisted.
-(e) Guest photo sharing / album — V17 migration. WeddingPhoto entity. Azure Blob upload at POST /api/v1/uploads/wedding-websites/{websiteId}/photos. Dashboard grid UI with caption edit + delete. ⚠️ Verify this backend endpoint exists before testing — may need to be built.
+(e) Guest photo sharing / album — V17 migration. WeddingPhoto entity. Azure Blob upload at POST /api/v1/uploads/wedding-websites/{websiteId}/photos. Dashboard grid UI with caption edit + delete.
 - Async email — AsyncConfig (ThreadPoolTaskExecutor, 4–10 threads, queue 200, CallerRunsPolicy). AsyncEmailService wraps all sends with @Async. GuestService + PasswordResetService updated.
 - @/ path alias enforced — .eslintrc.json no-restricted-imports bans relative parent imports across frontend-public.
 - Next Flyway migration: V20
 
-### 🔜 Phase 6 — Faith-first differentiators (NEXT)
-(a) Scripture builder — searchable ESV/NIV library, curated wedding verses, pin to website.
-(b) Vow builder — guided writing tool with scripture integration.
-(c) Denomination-aware content — Pre-Cana reminders for Catholics, etc.
-(d) Ceremony builder — order of service, scripture readings, vow text.
+### ✅ Phase 6a — Scripture builder (COMPLETE — EXPERIMENTAL)
+Scripture browser at /dashboard/scripture. GET /api/v1/scripture/featured (15 curated verses). GET /api/v1/scripture/search?q= (proxies bible-api.com). "Pin to my website" calls existing PATCH endpoint. WeddingWebsiteEditor gains "Browse verses" inline modal.
+⚠️ EXPERIMENTAL — validate with real couples before keeping. Same applies to the testimony and covenantStatement fields on the website editor.
+
+### ✅ Phase 6b — Couple search + UI polish (COMPLETE)
+- GET /api/v1/wedding-websites/search?name=&year= — public endpoint, searches published sites by partner name (LIKE) and optional wedding year
+- /find-wedding SSR page on altarwed.com — search form + results with name, date, and location
+- "Find a Wedding" added to SiteHeader nav
+- Wedding party public page: bride/groom sides now displayed side-by-side (2-column grid on md+)
+- Tab nav scrollbar hidden on both editor (frontend-app) and public wedding page (frontend-public)
+
+### 🔜 Phase 6c — Affiliate links / resources page
+Static page at altarwed.com/resources. Faith-based book recommendations with Amazon affiliate links: "The Meaning of Marriage" (Timothy Keller), "The Five Love Languages" (Gary Chapman). Registry affiliate links: Amazon registry, Target registry, Zola, The Knot registry. Add link to SiteFooter and relevant dashboard pages.
+
+### 🔜 Phase 6d — In-app help / contact
+When a logged-in user finds a bug or needs help, show "Need help? Email hello@altarwed.com" in the dashboard. Options: discreet footer link in every dashboard page, or a small help widget. Inspired by cana.wedding FAQ page pattern.
+
+### 🔜 Phase 6e — Legal pages
+Privacy policy and Terms of Service at altarwed.com/privacy and altarwed.com/terms. Required before running paid ads (Facebook, Pinterest). Must cover: data collection (email, wedding info), GDPR/CCPA compliance, affiliate link disclosure, cookies. Generate legally-standard boilerplate tailored to AltarWed.
+
+### 🔜 Phase 6f — Mobile optimization
+Dedicated pass to ensure all dashboard pages and public wedding pages work well on iPhone and Android (Google Pixel). Friends are already testing on phones. Focus: touch targets, font sizes, modal UX on small screens, seating chart on mobile.
+
+### 🔜 Phase 6g — Celebration UX / confetti effects
+Confetti effect (like Robinhood) on key milestones: wedding website first published, checklist 100% complete, RSVP milestone (e.g. 50 guests). Use canvas-confetti library. Also consider: animated checkmark on task completion, subtle pulse on save-the-date sent.
+
+### 🔜 Phase 6h — Vow builder
+Guided writing tool with scripture integration. Prompts, templates, preview.
+
+### 🔜 Phase 6i — Ceremony builder
+Order of service editor: scripture readings, vow text, music cues, prayer moments. Denomination-aware defaults (Catholic Pre-Cana prompts, Baptist structure, etc.).
 
 ### 🔜 Phase 7 — Stripe billing
 Vendor subscriptions ($29/$79/$149), couple Covenant Plan ($9/mo).

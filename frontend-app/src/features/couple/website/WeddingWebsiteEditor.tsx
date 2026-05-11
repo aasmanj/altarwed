@@ -91,7 +91,7 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
       <div className="max-w-3xl mx-auto py-8 px-6">
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-8 border-b border-gold-light overflow-x-auto">
+      <div className="flex gap-1 mb-8 border-b border-gold-light overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
         {TABS.map(t => (
           <button
             key={t.id}

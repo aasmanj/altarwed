@@ -2,6 +2,7 @@ package com.altarwed.application.service;
 
 import com.altarwed.application.dto.CreateWeddingWebsiteRequest;
 import com.altarwed.application.dto.UpdateWeddingWebsiteRequest;
+import com.altarwed.application.dto.WeddingWebsiteSearchResultResponse;
 import com.altarwed.domain.exception.SlugAlreadyTakenException;
 import com.altarwed.domain.exception.WeddingWebsiteAlreadyExistsException;
 import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
@@ -175,5 +176,15 @@ public class WeddingWebsiteService {
         WeddingWebsite saved = websiteRepository.save(getByCoupleId(coupleId).unpublished());
         revalidationPort.revalidateWeddingPage(saved.slug());
         return saved;
+    }
+
+    public List<WeddingWebsiteSearchResultResponse> search(String name, Integer year) {
+        String nameParam = (name == null || name.isBlank()) ? null : name.trim();
+        return websiteRepository.searchPublishedByNameAndYear(nameParam, year)
+                .stream()
+                .map(w -> new WeddingWebsiteSearchResultResponse(
+                        w.slug(), w.partnerOneName(), w.partnerTwoName(),
+                        w.weddingDate(), w.venueCity(), w.venueState()))
+                .toList();
     }
 }

@@ -7,6 +7,7 @@ import com.altarwed.infrastructure.persistence.repository.WeddingWebsiteJpaRepos
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -51,6 +52,14 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
     @Override
     public boolean existsByCoupleId(UUID coupleId) {
         return jpaRepository.existsByCoupleId(coupleId);
+    }
+
+    @Override
+    public List<WeddingWebsite> searchPublishedByNameAndYear(String name, Integer year) {
+        LocalDate yearStart = year != null ? LocalDate.of(year, 1, 1) : null;
+        LocalDate yearEnd   = year != null ? LocalDate.of(year, 12, 31) : null;
+        return jpaRepository.searchPublished(name, yearStart, yearEnd)
+                .stream().map(this::toDomain).toList();
     }
 
     // -------------------------------------------------------------------------

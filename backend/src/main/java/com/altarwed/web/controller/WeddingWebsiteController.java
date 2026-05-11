@@ -4,6 +4,7 @@ import com.altarwed.application.dto.CreateWeddingWebsiteRequest;
 import com.altarwed.application.dto.UpdateWeddingWebsiteRequest;
 import com.altarwed.application.dto.VerifyPinRequest;
 import com.altarwed.application.dto.WeddingWebsiteResponse;
+import com.altarwed.application.dto.WeddingWebsiteSearchResultResponse;
 import com.altarwed.application.dto.WeddingWebsiteSitemapEntry;
 import com.altarwed.application.service.WeddingWebsiteService;
 import com.altarwed.web.mapper.WeddingWebsiteMapper;
@@ -43,6 +44,15 @@ public class WeddingWebsiteController {
             return ResponseEntity.ok().build();
         }
         return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+    }
+
+    // Public — search published websites by partner name and/or wedding year
+    @GetMapping("/search")
+    public ResponseEntity<List<WeddingWebsiteSearchResultResponse>> search(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Integer year
+    ) {
+        return ResponseEntity.ok(websiteService.search(name, year));
     }
 
     // Public — fetched by sitemap.ts to build /sitemap.xml (slug + updatedAt only, no PII)

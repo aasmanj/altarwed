@@ -48,8 +48,12 @@ export default async function WeddingPartyPage(
       <SectionHeading>Wedding Party</SectionHeading>
 
       {neutral.length > 0 && <PartyGroup label="Ceremony" members={neutral} />}
-      {bride.length > 0 && <PartyGroup label={`${wedding.partnerTwoName}'s side`} members={bride} />}
-      {groom.length > 0 && <PartyGroup label={`${wedding.partnerOneName}'s side`} members={groom} />}
+      {(bride.length > 0 || groom.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+          {bride.length > 0 && <PartyGroup label={`${wedding.partnerTwoName}'s side`} members={bride} />}
+          {groom.length > 0 && <PartyGroup label={`${wedding.partnerOneName}'s side`} members={groom} />}
+        </div>
+      )}
     </div>
   )
 }
@@ -71,7 +75,7 @@ function PartyGroup({ label, members }: { label: string; members: WeddingPartyMe
   return (
     <div>
       <h3 className="text-center text-xs uppercase tracking-[0.2em] text-[#a08060] mb-10">{label}</h3>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-10">
+      <div className="grid grid-cols-2 gap-8">
         {members.map(member => (
           <div key={member.id} className="text-center">
             {member.photoUrl ? (

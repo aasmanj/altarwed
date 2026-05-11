@@ -21,4 +21,6 @@ public interface WeddingWebsiteRepository {
     boolean existsBySlug(String slug);
 
     boolean existsByCoupleId(UUID coupleId);
+
+    List<WeddingWebsite> searchPublishedByNameAndYear(String name, Integer year);
 }
