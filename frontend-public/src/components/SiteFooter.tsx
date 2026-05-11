@@ -37,6 +37,7 @@ export default function SiteFooter() {
             <FooterLink href="/vendors?category=OFFICIANT">Officiants</FooterLink>
             <FooterLink href="/vendors?category=FLORIST">Florists</FooterLink>
             <FooterLink href="/vendors?category=COORDINATOR">Coordinators</FooterLink>
+            <FooterLink href="/blog">Blog</FooterLink>
           </ul>
         </div>
       </div>

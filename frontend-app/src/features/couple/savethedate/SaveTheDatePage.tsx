@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
@@ -6,6 +6,7 @@ import { useMutation } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { useGuests } from '@/features/couple/guests/useGuests'
+import { QRCodeCanvas } from 'qrcode.react'
 
 export default function SaveTheDatePage() {
   const { user } = useAuth()
@@ -13,6 +14,7 @@ export default function SaveTheDatePage() {
   const { data: website } = useWeddingWebsite(coupleId)
   const { data: guests = [] } = useGuests(coupleId)
   const [sent, setSent] = useState(false)
+  const qrRef = useRef<HTMLCanvasElement>(null)
 
   const eligibleCount = guests.filter(g => g.email).length
 
@@ -102,6 +104,48 @@ export default function SaveTheDatePage() {
             </div>
           )}
         </div>
+
+        {/* QR Code */}
+        {website && (
+          <div className="bg-white rounded-xl border border-stone-200 p-6">
+            <h2 className="font-semibold text-stone-900 mb-1">QR Code for physical invitations</h2>
+            <p className="text-sm text-stone-500 mb-5">
+              Print this QR code on your physical save-the-dates or invitations so guests can scan to visit your wedding website.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center gap-8">
+              <div className="flex-shrink-0 p-4 bg-white border border-stone-200 rounded-xl shadow-sm">
+                <QRCodeCanvas
+                  ref={qrRef}
+                  value={weddingUrl}
+                  size={160}
+                  fgColor="#3b2f2f"
+                  bgColor="#ffffff"
+                  level="M"
+                />
+              </div>
+              <div className="space-y-3 text-center sm:text-left">
+                <p className="text-xs text-stone-400 font-mono break-all">{weddingUrl}</p>
+                <button
+                  onClick={() => {
+                    const canvas = qrRef.current
+                    if (!canvas) return
+                    const link = document.createElement('a')
+                    link.download = `${website.slug}-qr-code.png`
+                    link.href = canvas.toDataURL('image/png')
+                    link.click()
+                  }}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#3b2f2f] text-white rounded-lg text-sm font-medium hover:bg-[#5c4033] transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download PNG
+                </button>
+                <p className="text-xs text-stone-400">Downloads as a high-resolution PNG ready for print.</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tips */}
         <div className="bg-amber-50 border border-amber-100 rounded-xl p-5 text-sm text-amber-800 space-y-1">

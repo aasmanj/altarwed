@@ -1,5 +1,6 @@
 package com.altarwed.web.exception;
 
+import com.altarwed.domain.exception.BlogPostNotFoundException;
 import com.altarwed.domain.exception.BudgetItemNotFoundException;
 import com.altarwed.domain.exception.SeatingTableNotFoundException;
 import com.altarwed.domain.exception.CoupleNotFoundException;
@@ -209,6 +210,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(SeatingTableNotFoundException.class)
     public ProblemDetail handleSeatingTableNotFound(SeatingTableNotFoundException ex) {
         return notFound("seating-table-not-found", ex.getMessage());
+    }
+
+    @ExceptionHandler(BlogPostNotFoundException.class)
+    public ProblemDetail handleBlogPostNotFound(BlogPostNotFoundException ex) {
+        return notFound("blog-post-not-found", ex.getMessage());
     }
 
     // Safety net — catches anything not handled above so stack traces never leak
