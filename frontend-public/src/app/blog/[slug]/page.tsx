@@ -4,7 +4,7 @@ import Link from 'next/link'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60
 
 interface Post {
   id: string
@@ -22,10 +22,12 @@ interface Post {
 }
 
 async function getPost(slug: string): Promise<Post | null> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+  if (!apiUrl) return null
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/blog/posts/${slug}`, {
-      next: { revalidate: 3600 },
-      signal: AbortSignal.timeout(5000),
+    const res = await fetch(`${apiUrl}/api/v1/blog/posts/${slug}`, {
+      next: { revalidate: 60 },
+      signal: AbortSignal.timeout(10000),
     })
     if (res.status === 404) return null
     if (!res.ok) return null

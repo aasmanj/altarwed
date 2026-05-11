@@ -3,7 +3,7 @@ import Link from 'next/link'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60
 
 export const metadata: Metadata = {
   title: 'Blog — Christian Wedding Planning Guides | AltarWed',
@@ -40,10 +40,12 @@ interface Post {
 }
 
 async function getPosts(): Promise<Post[]> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+  if (!apiUrl) return []
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/blog/posts`, {
-      next: { revalidate: 3600 },
-      signal: AbortSignal.timeout(5000),
+    const res = await fetch(`${apiUrl}/api/v1/blog/posts`, {
+      next: { revalidate: 60 },
+      signal: AbortSignal.timeout(10000),
     })
     if (!res.ok) return []
     return res.json()
