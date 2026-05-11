@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
+import confetti from 'canvas-confetti'
 import { useUpdateWeddingWebsite, usePublishWeddingWebsite, type WeddingWebsite } from './useWeddingWebsite'
 import PageHeader from '@/components/PageHeader'
 import { apiClient } from '@/core/api/client'
@@ -59,7 +60,16 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
     setSaved(true)
   }
 
-  const handlePublishToggle = () => publish.mutate(!website.isPublished)
+  const handlePublishToggle = () => {
+    const publishing = !website.isPublished
+    publish.mutate(publishing, {
+      onSuccess: () => {
+        if (publishing) {
+          confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 }, colors: ['#d4af6a', '#3b2f2f', '#f5ede0'] })
+        }
+      },
+    })
+  }
 
   const publicUrl = `https://www.altarwed.com/wedding/${website.slug}`
 

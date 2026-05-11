@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import confetti from 'canvas-confetti'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import {
@@ -37,6 +38,7 @@ export default function ChecklistPage() {
   const [newTitle, setNewTitle] = useState('')
   const [newCategory, setNewCategory] = useState<TaskCategory>('FAITH')
   const [filterDone, setFilterDone] = useState<'all' | 'todo' | 'done'>('all')
+  const confettiFiredAt100 = useRef(false)
 
   const total     = tasks.length
   const completed = tasks.filter(t => t.isCompleted).length
@@ -168,7 +170,20 @@ export default function ChecklistPage() {
                       <TaskRow
                         key={task.id}
                         task={task}
-                        onToggle={() => toggle.mutate({ taskId: task.id, isCompleted: !task.isCompleted })}
+                        onToggle={() => {
+                          const completing = !task.isCompleted
+                          toggle.mutate({ taskId: task.id, isCompleted: completing }, {
+                            onSuccess: () => {
+                              const newCompleted = completing ? completed + 1 : completed - 1
+                              if (newCompleted === total && total > 0 && !confettiFiredAt100.current) {
+                                confettiFiredAt100.current = true
+                                confetti({ particleCount: 200, spread: 100, origin: { y: 0.4 }, colors: ['#d4af6a', '#3b2f2f', '#f5ede0', '#22c55e'] })
+                              } else if (newCompleted < total) {
+                                confettiFiredAt100.current = false
+                              }
+                            },
+                          })
+                        }}
                         onDelete={() => deleteTask.mutate(task.id)}
                       />
                     ))}
