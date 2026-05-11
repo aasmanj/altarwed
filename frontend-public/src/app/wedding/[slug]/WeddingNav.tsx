@@ -45,12 +45,12 @@ export default function WeddingNav({ slug, hasStory, hasDetails, hasParty, hasRe
     <div className={`sticky top-0 z-40 bg-[#fdfaf6] border-b border-[#e8dcc8] transition-shadow duration-200 ${
       scrolled ? 'shadow-sm' : ''
     }`}>
-      <nav className="max-w-3xl mx-auto flex flex-wrap">
+      <nav className="max-w-3xl mx-auto flex">
         {tabs.map(tab => (
           <Link
             key={tab.href}
             href={tab.href}
-            className={`flex-shrink-0 px-5 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+            className={`flex-1 text-center px-1 py-4 text-xs font-medium border-b-2 transition-colors whitespace-nowrap overflow-hidden text-ellipsis ${
               isActive(tab.href)
                 ? 'border-[#d4af6a] text-[#3b2f2f]'
                 : 'border-transparent text-[#a08060] hover:text-[#3b2f2f]'
