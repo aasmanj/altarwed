@@ -229,7 +229,7 @@ Couple wedding website live at altarwed.com/wedding/[slug]. WeddingWebsite entit
 (e) Guest photo sharing / album — V17 migration. WeddingPhoto entity. Azure Blob upload at POST /api/v1/uploads/wedding-websites/{websiteId}/photos. Dashboard grid UI with caption edit + delete.
 - Async email — AsyncConfig (ThreadPoolTaskExecutor, 4–10 threads, queue 200, CallerRunsPolicy). AsyncEmailService wraps all sends with @Async. GuestService + PasswordResetService updated.
 - @/ path alias enforced — .eslintrc.json no-restricted-imports bans relative parent imports across frontend-public.
-- Next Flyway migration: V20
+- Next Flyway migration: V23
 
 ### ✅ Phase 6a — Scripture builder (COMPLETE — EXPERIMENTAL)
 Scripture browser at /dashboard/scripture. GET /api/v1/scripture/featured (15 curated verses). GET /api/v1/scripture/search?q= (proxies bible-api.com). "Pin to my website" calls existing PATCH endpoint. WeddingWebsiteEditor gains "Browse verses" inline modal.
@@ -242,31 +242,34 @@ Scripture browser at /dashboard/scripture. GET /api/v1/scripture/featured (15 cu
 - Wedding party public page: bride/groom sides now displayed side-by-side (2-column grid on md+)
 - Tab nav scrollbar hidden on both editor (frontend-app) and public wedding page (frontend-public)
 
-### 🔜 Phase 6c — Affiliate links / resources page
-Static page at altarwed.com/resources. Faith-based book recommendations with Amazon affiliate links: "The Meaning of Marriage" (Timothy Keller), "The Five Love Languages" (Gary Chapman). Registry affiliate links: Amazon registry, Target registry, Zola, The Knot registry. Add link to SiteFooter and relevant dashboard pages.
+### ✅ Phase 6c — Affiliate links / resources page (COMPLETE)
+Static page at altarwed.com/resources. Faith-based book recommendations with Amazon affiliate links: "The Meaning of Marriage" (Timothy Keller), "The Five Love Languages" (Gary Chapman). Registry affiliate links: Amazon, Target, Zola, The Knot. Affiliate disclosure included. Added to SiteHeader and SiteFooter.
 
-### 🔜 Phase 6d — In-app help / contact
-When a logged-in user finds a bug or needs help, show "Need help? Email hello@altarwed.com" in the dashboard. Options: discreet footer link in every dashboard page, or a small help widget. Inspired by cana.wedding FAQ page pattern.
+### ✅ Phase 6d — In-app help / contact (COMPLETE)
+Help banner at top of CoupleDashboard: "Questions or found a bug? Email hello@altarwed.com — Jordan responds personally."
 
-### 🔜 Phase 6e — Legal pages
-Privacy policy and Terms of Service at altarwed.com/privacy and altarwed.com/terms. Required before running paid ads (Facebook, Pinterest). Must cover: data collection (email, wedding info), GDPR/CCPA compliance, affiliate link disclosure, cookies. Generate legally-standard boilerplate tailored to AltarWed.
+### ✅ Phase 6e — Legal pages (COMPLETE)
+Privacy policy at altarwed.com/privacy and Terms of Service at altarwed.com/terms. Both statically rendered. Added to SiteFooter. Covers: data collection, GDPR/CCPA, affiliate disclosure, cookies.
 
-### 🔜 Phase 6f — Mobile optimization
-Dedicated pass to ensure all dashboard pages and public wedding pages work well on iPhone and Android (Google Pixel). Friends are already testing on phones. Focus: touch targets, font sizes, modal UX on small screens, seating chart on mobile.
+### ✅ Phase 6f — Mobile optimization (COMPLETE)
+Responsive pass: CoupleDashboard header (truncate email, bigger touch targets), SeatingPage mobile tip banner + scrollable modal, BudgetPage + PhotosPage scrollable modals (max-h-[90vh]).
 
-### 🔜 Phase 6g — Celebration UX / confetti effects
-Confetti effect (like Robinhood) on key milestones: wedding website first published, checklist 100% complete, RSVP milestone (e.g. 50 guests). Use canvas-confetti library. Also consider: animated checkmark on task completion, subtle pulse on save-the-date sent.
+### ✅ Phase 6g — Celebration UX / confetti effects (COMPLETE)
+canvas-confetti fires on: website first published (Draft→Published), checklist 100% complete (useRef guard prevents repeat). WeddingWebsiteEditor and ChecklistPage updated.
 
-### 🔜 Phase 6h — Vow builder
-Guided writing tool with scripture integration. Prompts, templates, preview.
+### ✅ Phase 6h — Vow builder (COMPLETE)
+V20 migration adds partner_one_vows / partner_two_vows to wedding_websites. Partner-tabbed textarea with word count. Sidebar: opening line starters, writing prompts, scripture shortcut. Private side-by-side preview. Dashboard card + route at /dashboard/vows.
 
-### 🔜 Phase 6i — Ceremony builder
-Order of service editor: scripture readings, vow text, music cues, prayer moments. Denomination-aware defaults (Catholic Pre-Cana prompts, Baptist structure, etc.).
+### ✅ Phase 6i — Ceremony builder (COMPLETE)
+V21 migration adds ceremony_sections table. 12 section types (processional, prayer, scripture reading, vows, ring exchange, recessional, etc.). One-click classic Christian template seeds 9 sections. Full CRUD with sortOrder. Hexagonal: CeremonySection domain model → CeremonySectionRepository port → JPA repo → adapter → service → controller. Dashboard card + route at /dashboard/ceremony.
+
+### ✅ Guest mailing address (COMPLETE)
+V22 migration adds mail_address (NVARCHAR 500, nullable) to guests table. Freeform single field. Captured in Add Guest and Edit Guest forms. Positioned for future Lob.com print-mail integration (see Scale-Up section below).
 
 ### 🔜 Phase 7 — Homepage launch + SEO content
 (a) Publish the real altarwed.com homepage — replace the waitlist with a full marketing homepage. Stop capturing waitlist emails; convert to direct sign-up CTAs. The homepage should showcase the wedding website feature, vendor directory, and faith-first differentiators. Open couple and vendor registration to the public.
 (b) Blog / content marketing — 2 posts per week targeting high-volume wedding SEO keywords. Blog at altarwed.com/blog/[slug]. Focus on faith-based wedding content: scripture for weddings, Christian vow examples, denomination-specific ceremony guides, etc. Schema: Article JSON-LD. Target keywords: "christian wedding vows" (18K/mo), "bible verses for weddings" (40K/mo), "christian wedding ceremony" (12K/mo).
-(c) Blog infra: BlogPost entity (slug, title, excerpt, content/MDX, author, publishedAt, seoTitle, seoDescription, tags). Flyway V22. ISR revalidate 3600s.
+(c) Blog infra: BlogPost entity (slug, title, excerpt, content/MDX, author, publishedAt, seoTitle, seoDescription, tags). Flyway V23. ISR revalidate 3600s.
 
 ### 🔜 Phase 8 — Stripe billing
 Vendor subscriptions ($29/$79/$149), couple Covenant Plan ($9/mo). Wire VendorSubscription entity to Stripe. Add subscription management UI. Webhook handler for payment events.
@@ -279,6 +282,21 @@ Vendor subscriptions ($29/$79/$149), couple Covenant Plan ($9/mo). Wire VendorSu
 - Photo album upload: POST /api/v1/uploads/wedding-websites/{websiteId}/photos (⚠️ verify exists)
 - All upload endpoints require authentication and validate file type + 15 MB size limit
 - Soft delete: website data preserved, public page returns 404
+
+## Scale-Up Path (MVP → Enterprise)
+These are intentional deferments — build simple now, upgrade when traffic justifies it.
+
+### Couple search (currently: JPQL LIKE query)
+- MVP: `WHERE partner_one_name LIKE :name OR partner_two_name LIKE :name` — fine for thousands of couples
+- Enterprise upgrade: Azure Cognitive Search (full-text, fuzzy matching, facets). Wire when LIKE queries get slow or couples complain search doesn't find their names.
+
+### Email delivery (currently: synchronous Resend via @Async thread pool)
+- MVP: Resend API called on a Spring @Async thread pool (4–10 threads, queue 200). Handles thousands of emails per day.
+- Enterprise upgrade: Azure Service Bus queue. GuestService publishes a message; a separate EmailWorker service consumes it. Decouples email failures from the main request, enables retry, dead-letter queue for failures, and horizontal scale. Wire when email volume or failure handling becomes a bottleneck.
+
+### Physical mail / print invitations (currently: mailAddress field captured, nothing wired)
+- MVP: Couples export addresses manually or take to a print shop.
+- Enterprise upgrade: Lob.com API integration. POST to Lob with guest addresses + design template → Lob prints and mails postcards. ~$0.85/postcard. Bundle as a Covenant Plan paid feature.
 
 ## When You Are Unsure
 - Follow hexagonal architecture over convenience
