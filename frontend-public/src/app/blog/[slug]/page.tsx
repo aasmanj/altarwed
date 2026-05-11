@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import Image from 'next/image'
 import Link from 'next/link'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
@@ -92,8 +93,16 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       />
       <SiteHeader />
       <main>
+        {/* Cover image */}
+        {post.coverImage && (
+          <div className="relative w-full h-64 sm:h-80 overflow-hidden">
+            <Image src={post.coverImage} alt={post.title} fill className="object-cover" priority />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#3b2f2f]/40 to-transparent" />
+          </div>
+        )}
+
         {/* Header */}
-        <section className="max-w-3xl mx-auto px-6 pt-14 pb-8">
+        <section className="max-w-3xl mx-auto px-6 pt-10 pb-8">
           <div className="mb-6">
             <Link href="/blog" className="text-sm text-[#a08060] hover:text-[#3b2f2f] transition">
               ← Back to blog

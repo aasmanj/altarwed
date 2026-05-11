@@ -57,18 +57,6 @@ const REGISTRIES = [
     href: 'https://www.target.com/gift-registry/wedding',
     logo: '🎯',
   },
-  {
-    name: 'Zola',
-    description: 'Modern, beautiful registry experience. Supports cash funds, experiences, and traditional gifts all in one place.',
-    href: 'https://www.zola.com/wedding-registry',
-    logo: '✨',
-  },
-  {
-    name: 'The Knot Registry',
-    description: 'Universal registry that aggregates gifts from any store. Simple for guests to use.',
-    href: 'https://www.theknot.com/registry',
-    logo: '💍',
-  },
 ]
 
 export default function ResourcesPage() {

@@ -45,7 +45,7 @@ export default function WeddingNav({ slug, hasStory, hasDetails, hasParty, hasRe
     <div className={`sticky top-0 z-40 bg-[#fdfaf6] border-b border-[#e8dcc8] transition-shadow duration-200 ${
       scrolled ? 'shadow-sm' : ''
     }`}>
-      <nav className="max-w-3xl mx-auto flex overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+      <nav className="max-w-3xl mx-auto flex flex-wrap">
         {tabs.map(tab => (
           <Link
             key={tab.href}

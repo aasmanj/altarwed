@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
@@ -87,7 +88,7 @@ export default async function BlogIndexPage() {
           {posts.length === 0 ? (
             <div className="text-center py-20 text-[#a08060]">
               <p className="text-lg font-serif italic">Articles coming soon.</p>
-              <p className="text-sm mt-2">Check back shortly — new posts are published weekly.</p>
+              <p className="text-sm mt-2">Check back shortly. New posts are published weekly.</p>
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 gap-8">
@@ -97,13 +98,24 @@ export default async function BlogIndexPage() {
                   href={`/blog/${post.slug}`}
                   className="group block bg-white rounded-2xl border border-[#e8dcc8] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all overflow-hidden"
                 >
-                  <div className="bg-[#f5ede0] px-6 py-8">
-                    {post.tags && (
-                      <span className="text-xs font-semibold uppercase tracking-widest text-[#a07840]">
-                        {post.tags.split(',')[0].trim()}
-                      </span>
-                    )}
-                  </div>
+                  {post.coverImage ? (
+                    <div className="relative h-48 w-full overflow-hidden">
+                      <Image src={post.coverImage} alt={post.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
+                      {post.tags && (
+                        <span className="absolute top-3 left-3 text-xs font-semibold uppercase tracking-widest text-white bg-[#3b2f2f]/70 backdrop-blur-sm px-2 py-1 rounded-full">
+                          {post.tags.split(',')[0].trim()}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="bg-[#f5ede0] px-6 py-8">
+                      {post.tags && (
+                        <span className="text-xs font-semibold uppercase tracking-widest text-[#a07840]">
+                          {post.tags.split(',')[0].trim()}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <div className="p-6">
                     <h2 className="font-serif text-lg font-semibold text-[#3b2f2f] mb-2 group-hover:text-[#d4af6a] transition-colors">
                       {post.title}
