@@ -14,6 +14,7 @@ export default function SiteHeader() {
         <nav className="hidden sm:flex items-center gap-1">
           <NavLink href="/vendors">Find Vendors</NavLink>
           <NavLink href="/find-wedding">Find a Wedding</NavLink>
+          <NavLink href="/resources">Resources</NavLink>
           <NavLink href="https://www.altarwed.com/vendors?category=PHOTOGRAPHER">Photographers</NavLink>
           <NavLink href="https://www.altarwed.com/vendors?category=VENUE">Venues</NavLink>
           <NavLink href="https://www.altarwed.com/vendors?category=OFFICIANT">Officiants</NavLink>

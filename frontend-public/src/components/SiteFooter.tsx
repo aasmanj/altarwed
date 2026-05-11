@@ -41,7 +41,14 @@ export default function SiteFooter() {
         </div>
       </div>
 
-      <div className="border-t border-[#e8dcc8] py-5 text-center text-xs text-[#a08060]">
+      <div className="border-t border-[#e8dcc8] px-6 py-4 flex flex-wrap gap-x-6 gap-y-1 justify-center">
+        <Link href="/resources" className="text-xs text-[#a08060] hover:text-[#3b2f2f] transition">Resources</Link>
+        <Link href="/find-wedding" className="text-xs text-[#a08060] hover:text-[#3b2f2f] transition">Find a Wedding</Link>
+        <Link href="/privacy" className="text-xs text-[#a08060] hover:text-[#3b2f2f] transition">Privacy Policy</Link>
+        <Link href="/terms" className="text-xs text-[#a08060] hover:text-[#3b2f2f] transition">Terms of Service</Link>
+      </div>
+
+      <div className="border-t border-[#e8dcc8] py-4 text-center text-xs text-[#a08060]">
         © {new Date().getFullYear()} AltarWed · Faith-first wedding planning
       </div>
     </footer>

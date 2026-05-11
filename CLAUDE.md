@@ -263,8 +263,13 @@ Guided writing tool with scripture integration. Prompts, templates, preview.
 ### 🔜 Phase 6i — Ceremony builder
 Order of service editor: scripture readings, vow text, music cues, prayer moments. Denomination-aware defaults (Catholic Pre-Cana prompts, Baptist structure, etc.).
 
-### 🔜 Phase 7 — Stripe billing
-Vendor subscriptions ($29/$79/$149), couple Covenant Plan ($9/mo).
+### 🔜 Phase 7 — Homepage launch + SEO content
+(a) Publish the real altarwed.com homepage — replace the waitlist with a full marketing homepage. Stop capturing waitlist emails; convert to direct sign-up CTAs. The homepage should showcase the wedding website feature, vendor directory, and faith-first differentiators. Open couple and vendor registration to the public.
+(b) Blog / content marketing — 2 posts per week targeting high-volume wedding SEO keywords. Blog at altarwed.com/blog/[slug]. Focus on faith-based wedding content: scripture for weddings, Christian vow examples, denomination-specific ceremony guides, etc. Schema: Article JSON-LD. Target keywords: "christian wedding vows" (18K/mo), "bible verses for weddings" (40K/mo), "christian wedding ceremony" (12K/mo).
+(c) Blog infra: BlogPost entity (slug, title, excerpt, content/MDX, author, publishedAt, seoTitle, seoDescription, tags). Flyway V22. ISR revalidate 3600s.
+
+### 🔜 Phase 8 — Stripe billing
+Vendor subscriptions ($29/$79/$149), couple Covenant Plan ($9/mo). Wire VendorSubscription entity to Stripe. Add subscription management UI. Webhook handler for payment events.
 
 ## Wedding Website Feature — Live Details
 - URL pattern: altarwed.com/wedding/[slug]
