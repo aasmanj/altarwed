@@ -148,7 +148,7 @@ function TableModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-semibold text-stone-900 mb-5">
           {table ? 'Edit Table' : 'Add Table'}
         </h2>
@@ -292,8 +292,11 @@ export default function SeatingPage() {
           </div>
         ) : (
           <>
-            <p className="text-sm text-stone-500 mb-4">
+            <p className="text-sm text-stone-500 mb-1">
               Drag guests between tables. Click the pencil icon to rename a table or change its capacity.
+            </p>
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4 sm:hidden">
+              Tip: This feature works best on a tablet or desktop for drag-and-drop. On mobile, scroll horizontally to see all tables.
             </p>
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
               <div className="flex gap-4 items-start pb-4">

@@ -16,13 +16,13 @@ export default function CoupleDashboard() {
 
   return (
     <div className="min-h-screen bg-ivory">
-      <header className="border-b border-gold-light bg-white px-6 py-4 flex items-center justify-between">
-        <span className="font-serif text-xl font-bold text-brown">AltarWed</span>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-brown-light">{user?.partnerOneName ?? user?.email}</span>
+      <header className="border-b border-gold-light bg-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
+        <span className="font-serif text-xl font-bold text-brown shrink-0">AltarWed</span>
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          <span className="text-sm text-brown-light truncate hidden sm:block">{user?.partnerOneName ?? user?.email}</span>
           <button
             onClick={logout}
-            className="text-sm text-brown-light hover:text-brown transition"
+            className="shrink-0 text-sm font-medium text-brown-light hover:text-brown transition py-2 px-3 rounded-lg hover:bg-ivory"
           >
             Sign out
           </button>
