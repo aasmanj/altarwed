@@ -17,6 +17,7 @@ import BudgetPage from '@/features/couple/budget/BudgetPage'
 import SaveTheDatePage from '@/features/couple/savethedate/SaveTheDatePage'
 import PhotosPage from '@/features/couple/photos/PhotosPage'
 import SeatingPage from '@/features/couple/seating/SeatingPage'
+import ScripturePage from '@/features/couple/scripture/ScripturePage'
 
 export default function App() {
   return (
@@ -98,6 +99,14 @@ export default function App() {
             element={
               <ProtectedRoute role="COUPLE">
                 <SeatingPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/scripture"
+            element={
+              <ProtectedRoute role="COUPLE">
+                <ScripturePage />
               </ProtectedRoute>
             }
           />

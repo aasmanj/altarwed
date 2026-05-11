@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { useUpdateWeddingWebsite, usePublishWeddingWebsite, type WeddingWebsite } from './useWeddingWebsite'
 import PageHeader from '@/components/PageHeader'
+import { apiClient } from '@/core/api/client'
 
 interface Props {
   website: WeddingWebsite
@@ -328,6 +330,99 @@ function PrivacyTab({
   )
 }
 
+function ScriptureBrowserModal({ onSelect, onClose }: {
+  onSelect: (ref: string, text: string) => void
+  onClose: () => void
+}) {
+  const [browseQuery, setBrowseQuery] = useState('')
+  const featured = useQuery<{ references: string[] }>({
+    queryKey: ['scripture-featured'],
+    queryFn: () => apiClient.get('/api/v1/scripture/featured').then(r => r.data),
+    staleTime: Infinity,
+  })
+  const lookup = useMutation<{ reference: string; text: string }, Error, string>({
+    mutationFn: (q: string) =>
+      apiClient.get(`/api/v1/scripture/search?q=${encodeURIComponent(q)}`).then(r => r.data),
+  })
+  const [preview, setPreview] = useState<{ reference: string; text: string } | null>(null)
+
+  const handleLookup = (ref: string) => {
+    lookup.mutate(ref, { onSuccess: (v) => setPreview(v) })
+  }
+
+  const handleBrowseSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (browseQuery.trim()) handleLookup(browseQuery.trim())
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gold-light">
+          <h2 className="font-serif text-lg font-bold text-brown">Browse Wedding Verses</h2>
+          <button onClick={onClose} className="text-brown-light hover:text-brown text-xl leading-none">✕</button>
+        </div>
+
+        <div className="overflow-y-auto px-6 py-4 space-y-5 flex-1">
+          {/* Search */}
+          <form onSubmit={handleBrowseSearch} className="flex gap-2">
+            <input
+              type="text"
+              value={browseQuery}
+              onChange={e => setBrowseQuery(e.target.value)}
+              placeholder='e.g. "Ephesians 5:25"'
+              className="flex-1 rounded-lg border border-gold-light px-3 py-2 text-sm text-brown placeholder-brown-light/60 focus:border-gold focus:outline-none"
+            />
+            <button
+              type="submit"
+              disabled={!browseQuery.trim() || lookup.isPending}
+              className="rounded-lg border border-gold px-3 py-2 text-sm font-medium text-brown hover:bg-gold/10 disabled:opacity-50 transition whitespace-nowrap"
+            >
+              {lookup.isPending ? 'Looking up…' : 'Look up'}
+            </button>
+          </form>
+          {lookup.isError && (
+            <p className="text-xs text-red-600">Verse not found. Try "John 3:16" or "1 Corinthians 13".</p>
+          )}
+
+          {/* Preview */}
+          {preview && (
+            <div className="rounded-xl border border-gold bg-gold/5 px-4 py-3 space-y-2">
+              <p className="font-serif font-bold text-brown">{preview.reference}</p>
+              <p className="text-sm text-brown-light italic leading-relaxed">"{preview.text}"</p>
+              <button
+                onClick={() => { onSelect(preview.reference, preview.text); onClose() }}
+                className="rounded-lg bg-brown px-4 py-1.5 text-sm font-semibold text-white hover:bg-brown/90 transition"
+              >
+                Use this verse
+              </button>
+            </div>
+          )}
+
+          {/* Featured list */}
+          {featured.data && (
+            <div>
+              <p className="text-xs font-medium text-brown-light uppercase tracking-wide mb-2">Curated wedding verses</p>
+              <ul className="space-y-1.5">
+                {featured.data.references.map(ref => (
+                  <li key={ref}>
+                    <button
+                      onClick={() => handleLookup(ref)}
+                      className="w-full text-left rounded-lg border border-gold-light bg-white px-3 py-2 text-sm text-brown hover:border-gold hover:bg-gold/5 transition"
+                    >
+                      {ref}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ScriptureTab({
   reference, text, onReferenceChange, onTextChange, onFetched,
 }: {
@@ -339,13 +434,13 @@ function ScriptureTab({
 }) {
   const [fetching, setFetching] = useState(false)
   const [fetchError, setFetchError] = useState('')
+  const [showBrowser, setShowBrowser] = useState(false)
 
   const handleFetch = async () => {
     if (!reference.trim()) return
     setFetching(true)
     setFetchError('')
     try {
-      // bible-api.com is free, no API key, supports references like "1 corinthians 13"
       const query = encodeURIComponent(reference.trim())
       const res = await fetch(`https://bible-api.com/${query}`)
       if (!res.ok) throw new Error('Not found')
@@ -361,6 +456,12 @@ function ScriptureTab({
 
   return (
     <>
+      {showBrowser && (
+        <ScriptureBrowserModal
+          onSelect={(ref, txt) => onFetched(ref, txt)}
+          onClose={() => setShowBrowser(false)}
+        />
+      )}
       <Row label="Scripture reference" hint='e.g. "1 Corinthians 13" or "John 3:16-17"'>
         <div className="flex gap-2">
           <Input value={reference} onChange={onReferenceChange} className={inputCls + ' flex-1'} />
@@ -374,6 +475,13 @@ function ScriptureTab({
           </button>
         </div>
         {fetchError && <p className="mt-1.5 text-xs text-red-600">{fetchError}</p>}
+        <button
+          type="button"
+          onClick={() => setShowBrowser(true)}
+          className="mt-2 text-sm text-gold hover:underline font-medium"
+        >
+          Browse wedding verses →
+        </button>
       </Row>
       <Row label="Scripture text" hint="Edit freely after autofilling.">
         <Textarea value={text} onChange={onTextChange} rows={8} />
