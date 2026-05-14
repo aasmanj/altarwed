@@ -58,6 +58,10 @@ export const metadata: Metadata = {
       'A faith-based platform for Christian couples and vendors.',
     images: ['/og-image.png'],
   },
+  icons: {
+    icon: '/icon.png',
+    apple: '/apple-icon.png',
+  },
   robots: {
     index: true,
     follow: true,
@@ -68,6 +72,15 @@ export const metadata: Metadata = {
   },
 }
 
+const orgJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'AltarWed',
+  url: siteUrl,
+  logo: `${siteUrl}/icon.png`,
+  sameAs: [],
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -76,6 +89,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
+        />
         <FacebookPixel />
         {children}
       </body>
