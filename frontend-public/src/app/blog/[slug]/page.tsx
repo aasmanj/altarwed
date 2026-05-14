@@ -152,7 +152,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               Ready to start planning your Christian wedding?
             </h2>
             <p className="text-[#6b5344] mb-7 text-sm">
-              Create your free wedding website, manage your guest list, and build your ceremony — all in one faith-first platform.
+              Create your free wedding website, manage your guest list, and build your ceremony on one faith-based platform.
             </p>
             <a
               href="https://app.altarwed.com/register"

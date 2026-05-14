@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import {
@@ -7,11 +7,13 @@ import {
   DragOverlay,
   DragStartEvent,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   useDroppable,
   useDraggable,
 } from '@dnd-kit/core'
+import { Users } from 'lucide-react'
 import { useGuests, useUpdateGuest, type Guest } from '@/features/couple/guests/useGuests'
 import {
   useSeatingTables,
@@ -21,7 +23,7 @@ import {
   type SeatingTable,
 } from './useSeatingTables'
 
-// ─── Guest chip (draggable) ──────────────────────────────────────────────────
+// ─── Guest chip (draggable on desktop) ──────────────────────────────────────
 
 function GuestChip({ guest }: { guest: Guest }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: guest.id })
@@ -46,14 +48,14 @@ function GuestChip({ guest }: { guest: Guest }) {
   )
 }
 
-// ─── Table column (droppable) ────────────────────────────────────────────────
+// ─── Table column (droppable, desktop only) ──────────────────────────────────
 
 function TableColumn({
   table,
   guests,
   onEdit,
 }: {
-  table: SeatingTable | null   // null = unassigned column
+  table: SeatingTable | null
   guests: Guest[]
   onEdit?: (t: SeatingTable) => void
 }) {
@@ -70,7 +72,6 @@ function TableColumn({
         isOver ? 'border-amber-400 bg-amber-50' : 'border-stone-200 bg-stone-50'
       }`}
     >
-      {/* Header */}
       <div className="px-3 py-2 border-b border-stone-200 bg-white rounded-t-xl">
         <div className="flex items-center justify-between gap-1">
           <p className="text-xs font-semibold text-stone-700 truncate">
@@ -97,13 +98,107 @@ function TableColumn({
           <p className="text-xs text-stone-400 mt-0.5">{filled} guests</p>
         )}
       </div>
-
-      {/* Guest list */}
       <div className="p-2 space-y-1.5 flex-1 min-h-[80px]">
         {guests.map(g => (
           <GuestChip key={g.id} guest={g} />
         ))}
       </div>
+    </div>
+  )
+}
+
+// ─── Mobile tap-to-assign card ───────────────────────────────────────────────
+
+function MobileGuestChip({
+  guest,
+  isSelected,
+  onTap,
+}: {
+  guest: Guest
+  isSelected: boolean
+  onTap: () => void
+}) {
+  return (
+    <button
+      onClick={onTap}
+      className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm text-left transition ${
+        isSelected
+          ? 'border-amber-400 bg-amber-50 ring-2 ring-amber-300'
+          : 'border-stone-200 bg-white text-stone-800'
+      }`}
+    >
+      <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+      <span className="truncate font-medium">{guest.name}</span>
+      {guest.plusOneName && (
+        <span className="text-xs text-stone-400 flex-shrink-0 ml-auto">+{guest.plusOneName}</span>
+      )}
+      {isSelected && (
+        <span className="text-xs text-amber-600 font-semibold flex-shrink-0 ml-auto">Selected</span>
+      )}
+    </button>
+  )
+}
+
+function MobileTableCard({
+  table,
+  guests,
+  selectedGuestId,
+  onAssign,
+  onEdit,
+}: {
+  table: SeatingTable
+  guests: Guest[]
+  selectedGuestId: string | null
+  onAssign: (tableId: string) => void
+  onEdit: (t: SeatingTable) => void
+}) {
+  const filled = guests.length
+  const overCapacity = filled > table.capacity
+
+  return (
+    <div className="rounded-xl border-2 border-stone-200 bg-stone-50 overflow-hidden">
+      <div className="px-4 py-3 border-b border-stone-200 bg-white flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-stone-700">{table.name}</p>
+          <p className={`text-xs mt-0.5 ${overCapacity ? 'text-rose-500 font-medium' : 'text-stone-400'}`}>
+            {filled}/{table.capacity} seats{overCapacity ? ' · over capacity' : ''}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {selectedGuestId && (
+            <button
+              onClick={() => onAssign(table.id)}
+              className="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-amber-700 transition"
+            >
+              Assign here
+            </button>
+          )}
+          <button
+            onClick={() => onEdit(table)}
+            className="text-stone-300 hover:text-stone-600"
+            title="Edit table"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      {guests.length > 0 && (
+        <div className="p-3 flex flex-wrap gap-2">
+          {guests.map(g => (
+            <span
+              key={g.id}
+              className="text-xs bg-white border border-stone-200 rounded-full px-2.5 py-1 text-stone-700"
+            >
+              {g.name}
+            </span>
+          ))}
+        </div>
+      )}
+      {guests.length === 0 && (
+        <p className="px-4 py-3 text-xs text-stone-400 italic">No guests assigned</p>
+      )}
     </div>
   )
 }
@@ -115,7 +210,7 @@ function TableModal({
   coupleId,
   onClose,
 }: {
-  table: SeatingTable | null  // null = create mode
+  table: SeatingTable | null
   coupleId: string
   onClose: () => void
 }) {
@@ -215,8 +310,20 @@ export default function SeatingPage() {
 
   const [activeGuest, setActiveGuest] = useState<Guest | null>(null)
   const [editingTable, setEditingTable] = useState<SeatingTable | 'new' | null>(null)
+  const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+  )
 
   function handleDragStart(event: DragStartEvent) {
     setActiveGuest(guests.find(g => g.id === event.active.id) ?? null)
@@ -229,12 +336,10 @@ export default function SeatingPage() {
     const guest = guests.find(g => g.id === active.id)
     if (!guest) return
 
-    // Resolve the drop target: unassigned column or a named table
     const targetTable = over.id === 'unassigned'
       ? null
       : tables.find(t => t.id === over.id)
 
-    // tableNumber: use 1-based index into the sorted table array
     const newTableNumber = targetTable
       ? tables.indexOf(targetTable) + 1
       : null
@@ -243,13 +348,26 @@ export default function SeatingPage() {
     updateGuest.mutate({ guestId: guest.id, payload: { tableNumber: newTableNumber ?? undefined } })
   }
 
-  // Map guests to table slots: tableNumber 1..N → tables[0..N-1]
+  function handleMobileAssign(tableId: string) {
+    if (!selectedGuestId) return
+    const guest = guests.find(g => g.id === selectedGuestId)
+    if (!guest) return
+    const targetTable = tables.find(t => t.id === tableId)
+    const newTableNumber = targetTable ? tables.indexOf(targetTable) + 1 : null
+    updateGuest.mutate({ guestId: guest.id, payload: { tableNumber: newTableNumber ?? undefined } })
+    setSelectedGuestId(null)
+  }
+
+  function handleMobileUnassign(guestId: string) {
+    updateGuest.mutate({ guestId, payload: { tableNumber: undefined } })
+    setSelectedGuestId(null)
+  }
+
   function guestsForTable(table: SeatingTable) {
-    const idx = tables.indexOf(table) + 1  // 1-based
+    const idx = tables.indexOf(table) + 1
     return guests.filter(g => g.tableNumber === idx)
   }
   const unassignedGuests = guests.filter(g => !g.tableNumber || !tables[g.tableNumber - 1])
-
   const assignedCount = guests.filter(g => g.tableNumber && tables[g.tableNumber - 1]).length
   const isLoading = guestsLoading || tablesLoading
 
@@ -265,7 +383,7 @@ export default function SeatingPage() {
     <div className="min-h-screen bg-ivory flex flex-col">
       <PageHeader
         title="Seating Chart"
-        subtitle="Drag guests between tables to assign seats"
+        subtitle={isMobile ? 'Tap a guest, then tap a table to assign' : 'Drag guests between tables to assign seats'}
         action={
           <button
             onClick={() => setEditingTable('new')}
@@ -276,13 +394,14 @@ export default function SeatingPage() {
         }
       />
 
-      {/* Board */}
-      <div className="flex-1 px-6 py-6 overflow-auto">
+      <div className="flex-1 px-4 md:px-6 py-6 overflow-auto">
         {tables.length === 0 ? (
           <div className="max-w-md mx-auto mt-16 text-center">
-            <div className="text-5xl mb-4">🪑</div>
+            <div className="flex justify-center mb-4">
+              <Users className="w-12 h-12 text-stone-300" strokeWidth={1.5} />
+            </div>
             <h3 className="text-lg font-medium text-stone-800 mb-2">No tables yet</h3>
-            <p className="text-stone-500 text-sm mb-6">Add tables first, then drag guests to assign seats.</p>
+            <p className="text-stone-500 text-sm mb-6">Add tables first, then assign guests to seats.</p>
             <button
               onClick={() => setEditingTable('new')}
               className="px-5 py-2.5 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700"
@@ -290,22 +409,88 @@ export default function SeatingPage() {
               Add First Table
             </button>
           </div>
+        ) : isMobile ? (
+          // Mobile: tap-to-assign vertical layout
+          <div className="space-y-6">
+            {selectedGuestId && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 text-sm text-amber-800 font-medium">
+                Tap a table below to assign {guests.find(g => g.id === selectedGuestId)?.name ?? 'guest'}.
+                <button
+                  onClick={() => setSelectedGuestId(null)}
+                  className="ml-2 text-amber-600 underline text-xs"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            {/* Unassigned pool */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-stone-500 mb-2">
+                Unassigned ({unassignedGuests.length})
+              </p>
+              {unassignedGuests.length === 0 ? (
+                <p className="text-xs text-stone-400 italic">All guests are assigned.</p>
+              ) : (
+                <div className="space-y-2">
+                  {unassignedGuests.map(g => (
+                    <MobileGuestChip
+                      key={g.id}
+                      guest={g}
+                      isSelected={selectedGuestId === g.id}
+                      onTap={() => setSelectedGuestId(prev => prev === g.id ? null : g.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Tables */}
+            <div className="space-y-4">
+              {tables.map(t => {
+                const tableGuests = guestsForTable(t)
+                return (
+                  <div key={t.id}>
+                    <MobileTableCard
+                      table={t}
+                      guests={tableGuests}
+                      selectedGuestId={selectedGuestId}
+                      onAssign={handleMobileAssign}
+                      onEdit={setEditingTable}
+                    />
+                    {/* Show assigned guests with unassign option */}
+                    {tableGuests.length > 0 && (
+                      <div className="mt-2 space-y-1.5 px-1">
+                        {tableGuests.map(g => (
+                          <div key={g.id} className="flex items-center justify-between gap-2">
+                            <span className="text-xs text-stone-600 truncate">{g.name}</span>
+                            <button
+                              onClick={() => handleMobileUnassign(g.id)}
+                              className="text-xs text-stone-400 hover:text-rose-500 flex-shrink-0"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         ) : (
+          // Desktop: drag-and-drop
           <>
-            <p className="text-sm text-stone-500 mb-1">
+            <p className="text-sm text-stone-500 mb-4">
               Drag guests between tables. Click the pencil icon to rename a table or change its capacity.
             </p>
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4 sm:hidden">
-              Tip: This feature works best on a tablet or desktop for drag-and-drop. On mobile, scroll horizontally to see all tables.
-            </p>
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-              <div className="flex gap-4 items-start pb-4">
-                {/* Unassigned column always first */}
+              <div className="flex gap-4 items-start pb-4 overflow-x-auto">
                 <TableColumn
                   table={null}
                   guests={unassignedGuests}
                 />
-                {/* Named tables */}
                 {tables.map(t => (
                   <TableColumn
                     key={t.id}
@@ -331,7 +516,7 @@ export default function SeatingPage() {
 
       {/* Summary bar */}
       {tables.length > 0 && (
-        <div className="bg-white border-t border-stone-200 px-6 py-3 flex items-center gap-6 text-sm text-stone-600 flex-shrink-0">
+        <div className="bg-white border-t border-stone-200 px-4 md:px-6 py-3 flex flex-wrap items-center gap-4 md:gap-6 text-sm text-stone-600 flex-shrink-0">
           <span><strong className="text-stone-900">{guests.length}</strong> guests total</span>
           <span><strong className="text-stone-900">{assignedCount}</strong> assigned</span>
           <span><strong className="text-stone-900">{unassignedGuests.length}</strong> unassigned</span>
@@ -342,7 +527,6 @@ export default function SeatingPage() {
         </div>
       )}
 
-      {/* Table create/edit modal */}
       {editingTable !== null && (
         <TableModal
           table={editingTable === 'new' ? null : editingTable}

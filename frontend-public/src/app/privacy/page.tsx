@@ -23,7 +23,7 @@ export default function PrivacyPage() {
           <div className="prose prose-stone max-w-none text-[#3b2f2f] space-y-8">
 
             <Section title="1. Who We Are">
-              <p>AltarWed (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;) operates the website altarwed.com and the application at app.altarwed.com. We are a faith-first wedding planning platform connecting Christian couples with wedding vendors. Our mailing address and primary contact is <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#d4af6a] hover:underline">{CONTACT_EMAIL}</a>.</p>
+              <p>AltarWed (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;) operates the website altarwed.com and the application at app.altarwed.com. We are a faith-based wedding planning platform connecting Christian couples with wedding vendors. Our mailing address and primary contact is <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#d4af6a] hover:underline">{CONTACT_EMAIL}</a>.</p>
             </Section>
 
             <Section title="2. Information We Collect">
@@ -91,7 +91,7 @@ export default function PrivacyPage() {
             </Section>
 
             <Section title="10. Affiliate Disclosure">
-              <p>Our /resources page contains affiliate links to Amazon and other retailers. When you purchase through these links, AltarWed may earn a small commission at no additional cost to you. We only recommend products we genuinely believe will help couples build strong, faith-first marriages.</p>
+              <p>Our /resources page contains affiliate links to Amazon and other retailers. When you purchase through these links, AltarWed may earn a small commission at no additional cost to you. We only recommend products we genuinely believe will help couples build strong, faith-based marriages.</p>
             </Section>
 
             <Section title="11. Security">

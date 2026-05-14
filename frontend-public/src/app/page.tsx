@@ -50,7 +50,7 @@ const features = [
       </svg>
     ),
     title: 'Guest List & RSVP',
-    description: 'Manage your guest list, send RSVP links, track meal preferences, and coordinate seating — all in one place.',
+    description: 'Manage your guest list, send RSVP links, track meal preferences, and coordinate seating. All in one place.',
   },
   {
     icon: (
@@ -86,7 +86,7 @@ const features = [
       </svg>
     ),
     title: 'Budget Tracker',
-    description: 'Track estimated vs. actual costs by category, mark vendors paid, and stay on budget — all in your dashboard.',
+    description: 'Track estimated vs. actual costs by category, mark vendors paid, and stay on budget. All in your dashboard.',
   },
 ]
 
@@ -94,7 +94,7 @@ const steps = [
   {
     number: '01',
     title: 'Create your free account',
-    description: 'Sign up in under a minute. No credit card, no commitments — just your names and wedding date.',
+    description: 'Sign up in under a minute. No credit card, no commitments. Just your names and wedding date.',
   },
   {
     number: '02',
@@ -104,7 +104,7 @@ const steps = [
   {
     number: '03',
     title: 'Plan every detail in one place',
-    description: 'Guest list, RSVP, ceremony order, vows, budget, seating — every tool your covenant day needs.',
+    description: 'Guest list, RSVP, ceremony order, vows, budget, seating. Every tool your covenant day needs.',
   },
 ]
 
@@ -139,7 +139,7 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(212,175,106,0.08)_0%,_transparent_70%)] pointer-events-none" />
           <div className="relative max-w-4xl mx-auto px-6 pt-20 pb-24 text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f5ede0] border border-[#d4af6a]/30 text-[#a07840] text-xs font-semibold uppercase tracking-widest mb-8">
-              <span>✦</span> Now Live — Free for Couples <span>✦</span>
+              <span>✦</span> Now Live: Free for Couples <span>✦</span>
             </div>
 
             <h1 className="text-balance font-serif text-5xl sm:text-6xl lg:text-7xl font-bold text-[#3b2f2f] leading-tight mb-6">
@@ -150,7 +150,7 @@ export default function HomePage() {
 
             <p className="text-lg sm:text-xl text-[#6b5344] max-w-2xl mx-auto leading-relaxed mb-10 text-balance">
               AltarWed gives every Christian couple a free wedding website, guest management,
-              ceremony builder, vow writer, and faith-aligned vendor directory — because your
+              ceremony builder, vow writer, and faith-aligned vendor directory. Your
               wedding day is a covenant, not just an event.
             </p>
 
@@ -159,7 +159,7 @@ export default function HomePage() {
                 href="https://app.altarwed.com/register"
                 className="inline-flex items-center justify-center px-8 py-4 rounded-xl bg-[#3b2f2f] text-white text-base font-semibold hover:bg-[#5c4033] transition shadow-md"
               >
-                Start planning — it&apos;s free
+                Start planning for free
               </a>
               <Link
                 href="/vendors"
@@ -195,7 +195,7 @@ export default function HomePage() {
               Your wedding website, live in minutes
             </h2>
             <p className="text-[#6b5344] text-lg max-w-xl mx-auto">
-              Every couple gets a shareable page at <span className="font-mono text-sm bg-[#f5ede0] px-2 py-0.5 rounded text-[#3b2f2f]">altarwed.com/wedding/your-names</span> — free, forever.
+              Every couple gets a shareable page at <span className="font-mono text-sm bg-[#f5ede0] px-2 py-0.5 rounded text-[#3b2f2f]">altarwed.com/wedding/your-names</span>, free forever.
             </p>
           </div>
 
@@ -328,7 +328,7 @@ export default function HomePage() {
                 Find vendors who pray with their couples
               </h2>
               <p className="text-[#6b5344] text-lg leading-relaxed mb-8">
-                Every vendor on AltarWed is faith-profiled. Find photographers, venues, florists, officiants, and coordinators who understand that your wedding is a covenant before God — not just a party.
+                Every vendor on AltarWed is faith-profiled. Find photographers, venues, florists, officiants, and coordinators who understand that your wedding is a covenant before God, not just a party.
               </p>
               <div className="flex flex-wrap gap-3">
                 {['Photographers', 'Venues', 'Officiants', 'Florists', 'Coordinators'].map((cat) => (

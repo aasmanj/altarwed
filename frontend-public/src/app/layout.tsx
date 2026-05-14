@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     template: '%s | AltarWed',
   },
   description:
-    'AltarWed is the faith-first wedding planning marketplace connecting Christian couples with vendors who share their values. Plan your covenant celebration with scripture, denomination, and faith at the center.',
+    'Plan your Christian wedding on AltarWed. Build a shareable wedding website, manage your guest list, and find faith-based vendors who share your values.',
   keywords: [
     'christian wedding planning',
     'faith based wedding vendors',
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     siteName: 'AltarWed',
     title: 'AltarWed — Christian Wedding Planning Platform',
     description:
-      'The faith-first marketplace connecting Christian couples with vendors who share their values. Plan your covenant celebration the way God intended.',
+      'A faith-based wedding planning platform for Christian couples. Build your wedding website, manage guests, and find vendors who share your faith.',
     images: [
       {
         url: '/og-image.png',
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'AltarWed — Christian Wedding Planning Platform',
     description:
-      'The faith-first marketplace for Christian couples and vendors.',
+      'A faith-based platform for Christian couples and vendors.',
     images: ['/og-image.png'],
   },
   robots: {

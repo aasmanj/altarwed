@@ -73,13 +73,13 @@ export default async function BlogIndexPage() {
         <section className="max-w-4xl mx-auto px-6 pt-16 pb-6">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f5ede0] border border-[#d4af6a]/30 text-[#a07840] text-xs font-semibold uppercase tracking-widest mb-6">
-              <span>✦</span> Faith-First Planning
+              <span>✦</span> Faith-Based Planning
             </div>
             <h1 className="font-serif text-4xl sm:text-5xl font-bold text-[#3b2f2f] mb-4">
               Christian Wedding Planning Blog
             </h1>
             <p className="text-[#6b5344] text-lg max-w-xl mx-auto">
-              Scripture for your ceremony, vow guides, denomination-specific planning tips, and more — written for couples who want their wedding to honor God.
+              Scripture for your ceremony, vow guides, denomination-specific planning tips, and more. Written for couples who want their wedding to honor God.
             </p>
           </div>
         </section>

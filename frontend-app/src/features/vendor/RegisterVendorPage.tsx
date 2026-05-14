@@ -84,7 +84,7 @@ export default function RegisterVendorPage() {
         <div className="text-center mb-10">
           <h1 className="font-serif text-3xl font-bold text-[#3b2f2f]">List your business</h1>
           <p className="text-[#6b5344] mt-2 text-sm">
-            Join AltarWed's faith-first vendor directory
+            Join AltarWed's faith-based vendor directory
           </p>
         </div>
 

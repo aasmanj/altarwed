@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { Heart, Loader2, Sparkles } from 'lucide-react'
 
 interface Prayer {
   id: string
   guestName: string
   prayerText: string
   createdAt: string
+  _isNew?: boolean
 }
 
 const COLORS = [
@@ -48,6 +50,7 @@ export default function PrayerWallClient({
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
+  const newPrayerRef = useRef<HTMLDivElement>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -61,11 +64,12 @@ export default function PrayerWallClient({
       })
       if (!res.ok) throw new Error()
       const newPrayer: Prayer = await res.json()
-      setPrayers(prev => [newPrayer, ...prev])
+      setPrayers(prev => [{ ...newPrayer, _isNew: true }, ...prev])
       setGuestName('')
       setPrayerText('')
       setSubmitted(true)
       setTimeout(() => setSubmitted(false), 5000)
+      setTimeout(() => newPrayerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100)
     } catch {
       setError('Something went wrong. Please try again.')
     } finally {
@@ -77,7 +81,9 @@ export default function PrayerWallClient({
     <div className="space-y-10">
       {/* Header */}
       <div className="text-center">
-        <div className="text-4xl mb-3">🙏</div>
+        <div className="flex justify-center mb-3">
+          <Heart className="w-8 h-8 text-[#d4af6a]" strokeWidth={1.5} />
+        </div>
         <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#3b2f2f]">Blessings & Prayers</h2>
         <p className="mt-3 text-[#6b5344] text-sm max-w-sm mx-auto leading-relaxed">
           Leave a prayer or blessing for {coupleNames} as they begin their covenant journey together.
@@ -86,7 +92,7 @@ export default function PrayerWallClient({
 
       {/* Write a blessing form */}
       <div className="relative">
-        {/* Decorative ruled lines behind the form — guestbook feel */}
+        {/* Decorative ruled lines behind the form */}
         <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="border-b border-[#e8dcc8]/50" style={{ height: '2.5rem' }} />
@@ -102,9 +108,11 @@ export default function PrayerWallClient({
 
           {submitted ? (
             <div className="text-center py-8">
-              <div className="text-5xl mb-3">✨</div>
+              <div className="flex justify-center mb-3">
+                <Sparkles className="w-10 h-10 text-[#d4af6a]" />
+              </div>
               <p className="font-serif text-xl font-semibold text-[#3b2f2f]">Thank you for your prayer!</p>
-              <p className="text-sm text-[#6b5344] mt-2">Your blessing has been added to the wall.</p>
+              <p className="text-sm text-[#6b5344] mt-2">Your blessing has been added below.</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -130,9 +138,14 @@ export default function PrayerWallClient({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="rounded-full bg-[#3b2f2f] px-6 py-2.5 text-xs font-semibold uppercase tracking-widest text-white hover:bg-[#5c4033] disabled:opacity-50 transition"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#3b2f2f] px-6 py-2.5 text-xs font-semibold uppercase tracking-widest text-white hover:bg-[#5c4033] disabled:opacity-50 transition"
                 >
-                  {submitting ? 'Adding…' : 'Add My Blessing'}
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Adding…
+                    </>
+                  ) : 'Add My Blessing'}
                 </button>
               </div>
             </form>
@@ -140,19 +153,19 @@ export default function PrayerWallClient({
         </div>
       </div>
 
-      {/* Prayer cards — masonry-style, different pastel backgrounds */}
+      {/* Prayer cards */}
       {prayers.length > 0 && (
         <div>
           <p className="text-center text-xs uppercase tracking-[0.2em] text-[#a08060] mb-6">
             {prayers.length} {prayers.length === 1 ? 'blessing' : 'blessings'} so far
           </p>
-          <div className="columns-1 sm:columns-2 gap-4 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {prayers.map((prayer, i) => (
               <div
                 key={prayer.id}
-                className={`break-inside-avoid rounded-2xl border p-5 ${cardColor(i)}`}
+                ref={i === 0 ? newPrayerRef : undefined}
+                className={`rounded-2xl border p-5 transition-all duration-500 ${cardColor(i)} ${prayer._isNew ? 'ring-2 ring-[#d4af6a]/40' : ''}`}
               >
-                {/* Tiny cross ornament */}
                 <div className="text-center text-[#d4af6a]/60 text-xs mb-3">✦</div>
                 <p className="text-[#3b2f2f] leading-relaxed text-sm font-serif italic mb-4">
                   &ldquo;{prayer.prayerText}&rdquo;
@@ -169,6 +182,7 @@ export default function PrayerWallClient({
 
       {prayers.length === 0 && !submitted && (
         <div className="text-center py-8 text-[#a08060]">
+          <div className="text-center text-[#d4af6a]/40 text-2xl mb-3">✦</div>
           <p className="font-serif text-lg">Be the first to leave a blessing</p>
         </div>
       )}

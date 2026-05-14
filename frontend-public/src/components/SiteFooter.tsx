@@ -8,7 +8,7 @@ export default function SiteFooter() {
         <div>
           <p className="font-serif text-lg font-bold text-[#3b2f2f] mb-3">AltarWed</p>
           <p className="text-sm text-[#a08060] leading-relaxed">
-            The faith-first wedding planning platform for Christian couples and vendors.
+            A faith-based wedding planning platform for Christian couples and vendors.
           </p>
         </div>
 
@@ -50,7 +50,7 @@ export default function SiteFooter() {
       </div>
 
       <div className="border-t border-[#e8dcc8] py-4 text-center text-xs text-[#a08060]">
-        © {new Date().getFullYear()} AltarWed · Faith-first wedding planning
+        © {new Date().getFullYear()} AltarWed · Faith-based wedding planning
       </div>
     </footer>
   )

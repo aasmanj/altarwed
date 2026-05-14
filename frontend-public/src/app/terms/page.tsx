@@ -27,7 +27,7 @@ export default function TermsPage() {
             </Section>
 
             <Section title="2. Description of Service">
-              <p>AltarWed is a faith-first wedding planning platform that allows engaged couples to create public wedding websites, manage guest lists, plan their ceremony, and discover Christian wedding vendors. Vendors may list their businesses on the platform to connect with couples.</p>
+              <p>AltarWed is a faith-based wedding planning platform that allows engaged couples to create public wedding websites, manage guest lists, plan their ceremony, and discover Christian wedding vendors. Vendors may list their businesses on the platform to connect with couples.</p>
             </Section>
 
             <Section title="3. Account Registration">
@@ -69,14 +69,19 @@ export default function TermsPage() {
               </ul>
             </Section>
 
-            <Section title="7. Vendor Listings">
-              <p>Wedding vendors may list their businesses on AltarWed. By submitting a vendor listing, you represent that:</p>
+            <Section title="7. Vendor Listings and Religious Mission">
+              <p>AltarWed is a faith-based platform dedicated to supporting Christian couples in planning their weddings and building their marriages on a foundation of faith.</p>
+              <p>Vendors who list services on AltarWed acknowledge that the platform exists to serve couples planning Christian weddings consistent with a biblical understanding of marriage as a covenant between one man and one woman.</p>
+              <p>By submitting a vendor listing, you represent that:</p>
               <ul>
-                <li>The information is accurate and current</li>
+                <li>The information provided is accurate and current</li>
                 <li>You have the right to use all images and content submitted</li>
                 <li>Your business operates lawfully</li>
               </ul>
-              <p>AltarWed reserves the right to verify, edit, or remove vendor listings at our sole discretion. Paid vendor subscription plans govern additional terms for featured listings.</p>
+              <p>Vendors agree that all listings, profiles, descriptions, images, and services promoted through AltarWed will be consistent with the platform&apos;s religious mission and the couples it serves.</p>
+              <p>AltarWed reserves the right, in its sole discretion, to decline to publish, suspend, or remove any vendor listing or account that AltarWed determines to be inconsistent with its religious mission or the values of the Christian couples it serves.</p>
+              <p>Participation in the AltarWed vendor community is entirely voluntary. AltarWed retains sole authority to interpret and apply these standards in good faith. This policy reflects AltarWed&apos;s identity as a faith-based platform, not a judgment of any individual or business.</p>
+              <p>Paid vendor subscription plans govern additional terms for featured listings. All fees paid before a listing is removed for mission-inconsistency are non-refundable.</p>
             </Section>
 
             <Section title="8. Payment and Subscriptions">

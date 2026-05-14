@@ -5,10 +5,10 @@ import SiteFooter from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
   title: 'Resources for Christian Couples | AltarWed',
-  description: 'Books, registries, and tools to help Christian couples build a faith-first marriage. Curated by AltarWed.',
+  description: 'Books, registries, and tools to help Christian couples build a faith-based marriage. Curated by AltarWed.',
   openGraph: {
     title: 'Resources for Christian Couples | AltarWed',
-    description: 'Books, registries, and tools to help Christian couples build a faith-first marriage.',
+    description: 'Books, registries, and tools to help Christian couples build a faith-based marriage.',
     type: 'website',
   },
 }
@@ -17,7 +17,7 @@ const BOOKS = [
   {
     title: 'The Meaning of Marriage',
     author: 'Timothy Keller',
-    description: 'A deep, scripture-rooted exploration of covenant marriage. Keller weaves theology and practical wisdom — the most-recommended pre-marital book among pastors.',
+    description: 'A deep, scripture-rooted exploration of covenant marriage. Keller weaves theology and practical wisdom together. The most-recommended pre-marital book among pastors.',
     href: 'https://www.amazon.com/Meaning-Marriage-Facing-Realities-Profound/dp/1594631875?tag=altarwed-20',
     badge: 'Most recommended',
   },
@@ -47,7 +47,7 @@ const BOOKS = [
 const REGISTRIES = [
   {
     name: 'Amazon Wedding Registry',
-    description: 'The most flexible option — millions of products, easy returns, and a universal registry feature that pulls from any store.',
+    description: 'The most flexible option. Millions of products, easy returns, and a universal registry feature that pulls from any store.',
     href: 'https://www.amazon.com/wedding/home?tag=altarwed-20',
     logo: '🛒',
   },
@@ -68,7 +68,7 @@ export default function ResourcesPage() {
         <div className="bg-[#3b2f2f] py-14 px-6 text-center">
           <h1 className="font-serif text-4xl font-bold text-white mb-3">Resources for Couples</h1>
           <p className="text-[#e8dcc8] text-base max-w-xl mx-auto">
-            Books, registries, and tools to help you build a faith-first marriage — curated by the AltarWed team.
+            Books, registries, and tools to help you build a faith-based marriage, curated by the AltarWed team.
           </p>
         </div>
 
@@ -118,7 +118,7 @@ export default function ResourcesPage() {
           <section>
             <div className="text-center mb-10">
               <h2 className="font-serif text-3xl font-bold text-[#3b2f2f] mb-2">Wedding Registries</h2>
-              <p className="text-sm text-[#a08060]">Set up your registry — you can link up to three on your AltarWed wedding website.</p>
+              <p className="text-sm text-[#a08060]">Set up your registry. You can link up to three on your AltarWed wedding website.</p>
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
               {REGISTRIES.map(r => (
@@ -143,7 +143,7 @@ export default function ResourcesPage() {
           <section className="rounded-2xl bg-[#3b2f2f] px-8 py-10 text-center">
             <p className="font-serif text-2xl font-bold text-white mb-2">Build your wedding website</p>
             <p className="text-[#e8dcc8] text-sm mb-6 max-w-sm mx-auto">
-              Free, faith-first, and beautiful. Share your story, registry, and ceremony details in one place.
+              Free, faith-based, and beautiful. Share your story, registry, and ceremony details in one place.
             </p>
             <a
               href="https://app.altarwed.com/register"

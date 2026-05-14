@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { Heart, Loader2, Sparkles } from 'lucide-react'
 
 interface Prayer {
   id: string
   guestName: string
   prayerText: string
   createdAt: string
+  _isNew?: boolean
 }
 
 export default function PrayerWallSection({
@@ -24,6 +26,7 @@ export default function PrayerWallSection({
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
+  const newPrayerRef = useRef<HTMLDivElement>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,11 +40,12 @@ export default function PrayerWallSection({
       })
       if (!res.ok) throw new Error()
       const newPrayer: Prayer = await res.json()
-      setPrayers(prev => [newPrayer, ...prev])
+      setPrayers(prev => [{ ...newPrayer, _isNew: true }, ...prev])
       setGuestName('')
       setPrayerText('')
       setSubmitted(true)
       setTimeout(() => setSubmitted(false), 4000)
+      setTimeout(() => newPrayerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100)
     } catch {
       setError('Something went wrong. Please try again.')
     } finally {
@@ -51,20 +55,27 @@ export default function PrayerWallSection({
 
   return (
     <section>
-      <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#3b2f2f] mb-6 text-center">
-        Prayer Wall
-      </h2>
-      <p className="text-center text-[#6b5344] mb-8 text-sm">
-        Leave a prayer or blessing for the couple as they begin their covenant journey.
-      </p>
+      <div className="text-center mb-6">
+        <div className="flex justify-center mb-2">
+          <Heart className="w-6 h-6 text-[#d4af6a]" strokeWidth={1.5} />
+        </div>
+        <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#3b2f2f]">
+          Prayer Wall
+        </h2>
+        <p className="text-center text-[#6b5344] mt-2 text-sm">
+          Leave a prayer or blessing for the couple as they begin their covenant journey.
+        </p>
+      </div>
 
       {/* Submit form */}
       <div className="rounded-2xl border border-[#e8dcc8] bg-white p-6 mb-8">
         {submitted ? (
           <div className="text-center py-4">
-            <p className="text-2xl mb-2">🙏</p>
+            <div className="flex justify-center mb-2">
+              <Sparkles className="w-7 h-7 text-[#d4af6a]" />
+            </div>
             <p className="font-serif text-lg font-semibold text-[#3b2f2f]">Thank you for your prayer</p>
-            <p className="text-sm text-[#6b5344] mt-1">Your blessing has been added to the prayer wall.</p>
+            <p className="text-sm text-[#6b5344] mt-1">Your blessing has been added below.</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -99,9 +110,14 @@ export default function PrayerWallSection({
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-lg bg-[#3b2f2f] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#5c4033] disabled:opacity-50 transition"
+              className="inline-flex items-center gap-2 rounded-lg bg-[#3b2f2f] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#5c4033] disabled:opacity-50 transition"
             >
-              {submitting ? 'Submitting…' : 'Leave a prayer 🙏'}
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Submitting…
+                </>
+              ) : 'Leave a prayer'}
             </button>
           </form>
         )}
@@ -109,15 +125,25 @@ export default function PrayerWallSection({
 
       {/* Prayer list */}
       {prayers.length > 0 && (
-        <div className="space-y-4">
-          {prayers.map(prayer => (
-            <div key={prayer.id} className="rounded-2xl border border-[#e8dcc8] bg-white p-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {prayers.map((prayer, i) => (
+            <div
+              key={prayer.id}
+              ref={i === 0 ? newPrayerRef : undefined}
+              className={`rounded-2xl border border-[#e8dcc8] bg-white p-5 transition-all duration-500 ${prayer._isNew ? 'ring-2 ring-[#d4af6a]/40' : ''}`}
+            >
               <p className="text-[#3b2f2f] leading-relaxed text-sm italic mb-3">
                 &ldquo;{prayer.prayerText}&rdquo;
               </p>
               <p className="text-xs text-[#a08060] font-medium">— {prayer.guestName}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {prayers.length === 0 && !submitted && (
+        <div className="text-center py-6 text-[#a08060]">
+          <p className="font-serif text-base">Be the first to leave a blessing</p>
         </div>
       )}
     </section>
