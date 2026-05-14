@@ -30,11 +30,10 @@ export default async function WeddingPartyPage(
   if (!wedding || !wedding.isPublished) notFound()
 
   const party = await getWeddingParty(wedding.id)
-  const neutral = party.filter(m => m.side === 'NEUTRAL')
-  const bride   = party.filter(m => m.side === 'BRIDE')
-  const groom   = party.filter(m => m.side === 'GROOM')
+  const bride = party.filter(m => m.side === 'BRIDE')
+  const groom = party.filter(m => m.side === 'GROOM')
 
-  if (party.length === 0) {
+  if (bride.length === 0 && groom.length === 0) {
     return (
       <div className="text-center py-16 text-[#a08060]">
         <p className="font-serif text-2xl mb-2">Wedding party coming soon…</p>
@@ -47,7 +46,6 @@ export default async function WeddingPartyPage(
     <div className="space-y-16">
       <SectionHeading>Wedding Party</SectionHeading>
 
-      {neutral.length > 0 && <PartyGroup label="Ceremony" members={neutral} />}
       {(bride.length > 0 || groom.length > 0) && (
         <div className="grid grid-cols-2 gap-4 sm:gap-12">
           {bride.length > 0 && <PartyGroup label={`${wedding.partnerTwoName}'s side`} members={bride} />}
