@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { Hotel } from 'lucide-react'
 import { getWedding } from '@/app/wedding/[slug]/data'
 
 export default async function TravelPage(
@@ -23,7 +24,7 @@ export default async function TravelPage(
 
       <div className="rounded-2xl border border-[#e8dcc8] bg-white p-8">
         <div className="flex items-start gap-5">
-          <div className="text-4xl">🏨</div>
+          <Hotel className="w-10 h-10 text-[#d4af6a] shrink-0" strokeWidth={1.5} />
           <div className="flex-1">
             <p className="font-serif text-2xl font-semibold text-[#3b2f2f] mb-3">{wedding.hotelName}</p>
             {wedding.hotelDetails && (

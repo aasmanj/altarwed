@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { ShoppingBag } from 'lucide-react'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 
@@ -49,13 +50,11 @@ const REGISTRIES = [
     name: 'Amazon Wedding Registry',
     description: 'The most flexible option. Millions of products, easy returns, and a universal registry feature that pulls from any store.',
     href: 'https://www.amazon.com/wedding/home?tag=altarwed-20',
-    logo: '🛒',
   },
   {
     name: 'Target Wedding Registry',
     description: 'Great for everyday home essentials. Couples love the 15% completion discount and wide in-store availability.',
     href: 'https://www.target.com/gift-registry/wedding',
-    logo: '🎯',
   },
 ]
 
@@ -129,7 +128,7 @@ export default function ResourcesPage() {
                   rel="noopener noreferrer"
                   className="flex gap-4 rounded-xl border border-[#e8dcc8] bg-white p-5 hover:border-[#d4af6a] hover:shadow-sm transition group"
                 >
-                  <span className="text-3xl shrink-0">{r.logo}</span>
+                  <ShoppingBag className="w-6 h-6 text-[#d4af6a] shrink-0 mt-0.5" strokeWidth={1.5} />
                   <div>
                     <p className="font-semibold text-[#3b2f2f] group-hover:text-[#d4af6a] transition text-sm">{r.name}</p>
                     <p className="text-xs text-[#a08060] mt-1 leading-relaxed">{r.description}</p>

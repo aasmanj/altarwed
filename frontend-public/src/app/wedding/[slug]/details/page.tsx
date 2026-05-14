@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { Calendar, Clock, MapPin, Shirt } from 'lucide-react'
 import { getWedding } from '@/app/wedding/[slug]/data'
 
 function formatDate(iso: string) {
@@ -20,20 +21,20 @@ export default async function DetailsPage(
 
       <div className="grid sm:grid-cols-2 gap-4">
         {wedding.weddingDate && (
-          <DetailCard label="Date" value={formatDate(wedding.weddingDate)} icon="📅" />
+          <DetailCard label="Date" value={formatDate(wedding.weddingDate)} Icon={Calendar} />
         )}
         {wedding.ceremonyTime && (
-          <DetailCard label="Ceremony Time" value={wedding.ceremonyTime} icon="🕐" />
+          <DetailCard label="Ceremony Time" value={wedding.ceremonyTime} Icon={Clock} />
         )}
         {wedding.venueName && (
           <DetailCard
             label="Venue"
             value={[wedding.venueName, wedding.venueAddress, wedding.venueCity, wedding.venueState].filter(Boolean).join(', ')}
-            icon="📍"
+            Icon={MapPin}
           />
         )}
         {wedding.dressCode && (
-          <DetailCard label="Dress Code" value={wedding.dressCode} icon="👗" />
+          <DetailCard label="Dress Code" value={wedding.dressCode} Icon={Shirt} />
         )}
       </div>
 
@@ -61,10 +62,10 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   )
 }
 
-function DetailCard({ label, value, icon }: { label: string; value: string; icon: string }) {
+function DetailCard({ label, value, Icon }: { label: string; value: string; Icon: React.ElementType }) {
   return (
     <div className="rounded-xl border border-[#e8dcc8] bg-white p-5 flex gap-4 items-start">
-      <span className="text-xl mt-0.5">{icon}</span>
+      <Icon className="w-5 h-5 text-[#d4af6a] shrink-0 mt-0.5" strokeWidth={1.5} />
       <div>
         <p className="text-xs uppercase tracking-widest text-[#a08060] mb-1">{label}</p>
         <p className="font-medium text-[#3b2f2f] text-sm leading-snug">{value}</p>

@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { BookHeart, Calendar, Camera, Clock, Gift, Heart, Hotel, MapPin, PenLine, Shirt, Users } from 'lucide-react'
 import { getWedding } from '@/app/wedding/[slug]/data'
 
 function formatDate(iso: string) {
@@ -39,20 +40,20 @@ export default async function WeddingHomePage(
       {/* Quick details */}
       <div className="grid sm:grid-cols-2 gap-4">
         {wedding.weddingDate && (
-          <QuickCard icon="📅" label="Wedding Date" value={formatDate(wedding.weddingDate)} />
+          <QuickCard Icon={Calendar} label="Wedding Date" value={formatDate(wedding.weddingDate)} />
         )}
         {wedding.ceremonyTime && (
-          <QuickCard icon="🕐" label="Ceremony Time" value={wedding.ceremonyTime} />
+          <QuickCard Icon={Clock} label="Ceremony Time" value={wedding.ceremonyTime} />
         )}
         {wedding.venueName && (
           <QuickCard
-            icon="📍"
+            Icon={MapPin}
             label="Venue"
             value={[wedding.venueName, wedding.venueCity, wedding.venueState].filter(Boolean).join(', ')}
           />
         )}
         {wedding.dressCode && (
-          <QuickCard icon="👗" label="Dress Code" value={wedding.dressCode} />
+          <QuickCard Icon={Shirt} label="Dress Code" value={wedding.dressCode} />
         )}
       </div>
 
@@ -86,21 +87,23 @@ export default async function WeddingHomePage(
       <div>
         <p className="text-xs uppercase tracking-[0.2em] text-[#a08060] text-center mb-5">Explore</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Our Story', href: `${base}/story`, icon: '✍️', show: !!(wedding.ourStory || wedding.testimony) },
-            { label: 'The Wedding', href: `${base}/details`, icon: '💍', show: !!(wedding.venueName || wedding.ceremonyTime) },
-            { label: 'Wedding Party', href: `${base}/wedding-party`, icon: '👰', show: true },
-            { label: 'Registry', href: `${base}/registry`, icon: '🎁', show: !!(wedding.registryUrl1) },
-            { label: 'Travel', href: `${base}/travel`, icon: '🏨', show: !!(wedding.hotelName) },
-            { label: 'Photos', href: `${base}/photos`, icon: '📷', show: true },
-            { label: 'Prayers', href: `${base}/prayers`, icon: '🙏', show: true },
-          ].filter(l => l.show).map(link => (
+          {([
+            { label: 'Our Story',    href: `${base}/story`,         Icon: PenLine,   show: !!(wedding.ourStory || wedding.testimony) },
+            { label: 'The Wedding',  href: `${base}/details`,        Icon: BookHeart, show: !!(wedding.venueName || wedding.ceremonyTime) },
+            { label: 'Wedding Party',href: `${base}/wedding-party`,  Icon: Users,     show: true },
+            { label: 'Registry',     href: `${base}/registry`,       Icon: Gift,      show: !!(wedding.registryUrl1) },
+            { label: 'Travel',       href: `${base}/travel`,         Icon: Hotel,     show: !!(wedding.hotelName) },
+            { label: 'Photos',       href: `${base}/photos`,         Icon: Camera,    show: true },
+            { label: 'Prayers',      href: `${base}/prayers`,        Icon: Heart,     show: true },
+          ] as const).filter(l => l.show).map(link => (
             <Link
               key={link.href}
               href={link.href}
               className="rounded-xl border border-[#e8dcc8] bg-white p-4 text-center hover:border-[#d4af6a] hover:shadow-sm transition group"
             >
-              <div className="text-2xl mb-2">{link.icon}</div>
+              <div className="flex justify-center mb-2 text-[#d4af6a]">
+                <link.Icon className="w-6 h-6" strokeWidth={1.5} />
+              </div>
               <p className="text-xs font-medium text-[#6b5344] group-hover:text-[#3b2f2f] transition">{link.label}</p>
             </Link>
           ))}
@@ -110,10 +113,10 @@ export default async function WeddingHomePage(
   )
 }
 
-function QuickCard({ icon, label, value }: { icon: string; label: string; value: string }) {
+function QuickCard({ Icon, label, value }: { Icon: React.ElementType; label: string; value: string }) {
   return (
     <div className="rounded-xl border border-[#e8dcc8] bg-white p-5 flex gap-4 items-start">
-      <span className="text-xl mt-0.5">{icon}</span>
+      <Icon className="w-5 h-5 text-[#d4af6a] shrink-0 mt-0.5" strokeWidth={1.5} />
       <div>
         <p className="text-xs uppercase tracking-widest text-[#a08060] mb-1">{label}</p>
         <p className="font-medium text-[#3b2f2f] text-sm leading-snug">{value}</p>

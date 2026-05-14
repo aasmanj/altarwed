@@ -67,7 +67,7 @@ export default async function WeddingLayout({
       {/* ── Discreet platform bar ── */}
       <div className="bg-[#3b2f2f] py-2 px-6 text-center">
         <a href="https://www.altarwed.com" className="text-xs text-[#d4af6a]/80 hover:text-[#d4af6a] transition">
-          Created with <span className="font-semibold text-[#d4af6a]">AltarWed</span> · Faith-first wedding planning
+          Created with <span className="font-semibold text-[#d4af6a]">AltarWed</span> · Faith-based wedding planning
         </a>
       </div>
 
@@ -152,7 +152,7 @@ export default async function WeddingLayout({
           AltarWed
         </a>
         <span className="mx-2">·</span>
-        Faith-first wedding planning
+        Faith-based wedding planning
       </footer>
     </div>
   )

@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { Camera } from 'lucide-react'
 import { getWedding } from '@/app/wedding/[slug]/data'
 
 interface WeddingPhoto {
@@ -39,7 +40,7 @@ export default async function PhotosPage(
 
       {photos.length === 0 ? (
         <div className="text-center py-16">
-          <div className="text-5xl mb-4">📷</div>
+          <Camera className="w-12 h-12 text-stone-300 mx-auto mb-4" strokeWidth={1.5} />
           <p className="font-serif text-2xl text-[#a08060] mb-2">Photos coming soon</p>
           <p className="text-sm text-[#a08060]">
             {wedding.partnerOneName} & {wedding.partnerTwoName} will share photos here.

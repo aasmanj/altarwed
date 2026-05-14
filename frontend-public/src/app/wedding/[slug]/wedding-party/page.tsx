@@ -77,7 +77,7 @@ function PartyGroup({ label, members }: { label: string; members: WeddingPartyMe
       <h3 className="text-center text-xs uppercase tracking-[0.2em] text-[#a08060] mb-10">{label}</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 justify-items-center">
         {members.map(member => (
-          <div key={member.id} className="text-center">
+          <div key={member.id} className="text-center w-full max-w-[140px]">
             {member.photoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
