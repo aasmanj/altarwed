@@ -30,29 +30,29 @@ INSERT INTO blog_posts (
 <p>Scripture suggestion for your program: <em>"This is the day the Lord has made; let us rejoice and be glad in it."</em> (Psalm 118:24)</p>
 
 <h2>3. Welcome and Opening Prayer</h2>
-<p>The officiant welcomes the congregation and acknowledges the sacred nature of what is about to take place. An opening prayer invites God's presence into the ceremony and reminds everyone gathered that this is an act of worship, not merely a cultural tradition.</p>
-<p>A simple opening might sound like: "We are gathered here in the presence of God and these witnesses to join [Name] and [Name] in holy matrimony. This covenant is not entered into lightly, but with reverence, joy, and reliance on God's grace."</p>
+<p>The officiant welcomes the congregation and acknowledges the sacred nature of what is about to take place. An opening prayer invites God''s presence into the ceremony and reminds everyone gathered that this is an act of worship, not merely a cultural tradition.</p>
+<p>A simple opening might sound like: "We are gathered here in the presence of God and these witnesses to join [Name] and [Name] in holy matrimony. This covenant is not entered into lightly, but with reverence, joy, and reliance on God''s grace."</p>
 
 <h2>4. Scripture Reading(s)</h2>
-<p>One or two scripture passages are read, often by a family member or close friend. These passages anchor the ceremony in God's Word and remind the couple of the biblical foundation for their marriage.</p>
+<p>One or two scripture passages are read, often by a family member or close friend. These passages anchor the ceremony in God''s Word and remind the couple of the biblical foundation for their marriage.</p>
 <p>Three passages that work beautifully in a Christian wedding ceremony:</p>
 <ul>
   <li><strong>1 Corinthians 13:4-8</strong> — "Love is patient, love is kind…" The most widely read wedding passage. It defines love not as a feeling but as a series of choices and commitments.</li>
-  <li><strong>Ruth 1:16-17</strong> — "Where you go I will go, and where you stay I will stay." Ruth's words to Naomi are a powerful picture of covenantal loyalty.</li>
+  <li><strong>Ruth 1:16-17</strong> — "Where you go I will go, and where you stay I will stay." Ruth''s words to Naomi are a powerful picture of covenantal loyalty.</li>
   <li><strong>Colossians 3:12-14</strong> — "Bear with each other and forgive one another… And over all these virtues put on love, which binds them all together in perfect unity." A practical charge to the couple.</li>
 </ul>
 
 <h2>5. Message or Homily</h2>
 <p>The pastor or officiant delivers a short message, typically 10 to 15 minutes, focused on the biblical meaning of marriage and an encouragement to the couple. The best wedding homilies are personal (they know the couple), scriptural (grounded in a specific text), and forward-looking (casting a vision for the marriage ahead).</p>
-<p>This is also where the tone of the ceremony is most clearly established. A pastor who can speak to the couple's specific story, weave in relevant scripture, and call the congregation to pray for the marriage will make the ceremony memorable.</p>
+<p>This is also where the tone of the ceremony is most clearly established. A pastor who can speak to the couple''s specific story, weave in relevant scripture, and call the congregation to pray for the marriage will make the ceremony memorable.</p>
 
 <h2>6. Exchange of Vows</h2>
 <p>The vows are the covenant itself. The officiant typically asks each partner to repeat vows after him, or the couple may write their own. Traditional Christian vows include the commitment to love "for better or for worse, for richer or for poorer, in sickness and in health, until death do us part."</p>
 <p>If you are writing your own vows, consider including: a specific promise, an acknowledgment of God as the foundation of your marriage, and a commitment that is unconditional rather than conditional. Avoid vows that read like a list of things your spouse does well today. Vows are about what you are committing to, not what you have already experienced.</p>
 
 <h2>7. Exchange of Rings</h2>
-<p>The rings are a visible, ongoing symbol of the vows just spoken. The officiant typically presents each ring and invites the couple to place it on each other's finger while repeating a brief declaration: "With this ring, I thee wed."</p>
-<p>The circle of a ring is historically understood as a symbol of eternity. Many officiants note that just as a ring has no beginning and no end, so the covenant of marriage is meant to reflect God's own unending faithfulness.</p>
+<p>The rings are a visible, ongoing symbol of the vows just spoken. The officiant typically presents each ring and invites the couple to place it on each other''s finger while repeating a brief declaration: "With this ring, I thee wed."</p>
+<p>The circle of a ring is historically understood as a symbol of eternity. Many officiants note that just as a ring has no beginning and no end, so the covenant of marriage is meant to reflect God''s own unending faithfulness.</p>
 
 <h2>8. Pronouncement and First Kiss</h2>
 <p>The officiant pronounces the couple husband and wife. This is the legal and covenantal declaration that the marriage is complete. The first kiss follows as the congregation celebrates.</p>
@@ -64,7 +64,7 @@ INSERT INTO blog_posts (
 
 <h2>10. Recessional</h2>
 <p>The newly married couple walks back up the aisle as husband and wife while the congregation applauds. The wedding party follows, then the families, then the congregation is dismissed.</p>
-<p>The recessional music should feel joyful and celebratory. Handel's "Hallelujah Chorus," Beethoven's "Ode to Joy," or a contemporary worship song the couple loves all work well.</p>
+<p>The recessional music should feel joyful and celebratory. Handel''s "Hallelujah Chorus," Beethoven''s "Ode to Joy," or a contemporary worship song the couple loves all work well.</p>
 
 <h2>Putting It All Together</h2>
 <p>A well-planned Christian wedding ceremony takes roughly 30 to 45 minutes from processional to recessional. If you are incorporating additional elements like a prayer for the couple from the congregation or a time of responsive reading, plan for closer to 50 minutes.</p>
