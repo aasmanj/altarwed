@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import { useCreateWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
+import { formatShortDate } from '@/lib/date'
 
 type Step = 1 | 2 | 3
 
@@ -16,7 +17,8 @@ export default function OnboardingWizard() {
   const [slug, setSlug] = useState('')
   const [partnerOneName, setPartnerOneName] = useState(user?.partnerOneName ?? '')
   const [partnerTwoName, setPartnerTwoName] = useState(user?.partnerTwoName ?? '')
-  const [weddingDate, setWeddingDate] = useState('')
+  const [weddingDate, setWeddingDate] = useState(user?.weddingDate ?? '')
+  const dateLocked = !!user?.weddingDate
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -82,12 +84,12 @@ export default function OnboardingWizard() {
                 <p className="text-sm text-[#a08060]">Let&apos;s build your wedding website. First, whose names should be on it?</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#3b2f2f] mb-1">Groom / Partner 1</label>
+                <label className="block text-sm font-medium text-[#3b2f2f] mb-1">Groom</label>
                 <input value={partnerOneName} onChange={e => setPartnerOneName(e.target.value)}
                   className={inputCls} placeholder="Jordan" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#3b2f2f] mb-1">Bride / Partner 2</label>
+                <label className="block text-sm font-medium text-[#3b2f2f] mb-1">Bride</label>
                 <input value={partnerTwoName} onChange={e => setPartnerTwoName(e.target.value)}
                   className={inputCls} placeholder="Eden-Faith" />
               </div>
@@ -123,13 +125,21 @@ export default function OnboardingWizard() {
                 </div>
                 <p className="text-xs text-[#a08060] mt-1">Lowercase letters, numbers, and hyphens only</p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-[#3b2f2f] mb-1">
-                  Wedding date <span className="text-[#a08060] font-normal">(optional)</span>
-                </label>
-                <input type="date" value={weddingDate} onChange={e => setWeddingDate(e.target.value)}
-                  className={inputCls} />
-              </div>
+              {!dateLocked && (
+                <div>
+                  <label className="block text-sm font-medium text-[#3b2f2f] mb-1">
+                    Wedding date <span className="text-[#a08060] font-normal">(optional)</span>
+                  </label>
+                  <input type="date" value={weddingDate} onChange={e => setWeddingDate(e.target.value)}
+                    className={inputCls} />
+                </div>
+              )}
+              {dateLocked && weddingDate && (
+                <div className="rounded-lg bg-[#fdfaf6] border border-[#e8dcc8] px-4 py-3 text-sm text-[#a08060]">
+                  Wedding date: <span className="text-[#3b2f2f] font-medium">{formatShortDate(weddingDate)}</span>
+                  <span className="block text-xs mt-0.5">You can change this any time in your dashboard.</span>
+                </div>
+              )}
               <div className="flex gap-3">
                 <button onClick={() => setStep(1)}
                   className="flex-1 rounded-xl border border-[#e8dcc8] py-3 font-semibold text-[#3b2f2f] hover:bg-[#fdfaf6] transition text-sm">
@@ -155,7 +165,7 @@ export default function OnboardingWizard() {
               <div className="rounded-xl bg-[#fdfaf6] border border-[#e8dcc8] p-5 space-y-3">
                 <Row label="Couple" value={`${partnerOneName} & ${partnerTwoName}`} />
                 <Row label="URL" value={`altarwed.com/wedding/${slug}`} />
-                {weddingDate && <Row label="Date" value={new Date(weddingDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} />}
+                {weddingDate && <Row label="Date" value={formatShortDate(weddingDate)} />}
               </div>
 
               <p className="text-xs text-center text-[#a08060]">

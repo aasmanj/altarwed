@@ -21,6 +21,7 @@ import java.util.UUID;
 public class GuestService {
 
     private static final int INVITE_EXPIRY_DAYS = 30;
+    private static final int MAX_INVITE_SENDS = 3;
 
     private final GuestRepository guestRepository;
     private final RsvpInviteTokenRepository tokenRepository;
@@ -49,6 +50,7 @@ public class GuestService {
                 GuestRsvpStatus.PENDING, req.plusOneAllowed(), null,
                 req.dietaryRestrictions(), null, null, null,
                 null, req.side(), req.notes(), req.mailAddress(),
+                null, 0,
                 null, null, LocalDateTime.now(), LocalDateTime.now()
         );
         return guestRepository.save(guest);
@@ -78,6 +80,7 @@ public class GuestService {
                 req.side()               != null ? req.side()               : existing.side(),
                 req.notes()              != null ? req.notes()              : existing.notes(),
                 req.mailAddress()        != null ? req.mailAddress()        : existing.mailAddress(),
+                existing.noteForCouple(), existing.inviteSendCount(),
                 existing.inviteSentAt(), existing.respondedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );
@@ -157,7 +160,8 @@ public class GuestService {
                 website != null ? website.venueName() : null,
                 website != null ? website.venueCity()  : null,
                 website != null ? website.venueState() : null,
-                guest.plusOneAllowed()
+                guest.plusOneAllowed(),
+                website != null ? website.slug() : null
         );
     }
 
@@ -178,6 +182,8 @@ public class GuestService {
                 req.songRequest()         != null ? req.songRequest()         : guest.songRequest(),
                 req.shuttleNeeded()       != null ? req.shuttleNeeded()       : guest.shuttleNeeded(),
                 guest.tableNumber(), guest.side(), guest.notes(), guest.mailAddress(),
+                req.noteForCouple()       != null ? req.noteForCouple()       : guest.noteForCouple(),
+                guest.inviteSendCount(),
                 guest.inviteSentAt(), LocalDateTime.now(),
                 guest.createdAt(), LocalDateTime.now()
         );
@@ -201,6 +207,11 @@ public class GuestService {
     private Guest issueInvite(Guest guest, UUID coupleId) {
         if (guest.email() == null || guest.email().isBlank()) {
             throw new IllegalArgumentException("Guest has no email address");
+        }
+        int currentSends = guest.inviteSendCount() != null ? guest.inviteSendCount() : 0;
+        if (currentSends >= MAX_INVITE_SENDS) {
+            throw new IllegalArgumentException(
+                "This guest has already received the maximum of " + MAX_INVITE_SENDS + " invites.");
         }
 
         // Invalidate any outstanding invite tokens before issuing a new one
@@ -231,6 +242,7 @@ public class GuestService {
                 guest.rsvpStatus(), guest.plusOneAllowed(), guest.plusOneName(),
                 guest.dietaryRestrictions(), guest.mealPreference(), guest.songRequest(), guest.shuttleNeeded(),
                 guest.tableNumber(), guest.side(), guest.notes(), guest.mailAddress(),
+                guest.noteForCouple(), currentSends + 1,
                 LocalDateTime.now(), guest.respondedAt(),
                 guest.createdAt(), LocalDateTime.now()
         );

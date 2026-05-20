@@ -87,7 +87,7 @@ All entities below have Flyway migrations in production (V1–V15):
 - **Denomination** — 10 seeded (Baptist, Catholic, Presbyterian, etc.)
 - **RefreshToken** — tokenHash, userId, userRole, expiresAt, revoked
 - **VendorSubscription** — vendorId, planTier, status, stripeCustomerId (Stripe not yet wired)
-- **WeddingWebsite** (V7+V8) — slug, heroPhotoUrl, ourStory, testimony, covenantStatement, scripture, venue, hotel, registry (3 slots), rsvpDeadline, isPublished, soft-delete
+- **WeddingWebsite** (V7+V8, V25 cleanup) — slug, heroPhotoUrl, ourStory, scripture, venue, hotel, registry (3 slots), rsvpDeadline, isPublished, soft-delete. `testimony`, `covenantStatement`, `websitePin` columns dropped in V25.
 - **PasswordResetToken** (V9) — tokenHash, coupleId, expiresAt, used
 - **Guest** (V10) — coupleId, name, email, rsvpStatus, plusOneName, mealPreference, dietaryRestrictions, songRequest, shuttleNeeded
 - **RsvpInviteToken** (V11) — guestId, tokenHash, expiresAt, used
@@ -96,7 +96,7 @@ All entities below have Flyway migrations in production (V1–V15):
 - **WeddingPartyMember** (V15) — weddingWebsiteId, name, role, side (BRIDE/GROOM/NEUTRAL), bio, photoUrl, sortOrder
 - **BudgetItem** (V16) — coupleId, category, vendorName, estimatedCost, actualCost, isPaid, notes
 - **WeddingPhoto** (V17) — weddingWebsiteId, blobUrl, caption, sortOrder, uploadedAt
-- **WeddingWebsite** (V18 patch) — websitePin column added (NVARCHAR 10, nullable)
+- **WeddingWebsite** (V18 patch, dropped in V25) — websitePin column removed; PIN privacy feature deprecated per walkthrough.
 - **SeatingTable** (V19) — coupleId, name, capacity, sortOrder; guests linked by tableNumber (1-based index)
 
 ## User Roles
@@ -134,7 +134,7 @@ All entities below have Flyway migrations in production (V1–V15):
 - NEVER use spring.jpa.hibernate.ddl-auto=create or update in any environment
 - ALL schema changes go through Flyway migrations in db/migration/
 - Migration naming: V{number}__{description}.sql (e.g. V1__create_couples_table.sql)
-- Next migration number: V20
+- Next migration number: V26
 - UUID primary keys on all tables
 
 ## Security Rules
@@ -145,7 +145,7 @@ All entities below have Flyway migrations in production (V1–V15):
   GET /api/v1/vendors/**, GET /api/v1/denominations/**,
   GET /api/v1/wedding-websites/slug/**, GET /api/v1/wedding-websites/published,
   GET /api/v1/wedding-websites/search,
-  GET+POST /api/v1/prayers/website/**, GET /api/v1/guests/rsvp/**, POST /api/v1/guests/rsvp,
+  GET /api/v1/guests/rsvp/**, POST /api/v1/guests/rsvp,
   GET /api/v1/wedding-party/website/**,
   GET /api/v1/scripture/**
 - All other endpoints require authentication
@@ -265,6 +265,38 @@ V21 migration adds ceremony_sections table. 12 section types (processional, pray
 
 ### ✅ Guest mailing address (COMPLETE)
 V22 migration adds mail_address (NVARCHAR 500, nullable) to guests table. Freeform single field. Captured in Add Guest and Edit Guest forms. Positioned for future Lob.com print-mail integration (see Scale-Up section below).
+
+### ✅ Phase 0 (post-walkthrough cleanup) — COMPLETE (2026-05-20)
+After a real walkthrough with Jordan's sister Katelyn + her fiancé Luke (engaged, theknot.com users), shipped a focused cleanup pass before starting Phase 1 (side-by-side block editor).
+- **V25 migration** drops `testimony`, `covenant_statement`, `website_pin` columns; drops `wedding_prayers` table; adds `note_for_couple` + `invite_send_count` to guests; adds `goal_budget` to wedding_websites; adds `notes` + `assignee` to planning_tasks; adds `price_tier` to vendors (with CHECK constraint).
+- **Removals** wired end-to-end (backend + both frontends): testimony, covenant statement, PIN privacy, prayer wall page. Verify-pin endpoint deleted from controller + SecurityConfig whitelist.
+- **Date off-by-one bug fixed** via shared `formatWeddingDate` / `daysUntilDate` helpers parsing YYYY-MM-DD as LOCAL noon (`+ 'T12:00:00'`) in both `frontend-public/src/lib/date.ts` and `frontend-app/src/lib/date.ts`.
+- **Onboarding wizard re-asking date fixed**: AuthResponse now includes weddingDate end-to-end; OnboardingWizard pre-fills + locks step 2 when present.
+- **Copy/tone**: "Partner 1 / Partner 2" replaced with "Bride / Groom" across signup, onboarding, editor, vows. Sign-up form split per partner into first+last name fields (concat on submit; DB columns unchanged).
+- **Guest "note for couple"** replaces public prayer wall. Captured on RSVP form (private), surfaced in dashboard guest row, never returned publicly.
+- **Hotel→Travel rename**: dashboard tab + public section heading now consistent. Public page got dedicated `/wedding/[slug]/rsvp` tab — RSVP callout removed from home/hero.
+- **Scripture verse**: locked from manual edit (use "Browse wedding verses" modal or autofill); public banner enlarged to text-3xl with gradient.
+- **Wedding party**: color-coded sides (blush for bride, sky for groom) with bg-tinted card.
+- **Vendor**: added `ALTERATIONS` to `VendorCategory` enum.
+- **Checklist**: seeded tasks can now be deleted (removed `!task.isSeeded` guard).
+- **Invite cap**: backend `MAX_INVITE_SENDS = 3`; frontend shows "Max sent" after 3.
+- **Send-invite confirm popup** with email-content preview now wraps the invite/resend button on `GuestListPage`.
+- **"Now go check out the registry"** link on RSVP confirmation when attending.
+- Per CLAUDE.md mapping: `partnerOneName` = Groom, `partnerTwoName` = Bride. DTO columns unchanged in this phase to avoid a rename migration.
+
+### 🔜 Phase 0b — Walkthrough followups (still to ship)
+Each of these came out of the walkthrough but needs more meaningful UI work than fit into the one-pass cleanup. The V25 columns / enum slots are already in place so the work is purely wiring + UI.
+- **Seating fixed-order toggle** — disable drag, lock to `tableNumber ASC, name ASC`.
+- **Budget goal field** — wire `wedding_websites.goal_budget` into the editor + a "Goal vs Spent" progress bar on BudgetPage.
+- **Wedding party photo crop on add form** — add `react-image-crop`, move photo input into the create form, square-crop before upload.
+- **Checklist notes + assignee** — surface the new `notes` / `assignee` columns in the row-expand UI.
+- **Vendor price-tier filter chips** — wire the new `price_tier` column into the `/vendors` filter UI.
+- **RSVP "Remind me in X days"** — replaces MAYBE radio; needs a Spring `@Scheduled` job that re-sends the invite after the chosen interval.
+- **Preview-before-publish warning** — show "Publish first to share with guests" inline when an unpublished couple tries to open the public URL, with a link to a `/dashboard/website/preview` route.
+- **TipCallout component + nudge copy** — reusable inline tips ("Send RSVPs 30 days before", "Add a dress code", etc.).
+
+### 🔜 Phase 1 — Side-by-side block editor
+See `~/.claude/plans/okay-mr-claude-opus-parsed-moler.md` for the full plan. V26 migration creates `wedding_page_blocks` (per-tab, typed JSON content). Existing field-based content is backfilled into blocks. Frontend gets a Knot-style left-iframe-preview / right-rail-edit UX. Highest-priority differentiator left to build.
 
 ### 🔜 Phase 7 — Homepage launch + SEO content
 (a) Publish the real altarwed.com homepage — replace the waitlist with a full marketing homepage. Stop capturing waitlist emails; convert to direct sign-up CTAs. The homepage should showcase the wedding website feature, vendor directory, and faith-first differentiators. Open couple and vendor registration to the public.

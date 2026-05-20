@@ -6,9 +6,14 @@ export default function RegisterPage() {
   const { register, user } = useAuth()
   const navigate = useNavigate()
 
+  // Per CLAUDE.md: partnerOne = Groom, partnerTwo = Bride.
+  // We split first/last in the UI and concatenate on submit so the
+  // backend column shape doesn't change in Phase 0.
   const [form, setForm] = useState({
-    partnerOneName: '',
-    partnerTwoName: '',
+    groomFirstName: '',
+    groomLastName: '',
+    brideFirstName: '',
+    brideLastName: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -38,11 +43,18 @@ export default function RegisterPage() {
       return
     }
 
+    const groomName = `${form.groomFirstName.trim()} ${form.groomLastName.trim()}`.trim()
+    const brideName = `${form.brideFirstName.trim()} ${form.brideLastName.trim()}`.trim()
+    if (!groomName || !brideName) {
+      setError('Please enter both names.')
+      return
+    }
+
     setLoading(true)
     try {
       await register({
-        partnerOneName: form.partnerOneName.trim(),
-        partnerTwoName: form.partnerTwoName.trim(),
+        partnerOneName: groomName,
+        partnerTwoName: brideName,
         email: form.email.trim(),
         password: form.password,
         weddingDate: form.weddingDate || null,
@@ -75,36 +87,36 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <div className="mb-5 grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-brown" htmlFor="partnerOneName">
-                Your name
-              </label>
+          <fieldset className="mb-5">
+            <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-brown-light">Groom</legend>
+            <div className="grid grid-cols-2 gap-4">
               <input
-                id="partnerOneName"
-                type="text"
-                required
-                autoComplete="given-name"
-                value={form.partnerOneName}
-                onChange={set('partnerOneName')}
+                type="text" required placeholder="First name" autoComplete="off"
+                value={form.groomFirstName} onChange={set('groomFirstName')}
+                className="w-full rounded-lg border border-gold-light px-4 py-2.5 text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+              />
+              <input
+                type="text" required placeholder="Last name" autoComplete="off"
+                value={form.groomLastName} onChange={set('groomLastName')}
                 className="w-full rounded-lg border border-gold-light px-4 py-2.5 text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
               />
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-brown" htmlFor="partnerTwoName">
-                Partner's name
-              </label>
+          </fieldset>
+          <fieldset className="mb-5">
+            <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-brown-light">Bride</legend>
+            <div className="grid grid-cols-2 gap-4">
               <input
-                id="partnerTwoName"
-                type="text"
-                required
-                autoComplete="off"
-                value={form.partnerTwoName}
-                onChange={set('partnerTwoName')}
+                type="text" required placeholder="First name" autoComplete="off"
+                value={form.brideFirstName} onChange={set('brideFirstName')}
+                className="w-full rounded-lg border border-gold-light px-4 py-2.5 text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+              />
+              <input
+                type="text" required placeholder="Last name" autoComplete="off"
+                value={form.brideLastName} onChange={set('brideLastName')}
                 className="w-full rounded-lg border border-gold-light px-4 py-2.5 text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
               />
             </div>
-          </div>
+          </fieldset>
 
           <div className="mb-5">
             <label className="mb-1.5 block text-sm font-medium text-brown" htmlFor="email">

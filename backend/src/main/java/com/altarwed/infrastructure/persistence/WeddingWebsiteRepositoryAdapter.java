@@ -62,15 +62,11 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 .stream().map(this::toDomain).toList();
     }
 
-    // -------------------------------------------------------------------------
-    // Mapping
-    // -------------------------------------------------------------------------
-
     private WeddingWebsite toDomain(WeddingWebsiteEntity e) {
         return new WeddingWebsite(
                 e.getId(), e.getCoupleId(), e.getSlug(), e.isPublished(),
                 e.getPartnerOneName(), e.getPartnerTwoName(), e.getWeddingDate(),
-                e.getHeroPhotoUrl(), e.getOurStory(), e.getTestimony(), e.getCovenantStatement(),
+                e.getHeroPhotoUrl(), e.getOurStory(),
                 e.getScriptureReference(), e.getScriptureText(),
                 e.getVenueName(), e.getVenueAddress(), e.getVenueCity(), e.getVenueState(),
                 e.getCeremonyTime(), e.getDressCode(),
@@ -78,7 +74,7 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 e.getRegistryUrl1(), e.getRegistryLabel1(),
                 e.getRegistryUrl2(), e.getRegistryLabel2(),
                 e.getRegistryUrl3(), e.getRegistryLabel3(),
-                e.getRsvpDeadline(), e.getWebsitePin(),
+                e.getRsvpDeadline(),
                 e.getPartnerOneVows(), e.getPartnerTwoVows(),
                 e.isDeleted(), e.getDeletedAt(),
                 e.getCreatedAt(), e.getUpdatedAt()
@@ -96,8 +92,6 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 .weddingDate(w.weddingDate())
                 .heroPhotoUrl(w.heroPhotoUrl())
                 .ourStory(w.ourStory())
-                .testimony(w.testimony())
-                .covenantStatement(w.covenantStatement())
                 .scriptureReference(w.scriptureReference())
                 .scriptureText(w.scriptureText())
                 .venueName(w.venueName())
@@ -116,7 +110,6 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 .registryUrl3(w.registryUrl3())
                 .registryLabel3(w.registryLabel3())
                 .rsvpDeadline(w.rsvpDeadline())
-                .websitePin(w.websitePin())
                 .partnerOneVows(w.partnerOneVows())
                 .partnerTwoVows(w.partnerTwoVows())
                 .isDeleted(w.isDeleted())

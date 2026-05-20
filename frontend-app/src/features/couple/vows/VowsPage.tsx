@@ -30,8 +30,8 @@ export default function VowsPage() {
   const [saved, setSaved] = useState(false)
   const [activePartner, setActivePartner] = useState<1 | 2>(1)
 
-  const partnerOneName = website?.partnerOneName ?? user?.partnerOneName ?? 'Partner 1'
-  const partnerTwoName = website?.partnerTwoName ?? 'Partner 2'
+  const partnerOneName = website?.partnerOneName ?? user?.partnerOneName ?? 'Groom'
+  const partnerTwoName = website?.partnerTwoName ?? 'Bride'
 
   const handleSave = async () => {
     await update.mutateAsync({ partnerOneVows, partnerTwoVows })

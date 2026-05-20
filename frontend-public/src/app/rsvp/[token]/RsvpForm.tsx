@@ -5,10 +5,11 @@ import { useState } from 'react'
 type Status = 'ATTENDING' | 'DECLINING' | 'MAYBE'
 
 export default function RsvpForm({
-  token, plusOneAllowed, apiUrl,
+  token, plusOneAllowed, weddingSlug, apiUrl,
 }: {
   token: string
   plusOneAllowed: boolean
+  weddingSlug: string | null
   apiUrl: string
 }) {
   const [status, setStatus]       = useState<Status | null>(null)
@@ -17,6 +18,7 @@ export default function RsvpForm({
   const [meal, setMeal]           = useState('')
   const [song, setSong]           = useState('')
   const [shuttle, setShuttle]     = useState(false)
+  const [noteForCouple, setNoteForCouple] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone]           = useState(false)
   const [error, setError]         = useState('')
@@ -38,6 +40,7 @@ export default function RsvpForm({
           mealPreference: meal || undefined,
           songRequest: song || undefined,
           shuttleNeeded: shuttle || undefined,
+          noteForCouple: noteForCouple.trim() || undefined,
         }),
       })
       if (!res.ok) throw new Error('Failed')
@@ -51,7 +54,7 @@ export default function RsvpForm({
 
   if (done) {
     return (
-      <div className="text-center space-y-3 py-4">
+      <div className="text-center space-y-4 py-4">
         <p className="text-2xl">{status === 'ATTENDING' ? '🎉' : '💌'}</p>
         <p className="font-serif text-xl font-semibold text-[#3b2f2f]">
           {status === 'ATTENDING' ? 'See you there!' : 'Thanks for letting us know'}
@@ -61,6 +64,14 @@ export default function RsvpForm({
             ? "We can't wait to celebrate with you."
             : "We'll miss you and appreciate you responding."}
         </p>
+        {status === 'ATTENDING' && weddingSlug && (
+          <a
+            href={`/wedding/${weddingSlug}/registry`}
+            className="inline-block mt-2 rounded-xl border border-[#d4af6a] px-5 py-2.5 text-sm font-semibold text-[#3b2f2f] hover:bg-[#d4af6a]/10 transition"
+          >
+            Now go check out the registry →
+          </a>
+        )}
       </div>
     )
   }
@@ -158,6 +169,23 @@ export default function RsvpForm({
             I&apos;ll need shuttle transportation
           </label>
         </>
+      )}
+
+      {/* Note to couple — available regardless of status so declining guests can leave a blessing */}
+      {status && (
+        <div>
+          <label className="block text-sm font-medium text-[#3b2f2f] mb-1.5">
+            Leave a note for the couple <span className="text-[#a08060] font-normal">(private — only they will see it)</span>
+          </label>
+          <textarea
+            value={noteForCouple}
+            onChange={e => setNoteForCouple(e.target.value)}
+            rows={3}
+            maxLength={1000}
+            placeholder="A blessing, a prayer, congratulations…"
+            className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a] resize-none"
+          />
+        </div>
       )}
 
       {error && (

@@ -1,17 +1,8 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { BookHeart, Calendar, Camera, Clock, Gift, Heart, Hotel, MapPin, PenLine, Shirt, Users } from 'lucide-react'
+import { BookHeart, Calendar, Camera, Clock, Gift, Hotel, Mail, MapPin, PenLine, Shirt, Users } from 'lucide-react'
 import { getWedding } from '@/app/wedding/[slug]/data'
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-  })
-}
-
-function daysUntil(iso: string) {
-  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000)
-}
+import { formatWeddingDate, daysUntilDate } from '@/lib/date'
 
 export default async function WeddingHomePage(
   { params }: { params: Promise<{ slug: string }> }
@@ -20,7 +11,7 @@ export default async function WeddingHomePage(
   const wedding = await getWedding(slug)
   if (!wedding || !wedding.isPublished) notFound()
 
-  const countdown = wedding.weddingDate ? daysUntil(wedding.weddingDate) : null
+  const countdown = wedding.weddingDate ? daysUntilDate(wedding.weddingDate) : null
   const base = `/wedding/${slug}`
 
   return (
@@ -40,7 +31,7 @@ export default async function WeddingHomePage(
       {/* Quick details */}
       <div className="grid sm:grid-cols-2 gap-4">
         {wedding.weddingDate && (
-          <QuickCard Icon={Calendar} label="Wedding Date" value={formatDate(wedding.weddingDate)} />
+          <QuickCard Icon={Calendar} label="Wedding Date" value={formatWeddingDate(wedding.weddingDate)} />
         )}
         {wedding.ceremonyTime && (
           <QuickCard Icon={Clock} label="Ceremony Time" value={wedding.ceremonyTime} />
@@ -72,29 +63,18 @@ export default async function WeddingHomePage(
         </div>
       )}
 
-      {/* RSVP callout */}
-      <div className="rounded-2xl border-2 border-[#d4af6a] bg-[#d4af6a]/5 p-8 text-center">
-        <p className="font-serif text-2xl font-bold text-[#3b2f2f] mb-2">Will you join us?</p>
-        {wedding.rsvpDeadline && (
-          <p className="text-sm text-[#a08060] mb-4">Please RSVP by {formatDate(wedding.rsvpDeadline)}</p>
-        )}
-        <p className="text-sm text-[#6b5344] mb-6">
-          Check your email for your personal RSVP invitation link.
-        </p>
-      </div>
-
       {/* Explore links */}
       <div>
         <p className="text-xs uppercase tracking-[0.2em] text-[#a08060] text-center mb-5">Explore</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {([
-            { label: 'Our Story',    href: `${base}/story`,         Icon: PenLine,   show: !!(wedding.ourStory || wedding.testimony) },
+            { label: 'Our Story',    href: `${base}/story`,         Icon: PenLine,   show: !!wedding.ourStory },
             { label: 'The Wedding',  href: `${base}/details`,        Icon: BookHeart, show: !!(wedding.venueName || wedding.ceremonyTime) },
             { label: 'Wedding Party',href: `${base}/wedding-party`,  Icon: Users,     show: true },
             { label: 'Registry',     href: `${base}/registry`,       Icon: Gift,      show: !!(wedding.registryUrl1) },
             { label: 'Travel',       href: `${base}/travel`,         Icon: Hotel,     show: !!(wedding.hotelName) },
             { label: 'Photos',       href: `${base}/photos`,         Icon: Camera,    show: true },
-            { label: 'Prayers',      href: `${base}/prayers`,        Icon: Heart,     show: true },
+            { label: 'RSVP',         href: `${base}/rsvp`,           Icon: Mail,      show: true },
           ] as const).filter(l => l.show).map(link => (
             <Link
               key={link.href}

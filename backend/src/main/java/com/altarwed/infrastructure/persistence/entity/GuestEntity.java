@@ -69,6 +69,12 @@ public class GuestEntity {
     @Column(name = "mail_address", length = 500)
     private String mailAddress;
 
+    @Column(name = "note_for_couple", length = 1000)
+    private String noteForCouple;
+
+    @Column(name = "invite_send_count", nullable = false)
+    private Integer inviteSendCount;
+
     @Column(name = "invite_sent_at")
     private LocalDateTime inviteSentAt;
 

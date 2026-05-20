@@ -11,7 +11,7 @@ public class WeddingWebsiteMapper {
         return new WeddingWebsiteResponse(
                 w.id(), w.coupleId(), w.slug(), w.isPublished(),
                 w.partnerOneName(), w.partnerTwoName(), w.weddingDate(),
-                w.heroPhotoUrl(), w.ourStory(), w.testimony(), w.covenantStatement(),
+                w.heroPhotoUrl(), w.ourStory(),
                 w.scriptureReference(), w.scriptureText(),
                 w.venueName(), w.venueAddress(), w.venueCity(), w.venueState(),
                 w.ceremonyTime(), w.dressCode(),
@@ -19,7 +19,7 @@ public class WeddingWebsiteMapper {
                 w.registryUrl1(), w.registryLabel1(),
                 w.registryUrl2(), w.registryLabel2(),
                 w.registryUrl3(), w.registryLabel3(),
-                w.rsvpDeadline(), w.websitePin() != null,
+                w.rsvpDeadline(),
                 w.partnerOneVows(), w.partnerTwoVows(),
                 w.createdAt(), w.updatedAt()
         );

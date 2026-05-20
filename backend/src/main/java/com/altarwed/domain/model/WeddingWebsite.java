@@ -16,8 +16,6 @@ public record WeddingWebsite(
 
         String heroPhotoUrl,
         String ourStory,
-        String testimony,
-        String covenantStatement,
         String scriptureReference,
         String scriptureText,
 
@@ -40,7 +38,6 @@ public record WeddingWebsite(
         String registryLabel3,
 
         LocalDate rsvpDeadline,
-        String websitePin,
 
         String partnerOneVows,
         String partnerTwoVows,
@@ -54,33 +51,33 @@ public record WeddingWebsite(
     public WeddingWebsite published() {
         return new WeddingWebsite(id, coupleId, slug, true,
                 partnerOneName, partnerTwoName, weddingDate,
-                heroPhotoUrl, ourStory, testimony, covenantStatement,
+                heroPhotoUrl, ourStory,
                 scriptureReference, scriptureText,
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
-                rsvpDeadline, websitePin, partnerOneVows, partnerTwoVows, isDeleted, deletedAt, createdAt, LocalDateTime.now());
+                rsvpDeadline, partnerOneVows, partnerTwoVows, isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
     public WeddingWebsite unpublished() {
         return new WeddingWebsite(id, coupleId, slug, false,
                 partnerOneName, partnerTwoName, weddingDate,
-                heroPhotoUrl, ourStory, testimony, covenantStatement,
+                heroPhotoUrl, ourStory,
                 scriptureReference, scriptureText,
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
-                rsvpDeadline, websitePin, partnerOneVows, partnerTwoVows, isDeleted, deletedAt, createdAt, LocalDateTime.now());
+                rsvpDeadline, partnerOneVows, partnerTwoVows, isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
     public WeddingWebsite deleted() {
         return new WeddingWebsite(id, coupleId, slug, false,
                 partnerOneName, partnerTwoName, weddingDate,
-                heroPhotoUrl, ourStory, testimony, covenantStatement,
+                heroPhotoUrl, ourStory,
                 scriptureReference, scriptureText,
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
-                rsvpDeadline, websitePin, partnerOneVows, partnerTwoVows, true, LocalDateTime.now(), createdAt, LocalDateTime.now());
+                rsvpDeadline, partnerOneVows, partnerTwoVows, true, LocalDateTime.now(), createdAt, LocalDateTime.now());
     }
 }

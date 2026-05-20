@@ -21,6 +21,8 @@ export interface Guest {
   side: GuestSide | null
   notes: string | null
   mailAddress: string | null
+  noteForCouple: string | null
+  inviteSendCount: number | null
   inviteSentAt: string | null
   respondedAt: string | null
 }

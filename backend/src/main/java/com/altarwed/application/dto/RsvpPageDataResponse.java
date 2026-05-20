@@ -7,5 +7,6 @@ public record RsvpPageDataResponse(
         String venueName,
         String venueCity,
         String venueState,
-        boolean plusOneAllowed
+        boolean plusOneAllowed,
+        String weddingSlug
 ) {}

@@ -1,12 +1,7 @@
 import { notFound } from 'next/navigation'
 import { Calendar, Clock, MapPin, Shirt } from 'lucide-react'
 import { getWedding } from '@/app/wedding/[slug]/data'
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-  })
-}
+import { formatWeddingDate as formatDate } from '@/lib/date'
 
 export default async function DetailsPage(
   { params }: { params: Promise<{ slug: string }> }

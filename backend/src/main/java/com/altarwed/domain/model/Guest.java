@@ -20,6 +20,10 @@ public record Guest(
         GuestSide side,
         String notes,
         String mailAddress,
+        // private note left by the guest on the RSVP form; never returned by any public endpoint
+        String noteForCouple,
+        // number of invite emails sent for this guest; capped to prevent spamming
+        Integer inviteSendCount,
         LocalDateTime inviteSentAt,
         LocalDateTime respondedAt,
         LocalDateTime createdAt,

@@ -49,7 +49,7 @@ export default function WeddingWebsiteSetup({ coupleId, defaultPartnerOne, defau
           <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
         )}
 
-        <Field label="Your name (groom / partner 1)">
+        <Field label="Groom's name">
           <input
             value={partnerOne}
             onChange={e => { setPartnerOne(e.target.value); setSlug(suggestSlug(e.target.value, partnerTwo)) }}
@@ -58,7 +58,7 @@ export default function WeddingWebsiteSetup({ coupleId, defaultPartnerOne, defau
           />
         </Field>
 
-        <Field label="Partner's name (bride / partner 2)">
+        <Field label="Bride's name">
           <input
             value={partnerTwo}
             onChange={e => { setPartnerTwo(e.target.value); setSlug(suggestSlug(partnerOne, e.target.value)) }}

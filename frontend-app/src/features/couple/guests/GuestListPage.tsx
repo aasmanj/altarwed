@@ -147,8 +147,12 @@ export default function GuestListPage() {
                       isPending={updateGuest.isPending}
                     />
                   ) : (
-                    <tr key={guest.id} className="border-b border-gold-light/50 last:border-0 hover:bg-ivory/30 transition">
-                      <td className="px-4 py-3 font-medium text-brown">{guest.name}</td>
+                    <>
+                    <tr key={guest.id} className="border-b border-gold-light/50 hover:bg-ivory/30 transition">
+                      <td className="px-4 py-3 font-medium text-brown">
+                        {guest.name}
+                        {guest.plusOneName && <span className="ml-2 text-xs text-brown-light">+ {guest.plusOneName}</span>}
+                      </td>
                       <td className="px-4 py-3 text-brown-light hidden sm:table-cell">{guest.email ?? '—'}</td>
                       <td className="px-4 py-3 text-brown-light hidden md:table-cell capitalize">
                         {guest.side ? guest.side.toLowerCase() : '—'}
@@ -163,15 +167,27 @@ export default function GuestListPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2 justify-end">
-                          {guest.email && (
+                          {guest.email && (guest.inviteSendCount ?? 0) < 3 && (
                             <button
-                              onClick={() => sendInvite.mutate(guest.id)}
+                              onClick={() => {
+                                const action = guest.inviteSentAt ? 'Resend' : 'Send'
+                                if (confirm(
+                                  `${action} an RSVP invite email to ${guest.name} at ${guest.email}?\n\n` +
+                                  `The email includes your wedding date and a unique RSVP link. ` +
+                                  `Previous invite links will be invalidated.`
+                                )) {
+                                  sendInvite.mutate(guest.id)
+                                }
+                              }}
                               disabled={sendInvite.isPending}
                               className="text-xs text-gold hover:underline disabled:opacity-50"
                               title={guest.inviteSentAt ? 'Resend invite' : 'Send invite'}
                             >
                               {guest.inviteSentAt ? 'Resend' : 'Invite'}
                             </button>
+                          )}
+                          {guest.email && (guest.inviteSendCount ?? 0) >= 3 && (
+                            <span className="text-xs text-brown-light" title="Maximum 3 invites per guest reached">Max sent</span>
                           )}
                           <button
                             onClick={() => setEditingId(guest.id)}
@@ -190,6 +206,14 @@ export default function GuestListPage() {
                         </div>
                       </td>
                     </tr>
+                    {guest.noteForCouple && (
+                      <tr key={`${guest.id}-note`} className="border-b border-gold-light/50 last:border-0 bg-gold/5">
+                        <td colSpan={6} className="px-4 py-2 text-xs text-brown italic">
+                          <span className="font-semibold not-italic">Note from {guest.name}:</span> &ldquo;{guest.noteForCouple}&rdquo;
+                        </td>
+                      </tr>
+                    )}
+                    </>
                   )
                 ))}
               </tbody>

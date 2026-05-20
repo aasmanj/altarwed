@@ -28,7 +28,7 @@ export default function SaveTheDatePage() {
     ? `${user.partnerOneName} & ${user.partnerTwoName}`
     : 'The Couple'
   const weddingDate = website?.weddingDate
-    ? new Date(website.weddingDate + 'T00:00:00').toLocaleDateString('en-US', {
+    ? new Date(website.weddingDate + 'T12:00:00').toLocaleDateString('en-US', {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
       })
     : 'Date TBD'

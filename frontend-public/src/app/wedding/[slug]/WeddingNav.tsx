@@ -33,7 +33,7 @@ export default function WeddingNav({ slug, hasStory, hasDetails, hasParty, hasRe
     { label: 'Travel',        href: `${base}/travel`,        show: hasTravel },
     { label: 'Registry',      href: `${base}/registry`,      show: hasRegistry },
     { label: 'Photos',        href: `${base}/photos`,        show: true },
-    { label: 'Prayers',       href: `${base}/prayers`,       show: true },
+    { label: 'RSVP',          href: `${base}/rsvp`,          show: true },
   ].filter(t => t.show)
 
   function isActive(href: string) {

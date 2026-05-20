@@ -8,8 +8,7 @@ export default async function StoryPage(
   const wedding = await getWedding(slug)
   if (!wedding || !wedding.isPublished) notFound()
 
-  const hasContent = wedding.ourStory || wedding.testimony || wedding.covenantStatement
-  if (!hasContent) {
+  if (!wedding.ourStory) {
     return (
       <div className="text-center py-16 text-[#a08060]">
         <p className="font-serif text-2xl mb-2">Our story is being written…</p>
@@ -22,24 +21,10 @@ export default async function StoryPage(
     <div className="space-y-14">
       <SectionHeading>Our Story</SectionHeading>
 
-      {wedding.ourStory && (
-        <div>
-          <h3 className="text-xs uppercase tracking-[0.2em] text-[#d4af6a] mb-6">How we met</h3>
-          <Prose text={wedding.ourStory} />
-        </div>
-      )}
-      {wedding.testimony && (
-        <div>
-          <h3 className="text-xs uppercase tracking-[0.2em] text-[#d4af6a] mb-6">Our testimony</h3>
-          <Prose text={wedding.testimony} />
-        </div>
-      )}
-      {wedding.covenantStatement && (
-        <div>
-          <h3 className="text-xs uppercase tracking-[0.2em] text-[#d4af6a] mb-6">Why we chose a covenant ceremony</h3>
-          <Prose text={wedding.covenantStatement} />
-        </div>
-      )}
+      <div>
+        <h3 className="text-xs uppercase tracking-[0.2em] text-[#d4af6a] mb-6">How we met</h3>
+        <Prose text={wedding.ourStory} />
+      </div>
     </div>
   )
 }

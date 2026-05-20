@@ -7,7 +7,6 @@ import com.altarwed.domain.exception.CoupleNotFoundException;
 import com.altarwed.domain.exception.GuestNotFoundException;
 import com.altarwed.domain.exception.WeddingPartyMemberNotFoundException;
 import com.altarwed.domain.exception.WeddingPhotoNotFoundException;
-import com.altarwed.domain.exception.WeddingPrayerNotFoundException;
 import com.altarwed.domain.exception.InvalidPasswordResetTokenException;
 import com.altarwed.domain.exception.InvalidRefreshTokenException;
 import com.altarwed.domain.exception.InvalidRsvpTokenException;
@@ -64,11 +63,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(WeddingPartyMemberNotFoundException.class)
     public ProblemDetail handleWeddingPartyMemberNotFound(WeddingPartyMemberNotFoundException ex) {
         return notFound("wedding-party-member-not-found", ex.getMessage());
-    }
-
-    @ExceptionHandler(WeddingPrayerNotFoundException.class)
-    public ProblemDetail handleWeddingPrayerNotFound(WeddingPrayerNotFoundException ex) {
-        return notFound("wedding-prayer-not-found", ex.getMessage());
     }
 
     @ExceptionHandler(WeddingPhotoNotFoundException.class)

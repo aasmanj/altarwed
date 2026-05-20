@@ -23,8 +23,6 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
     partnerTwoName:    website.partnerTwoName,
     weddingDate:       website.weddingDate ?? '',
     ourStory:          website.ourStory ?? '',
-    testimony:         website.testimony ?? '',
-    covenantStatement: website.covenantStatement ?? '',
     scriptureReference:website.scriptureReference ?? '',
     scriptureText:     website.scriptureText ?? '',
     venueName:         website.venueName ?? '',
@@ -43,7 +41,6 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
     registryUrl3:      website.registryUrl3 ?? '',
     registryLabel3:    website.registryLabel3 ?? '',
     rsvpDeadline:      website.rsvpDeadline ?? '',
-    websitePin:        '',
   })
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -120,10 +117,10 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
       {/* Tab content */}
       <div className="space-y-6">
         {activeTab === 'story' && <>
-          <Row label="Groom / Partner 1 name">
+          <Row label="Groom's name">
             <Input value={form.partnerOneName} onChange={set('partnerOneName')} />
           </Row>
-          <Row label="Bride / Partner 2 name">
+          <Row label="Bride's name">
             <Input value={form.partnerTwoName} onChange={set('partnerTwoName')} />
           </Row>
           <Row label="Wedding date">
@@ -131,12 +128,6 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
           </Row>
           <Row label="Our story" hint="Share how you met and fell in love.">
             <Textarea value={form.ourStory} onChange={set('ourStory')} rows={6} />
-          </Row>
-          <Row label="Our testimony" hint="Share your shared faith journey.">
-            <Textarea value={form.testimony} onChange={set('testimony')} rows={6} />
-          </Row>
-          <Row label="Why we chose a covenant ceremony" hint="Help your guests understand the significance.">
-            <Textarea value={form.covenantStatement} onChange={set('covenantStatement')} rows={5} />
           </Row>
         </>}
 
@@ -191,8 +182,6 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
           </Row>
         </>}
 
-        {activeTab === 'privacy' && <PrivacyTab website={website} form={form} setForm={setForm} setSaved={setSaved} />}
-
         {activeTab === 'registry' && <>
           {([1, 2, 3] as const).map(n => (
             <div key={n} className="rounded-xl border border-gold-light p-5 space-y-4">
@@ -239,14 +228,13 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-type Tab = 'story' | 'scripture' | 'details' | 'hotel' | 'registry' | 'privacy'
+type Tab = 'story' | 'scripture' | 'details' | 'hotel' | 'registry'
 const TABS: { id: Tab; label: string }[] = [
   { id: 'story',     label: 'Our Story' },
   { id: 'scripture', label: 'Scripture' },
   { id: 'details',   label: 'Event Details' },
-  { id: 'hotel',     label: 'Hotel' },
+  { id: 'hotel',     label: 'Travel' },
   { id: 'registry',  label: 'Registry' },
-  { id: 'privacy',   label: 'Privacy' },
 ]
 
 const inputCls = 'w-full rounded-lg border border-gold-light px-4 py-2.5 text-brown text-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold'
@@ -265,77 +253,6 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
       <label className="block text-sm font-medium text-brown mb-1">{label}</label>
       {hint && <p className="text-xs text-brown-light mb-1.5">{hint}</p>}
       {children}
-    </div>
-  )
-}
-
-function PrivacyTab({
-  website,
-  form,
-  setForm,
-  setSaved,
-}: {
-  website: WeddingWebsite
-  form: { websitePin: string }
-  setForm: React.Dispatch<React.SetStateAction<any>>
-  setSaved: React.Dispatch<React.SetStateAction<boolean>>
-}) {
-  const [pinEnabled, setPinEnabled] = useState(
-    website.isPinProtected || form.websitePin.trim().length > 0
-  )
-
-  function handleToggle(checked: boolean) {
-    setPinEnabled(checked)
-    if (!checked) {
-      // Empty string signals backend to clear the PIN
-      setForm((prev: any) => ({ ...prev, websitePin: ' ' }))
-      setSaved(false)
-    }
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-gold-light p-5 space-y-4">
-        <div className="flex items-start gap-3">
-          <input
-            id="pin-toggle"
-            type="checkbox"
-            checked={pinEnabled}
-            onChange={e => handleToggle(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-gold-light text-gold focus:ring-gold"
-          />
-          <div>
-            <label htmlFor="pin-toggle" className="text-sm font-medium text-brown cursor-pointer">
-              Enable PIN protection
-            </label>
-            <p className="text-xs text-brown-light mt-0.5">
-              Guests must enter a PIN to view your wedding details. Your hero photo and names will still be visible — only the tabs (story, details, etc.) are gated.
-            </p>
-          </div>
-        </div>
-
-        {pinEnabled && (
-          <Row label="PIN" hint="4–10 characters. Share this privately with your invited guests.">
-            <input
-              type="text"
-              maxLength={10}
-              placeholder="e.g. 1234"
-              value={form.websitePin.trim()}
-              onChange={e => {
-                setForm((prev: any) => ({ ...prev, websitePin: e.target.value }))
-                setSaved(false)
-              }}
-              className={inputCls + ' max-w-[160px]'}
-            />
-          </Row>
-        )}
-
-        {!pinEnabled && website.isPinProtected && (
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            PIN protection is currently active. Save changes to remove it.
-          </p>
-        )}
-      </div>
     </div>
   )
 }
@@ -493,8 +410,8 @@ function ScriptureTab({
           Browse wedding verses →
         </button>
       </Row>
-      <Row label="Scripture text" hint="Edit freely after autofilling.">
-        <Textarea value={text} onChange={onTextChange} rows={8} />
+      <Row label="Scripture text" hint="Verse text is locked to the chosen translation. Use 'Browse wedding verses' or 'Autofill' to change it.">
+        <Textarea value={text} onChange={onTextChange} rows={8} readOnly className={inputCls + ' resize-none bg-ivory cursor-not-allowed'} />
       </Row>
     </>
   )

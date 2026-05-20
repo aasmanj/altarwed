@@ -232,14 +232,12 @@ function TaskRow({ task, onToggle, onDelete }: {
         )}
       </div>
 
-      {!task.isSeeded && (
-        <button
-          onClick={() => { if (confirm(`Delete "${task.title}"?`)) onDelete() }}
-          className="shrink-0 text-xs text-red-300 hover:text-red-500 transition"
-        >
-          Remove
-        </button>
-      )}
+      <button
+        onClick={() => { if (confirm(`Delete "${task.title}"?`)) onDelete() }}
+        className="shrink-0 text-xs text-red-300 hover:text-red-500 transition"
+      >
+        Remove
+      </button>
     </div>
   )
 }

@@ -48,13 +48,32 @@ export default async function WeddingPartyPage(
 
       {(bride.length > 0 || groom.length > 0) && (
         <div className="grid grid-cols-2 gap-4 sm:gap-12">
-          {bride.length > 0 && <PartyGroup label={`${wedding.partnerTwoName}'s side`} members={bride} />}
-          {groom.length > 0 && <PartyGroup label={`${wedding.partnerOneName}'s side`} members={groom} />}
+          {bride.length > 0 && (
+            <PartyGroup
+              label={`${wedding.partnerTwoName}'s side`}
+              members={bride}
+              accent="bride"
+            />
+          )}
+          {groom.length > 0 && (
+            <PartyGroup
+              label={`${wedding.partnerOneName}'s side`}
+              members={groom}
+              accent="groom"
+            />
+          )}
         </div>
       )}
     </div>
   )
 }
+
+// Default accent palette per side. Future Phase 7 (custom themes) will let couples
+// override these with the wedding's actual color scheme.
+const ACCENTS = {
+  bride: { border: 'border-rose-200', role: 'text-rose-500',  bg: 'bg-rose-50/40' },
+  groom: { border: 'border-sky-200',  role: 'text-sky-600',   bg: 'bg-sky-50/40' },
+} as const
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
@@ -69,9 +88,14 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   )
 }
 
-function PartyGroup({ label, members }: { label: string; members: WeddingPartyMember[] }) {
+function PartyGroup({ label, members, accent }: {
+  label: string
+  members: WeddingPartyMember[]
+  accent: keyof typeof ACCENTS
+}) {
+  const a = ACCENTS[accent]
   return (
-    <div>
+    <div className={`${a.bg} rounded-2xl p-5 sm:p-8`}>
       <h3 className="text-center text-xs uppercase tracking-[0.2em] text-[#a08060] mb-10">{label}</h3>
       <div className="flex flex-wrap justify-center gap-6">
         {members.map(member => (
@@ -81,15 +105,15 @@ function PartyGroup({ label, members }: { label: string; members: WeddingPartyMe
               <img
                 src={member.photoUrl}
                 alt={member.name}
-                className="h-28 w-28 rounded-full object-cover mx-auto mb-4 border-2 border-[#e8dcc8] shadow-sm"
+                className={`h-28 w-28 rounded-full object-cover mx-auto mb-4 border-2 ${a.border} shadow-sm`}
               />
             ) : (
-              <div className="h-28 w-28 rounded-full bg-[#f5ede0] border-2 border-[#e8dcc8] flex items-center justify-center mx-auto mb-4">
+              <div className={`h-28 w-28 rounded-full bg-white border-2 ${a.border} flex items-center justify-center mx-auto mb-4`}>
                 <span className="font-serif text-4xl text-[#a08060]">{member.name.charAt(0)}</span>
               </div>
             )}
             <p className="font-serif font-semibold text-[#3b2f2f] text-base leading-snug">{member.name}</p>
-            <p className="text-xs text-[#d4af6a] font-medium mt-1 uppercase tracking-wide">{member.role}</p>
+            <p className={`text-xs font-medium mt-1 uppercase tracking-wide ${a.role}`}>{member.role}</p>
             {member.bio && (
               <p className="text-xs text-[#6b5344] mt-2 leading-relaxed">{member.bio}</p>
             )}

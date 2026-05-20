@@ -12,6 +12,7 @@ interface AuthUser {
   role: UserRole
   partnerOneName: string | null
   partnerTwoName: string | null
+  weddingDate: string | null
 }
 
 interface AuthState {

@@ -11,8 +11,6 @@ export interface WeddingWebsite {
   weddingDate: string | null
   heroPhotoUrl: string | null
   ourStory: string | null
-  testimony: string | null
-  covenantStatement: string | null
   scriptureReference: string | null
   scriptureText: string | null
   venueName: string | null
@@ -31,7 +29,6 @@ export interface WeddingWebsite {
   registryUrl3: string | null
   registryLabel3: string | null
   rsvpDeadline: string | null
-  isPinProtected: boolean
   partnerOneVows: string | null
   partnerTwoVows: string | null
 }

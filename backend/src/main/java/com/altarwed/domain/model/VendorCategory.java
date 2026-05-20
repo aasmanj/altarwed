@@ -13,5 +13,6 @@ public enum VendorCategory {
     INVITATION,
     TRANSPORTATION,
     COORDINATOR,
+    ALTERATIONS,
     OTHER
 }

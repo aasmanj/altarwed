@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import WeddingNav from './WeddingNav'
-import PinGate from './PinGate'
 import { getWedding } from '@/app/wedding/[slug]/data'
+import { formatWeddingDate, daysUntilDate } from '@/lib/date'
 
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
@@ -30,16 +30,6 @@ export async function generateMetadata(
   }
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-  })
-}
-
-function daysUntil(iso: string) {
-  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000)
-}
-
 export default async function WeddingLayout({
   children,
   params,
@@ -54,9 +44,9 @@ export default async function WeddingLayout({
 
   const heroImage = wedding.heroPhotoUrl
     ?? 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1600&q=80'
-  const countdown = wedding.weddingDate ? daysUntil(wedding.weddingDate) : null
+  const countdown = wedding.weddingDate ? daysUntilDate(wedding.weddingDate) : null
 
-  const hasStory    = !!(wedding.ourStory || wedding.testimony || wedding.covenantStatement)
+  const hasStory    = !!wedding.ourStory
   const hasDetails  = !!(wedding.venueName || wedding.ceremonyTime || wedding.dressCode)
   const hasRegistry = !!(wedding.registryUrl1 || wedding.registryUrl2 || wedding.registryUrl3)
   const hasTravel   = !!(wedding.hotelName)
@@ -90,7 +80,7 @@ export default async function WeddingLayout({
           </h1>
           {wedding.weddingDate && (
             <p className="mt-6 text-base sm:text-lg text-white/85 tracking-wide">
-              {formatDate(wedding.weddingDate)}
+              {formatWeddingDate(wedding.weddingDate)}
             </p>
           )}
           {countdown !== null && countdown > 0 && (
@@ -104,19 +94,21 @@ export default async function WeddingLayout({
         </div>
       </section>
 
-      {/* ── Scripture banner ── */}
+      {/* ── Scripture banner — more prominent per couple feedback ── */}
       {(wedding.scriptureText || wedding.scriptureReference) && (
-        <section className="bg-[#3b2f2f] py-12 px-6 text-center">
+        <section className="bg-gradient-to-b from-[#3b2f2f] to-[#4a1942] py-20 px-6 text-center relative">
+          <div className="absolute inset-x-0 top-0 h-px bg-[#d4af6a]/40" />
+          <div className="absolute inset-x-0 bottom-0 h-px bg-[#d4af6a]/40" />
           {wedding.scriptureText && (
-            <blockquote className={`font-serif italic text-[#fdfaf6]/90 max-w-2xl mx-auto leading-relaxed ${
-              wedding.scriptureText.length > 300 ? 'text-base' : 'text-xl sm:text-2xl'
+            <blockquote className={`font-serif italic text-[#fdfaf6] max-w-3xl mx-auto leading-relaxed drop-shadow-sm ${
+              wedding.scriptureText.length > 300 ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl md:text-4xl'
             }`}>
               &ldquo;{wedding.scriptureText}&rdquo;
             </blockquote>
           )}
           {wedding.scriptureReference && (
-            <p className="mt-4 text-[#d4af6a] text-xs tracking-[0.2em] uppercase">
-              {wedding.scriptureReference}
+            <p className="mt-6 text-[#d4af6a] text-sm sm:text-base tracking-[0.25em] uppercase font-medium">
+              — {wedding.scriptureReference}
             </p>
           )}
         </section>
@@ -132,11 +124,9 @@ export default async function WeddingLayout({
         hasTravel={hasTravel}
       />
 
-      {/* ── Tab content — gated by PIN if couple has enabled it ── */}
+      {/* ── Tab content ── */}
       <div className="max-w-3xl mx-auto px-6 py-14">
-        {wedding.isPinProtected
-          ? <PinGate slug={slug}>{children}</PinGate>
-          : children}
+        {children}
       </div>
 
       {/* Footer */}

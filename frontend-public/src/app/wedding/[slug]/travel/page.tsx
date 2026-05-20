@@ -20,7 +20,7 @@ export default async function TravelPage(
 
   return (
     <div className="space-y-10">
-      <SectionHeading>Where to Stay</SectionHeading>
+      <SectionHeading>Travel</SectionHeading>
 
       <div className="rounded-2xl border border-[#e8dcc8] bg-white p-8">
         <div className="flex items-start gap-5">

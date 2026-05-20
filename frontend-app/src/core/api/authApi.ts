@@ -11,6 +11,7 @@ interface BackendAuthResponse {
   role: UserRole
   partnerOneName: string | null
   partnerTwoName: string | null
+  weddingDate: string | null
 }
 
 // Shape AuthContext expects
@@ -23,6 +24,7 @@ export interface AuthResponse {
     role: UserRole
     partnerOneName: string | null
     partnerTwoName: string | null
+    weddingDate: string | null
   }
 }
 
@@ -36,6 +38,7 @@ function mapResponse(data: BackendAuthResponse): AuthResponse {
       role: data.role ?? 'COUPLE',
       partnerOneName: data.partnerOneName ?? null,
       partnerTwoName: data.partnerTwoName ?? null,
+      weddingDate: data.weddingDate ?? null,
     },
   }
 }

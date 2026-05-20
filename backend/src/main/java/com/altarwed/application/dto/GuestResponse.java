@@ -23,6 +23,8 @@ public record GuestResponse(
         GuestSide side,
         String notes,
         String mailAddress,
+        String noteForCouple,
+        Integer inviteSendCount,
         LocalDateTime inviteSentAt,
         LocalDateTime respondedAt,
         LocalDateTime createdAt,

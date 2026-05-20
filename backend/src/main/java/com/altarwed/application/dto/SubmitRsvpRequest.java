@@ -12,5 +12,7 @@ public record SubmitRsvpRequest(
         @Size(max = 500) String dietaryRestrictions,
         @Size(max = 100) String mealPreference,
         @Size(max = 200) String songRequest,
-        Boolean shuttleNeeded
+        Boolean shuttleNeeded,
+        // Private note from guest to the couple; surfaced only on the couple's dashboard.
+        @Size(max = 1000) String noteForCouple
 ) {}

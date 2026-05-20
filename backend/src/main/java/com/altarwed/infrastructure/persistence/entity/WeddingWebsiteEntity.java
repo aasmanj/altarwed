@@ -45,12 +45,6 @@ public class WeddingWebsiteEntity {
     @Column(name = "our_story", columnDefinition = "NVARCHAR(MAX)")
     private String ourStory;
 
-    @Column(name = "testimony", columnDefinition = "NVARCHAR(MAX)")
-    private String testimony;
-
-    @Column(name = "covenant_statement", columnDefinition = "NVARCHAR(MAX)")
-    private String covenantStatement;
-
     @Column(name = "scripture_reference", length = 200)
     private String scriptureReference;
 
@@ -104,9 +98,6 @@ public class WeddingWebsiteEntity {
 
     @Column(name = "rsvp_deadline")
     private LocalDate rsvpDeadline;
-
-    @Column(name = "website_pin", length = 10)
-    private String websitePin;
 
     @Column(name = "partner_one_vows", columnDefinition = "NVARCHAR(MAX)")
     private String partnerOneVows;

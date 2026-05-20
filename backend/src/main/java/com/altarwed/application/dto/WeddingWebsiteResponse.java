@@ -16,8 +16,6 @@ public record WeddingWebsiteResponse(
 
         String heroPhotoUrl,
         String ourStory,
-        String testimony,
-        String covenantStatement,
         String scriptureReference,
         String scriptureText,
 
@@ -40,7 +38,6 @@ public record WeddingWebsiteResponse(
         String registryLabel3,
 
         LocalDate rsvpDeadline,
-        Boolean isPinProtected,
 
         String partnerOneVows,
         String partnerTwoVows,

@@ -70,7 +70,7 @@ public class AuthService {
         persistRefreshToken(rawRefresh, saved.id(), ROLE_COUPLE);
 
         return AuthResponse.of(accessToken, rawRefresh, saved.id(), saved.email(),
-                saved.partnerOneName(), saved.partnerTwoName());
+                saved.partnerOneName(), saved.partnerTwoName(), saved.weddingDate());
     }
 
     @Transactional
@@ -90,7 +90,7 @@ public class AuthService {
         persistRefreshToken(rawRefresh, couple.id(), ROLE_COUPLE);
 
         return AuthResponse.of(accessToken, rawRefresh, couple.id(), couple.email(),
-                couple.partnerOneName(), couple.partnerTwoName());
+                couple.partnerOneName(), couple.partnerTwoName(), couple.weddingDate());
     }
 
     @Transactional
@@ -121,8 +121,9 @@ public class AuthService {
         Couple couple = coupleRepository.findByEmail(email).orElse(null);
         String partnerOneName = couple != null ? couple.partnerOneName() : null;
         String partnerTwoName = couple != null ? couple.partnerTwoName() : null;
+        var weddingDate = couple != null ? couple.weddingDate() : null;
 
-        return AuthResponse.of(newAccessToken, newRawRefresh, userId, email, partnerOneName, partnerTwoName);
+        return AuthResponse.of(newAccessToken, newRawRefresh, userId, email, partnerOneName, partnerTwoName, weddingDate);
     }
 
     @Transactional

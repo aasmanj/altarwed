@@ -12,6 +12,7 @@ interface RsvpPageData {
   venueCity: string | null
   venueState: string | null
   plusOneAllowed: boolean
+  weddingSlug: string | null
 }
 
 async function getRsvpData(token: string): Promise<RsvpPageData | null> {
@@ -80,7 +81,7 @@ export default async function RsvpPage(
           <p className="text-[#6b5344] mb-6 text-center">
             Dear <strong className="text-[#3b2f2f]">{data.guestName}</strong>, please let us know if you&apos;ll be joining us.
           </p>
-          <RsvpForm token={token} plusOneAllowed={data.plusOneAllowed} apiUrl={API} />
+          <RsvpForm token={token} plusOneAllowed={data.plusOneAllowed} weddingSlug={data.weddingSlug} apiUrl={API} />
         </div>
       </div>
 

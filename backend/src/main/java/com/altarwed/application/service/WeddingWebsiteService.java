@@ -43,12 +43,13 @@ public class WeddingWebsiteService {
         WeddingWebsite website = new WeddingWebsite(
                 null, coupleId, slug, false,
                 request.partnerOneName(), request.partnerTwoName(), request.weddingDate(),
-                null, null, null, null, null, null,
-                null, null, null, null, null, null,
-                null, null, null,
-                null, null, null, null, null, null,
-                null, null,
-                null, null,
+                null, null,                                // heroPhotoUrl, ourStory
+                null, null,                                // scriptureReference, scriptureText
+                null, null, null, null, null, null,        // venue + ceremonyTime + dressCode
+                null, null, null,                          // hotel
+                null, null, null, null, null, null,        // registry 1/2/3
+                null,                                      // rsvpDeadline
+                null, null,                                // vows
                 false, null,
                 LocalDateTime.now(), LocalDateTime.now()
         );
@@ -83,11 +84,6 @@ public class WeddingWebsiteService {
     public WeddingWebsite update(UUID coupleId, UpdateWeddingWebsiteRequest req) {
         WeddingWebsite existing = getByCoupleId(coupleId);
 
-        // websitePin: null = don't change, "" = clear, non-empty = set
-        String updatedPin = req.websitePin() != null
-                ? (req.websitePin().isBlank() ? null : req.websitePin())
-                : existing.websitePin();
-
         WeddingWebsite updated = new WeddingWebsite(
                 existing.id(),
                 existing.coupleId(),
@@ -100,8 +96,6 @@ public class WeddingWebsiteService {
 
                 req.heroPhotoUrl()      != null ? req.heroPhotoUrl()      : existing.heroPhotoUrl(),
                 req.ourStory()          != null ? req.ourStory()          : existing.ourStory(),
-                req.testimony()         != null ? req.testimony()         : existing.testimony(),
-                req.covenantStatement() != null ? req.covenantStatement() : existing.covenantStatement(),
                 req.scriptureReference()!= null ? req.scriptureReference(): existing.scriptureReference(),
                 req.scriptureText()     != null ? req.scriptureText()     : existing.scriptureText(),
 
@@ -124,7 +118,6 @@ public class WeddingWebsiteService {
                 req.registryLabel3()    != null ? req.registryLabel3()    : existing.registryLabel3(),
 
                 req.rsvpDeadline()      != null ? req.rsvpDeadline()      : existing.rsvpDeadline(),
-                updatedPin,
 
                 req.partnerOneVows()    != null ? req.partnerOneVows()    : existing.partnerOneVows(),
                 req.partnerTwoVows()    != null ? req.partnerTwoVows()    : existing.partnerTwoVows(),
@@ -146,7 +139,7 @@ public class WeddingWebsiteService {
                 existing.id(), existing.coupleId(), existing.slug(), existing.isPublished(),
                 existing.partnerOneName(), existing.partnerTwoName(), existing.weddingDate(),
                 photoUrl,
-                existing.ourStory(), existing.testimony(), existing.covenantStatement(),
+                existing.ourStory(),
                 existing.scriptureReference(), existing.scriptureText(),
                 existing.venueName(), existing.venueAddress(), existing.venueCity(),
                 existing.venueState(), existing.ceremonyTime(), existing.dressCode(),
@@ -154,19 +147,13 @@ public class WeddingWebsiteService {
                 existing.registryUrl1(), existing.registryLabel1(),
                 existing.registryUrl2(), existing.registryLabel2(),
                 existing.registryUrl3(), existing.registryLabel3(),
-                existing.rsvpDeadline(), existing.websitePin(),
+                existing.rsvpDeadline(),
                 existing.partnerOneVows(), existing.partnerTwoVows(),
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );
         WeddingWebsite saved = websiteRepository.save(updated);
         revalidationPort.revalidateWeddingPage(saved.slug());
-    }
-
-    public boolean verifyPin(String slug, String pin) {
-        WeddingWebsite website = getBySlug(slug);
-        if (website.websitePin() == null) return true; // not protected
-        return website.websitePin().equals(pin);
     }
 
     @Transactional
