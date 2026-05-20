@@ -4,6 +4,7 @@ import com.altarwed.application.dto.CreateWeddingPageBlockRequest;
 import com.altarwed.application.dto.ReorderBlocksRequest;
 import com.altarwed.application.dto.UpdateWeddingPageBlockRequest;
 import com.altarwed.application.dto.WeddingPageBlockResponse;
+import com.altarwed.application.service.BlockBackfillService;
 import com.altarwed.application.service.WeddingPageBlockService;
 import com.altarwed.application.service.WeddingWebsiteService;
 import com.altarwed.domain.model.BlockTab;
@@ -22,15 +23,18 @@ public class WeddingPageBlockController {
 
     private final WeddingPageBlockService blockService;
     private final WeddingWebsiteService websiteService;
+    private final BlockBackfillService backfillService;
     private final WeddingPageBlockMapper mapper;
 
     public WeddingPageBlockController(
             WeddingPageBlockService blockService,
             WeddingWebsiteService websiteService,
+            BlockBackfillService backfillService,
             WeddingPageBlockMapper mapper
     ) {
         this.blockService = blockService;
         this.websiteService = websiteService;
+        this.backfillService = backfillService;
         this.mapper = mapper;
     }
 
@@ -84,6 +88,15 @@ public class WeddingPageBlockController {
     ) {
         blockService.delete(websiteId, blockId);
         return ResponseEntity.noContent().build();
+    }
+
+    // Seeds blocks from the couple's existing scalar fields (ourStory, scripture, venue,
+    // hotel, registry slots, party members, photos). Idempotent per-tab — running it
+    // twice never duplicates. Called by the editor on first entry to ensure pre-Phase-1
+    // couples never see an empty block UI.
+    @PostMapping("/website/{websiteId}/backfill")
+    public ResponseEntity<BlockBackfillService.BackfillReport> backfill(@PathVariable UUID websiteId) {
+        return ResponseEntity.ok(backfillService.backfill(websiteId));
     }
 
     @PatchMapping("/website/{websiteId}/tab/{tab}/reorder")
