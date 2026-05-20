@@ -10,6 +10,7 @@ import VendorDashboard from '@/features/vendor/VendorDashboard'
 import RegisterVendorPage from '@/features/vendor/RegisterVendorPage'
 import VendorListingPage from '@/features/vendor/VendorListingPage'
 import WeddingWebsitePage from '@/features/couple/website/WeddingWebsitePage'
+import SideBySideEditor from '@/features/couple/website/blocks/SideBySideEditor'
 import GuestListPage from '@/features/couple/guests/GuestListPage'
 import ChecklistPage from '@/features/couple/checklist/ChecklistPage'
 import WeddingPartyPage from '@/features/couple/weddingparty/WeddingPartyPage'
@@ -53,6 +54,14 @@ export default function App() {
             element={
               <ProtectedRoute role="COUPLE">
                 <WeddingWebsitePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/website/builder"
+            element={
+              <ProtectedRoute role="COUPLE">
+                <SideBySideEditor />
               </ProtectedRoute>
             }
           />
