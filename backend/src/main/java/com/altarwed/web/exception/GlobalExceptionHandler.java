@@ -5,6 +5,7 @@ import com.altarwed.domain.exception.BudgetItemNotFoundException;
 import com.altarwed.domain.exception.SeatingTableNotFoundException;
 import com.altarwed.domain.exception.CoupleNotFoundException;
 import com.altarwed.domain.exception.GuestNotFoundException;
+import com.altarwed.domain.exception.WeddingPageBlockNotFoundException;
 import com.altarwed.domain.exception.WeddingPartyMemberNotFoundException;
 import com.altarwed.domain.exception.WeddingPhotoNotFoundException;
 import com.altarwed.domain.exception.InvalidPasswordResetTokenException;
@@ -68,6 +69,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(WeddingPhotoNotFoundException.class)
     public ProblemDetail handleWeddingPhotoNotFound(WeddingPhotoNotFoundException ex) {
         return notFound("wedding-photo-not-found", ex.getMessage());
+    }
+
+    @ExceptionHandler(WeddingPageBlockNotFoundException.class)
+    public ProblemDetail handleWeddingPageBlockNotFound(WeddingPageBlockNotFoundException ex) {
+        return notFound("wedding-page-block-not-found", ex.getMessage());
     }
 
     @ExceptionHandler(BudgetItemNotFoundException.class)

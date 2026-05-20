@@ -65,6 +65,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/guests/rsvp").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/wedding-party/website/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/wedding-photos/website/slug/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/wedding-page-blocks/slug/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/scripture/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/wedding-websites/search").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/blog/**").permitAll()
