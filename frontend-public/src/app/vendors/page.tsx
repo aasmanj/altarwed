@@ -16,7 +16,10 @@ interface Vendor {
   state: string
   isChristianOwned: boolean
   isVerified: boolean
+  priceTier: string | null
 }
+
+const PRICE_TIERS = ['$', '$$', '$$$'] as const
 
 const CATEGORY_LABELS: Record<string, string> = {
   PHOTOGRAPHER:   'Photographer',
@@ -52,12 +55,29 @@ async function getVendors(category?: string, city?: string): Promise<Vendor[]> {
 export default async function VendorsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string; city?: string }>
+  searchParams: Promise<{ category?: string; city?: string; tier?: string }>
 }) {
-  const { category, city } = await searchParams
-  const vendors = await getVendors(category, city)
+  const { category, city, tier } = await searchParams
+  const allVendors = await getVendors(category, city)
+  // Tier filter is applied client-side (after the API call) so the filter
+  // chips can stay sticky in the URL without requiring a backend search param.
+  // Cheap to do here because the vendor list is already paged-by-category.
+  const vendors = tier
+    ? allVendors.filter(v => v.priceTier === tier)
+    : allVendors
 
   const categories = Object.entries(CATEGORY_LABELS)
+  const buildHref = (next: { category?: string; city?: string; tier?: string }) => {
+    const params = new URLSearchParams()
+    const c = next.category ?? category
+    const ci = next.city ?? city
+    const t = next.tier ?? tier
+    if (c) params.set('category', c)
+    if (ci) params.set('city', ci)
+    if (t) params.set('tier', t)
+    const qs = params.toString()
+    return qs ? `/vendors?${qs}` : '/vendors'
+  }
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
@@ -74,16 +94,25 @@ export default async function VendorsPage({
       </section>
 
       <div className="max-w-5xl mx-auto px-6 py-10">
-        {/* Filters */}
-        <div className="flex flex-wrap gap-2 mb-8">
-          <FilterChip label="All" href="/vendors" active={!category} />
+        {/* Category filters */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <FilterChip label="All" href={buildHref({ category: undefined })} active={!category} />
           {categories.map(([val, label]) => (
             <FilterChip
               key={val}
               label={label}
-              href={`/vendors?category=${val}${city ? `&city=${city}` : ''}`}
+              href={buildHref({ category: val })}
               active={category === val}
             />
+          ))}
+        </div>
+
+        {/* Price-tier filters */}
+        <div className="flex flex-wrap items-center gap-2 mb-8">
+          <span className="text-xs uppercase tracking-widest text-[#a08060] mr-1">Price</span>
+          <FilterChip label="Any" href={buildHref({ tier: undefined })} active={!tier} />
+          {PRICE_TIERS.map(t => (
+            <FilterChip key={t} label={t} href={buildHref({ tier: t })} active={tier === t} />
           ))}
         </div>
 
@@ -148,7 +177,12 @@ export default async function VendorsPage({
                 <p className="text-xs text-[#d4af6a] font-medium uppercase tracking-wide mb-1">
                   {CATEGORY_LABELS[vendor.category] ?? vendor.category}
                 </p>
-                <p className="text-sm text-[#a08060]">{vendor.city}, {vendor.state}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm text-[#a08060]">{vendor.city}, {vendor.state}</p>
+                  {vendor.priceTier && (
+                    <span className="text-xs font-semibold text-[#6b5344]">{vendor.priceTier}</span>
+                  )}
+                </div>
               </Link>
             ))}
           </div>

@@ -83,6 +83,7 @@ public class VendorRepositoryAdapter implements VendorRepository {
                 new ArrayList<>(e.getDenominationIds()),
                 e.isActive(),
                 e.isVerified(),
+                e.getPriceTier(),
                 e.getCreatedAt(),
                 e.getUpdatedAt()
         );
@@ -101,6 +102,7 @@ public class VendorRepositoryAdapter implements VendorRepository {
                 .denominationIds(new ArrayList<>(v.denominationIds()))
                 .isActive(v.isActive())
                 .isVerified(v.isVerified())
+                .priceTier(v.priceTier())
                 .createdAt(v.createdAt())
                 .updatedAt(v.updatedAt())
                 .build();

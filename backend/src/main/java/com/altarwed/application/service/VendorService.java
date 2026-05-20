@@ -48,10 +48,15 @@ public class VendorService {
                 req.denominationIds() != null ? req.denominationIds() : existing.denominationIds(),
                 existing.isActive(),
                 existing.isVerified(),
+                req.priceTier()       != null ? blankToNull(req.priceTier()) : existing.priceTier(),
                 existing.createdAt(),
                 LocalDateTime.now()
         );
         return vendorRepository.save(updated);
+    }
+
+    private String blankToNull(String s) {
+        return (s == null || s.isBlank()) ? null : s;
     }
 
     @Transactional(readOnly = true)

@@ -1,6 +1,7 @@
 package com.altarwed.application.dto;
 
 import com.altarwed.domain.model.VendorCategory;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.util.List;
@@ -12,5 +13,7 @@ public record UpdateVendorRequest(
         @Size(max = 100) String city,
         @Size(max = 50) String state,
         Boolean isChristianOwned,
-        List<UUID> denominationIds
+        List<UUID> denominationIds,
+        // Validation echoes the DB CHECK constraint added in V25.
+        @Pattern(regexp = "^(\\$|\\$\\$|\\$\\$\\$)?$") String priceTier
 ) {}

@@ -17,7 +17,8 @@ public class VendorMapper {
                 vendor.email(),
                 vendor.isChristianOwned(),
                 vendor.denominationIds(),
-                vendor.isVerified()
+                vendor.isVerified(),
+                vendor.priceTier()
         );
     }
 }

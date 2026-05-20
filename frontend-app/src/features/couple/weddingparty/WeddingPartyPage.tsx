@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
@@ -7,6 +7,7 @@ import {
   useWeddingParty, useAddMember, useUpdateMember, useDeleteMember, useUploadMemberPhoto,
   type WeddingPartyMember, type PartySide,
 } from './useWeddingParty'
+import { cropToSquare } from '@/lib/imageCrop'
 
 const SUGGESTED_ROLES = [
   'Officiant / Pastor', 'Maid of Honor', 'Best Man',
@@ -75,12 +76,16 @@ export default function WeddingPartyPage() {
         {/* Add member form */}
         {showAdd && websiteId && (
           <MemberForm
-            onSubmit={async (data) => {
-              await addMember.mutateAsync(data)
+            onSubmit={async (data, file) => {
+              const created = await addMember.mutateAsync(data)
+              if (file && created?.id) {
+                await uploadPhoto.mutateAsync({ memberId: created.id, file })
+              }
               setShowAdd(false)
             }}
             onCancel={() => setShowAdd(false)}
-            isPending={addMember.isPending}
+            isPending={addMember.isPending || uploadPhoto.isPending}
+            allowPhoto
           />
         )}
 
@@ -128,6 +133,7 @@ export default function WeddingPartyPage() {
                   }}
                   onCancel={() => setEditingId(null)}
                   isPending={updateMember.isPending}
+                  allowPhoto={false}
                 />
               ) : (
                 <MemberCard
@@ -218,21 +224,64 @@ function MemberCard({ member, onEdit, onDelete, onPhotoUpload, isUploading }: {
   )
 }
 
-function MemberForm({ initial, onSubmit, onCancel, isPending }: {
+function MemberForm({ initial, onSubmit, onCancel, isPending, allowPhoto = false }: {
   initial?: WeddingPartyMember
-  onSubmit: (data: { name: string; role: string; side: PartySide; bio?: string }) => Promise<void>
+  onSubmit: (
+    data: { name: string; role: string; side: PartySide; bio?: string },
+    file?: File,
+  ) => Promise<void>
   onCancel: () => void
   isPending: boolean
+  // Only the "add new member" entry point shows the photo field; editing photos
+  // on existing members happens via the click-the-avatar hover overlay below.
+  allowPhoto?: boolean
 }) {
   const [name, setName]   = useState(initial?.name ?? '')
   const [role, setRole]   = useState(initial?.role ?? '')
   const [side, setSide]   = useState<PartySide>(initial?.side ?? 'BRIDE')
   const [bio, setBio]     = useState(initial?.bio ?? '')
   const [customRole, setCustomRole] = useState(!SUGGESTED_ROLES.includes(initial?.role ?? ''))
+  const [croppedFile, setCroppedFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl]   = useState<string | null>(null)
+  const [cropError, setCropError]     = useState<string | null>(null)
+  const [isCropping, setIsCropping]   = useState(false)
+
+  // Revoke the object URL when the preview changes or the form unmounts so we
+  // don't leak blob: URLs across the session.
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    }
+  }, [previewUrl])
+
+  const handlePhotoPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (file.size > 15 * 1024 * 1024) {
+      setCropError('Photo must be under 15 MB.')
+      return
+    }
+    setCropError(null)
+    setIsCropping(true)
+    try {
+      const cropped = await cropToSquare(file)
+      setCroppedFile(cropped)
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      setPreviewUrl(URL.createObjectURL(cropped))
+    } catch {
+      setCropError('Could not read that image. Try a JPEG or PNG.')
+    } finally {
+      setIsCropping(false)
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit({ name: name.trim(), role: role.trim(), side, bio: bio.trim() || undefined })
+    onSubmit(
+      { name: name.trim(), role: role.trim(), side, bio: bio.trim() || undefined },
+      croppedFile ?? undefined,
+    )
   }
 
   return (
@@ -275,11 +324,41 @@ function MemberForm({ initial, onSubmit, onCancel, isPending }: {
       </div>
       <div>
         <label className="block text-xs font-medium text-brown-light mb-1">
-          Short bio <span className="font-normal">(optional — shown on your wedding website)</span>
+          Short bio <span className="font-normal">(optional, shown on your wedding website)</span>
         </label>
         <textarea value={bio} onChange={e => setBio(e.target.value)} rows={2}
           className={inputCls} placeholder="e.g. Jordan's best friend since college…" />
       </div>
+      {allowPhoto && (
+        <div>
+          <label className="block text-xs font-medium text-brown-light mb-1">
+            Photo <span className="font-normal">(optional, auto-cropped square)</span>
+          </label>
+          <div className="flex items-center gap-3">
+            {previewUrl ? (
+              <img src={previewUrl} alt="Preview"
+                className="h-14 w-14 rounded-full object-cover border border-gold-light" />
+            ) : (
+              <div className="h-14 w-14 rounded-full bg-ivory border border-gold-light flex items-center justify-center text-brown-light text-lg">
+                ?
+              </div>
+            )}
+            <label className="text-sm text-gold hover:underline cursor-pointer">
+              {isCropping ? 'Processing…' : croppedFile ? 'Change photo' : 'Upload photo'}
+              <input type="file" accept="image/jpeg,image/png,image/webp"
+                className="hidden" onChange={handlePhotoPick} disabled={isCropping} />
+            </label>
+            {croppedFile && (
+              <button type="button" onClick={() => {
+                if (previewUrl) URL.revokeObjectURL(previewUrl)
+                setCroppedFile(null)
+                setPreviewUrl(null)
+              }} className="text-xs text-brown-light hover:text-brown">Remove</button>
+            )}
+          </div>
+          {cropError && <p className="text-xs text-red-600 mt-1">{cropError}</p>}
+        </div>
+      )}
       <div className="flex gap-3">
         <button type="submit" disabled={isPending}
           className="rounded-lg bg-gold px-5 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-60 transition">

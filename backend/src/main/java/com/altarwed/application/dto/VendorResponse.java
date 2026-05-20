@@ -14,5 +14,6 @@ public record VendorResponse(
         String email,
         boolean isChristianOwned,
         List<UUID> denominationIds,
-        boolean isVerified
+        boolean isVerified,
+        String priceTier
 ) {}

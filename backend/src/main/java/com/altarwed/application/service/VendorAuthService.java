@@ -56,6 +56,7 @@ public class VendorAuthService {
                 request.denominationIds() != null ? request.denominationIds() : List.of(),
                 true,
                 false,
+                null,                // priceTier
                 null,
                 null
         );

@@ -65,6 +65,9 @@ public class VendorEntity {
     @Column(name = "is_verified", nullable = false)
     private boolean isVerified;
 
+    @Column(name = "price_tier", length = 3)
+    private String priceTier;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
