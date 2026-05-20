@@ -13,6 +13,8 @@ public record PlanningTask(
         LocalDateTime completedAt,
         boolean isSeeded,
         int sortOrder,
+        String notes,
+        String assignee,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {}

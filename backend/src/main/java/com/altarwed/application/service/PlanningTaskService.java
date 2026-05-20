@@ -39,6 +39,7 @@ public class PlanningTaskService {
                 null, coupleId, req.title(), req.category(),
                 req.dueMonthsBefore(), false, null,
                 false, (int) count + 1000,
+                null, null,
                 LocalDateTime.now(), LocalDateTime.now()
         );
         return taskRepository.save(task);
@@ -56,6 +57,8 @@ public class PlanningTaskService {
                 req.isCompleted() != null ? req.isCompleted() : existing.isCompleted(),
                 completing ? LocalDateTime.now() : (uncompleting ? null : existing.completedAt()),
                 existing.isSeeded(), existing.sortOrder(),
+                req.notes()    != null ? blankToNull(req.notes())    : existing.notes(),
+                req.assignee() != null ? blankToNull(req.assignee()) : existing.assignee(),
                 existing.createdAt(), LocalDateTime.now()
         );
         return taskRepository.save(updated);
@@ -80,6 +83,12 @@ public class PlanningTaskService {
             throw new PlanningTaskNotFoundException(taskId.toString());
         }
         return task;
+    }
+
+    // Empty/whitespace strings on PATCH become NULL in DB. Lets the frontend
+    // clear notes/assignee by sending "" instead of needing a separate DELETE.
+    private String blankToNull(String s) {
+        return (s == null || s.isBlank()) ? null : s;
     }
 
     // sortOrder values are spaced by 10 so the frontend can reorder without renumbering
@@ -136,7 +145,9 @@ public class PlanningTaskService {
         LocalDateTime now = LocalDateTime.now();
         List<PlanningTask> tasks = seeds.stream().map(s -> new PlanningTask(
                 null, coupleId, s.title(), s.cat(), s.monthsBefore(),
-                false, null, true, s.order(), now, now
+                false, null, true, s.order(),
+                null, null,
+                now, now
         )).toList();
 
         taskRepository.saveAll(tasks);

@@ -21,6 +21,7 @@ public class WeddingWebsiteMapper {
                 w.registryUrl3(), w.registryLabel3(),
                 w.rsvpDeadline(),
                 w.partnerOneVows(), w.partnerTwoVows(),
+                w.goalBudget(),
                 w.createdAt(), w.updatedAt()
         );
     }

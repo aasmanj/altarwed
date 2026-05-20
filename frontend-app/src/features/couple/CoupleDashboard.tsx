@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import OnboardingWizard from '@/features/couple/onboarding/OnboardingWizard'
+import TipCallout from '@/components/TipCallout'
+import { TIPS } from '@/lib/tips'
 
 export default function CoupleDashboard() {
   const { user, logout } = useAuth()
@@ -44,7 +46,11 @@ export default function CoupleDashboard() {
             ? `${user.partnerOneName} & ${user.partnerTwoName}`
             : user?.partnerOneName ?? user?.email}
         </h2>
-        <p className="text-brown-light mb-8">Your wedding planning dashboard</p>
+        <p className="text-brown-light mb-6">Your wedding planning dashboard</p>
+
+        <div className="mb-6">
+          <TipCallout tip={TIPS.dashboardWelcome} />
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <DashboardCard title="My Wedding Website" description="Build and share your public wedding page" href="/dashboard/website" live />

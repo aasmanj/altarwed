@@ -13,7 +13,7 @@ import {
   useDroppable,
   useDraggable,
 } from '@dnd-kit/core'
-import { Users } from 'lucide-react'
+import { Lock, Unlock, Users } from 'lucide-react'
 import { useGuests, useUpdateGuest, type Guest } from '@/features/couple/guests/useGuests'
 import {
   useSeatingTables,
@@ -25,7 +25,10 @@ import {
 
 // ─── Guest chip (draggable on desktop) ──────────────────────────────────────
 
-function GuestChip({ guest }: { guest: Guest }) {
+function GuestChip({ guest, locked = false }: { guest: Guest; locked?: boolean }) {
+  // useDraggable must still be called (hook rules), but we drop the listeners/
+  // attributes when locked so the chip is non-interactive and shows the default
+  // cursor instead of cursor-grab.
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: guest.id })
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
@@ -34,10 +37,12 @@ function GuestChip({ guest }: { guest: Guest }) {
   return (
     <div
       ref={setNodeRef}
-      {...listeners}
-      {...attributes}
+      {...(locked ? {} : listeners)}
+      {...(locked ? {} : attributes)}
       style={{ ...style, opacity: isDragging ? 0.3 : 1 }}
-      className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-stone-200 shadow-sm cursor-grab active:cursor-grabbing select-none text-sm text-stone-800"
+      className={`flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-stone-200 shadow-sm select-none text-sm text-stone-800 ${
+        locked ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'
+      }`}
     >
       <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
       <span className="truncate">{guest.name}</span>
@@ -54,10 +59,12 @@ function TableColumn({
   table,
   guests,
   onEdit,
+  locked = false,
 }: {
   table: SeatingTable | null
   guests: Guest[]
   onEdit?: (t: SeatingTable) => void
+  locked?: boolean
 }) {
   const id = table ? table.id : 'unassigned'
   const { setNodeRef, isOver } = useDroppable({ id })
@@ -100,7 +107,7 @@ function TableColumn({
       </div>
       <div className="p-2 space-y-1.5 flex-1 min-h-[80px]">
         {guests.map(g => (
-          <GuestChip key={g.id} guest={g} />
+          <GuestChip key={g.id} guest={g} locked={locked} />
         ))}
       </div>
     </div>
@@ -312,6 +319,15 @@ export default function SeatingPage() {
   const [editingTable, setEditingTable] = useState<SeatingTable | 'new' | null>(null)
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
+  // Locks the seating chart: drag/tap-to-assign disabled, guests sorted by name
+  // within each table. Persisted in localStorage so couples don't have to
+  // re-lock the chart every visit after they've finalized seating.
+  const [locked, setLocked] = useState<boolean>(
+    () => typeof window !== 'undefined' && window.localStorage.getItem('seating.locked') === '1',
+  )
+  useEffect(() => {
+    window.localStorage.setItem('seating.locked', locked ? '1' : '0')
+  }, [locked])
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -331,6 +347,7 @@ export default function SeatingPage() {
 
   function handleDragEnd(event: DragEndEvent) {
     setActiveGuest(null)
+    if (locked) return
     const { over, active } = event
     if (!over) return
     const guest = guests.find(g => g.id === active.id)
@@ -349,6 +366,7 @@ export default function SeatingPage() {
   }
 
   function handleMobileAssign(tableId: string) {
+    if (locked) return
     if (!selectedGuestId) return
     const guest = guests.find(g => g.id === selectedGuestId)
     if (!guest) return
@@ -359,15 +377,20 @@ export default function SeatingPage() {
   }
 
   function handleMobileUnassign(guestId: string) {
+    if (locked) return
     updateGuest.mutate({ guestId, payload: { tableNumber: undefined } })
     setSelectedGuestId(null)
   }
 
   function guestsForTable(table: SeatingTable) {
     const idx = tables.indexOf(table) + 1
-    return guests.filter(g => g.tableNumber === idx)
+    const out = guests.filter(g => g.tableNumber === idx)
+    return locked ? [...out].sort((a, b) => a.name.localeCompare(b.name)) : out
   }
-  const unassignedGuests = guests.filter(g => !g.tableNumber || !tables[g.tableNumber - 1])
+  const unassignedGuests = (() => {
+    const out = guests.filter(g => !g.tableNumber || !tables[g.tableNumber - 1])
+    return locked ? [...out].sort((a, b) => a.name.localeCompare(b.name)) : out
+  })()
   const assignedCount = guests.filter(g => g.tableNumber && tables[g.tableNumber - 1]).length
   const isLoading = guestsLoading || tablesLoading
 
@@ -383,14 +406,35 @@ export default function SeatingPage() {
     <div className="min-h-screen bg-ivory flex flex-col">
       <PageHeader
         title="Seating Chart"
-        subtitle={isMobile ? 'Tap a guest, then tap a table to assign' : 'Drag guests between tables to assign seats'}
+        subtitle={
+          locked
+            ? 'Locked — guests sorted by name within each table. Unlock to make changes.'
+            : isMobile
+              ? 'Tap a guest, then tap a table to assign'
+              : 'Drag guests between tables to assign seats'
+        }
         action={
-          <button
-            onClick={() => setEditingTable('new')}
-            className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark transition"
-          >
-            + Add table
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setLocked(l => !l)}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition ${
+                locked
+                  ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                  : 'border-stone-300 text-stone-700 hover:bg-stone-50'
+              }`}
+              title={locked ? 'Unlock to drag and reassign' : 'Lock the chart and sort by name'}
+            >
+              {locked ? <Lock size={12} /> : <Unlock size={12} />}
+              {locked ? 'Locked' : 'Lock chart'}
+            </button>
+            <button
+              onClick={() => setEditingTable('new')}
+              disabled={locked}
+              className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              + Add table
+            </button>
+          </div>
         }
       />
 
@@ -438,7 +482,7 @@ export default function SeatingPage() {
                       key={g.id}
                       guest={g}
                       isSelected={selectedGuestId === g.id}
-                      onTap={() => setSelectedGuestId(prev => prev === g.id ? null : g.id)}
+                      onTap={() => !locked && setSelectedGuestId(prev => prev === g.id ? null : g.id)}
                     />
                   ))}
                 </div>
@@ -464,12 +508,14 @@ export default function SeatingPage() {
                         {tableGuests.map(g => (
                           <div key={g.id} className="flex items-center justify-between gap-2">
                             <span className="text-xs text-stone-600 truncate">{g.name}</span>
-                            <button
-                              onClick={() => handleMobileUnassign(g.id)}
-                              className="text-xs text-stone-400 hover:text-rose-500 flex-shrink-0"
-                            >
-                              Remove
-                            </button>
+                            {!locked && (
+                              <button
+                                onClick={() => handleMobileUnassign(g.id)}
+                                className="text-xs text-stone-400 hover:text-rose-500 flex-shrink-0"
+                              >
+                                Remove
+                              </button>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -490,13 +536,15 @@ export default function SeatingPage() {
                 <TableColumn
                   table={null}
                   guests={unassignedGuests}
+                  locked={locked}
                 />
                 {tables.map(t => (
                   <TableColumn
                     key={t.id}
                     table={t}
                     guests={guestsForTable(t)}
-                    onEdit={setEditingTable}
+                    onEdit={locked ? undefined : setEditingTable}
+                    locked={locked}
                   />
                 ))}
               </div>

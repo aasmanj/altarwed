@@ -6,6 +6,8 @@ import {
   useSendInvite, useSendAllInvites,
   type Guest, type RsvpStatus, type GuestSide,
 } from './useGuests'
+import TipCallout from '@/components/TipCallout'
+import { TIPS } from '@/lib/tips'
 
 const STATUS_LABEL: Record<RsvpStatus, string> = {
   PENDING: 'Pending', ATTENDING: 'Attending', DECLINING: 'Declining', MAYBE: 'Maybe',
@@ -65,6 +67,10 @@ export default function GuestListPage() {
       />
 
       <main className="mx-auto max-w-5xl px-6 py-10">
+
+        <div className="mb-6">
+          <TipCallout tip={TIPS.guestsRsvpTiming} />
+        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">

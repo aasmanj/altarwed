@@ -2,6 +2,7 @@ package com.altarwed.application.dto;
 
 import jakarta.validation.constraints.Size;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 // All fields nullable — only non-null fields are applied (patch semantics).
@@ -37,5 +38,7 @@ public record UpdateWeddingWebsiteRequest(
         LocalDate rsvpDeadline,
 
         String partnerOneVows,
-        String partnerTwoVows
+        String partnerTwoVows,
+
+        BigDecimal goalBudget
 ) {}

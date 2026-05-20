@@ -1,5 +1,6 @@
 package com.altarwed.domain.model;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -42,6 +43,10 @@ public record WeddingWebsite(
         String partnerOneVows,
         String partnerTwoVows,
 
+        // V25: target total spend the couple is shooting for. Compared against
+        // BudgetItem actualCost sums in the budget tracker. Optional.
+        BigDecimal goalBudget,
+
         boolean isDeleted,
         LocalDateTime deletedAt,
 
@@ -56,7 +61,7 @@ public record WeddingWebsite(
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
-                rsvpDeadline, partnerOneVows, partnerTwoVows, isDeleted, deletedAt, createdAt, LocalDateTime.now());
+                rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget, isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
     public WeddingWebsite unpublished() {
@@ -67,7 +72,7 @@ public record WeddingWebsite(
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
-                rsvpDeadline, partnerOneVows, partnerTwoVows, isDeleted, deletedAt, createdAt, LocalDateTime.now());
+                rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget, isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
     public WeddingWebsite deleted() {
@@ -78,6 +83,6 @@ public record WeddingWebsite(
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
-                rsvpDeadline, partnerOneVows, partnerTwoVows, true, LocalDateTime.now(), createdAt, LocalDateTime.now());
+                rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget, true, LocalDateTime.now(), createdAt, LocalDateTime.now());
     }
 }

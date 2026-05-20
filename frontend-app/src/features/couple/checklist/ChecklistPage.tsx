@@ -1,7 +1,10 @@
-import { useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import confetti from 'canvas-confetti'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
+import TipCallout from '@/components/TipCallout'
+import { TIPS } from '@/lib/tips'
 import {
   usePlanningTasks, useToggleTask, useAddTask, useDeleteTask,
   type PlanningTask, type TaskCategory,
@@ -79,6 +82,10 @@ export default function ChecklistPage() {
       />
 
       <main className="mx-auto max-w-3xl px-6 py-10">
+        <div className="mb-6">
+          <TipCallout tip={TIPS.checklistFaith} />
+        </div>
+
         {/* Progress bar */}
         <div className="mb-8 rounded-2xl border border-gold-light bg-white p-6">
           <div className="flex items-center justify-between mb-3">
@@ -184,6 +191,9 @@ export default function ChecklistPage() {
                             },
                           })
                         }}
+                        onSaveDetails={({ notes, assignee }) =>
+                          toggle.mutate({ taskId: task.id, notes, assignee })
+                        }
                         onDelete={() => deleteTask.mutate(task.id)}
                       />
                     ))}
@@ -198,46 +208,128 @@ export default function ChecklistPage() {
   )
 }
 
-function TaskRow({ task, onToggle, onDelete }: {
+function TaskRow({ task, onToggle, onSaveDetails, onDelete }: {
   task: PlanningTask
   onToggle: () => void
+  onSaveDetails: (payload: { notes: string; assignee: string }) => void
   onDelete: () => void
 }) {
-  return (
-    <div className={`flex items-center gap-4 px-5 py-4 transition ${task.isCompleted ? 'bg-green-50/30' : 'hover:bg-ivory/40'}`}>
-      <button
-        onClick={onToggle}
-        className={`shrink-0 h-5 w-5 rounded border-2 flex items-center justify-center transition ${
-          task.isCompleted
-            ? 'border-green-500 bg-green-500 text-white'
-            : 'border-gold-light hover:border-gold'
-        }`}
-        aria-label={task.isCompleted ? 'Mark incomplete' : 'Mark complete'}
-      >
-        {task.isCompleted && (
-          <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        )}
-      </button>
+  const [expanded, setExpanded] = useState(false)
+  const [notes, setNotes] = useState(task.notes ?? '')
+  const [assignee, setAssignee] = useState(task.assignee ?? '')
 
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm font-medium ${task.isCompleted ? 'line-through text-brown-light' : 'text-brown'}`}>
-          {task.title}
-        </p>
-        {task.dueMonthsBefore != null && (
-          <p className="text-xs text-brown-light mt-0.5">
-            ~{task.dueMonthsBefore} month{task.dueMonthsBefore !== 1 ? 's' : ''} before the wedding
+  // Re-sync when the upstream task changes (e.g. after a server refresh) but
+  // only when collapsed, so in-progress edits aren't clobbered.
+  useEffect(() => {
+    if (!expanded) {
+      setNotes(task.notes ?? '')
+      setAssignee(task.assignee ?? '')
+    }
+  }, [task.notes, task.assignee, expanded])
+
+  const isDirty =
+    notes !== (task.notes ?? '') || assignee !== (task.assignee ?? '')
+
+  return (
+    <div className={`transition ${task.isCompleted ? 'bg-green-50/30' : 'hover:bg-ivory/40'}`}>
+      <div className="flex items-center gap-4 px-5 py-4">
+        <button
+          onClick={onToggle}
+          className={`shrink-0 h-5 w-5 rounded border-2 flex items-center justify-center transition ${
+            task.isCompleted
+              ? 'border-green-500 bg-green-500 text-white'
+              : 'border-gold-light hover:border-gold'
+          }`}
+          aria-label={task.isCompleted ? 'Mark incomplete' : 'Mark complete'}
+        >
+          {task.isCompleted && (
+            <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </button>
+
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="flex-1 min-w-0 text-left"
+        >
+          <p className={`text-sm font-medium ${task.isCompleted ? 'line-through text-brown-light' : 'text-brown'}`}>
+            {task.title}
           </p>
-        )}
+          <div className="flex flex-wrap items-center gap-3 text-xs text-brown-light mt-0.5">
+            {task.dueMonthsBefore != null && (
+              <span>
+                ~{task.dueMonthsBefore} month{task.dueMonthsBefore !== 1 ? 's' : ''} before
+              </span>
+            )}
+            {task.assignee && <span className="text-stone-600">· {task.assignee}</span>}
+            {task.notes && <span className="text-stone-500 italic truncate">· note</span>}
+          </div>
+        </button>
+
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="shrink-0 text-brown-light hover:text-brown"
+          aria-label={expanded ? 'Collapse' : 'Expand'}
+        >
+          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </button>
+
+        <button
+          onClick={() => { if (confirm(`Delete "${task.title}"?`)) onDelete() }}
+          className="shrink-0 text-xs text-red-300 hover:text-red-500 transition"
+        >
+          Remove
+        </button>
       </div>
 
-      <button
-        onClick={() => { if (confirm(`Delete "${task.title}"?`)) onDelete() }}
-        className="shrink-0 text-xs text-red-300 hover:text-red-500 transition"
-      >
-        Remove
-      </button>
+      {expanded && (
+        <div className="px-5 pb-4 pt-1 grid sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="block text-xs font-medium text-brown-light mb-1">Assigned to</span>
+            <input
+              type="text"
+              value={assignee}
+              onChange={e => setAssignee(e.target.value)}
+              placeholder="e.g. Bride, Groom, Maid of honor"
+              className="w-full rounded-lg border border-gold-light px-3 py-2 text-sm text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+            />
+          </label>
+          <label className="block sm:row-span-2">
+            <span className="block text-xs font-medium text-brown-light mb-1">Notes</span>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              rows={3}
+              placeholder="Vendor contact, deadline, payment status…"
+              className="w-full rounded-lg border border-gold-light px-3 py-2 text-sm text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold resize-none"
+            />
+          </label>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                onSaveDetails({ notes, assignee })
+                setExpanded(false)
+              }}
+              disabled={!isDirty}
+              className="rounded-lg bg-gold px-3 py-1.5 text-xs font-semibold text-white hover:bg-gold-dark disabled:opacity-50 transition"
+            >
+              Save details
+            </button>
+            {isDirty && (
+              <button
+                onClick={() => {
+                  setNotes(task.notes ?? '')
+                  setAssignee(task.assignee ?? '')
+                }}
+                className="text-xs text-brown-light hover:text-brown"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

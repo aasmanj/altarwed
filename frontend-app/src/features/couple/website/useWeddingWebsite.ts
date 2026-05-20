@@ -31,6 +31,7 @@ export interface WeddingWebsite {
   rsvpDeadline: string | null
   partnerOneVows: string | null
   partnerTwoVows: string | null
+  goalBudget: number | null
 }
 
 export interface CreateWebsitePayload {

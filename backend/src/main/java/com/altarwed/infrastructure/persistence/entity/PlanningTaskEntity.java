@@ -46,6 +46,12 @@ public class PlanningTaskEntity {
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
+    @Column(name = "notes", columnDefinition = "NVARCHAR(MAX)")
+    private String notes;
+
+    @Column(name = "assignee", length = 100)
+    private String assignee;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

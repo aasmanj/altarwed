@@ -50,6 +50,7 @@ public class WeddingWebsiteService {
                 null, null, null, null, null, null,        // registry 1/2/3
                 null,                                      // rsvpDeadline
                 null, null,                                // vows
+                null,                                      // goalBudget
                 false, null,
                 LocalDateTime.now(), LocalDateTime.now()
         );
@@ -122,6 +123,8 @@ public class WeddingWebsiteService {
                 req.partnerOneVows()    != null ? req.partnerOneVows()    : existing.partnerOneVows(),
                 req.partnerTwoVows()    != null ? req.partnerTwoVows()    : existing.partnerTwoVows(),
 
+                req.goalBudget()        != null ? req.goalBudget()        : existing.goalBudget(),
+
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(),
                 LocalDateTime.now()
@@ -149,6 +152,7 @@ public class WeddingWebsiteService {
                 existing.registryUrl3(), existing.registryLabel3(),
                 existing.rsvpDeadline(),
                 existing.partnerOneVows(), existing.partnerTwoVows(),
+                existing.goalBudget(),
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );

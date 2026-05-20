@@ -15,6 +15,8 @@ export interface PlanningTask {
   completedAt: string | null
   isSeeded: boolean
   sortOrder: number
+  notes: string | null
+  assignee: string | null
 }
 
 export interface CreateTaskPayload {
@@ -32,16 +34,31 @@ export function usePlanningTasks(coupleId: string) {
   })
 }
 
+interface UpdateTaskPayload {
+  taskId: string
+  isCompleted?: boolean
+  notes?: string
+  assignee?: string
+}
+
 export function useToggleTask(coupleId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) =>
-      apiClient.patch(`/api/v1/planning-tasks/couple/${coupleId}/${taskId}`, { isCompleted }).then(r => r.data),
-    onMutate: async ({ taskId, isCompleted }) => {
+    mutationFn: ({ taskId, ...rest }: UpdateTaskPayload) =>
+      apiClient.patch(`/api/v1/planning-tasks/couple/${coupleId}/${taskId}`, rest).then(r => r.data),
+    onMutate: async ({ taskId, isCompleted, notes, assignee }) => {
       await qc.cancelQueries({ queryKey: key(coupleId) })
       const previous = qc.getQueryData<PlanningTask[]>(key(coupleId))
       qc.setQueryData<PlanningTask[]>(key(coupleId), old =>
-        old?.map(t => t.id === taskId ? { ...t, isCompleted } : t) ?? []
+        old?.map(t => {
+          if (t.id !== taskId) return t
+          return {
+            ...t,
+            ...(isCompleted !== undefined ? { isCompleted } : {}),
+            ...(notes !== undefined ? { notes: notes || null } : {}),
+            ...(assignee !== undefined ? { assignee: assignee || null } : {}),
+          }
+        }) ?? []
       )
       return { previous }
     },

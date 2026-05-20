@@ -3,6 +3,7 @@ package com.altarwed.infrastructure.persistence.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -104,6 +105,9 @@ public class WeddingWebsiteEntity {
 
     @Column(name = "partner_two_vows", columnDefinition = "NVARCHAR(MAX)")
     private String partnerTwoVows;
+
+    @Column(name = "goal_budget", precision = 10, scale = 2)
+    private BigDecimal goalBudget;
 
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted;

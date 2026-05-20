@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import {
@@ -10,6 +10,9 @@ import {
   BudgetCategory,
   BudgetItem,
 } from './useBudget'
+import { useWeddingWebsite, useUpdateWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
+import TipCallout from '@/components/TipCallout'
+import { TIPS } from '@/lib/tips'
 
 const CATEGORIES = Object.keys(CATEGORY_LABELS) as BudgetCategory[]
 
@@ -43,6 +46,21 @@ export default function BudgetPage() {
   const createItem = useCreateBudgetItem(coupleId)
   const updateItem = useUpdateBudgetItem(coupleId)
   const deleteItem = useDeleteBudgetItem(coupleId)
+  const { data: website } = useWeddingWebsite(coupleId)
+  const updateWebsite = useUpdateWeddingWebsite(coupleId)
+
+  // Goal input is a separate, debounced local state so typing feels instant
+  // and the PATCH doesn't fire on every keystroke.
+  const [goalInput, setGoalInput] = useState<string>('')
+  useEffect(() => {
+    setGoalInput(website?.goalBudget != null ? String(website.goalBudget) : '')
+  }, [website?.goalBudget])
+  function commitGoal() {
+    const parsed = goalInput.trim() === '' ? null : parseFloat(goalInput)
+    const next = parsed != null && !Number.isNaN(parsed) && parsed >= 0 ? parsed : null
+    if (next === (website?.goalBudget ?? null)) return
+    updateWebsite.mutate({ goalBudget: next as unknown as number })
+  }
 
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -103,6 +121,11 @@ export default function BudgetPage() {
   const paidPercent = summary.totalActual > 0
     ? Math.round((summary.totalPaid / summary.totalActual) * 100)
     : 0
+  const goal = website?.goalBudget ?? null
+  const goalPercent = goal && goal > 0
+    ? Math.min(100, Math.round((summary.totalActual / goal) * 100))
+    : 0
+  const goalOver = goal != null && summary.totalActual > goal
 
   return (
     <div className="min-h-screen bg-ivory">
@@ -120,6 +143,54 @@ export default function BudgetPage() {
       />
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+        <TipCallout tip={TIPS.budgetGoal} />
+
+        {/* Goal vs Spent */}
+        <div className="bg-white rounded-xl border border-stone-200 p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+            <div>
+              <p className="text-sm font-semibold text-stone-800">Budget goal</p>
+              <p className="text-xs text-stone-500">
+                Set a target so you know when you're going over.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-stone-500">$</span>
+              <input
+                type="number"
+                min="0"
+                step="100"
+                value={goalInput}
+                onChange={e => setGoalInput(e.target.value)}
+                onBlur={commitGoal}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                placeholder="e.g. 25000"
+                className="w-32 border border-stone-300 rounded-lg px-3 py-2 text-sm text-right focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              />
+            </div>
+          </div>
+          {goal != null && goal > 0 ? (
+            <>
+              <div className="flex justify-between text-xs text-stone-600 mb-1.5">
+                <span>{fmt(summary.totalActual)} of {fmt(goal)} spent</span>
+                <span className={goalOver ? 'text-rose-600 font-semibold' : ''}>
+                  {goalPercent}%{goalOver ? ' · over goal' : ''}
+                </span>
+              </div>
+              <div className="h-3 bg-stone-100 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    goalOver ? 'bg-rose-500' : 'bg-amber-500'
+                  }`}
+                  style={{ width: `${goalPercent}%` }}
+                />
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-stone-400 italic">No goal set yet.</p>
+          )}
+        </div>
+
         {/* Summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <SummaryCard label="Total Budget" value={fmt(summary.totalBudget)} color="stone" />

@@ -59,7 +59,9 @@ public class PlanningTaskRepositoryAdapter implements PlanningTaskRepository {
         return new PlanningTask(
                 e.getId(), e.getCoupleId(), e.getTitle(), e.getCategory(),
                 e.getDueMonthsBefore(), e.isCompleted(), e.getCompletedAt(),
-                e.isSeeded(), e.getSortOrder(), e.getCreatedAt(), e.getUpdatedAt()
+                e.isSeeded(), e.getSortOrder(),
+                e.getNotes(), e.getAssignee(),
+                e.getCreatedAt(), e.getUpdatedAt()
         );
     }
 
@@ -74,6 +76,8 @@ public class PlanningTaskRepositoryAdapter implements PlanningTaskRepository {
                 .completedAt(t.completedAt())
                 .isSeeded(t.isSeeded())
                 .sortOrder(t.sortOrder())
+                .notes(t.notes())
+                .assignee(t.assignee())
                 .createdAt(t.createdAt())
                 .updatedAt(t.updatedAt())
                 .build();

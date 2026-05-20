@@ -11,7 +11,9 @@ public class PlanningTaskMapper {
         return new PlanningTaskResponse(
                 t.id(), t.coupleId(), t.title(), t.category(),
                 t.dueMonthsBefore(), t.isCompleted(), t.completedAt(),
-                t.isSeeded(), t.sortOrder(), t.createdAt(), t.updatedAt()
+                t.isSeeded(), t.sortOrder(),
+                t.notes(), t.assignee(),
+                t.createdAt(), t.updatedAt()
         );
     }
 }

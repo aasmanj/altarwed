@@ -1,5 +1,6 @@
 package com.altarwed.application.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -41,6 +42,8 @@ public record WeddingWebsiteResponse(
 
         String partnerOneVows,
         String partnerTwoVows,
+
+        BigDecimal goalBudget,
 
         LocalDateTime createdAt,
         LocalDateTime updatedAt
