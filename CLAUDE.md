@@ -167,7 +167,7 @@ All entities below have Flyway migrations in production (V1–V15):
 - NEVER use spring.jpa.hibernate.ddl-auto=create or update in any environment
 - ALL schema changes go through Flyway migrations in db/migration/
 - Migration naming: V{number}__{description}.sql (e.g. V1__create_couples_table.sql)
-- Next migration number: V26
+- Next migration number: V28
 - UUID primary keys on all tables
 
 ## Security Rules
@@ -317,24 +317,30 @@ After a real walkthrough with Jordan's sister Katelyn + her fiancé Luke (engage
 - **"Now go check out the registry"** link on RSVP confirmation when attending.
 - Per CLAUDE.md mapping: `partnerOneName` = Groom, `partnerTwoName` = Bride. DTO columns unchanged in this phase to avoid a rename migration.
 
-### 🔜 Phase 0b — Walkthrough followups (still to ship)
-Each of these came out of the walkthrough but needs more meaningful UI work than fit into the one-pass cleanup. The V25 columns / enum slots are already in place so the work is purely wiring + UI.
-- **Seating fixed-order toggle** — disable drag, lock to `tableNumber ASC, name ASC`.
-- **Budget goal field** — wire `wedding_websites.goal_budget` into the editor + a "Goal vs Spent" progress bar on BudgetPage.
-- **Wedding party photo crop on add form** — add `react-image-crop`, move photo input into the create form, square-crop before upload.
-- **Checklist notes + assignee** — surface the new `notes` / `assignee` columns in the row-expand UI.
-- **Vendor price-tier filter chips** — wire the new `price_tier` column into the `/vendors` filter UI.
-- **RSVP "Remind me in X days"** — replaces MAYBE radio; needs a Spring `@Scheduled` job that re-sends the invite after the chosen interval.
-- **Preview-before-publish warning** — show "Publish first to share with guests" inline when an unpublished couple tries to open the public URL, with a link to a `/dashboard/website/preview` route.
-- **TipCallout component + nudge copy** — reusable inline tips ("Send RSVPs 30 days before", "Add a dress code", etc.).
+### ✅ Phase 0b — Walkthrough followups — COMPLETE (2026-05-21)
+All items shipped. V25 columns were already in place; work was purely wiring + UI.
+- **Seating fixed-order toggle** — Lock/Unlock button; locked state disables drag, sorts guests by name, persisted in localStorage.
+- **Budget goal field** — goal input (blur/Enter to save via PATCH), "Goal vs Spent" amber/rose progress bar on BudgetPage.
+- **Wedding party photo crop on add form** — `cropToSquare` helper in MemberForm; auto-crops to square on file select, uploads cropped blob.
+- **Checklist notes + assignee** — expand-row UI; notes textarea + assignee field; Save/Reset; assignee shown in collapsed row summary.
+- **Vendor price-tier filter chips** — $, $$, $$$ chips on `/vendors` page; tier filter applied server-side via URL param.
+- **RSVP "Remind me in X days"** — V27 adds `remind_at` to guests; RsvpReminderService polls hourly; token NOT marked used so link stays valid; RsvpForm replaces MAYBE with 1/3/7 day buttons.
+- **Preview-before-publish warning** — SideBySideEditor shows draft state + "Publish first" message when `isPublished=false`.
+- **TipCallout component + nudge copy** — `TipCallout.tsx` + `tips.ts`; used on BudgetPage and ChecklistPage.
 
-### 🔜 Phase 1 — Side-by-side block editor
-See `~/.claude/plans/okay-mr-claude-opus-parsed-moler.md` for the full plan. V26 migration creates `wedding_page_blocks` (per-tab, typed JSON content). Existing field-based content is backfilled into blocks. Frontend gets a Knot-style left-iframe-preview / right-rail-edit UX. Highest-priority differentiator left to build.
+### ✅ Phase 1 — Side-by-side block editor — COMPLETE (2026-05-21)
+- **V26 migration** creates `wedding_page_blocks` table (websiteId, tab, type, sortOrder, contentJson).
+- **13 block types**: HEADING, TEXT, DIVIDER, SCRIPTURE_BANNER, VENUE_CARD, HOTEL_CARD, REGISTRY_CARD, COUNTDOWN, RSVP_CTA, WEDDING_PARTY_GRID, PHOTO_ALBUM_GRID, VOWS_PREVIEW, CUSTOM_HTML.
+- **BlockBackfillService** seeds default blocks from existing website scalar fields on first backfill call. Idempotent (skips tabs that already have blocks).
+- **WeddingPageBlockController** — full CRUD + reorder + backfill endpoints.
+- **SideBySideEditor** (`frontend-app`) — left iframe preview, right rail block list; add/edit/delete/reorder blocks per tab.
+- **`/preview/[slug]/[tab]`** (`frontend-public`) — SSR preview route consumed by the iframe; gated on `isPublished`; no site chrome.
+- **BlockRenderer** — dispatches all 13 block types to styled React components.
 
 ### 🔜 Phase 7 — Homepage launch + SEO content
 (a) Publish the real altarwed.com homepage — replace the waitlist with a full marketing homepage. Stop capturing waitlist emails; convert to direct sign-up CTAs. The homepage should showcase the wedding website feature, vendor directory, and faith-first differentiators. Open couple and vendor registration to the public.
 (b) Blog / content marketing — 2 posts per week targeting high-volume wedding SEO keywords. Blog at altarwed.com/blog/[slug]. Focus on faith-based wedding content: scripture for weddings, Christian vow examples, denomination-specific ceremony guides, etc. Schema: Article JSON-LD. Target keywords: "christian wedding vows" (18K/mo), "bible verses for weddings" (40K/mo), "christian wedding ceremony" (12K/mo).
-(c) Blog infra: BlogPost entity (slug, title, excerpt, content/MDX, author, publishedAt, seoTitle, seoDescription, tags). Flyway V23. ISR revalidate 3600s.
+(c) Blog infra: BlogPost entity (slug, title, excerpt, content/MDX, author, publishedAt, seoTitle, seoDescription, tags). Flyway V28. ISR revalidate 3600s.
 
 ### 🔜 Phase 8 — Stripe billing
 Vendor subscriptions ($29/$79/$149), couple Covenant Plan ($9/mo). Wire VendorSubscription entity to Stripe. Add subscription management UI. Webhook handler for payment events.
