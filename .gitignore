@@ -17,6 +17,8 @@ frontend-app/dist/
 .env
 .env.local
 .env.*.local
+application-local.yml
+application-local.yaml
 application-local
 application-secrets.yml
 

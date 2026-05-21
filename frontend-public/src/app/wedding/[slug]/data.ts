@@ -25,6 +25,8 @@ export interface WeddingWebsite {
   registryUrl3: string | null
   registryLabel3: string | null
   rsvpDeadline: string | null
+  partnerOneVows: string | null
+  partnerTwoVows: string | null
 }
 
 export async function getWedding(slug: string): Promise<WeddingWebsite | null> {
@@ -36,5 +38,40 @@ export async function getWedding(slug: string): Promise<WeddingWebsite | null> {
     return res.json()
   } catch {
     return null
+  }
+}
+
+// ── Block types (mirrors frontend-app/src/features/couple/website/blocks/types.ts) ──
+
+export type BlockTab =
+  | 'HOME' | 'OUR_STORY' | 'DETAILS' | 'WEDDING_PARTY'
+  | 'REGISTRY' | 'TRAVEL' | 'PHOTOS' | 'RSVP'
+
+export type BlockType =
+  | 'TEXT' | 'HEADING' | 'IMAGE' | 'SCRIPTURE' | 'DIVIDER'
+  | 'VENUE_CARD' | 'HOTEL_CARD' | 'REGISTRY_CARD'
+  | 'COUNTDOWN' | 'RSVP_CTA'
+  | 'WEDDING_PARTY_GRID' | 'PHOTO_ALBUM_GRID' | 'VOWS_PREVIEW'
+
+export interface WeddingPageBlock {
+  id: string
+  weddingWebsiteId: string
+  tab: BlockTab
+  type: BlockType
+  sortOrder: number
+  contentJson: string
+}
+
+export async function getBlocks(slug: string, tab: BlockTab): Promise<WeddingPageBlock[]> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
+  try {
+    const res = await fetch(
+      `${apiUrl}/api/v1/wedding-page-blocks/slug/${slug}?tab=${tab}`,
+      { next: { revalidate: 60 } },
+    )
+    if (!res.ok) return []
+    return res.json()
+  } catch {
+    return []
   }
 }

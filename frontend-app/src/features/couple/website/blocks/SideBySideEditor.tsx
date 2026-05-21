@@ -22,9 +22,9 @@ import {
   defaultContentJson,
 } from './types'
 
-// Side-by-side editor: live public-site preview on the left, block CRUD on the
-// right. Phase 1 / Checkpoint 3 — iframe currently points at the published
-// public page; draft preview (signed token + /preview/[slug]) is Checkpoint 4.
+// Side-by-side editor: live block preview on the left (via /preview/[slug]/[tab]),
+// block CRUD on the right. Phase 1 / Checkpoint 4 — iframe points at the new
+// block-renderer preview route. Checkpoint 5 will add signed tokens for unpublished drafts.
 export default function SideBySideEditor() {
   const { user } = useAuth()
   const coupleId = user?.id ?? ''
@@ -57,9 +57,10 @@ export default function SideBySideEditor() {
   }
   if (!websiteId) return null
 
-  const publicTabPath = TAB_TO_PUBLIC_PATH[activeTab]
+  // Preview route uses the BlockTab enum value directly in the URL.
+  // The /preview page gates on isPublished; unpublished sites still show "Draft" state.
   const previewUrl = website.isPublished
-    ? `https://www.altarwed.com/wedding/${website.slug}${publicTabPath}`
+    ? `https://www.altarwed.com/preview/${website.slug}/${activeTab}`
     : null
 
   const handleAdd = (type: BlockType) => {
@@ -202,16 +203,3 @@ export default function SideBySideEditor() {
   )
 }
 
-// Mapping from BlockTab to the path segment under /wedding/[slug]. The HOME tab
-// renders at the root of the wedding site (no suffix); others map to their
-// existing public sub-routes.
-const TAB_TO_PUBLIC_PATH: Record<BlockTab, string> = {
-  HOME: '',
-  OUR_STORY: '/story',
-  DETAILS: '/details',
-  WEDDING_PARTY: '/wedding-party',
-  REGISTRY: '/registry',
-  TRAVEL: '/travel',
-  PHOTOS: '/photos',
-  RSVP: '/rsvp',
-}
