@@ -130,6 +130,16 @@ export function useSendInvite(coupleId: string) {
   })
 }
 
+export function useBulkAddGuests(coupleId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (guests: CreateGuestPayload[]) =>
+      apiClient.post(`/api/v1/guests/couple/${coupleId}/bulk`, { guests }).then(r => r.data),
+    onSuccess: (newGuests: Guest[]) =>
+      qc.setQueryData<Guest[]>(key(coupleId), old => old ? [...old, ...newGuests] : newGuests),
+  })
+}
+
 export function useCreateParty(coupleId: string) {
   const qc = useQueryClient()
   return useMutation({

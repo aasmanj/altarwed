@@ -44,6 +44,21 @@ public class GuestService {
     }
 
     @Transactional
+    public List<Guest> addGuestsBulk(UUID coupleId, List<com.altarwed.application.dto.CreateGuestRequest> reqs) {
+        List<Guest> guests = reqs.stream().map(req -> new Guest(
+                null, coupleId, req.name(), req.email(), req.phone(),
+                GuestRsvpStatus.PENDING, req.plusOneAllowed(), null,
+                req.dietaryRestrictions(), null, null, null,
+                null, req.side(), req.notes(), req.mailAddress(),
+                null, 0,
+                null, null, null, LocalDateTime.now(), LocalDateTime.now(),
+                req.partyId(), req.partyName(),
+                req.partyContact() != null ? req.partyContact() : false
+        )).toList();
+        return guestRepository.saveAll(guests);
+    }
+
+    @Transactional
     public Guest addGuest(UUID coupleId, CreateGuestRequest req) {
         Guest guest = new Guest(
                 null, coupleId, req.name(), req.email(), req.phone(),

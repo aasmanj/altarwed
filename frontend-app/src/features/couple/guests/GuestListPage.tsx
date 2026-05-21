@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import Papa from 'papaparse'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import {
   useGuests, useAddGuest, useUpdateGuest, useRemoveGuest,
-  useSendInvite, useSendAllInvites, useCreateParty,
-  type Guest, type RsvpStatus, type GuestSide, type CreatePartyPayload,
+  useSendInvite, useSendAllInvites, useCreateParty, useBulkAddGuests,
+  type Guest, type RsvpStatus, type GuestSide, type CreatePartyPayload, type CreateGuestPayload,
 } from './useGuests'
 import TipCallout from '@/components/TipCallout'
 import { TIPS } from '@/lib/tips'
@@ -30,10 +32,12 @@ export default function GuestListPage() {
   const sendInvite  = useSendInvite(coupleId)
   const sendAll     = useSendAllInvites(coupleId)
 
-  const createParty = useCreateParty(coupleId)
+  const createParty   = useCreateParty(coupleId)
+  const bulkAdd       = useBulkAddGuests(coupleId)
 
   const [showAdd, setShowAdd]         = useState(false)
   const [showParty, setShowParty]     = useState(false)
+  const [showImport, setShowImport]   = useState(false)
   const [filter, setFilter]           = useState<RsvpStatus | 'ALL'>('ALL')
   const [editingId, setEditingId]     = useState<string | null>(null)
 
@@ -65,6 +69,21 @@ export default function GuestListPage() {
   const attending = guests.filter(g => g.rsvpStatus === 'ATTENDING').length
   const declining = guests.filter(g => g.rsvpStatus === 'DECLINING').length
   const pending   = guests.filter(g => g.rsvpStatus === 'PENDING').length
+  const notSent   = guests.filter(g => !g.inviteSentAt).length
+  const responded = attending + declining
+  const responseRate = total > 0 ? Math.round((responded / total) * 100) : 0
+
+  const [showAnalytics, setShowAnalytics] = useState(false)
+
+  // Analytics data
+  const mealCounts   = guests.filter(g => g.mealPreference).reduce<Record<string,number>>((acc, g) => {
+    const k = g.mealPreference!; acc[k] = (acc[k] ?? 0) + 1; return acc
+  }, {})
+  const dietaryCounts = guests.filter(g => g.dietaryRestrictions).reduce<Record<string,number>>((acc, g) => {
+    const k = g.dietaryRestrictions!; acc[k] = (acc[k] ?? 0) + 1; return acc
+  }, {})
+  const songCount   = guests.filter(g => g.songRequest).length
+  const shuttleCount = guests.filter(g => g.shuttleNeeded).length
 
   return (
     <div className="min-h-screen bg-ivory">
@@ -79,6 +98,12 @@ export default function GuestListPage() {
               className="rounded-lg border border-gold px-4 py-2 text-sm font-medium text-brown hover:bg-gold/10 disabled:opacity-50 transition"
             >
               {sendAll.isPending ? 'Sending…' : `Send all pending invites (${pending})`}
+            </button>
+            <button
+              onClick={() => setShowImport(true)}
+              className="rounded-lg border border-gold px-4 py-2 text-sm font-medium text-brown hover:bg-gold/10 transition"
+            >
+              Import CSV
             </button>
             <button
               onClick={() => setShowParty(true)}
@@ -117,6 +142,32 @@ export default function GuestListPage() {
           ))}
         </div>
 
+        {/* Analytics toggle */}
+        <div className="mb-4">
+          <button
+            onClick={() => setShowAnalytics(v => !v)}
+            className="text-sm text-gold hover:underline"
+          >
+            {showAnalytics ? 'Hide analytics ▲' : 'Show analytics ▼'}
+          </button>
+        </div>
+
+        {/* Analytics panel */}
+        {showAnalytics && (
+          <GuestAnalyticsPanel
+            attending={attending}
+            declining={declining}
+            pending={pending}
+            notSent={notSent}
+            responseRate={responseRate}
+            total={total}
+            mealCounts={mealCounts}
+            dietaryCounts={dietaryCounts}
+            songCount={songCount}
+            shuttleCount={shuttleCount}
+          />
+        )}
+
         {/* Filter tabs */}
         <div className="flex gap-1 mb-6 border-b border-gold-light overflow-x-auto">
           {(['ALL', 'PENDING', 'ATTENDING', 'DECLINING'] as const).map(f => (
@@ -131,6 +182,18 @@ export default function GuestListPage() {
             </button>
           ))}
         </div>
+
+        {/* CSV import modal */}
+        {showImport && (
+          <CsvImportModal
+            onImport={async (rows) => {
+              await bulkAdd.mutateAsync(rows)
+              setShowImport(false)
+            }}
+            onClose={() => setShowImport(false)}
+            isPending={bulkAdd.isPending}
+          />
+        )}
 
         {/* Create party form */}
         {showParty && (
@@ -303,6 +366,137 @@ function GuestRow({ guest, onEdit, onRemove, onInvite, sendInvitePending }: {
         </tr>
       )}
     </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// CSV import modal
+// ---------------------------------------------------------------------------
+const CSV_TEMPLATE = 'Name,Email,Phone,Side,Party Name\nJohn Smith,john@example.com,555-0100,GROOM,Smith Family\nJane Smith,,, GROOM,Smith Family\nMary Jones,mary@example.com,,BRIDE,'
+
+function CsvImportModal({ onImport, onClose, isPending }: {
+  onImport: (rows: CreateGuestPayload[]) => Promise<void>
+  onClose: () => void
+  isPending: boolean
+}) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [preview, setPreview] = useState<CreateGuestPayload[] | null>(null)
+  const [parseError, setParseError] = useState('')
+
+  const downloadTemplate = () => {
+    const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'guest-import-template.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setParseError('')
+    Papa.parse<Record<string, string>>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (result) => {
+        if (result.errors.length > 0) {
+          setParseError(`Parse error: ${result.errors[0].message}`)
+          return
+        }
+        // Build party groups: rows with the same Party Name share a partyId.
+        const partyIdMap = new Map<string, string>()
+        const rows: CreateGuestPayload[] = result.data
+          .filter(row => (row['Name'] ?? '').trim())
+          .map(row => {
+            const name  = (row['Name']  ?? '').trim()
+            const email = (row['Email'] ?? '').trim() || undefined
+            const phone = (row['Phone'] ?? '').trim() || undefined
+            const side  = (['BRIDE','GROOM','BOTH'].includes((row['Side'] ?? '').trim().toUpperCase())
+              ? (row['Side'] ?? '').trim().toUpperCase()
+              : undefined) as GuestSide | undefined
+            const partyNameVal = (row['Party Name'] ?? '').trim() || undefined
+            let partyId: string | undefined
+            let partyName: string | undefined
+            if (partyNameVal) {
+              if (!partyIdMap.has(partyNameVal)) {
+                partyIdMap.set(partyNameVal, crypto.randomUUID())
+              }
+              partyId   = partyIdMap.get(partyNameVal)
+              partyName = partyNameVal
+            }
+            return { name, email, phone, side, plusOneAllowed: false, partyId, partyName }
+          })
+        if (rows.length === 0) { setParseError('No valid rows found.'); return }
+        setPreview(rows)
+      },
+      error: (err) => setParseError(err.message),
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-serif text-lg font-semibold text-brown">Import guests from CSV</h3>
+          <button onClick={onClose} className="text-brown-light hover:text-brown text-xl leading-none">✕</button>
+        </div>
+
+        {!preview ? (
+          <>
+            <p className="text-sm text-brown-light mb-4">
+              Upload a CSV file with columns: <strong>Name, Email, Phone, Side, Party Name</strong>.<br />
+              Rows with the same Party Name are automatically grouped into a party.
+            </p>
+            <button onClick={downloadTemplate}
+              className="text-sm text-gold hover:underline mb-4 block">
+              Download template CSV →
+            </button>
+            <input ref={fileRef} type="file" accept=".csv,.txt" onChange={handleFile}
+              className="block w-full text-sm text-brown-light file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gold/10 file:text-brown hover:file:bg-gold/20 cursor-pointer" />
+            {parseError && <p className="mt-3 text-sm text-red-600">{parseError}</p>}
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-brown-light mb-3">{preview.length} guest{preview.length !== 1 ? 's' : ''} ready to import:</p>
+            <div className="rounded-xl border border-gold-light overflow-hidden mb-5">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-ivory/60 border-b border-gold-light">
+                    <th className="text-left px-3 py-2 text-brown font-semibold">Name</th>
+                    <th className="text-left px-3 py-2 text-brown font-semibold hidden sm:table-cell">Email</th>
+                    <th className="text-left px-3 py-2 text-brown font-semibold">Side</th>
+                    <th className="text-left px-3 py-2 text-brown font-semibold">Party</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.map((g, i) => (
+                    <tr key={i} className="border-b border-gold-light/40 last:border-0">
+                      <td className="px-3 py-1.5 text-brown">{g.name}</td>
+                      <td className="px-3 py-1.5 text-brown-light hidden sm:table-cell">{g.email ?? '—'}</td>
+                      <td className="px-3 py-1.5 text-brown-light capitalize">{g.side?.toLowerCase() ?? '—'}</td>
+                      <td className="px-3 py-1.5 text-brown-light">{g.partyName ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => onImport(preview)}
+                disabled={isPending}
+                className="rounded-lg bg-gold px-5 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-60 transition"
+              >
+                {isPending ? 'Importing…' : `Import ${preview.length} guest${preview.length !== 1 ? 's' : ''}`}
+              </button>
+              <button onClick={() => setPreview(null)}
+                className="rounded-lg border border-gold-light px-5 py-2 text-sm font-medium text-brown hover:bg-ivory transition">
+                Back
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -565,6 +759,103 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
         </form>
       </td>
     </tr>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Guest analytics panel
+// ---------------------------------------------------------------------------
+const PIE_COLORS = ['#4ade80', '#f87171', '#fbbf24', '#94a3b8']
+
+function GuestAnalyticsPanel({ attending, declining, pending, notSent, responseRate, total, mealCounts, dietaryCounts, songCount, shuttleCount }: {
+  attending: number; declining: number; pending: number; notSent: number
+  responseRate: number; total: number
+  mealCounts: Record<string, number>; dietaryCounts: Record<string, number>
+  songCount: number; shuttleCount: number
+}) {
+  const pieData = [
+    { name: 'Attending', value: attending },
+    { name: 'Declining', value: declining },
+    { name: 'Pending', value: pending },
+    { name: 'Not invited', value: notSent },
+  ].filter(d => d.value > 0)
+
+  return (
+    <div className="rounded-xl border border-gold-light bg-white p-6 mb-6 space-y-6">
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Pie chart */}
+        <div>
+          <p className="text-sm font-medium text-brown mb-2">Response breakdown</p>
+          <div className="flex items-center gap-4">
+            <ResponsiveContainer width={120} height={120}>
+              <PieChart>
+                <Pie data={pieData} cx="50%" cy="50%" innerRadius={30} outerRadius={55} dataKey="value" paddingAngle={2}>
+                  {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                </Pie>
+                <Tooltip formatter={(v, n) => [`${v} guests`, n]} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="space-y-1">
+              {pieData.map((d, i) => (
+                <div key={d.name} className="flex items-center gap-2 text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                  <span className="text-brown-light">{d.name}</span>
+                  <span className="font-semibold text-brown">{d.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Key stats */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-gold-light bg-ivory/50 p-4 text-center">
+            <p className="font-serif text-2xl font-bold text-brown">{responseRate}%</p>
+            <p className="text-xs text-brown-light mt-0.5">Response rate</p>
+          </div>
+          <div className="rounded-xl border border-gold-light bg-ivory/50 p-4 text-center">
+            <p className="font-serif text-2xl font-bold text-brown">{shuttleCount}</p>
+            <p className="text-xs text-brown-light mt-0.5">Need shuttle</p>
+          </div>
+          <div className="rounded-xl border border-gold-light bg-ivory/50 p-4 text-center">
+            <p className="font-serif text-2xl font-bold text-brown">{songCount}</p>
+            <p className="text-xs text-brown-light mt-0.5">Song requests</p>
+          </div>
+          <div className="rounded-xl border border-gold-light bg-ivory/50 p-4 text-center">
+            <p className="font-serif text-2xl font-bold text-brown">{total}</p>
+            <p className="text-xs text-brown-light mt-0.5">Total guests</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Meal preferences */}
+      {Object.keys(mealCounts).length > 0 && (
+        <div>
+          <p className="text-sm font-medium text-brown mb-2">Meal preferences</p>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(mealCounts).map(([meal, count]) => (
+              <span key={meal} className="px-3 py-1 rounded-full bg-gold/10 text-brown text-xs font-medium">
+                {meal} <span className="text-gold font-bold ml-1">{count}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Dietary restrictions */}
+      {Object.keys(dietaryCounts).length > 0 && (
+        <div>
+          <p className="text-sm font-medium text-brown mb-2">Dietary restrictions</p>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(dietaryCounts).map(([restriction, count]) => (
+              <span key={restriction} className="px-3 py-1 rounded-full bg-red-50 text-red-700 text-xs font-medium">
+                {restriction} <span className="font-bold ml-1">{count}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 

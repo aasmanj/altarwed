@@ -64,6 +64,15 @@ public class GuestController {
         return ResponseEntity.ok(mapper.toResponse(guestService.sendInvite(coupleId, guestId)));
     }
 
+    @PostMapping("/couple/{coupleId}/bulk")
+    public ResponseEntity<List<GuestResponse>> bulkAdd(
+            @PathVariable UUID coupleId,
+            @Valid @RequestBody com.altarwed.application.dto.BulkCreateGuestsRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(guestService.addGuestsBulk(coupleId, request.guests()).stream().map(mapper::toResponse).toList());
+    }
+
     @PostMapping("/couple/{coupleId}/party")
     public ResponseEntity<List<GuestResponse>> createParty(
             @PathVariable UUID coupleId,
