@@ -69,6 +69,10 @@ Spring Boot 4 split the old `spring-boot-autoconfigure` monolith into per-techno
 - `@DataJpaTest` (was `org.springframework.boot.test.autoconfigure.orm.jpa`) → **REMOVED** from SB4 autoconfigure jar. Avoid Spring test slices for now.
 - `@WebMvcTest` (was `org.springframework.boot.test.autoconfigure.web.servlet`) → **REMOVED** from SB4 autoconfigure jar. Avoid Spring test slices for now.
 
+**Beans that Spring Boot 3 auto-exposed but Spring Boot 4 does NOT — declare these explicitly:**
+- `ObjectMapper` — declare in `JacksonConfig.java` (already done). Inject via constructor in any service that needs JSON serialization.
+- When adding any new `@Service` with non-obvious constructor deps, verify each dep resolves as a Spring bean before deploying.
+
 **If you get a compile error "package org.springframework.boot.autoconfigure.X does not exist":**
 1. Find the actual jar: `jar tf ~/.gradle/caches/.../spring-boot-X-4.0.6.jar | grep ClassName`
 2. The new package is almost always `org.springframework.boot.X.autoconfigure.*`
