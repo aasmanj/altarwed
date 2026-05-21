@@ -52,7 +52,17 @@
       "PowerShell(cmd /c \"dir \"\"C:\\\\Users\\\\Jordan\\\\altarwed\\\\frontend-app\\\\src\\\\features\\\\couple\\\\website\\\\blocks\"\"\")",
       "PowerShell(cmd /c \"dir \"\"C:\\\\Users\\\\Jordan\\\\altarwed\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\altarwed\\\\domain\\\\model\"\" | findstr /i block\")",
       "PowerShell(cmd /c \"type \"\"C:\\\\Users\\\\Jordan\\\\altarwed\\\\frontend-public\\\\src\\\\app\\\\wedding\\\\[slug]\\\\photos\\\\page.tsx\"\"\")",
-      "PowerShell(cmd /c \"type \"\"C:\\\\Users\\\\Jordan\\\\altarwed\\\\frontend-public\\\\src\\\\app\\\\rsvp\\\\[token]\\\\RsvpForm.tsx\"\"\")"
+      "PowerShell(cmd /c \"type \"\"C:\\\\Users\\\\Jordan\\\\altarwed\\\\frontend-public\\\\src\\\\app\\\\rsvp\\\\[token]\\\\RsvpForm.tsx\"\"\")",
+      "Bash(gh run *)",
+      "Bash(python3 -c \"import json,sys; [print\\(r['conclusion'], r['displayTitle'][:60], r['createdAt']\\) for r in json.load\\(sys.stdin\\)]\")",
+      "Bash(kill %1)",
+      "Bash(wait)",
+      "Bash(cd /tmp)",
+      "Bash(unzip -o applogs.zip -d applogs)",
+      "Read(//tmp/**)",
+      "Bash(az staticwebapp *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://app.altarwed.com/dashboard/website\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://altarwed-prod-api.azurewebsites.net/api/v1/denominations\")"
     ]
   }
 }

@@ -29,5 +29,10 @@ public record Guest(
         // when set, the scheduler re-sends the RSVP invite at this time and then clears the field
         LocalDateTime remindAt,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        // party support: guests sharing a party_id are grouped together. null = solo guest.
+        UUID partyId,
+        String partyName,
+        // true for the one party member who receives the invite email on behalf of the group
+        Boolean partyContact
 ) {}

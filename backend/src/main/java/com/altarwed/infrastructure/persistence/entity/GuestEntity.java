@@ -84,6 +84,15 @@ public class GuestEntity {
     @Column(name = "remind_at")
     private LocalDateTime remindAt;
 
+    @Column(name = "party_id")
+    private UUID partyId;
+
+    @Column(name = "party_name", length = 100)
+    private String partyName;
+
+    @Column(name = "party_contact", nullable = false)
+    private Boolean partyContact;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

@@ -64,6 +64,15 @@ public class GuestController {
         return ResponseEntity.ok(mapper.toResponse(guestService.sendInvite(coupleId, guestId)));
     }
 
+    @PostMapping("/couple/{coupleId}/party")
+    public ResponseEntity<List<GuestResponse>> createParty(
+            @PathVariable UUID coupleId,
+            @Valid @RequestBody com.altarwed.application.dto.CreatePartyRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(guestService.createParty(coupleId, request).stream().map(mapper::toResponse).toList());
+    }
+
     @PostMapping("/couple/{coupleId}/invite-all")
     public ResponseEntity<Map<String, Integer>> sendAllInvites(@PathVariable UUID coupleId) {
         int count = guestService.sendAllPendingInvites(coupleId);

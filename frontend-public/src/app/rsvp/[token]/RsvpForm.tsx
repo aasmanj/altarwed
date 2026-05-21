@@ -5,16 +5,30 @@ import { useState } from 'react'
 // PENDING is the "remind me" path — status stays PENDING, remindInDays is sent.
 type Status = 'ATTENDING' | 'DECLINING' | 'PENDING'
 
+interface PartyMemberInfo {
+  guestId: string
+  name: string
+}
+
+type PartyStatus = 'ATTENDING' | 'DECLINING' | 'PENDING'
+
 export default function RsvpForm({
-  token, plusOneAllowed, weddingSlug, apiUrl,
+  token, plusOneAllowed, weddingSlug, apiUrl, partyMembers,
 }: {
   token: string
   plusOneAllowed: boolean
   weddingSlug: string | null
   apiUrl: string
+  partyMembers?: PartyMemberInfo[]
 }) {
   const [status, setStatus]             = useState<Status | null>(null)
   const [remindInDays, setRemindInDays] = useState<number | null>(null)
+  // partyStatuses: keyed by guestId, value is ATTENDING/DECLINING/PENDING
+  const [partyStatuses, setPartyStatuses] = useState<Record<string, PartyStatus>>(() => {
+    const init: Record<string, PartyStatus> = {}
+    partyMembers?.forEach(m => { init[m.guestId] = 'ATTENDING' })
+    return init
+  })
   const [plusOne, setPlusOne]           = useState('')
   const [dietary, setDietary]           = useState('')
   const [meal, setMeal]                 = useState('')
@@ -41,6 +55,11 @@ export default function RsvpForm({
     setSubmitting(true)
     setError('')
     try {
+      // Build party responses for other members
+      const partyResponses = partyMembers && partyMembers.length > 0
+        ? partyMembers.map(m => ({ guestId: m.guestId, status: partyStatuses[m.guestId] ?? 'ATTENDING' }))
+        : undefined
+
       const res = await fetch(`${apiUrl}/api/v1/guests/rsvp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -54,6 +73,7 @@ export default function RsvpForm({
           shuttleNeeded: shuttle || undefined,
           noteForCouple: noteForCouple.trim() || undefined,
           remindInDays: remindInDays ?? undefined,
+          partyResponses,
         }),
       })
       if (!res.ok) throw new Error('Failed')
@@ -235,6 +255,35 @@ export default function RsvpForm({
             placeholder="A blessing, a prayer, congratulations…"
             className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a] resize-none"
           />
+        </div>
+      )}
+
+      {/* Party members — show individual toggles when guest is a party contact */}
+      {partyMembers && partyMembers.length > 0 && (status === 'ATTENDING' || status === 'DECLINING') && (
+        <div className="border border-[#e8dcc8] rounded-xl p-4 space-y-3">
+          <p className="text-sm font-medium text-[#3b2f2f]">Other members in your party</p>
+          <p className="text-xs text-[#a08060]">Let us know if each person will be attending.</p>
+          {partyMembers.map(m => (
+            <div key={m.guestId} className="flex items-center justify-between gap-4">
+              <span className="text-sm text-[#3b2f2f]">{m.name}</span>
+              <div className="flex gap-2">
+                {(['ATTENDING', 'DECLINING'] as PartyStatus[]).map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setPartyStatuses(prev => ({ ...prev, [m.guestId]: s }))}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                      partyStatuses[m.guestId] === s
+                        ? 'border-[#4a1942] bg-[#4a1942] text-white'
+                        : 'border-[#e8dcc8] text-[#6b5344] hover:border-[#d4af6a]'
+                    }`}
+                  >
+                    {s === 'ATTENDING' ? 'Attending' : 'Declining'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

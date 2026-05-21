@@ -15,4 +15,8 @@ public interface GuestRepository {
     boolean existsByIdAndCoupleId(UUID id, UUID coupleId);
     // Returns PENDING guests whose remind_at is on or before asOf. Used by RsvpReminderService.
     List<Guest> findDueReminders(LocalDateTime asOf);
+    // Returns all guests in a party (same party_id), sorted by createdAt.
+    List<Guest> findAllByPartyId(UUID partyId);
+    // Saves a list of guests atomically (used when creating a new party).
+    List<Guest> saveAll(List<Guest> guests);
 }

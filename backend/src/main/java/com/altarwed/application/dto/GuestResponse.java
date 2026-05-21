@@ -5,6 +5,8 @@ import com.altarwed.domain.model.GuestSide;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
+import com.altarwed.domain.model.GuestRsvpStatus;
+import com.altarwed.domain.model.GuestSide;
 
 public record GuestResponse(
         UUID id,
@@ -29,5 +31,8 @@ public record GuestResponse(
         LocalDateTime respondedAt,
         LocalDateTime remindAt,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        UUID partyId,
+        String partyName,
+        Boolean partyContact
 ) {}

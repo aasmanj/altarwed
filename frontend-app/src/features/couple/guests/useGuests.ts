@@ -25,6 +25,9 @@ export interface Guest {
   inviteSendCount: number | null
   inviteSentAt: string | null
   respondedAt: string | null
+  partyId: string | null
+  partyName: string | null
+  partyContact: boolean | null
 }
 
 export interface CreateGuestPayload {
@@ -36,6 +39,14 @@ export interface CreateGuestPayload {
   dietaryRestrictions?: string
   notes?: string
   mailAddress?: string
+  partyId?: string
+  partyName?: string
+  partyContact?: boolean
+}
+
+export interface CreatePartyPayload {
+  partyName: string
+  members: Omit<CreateGuestPayload, 'partyId' | 'partyName' | 'partyContact'>[]
 }
 
 export interface UpdateGuestPayload {
@@ -116,6 +127,16 @@ export function useSendInvite(coupleId: string) {
       qc.setQueryData<Guest[]>(key(coupleId), old =>
         old?.map(g => g.id === updated.id ? updated : g) ?? []
       ),
+  })
+}
+
+export function useCreateParty(coupleId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: CreatePartyPayload) =>
+      apiClient.post(`/api/v1/guests/couple/${coupleId}/party`, payload).then(r => r.data),
+    onSuccess: (newGuests: Guest[]) =>
+      qc.setQueryData<Guest[]>(key(coupleId), old => old ? [...old, ...newGuests] : newGuests),
   })
 }
 

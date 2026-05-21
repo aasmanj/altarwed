@@ -51,9 +51,37 @@ public class GuestService {
                 req.dietaryRestrictions(), null, null, null,
                 null, req.side(), req.notes(), req.mailAddress(),
                 null, 0,
-                null, null, null, LocalDateTime.now(), LocalDateTime.now()
+                null, null, null, LocalDateTime.now(), LocalDateTime.now(),
+                req.partyId(), req.partyName(),
+                req.partyContact() != null ? req.partyContact() : false
         );
         return guestRepository.save(guest);
+    }
+
+    /**
+     * Creates a named party of guests who share a party_id. The first member
+     * in the list is automatically designated as the party contact (the one
+     * who receives the invite email). All members share the same partyId and
+     * partyName. Returns the saved list.
+     */
+    @Transactional
+    public List<Guest> createParty(UUID coupleId, com.altarwed.application.dto.CreatePartyRequest req) {
+        UUID partyId = UUID.randomUUID();
+        List<Guest> members = new java.util.ArrayList<>();
+        for (int i = 0; i < req.members().size(); i++) {
+            CreateGuestRequest m = req.members().get(i);
+            boolean isContact = (i == 0);
+            members.add(new Guest(
+                    null, coupleId, m.name(), m.email(), m.phone(),
+                    GuestRsvpStatus.PENDING, m.plusOneAllowed(), null,
+                    m.dietaryRestrictions(), null, null, null,
+                    null, m.side(), m.notes(), m.mailAddress(),
+                    null, 0,
+                    null, null, null, LocalDateTime.now(), LocalDateTime.now(),
+                    partyId, req.partyName(), isContact
+            ));
+        }
+        return guestRepository.saveAll(members);
     }
 
     @Transactional(readOnly = true)
@@ -82,7 +110,10 @@ public class GuestService {
                 req.mailAddress()        != null ? req.mailAddress()        : existing.mailAddress(),
                 existing.noteForCouple(), existing.inviteSendCount(),
                 existing.inviteSentAt(), existing.respondedAt(), existing.remindAt(),
-                existing.createdAt(), LocalDateTime.now()
+                existing.createdAt(), LocalDateTime.now(),
+                req.partyId()    != null ? req.partyId()    : existing.partyId(),
+                req.partyName()  != null ? req.partyName()  : existing.partyName(),
+                req.partyContact()!= null ? req.partyContact(): existing.partyContact()
         );
         return guestRepository.save(updated);
     }
@@ -155,13 +186,27 @@ public class GuestService {
                 ? website.weddingDate().format(DateTimeFormatter.ofPattern("MMMM d, yyyy"))
                 : null;
 
+        // If guest belongs to a party, load other members so the RSVP page can
+        // show per-member toggles. Exclude the token holder from this list.
+        List<com.altarwed.application.dto.PartyMemberInfo> partyMembers = null;
+        String partyName = null;
+        if (guest.partyId() != null) {
+            partyName = guest.partyName();
+            partyMembers = guestRepository.findAllByPartyId(guest.partyId()).stream()
+                    .filter(m -> !m.id().equals(guest.id()))
+                    .map(m -> new com.altarwed.application.dto.PartyMemberInfo(m.id(), m.name()))
+                    .toList();
+        }
+
         return new RsvpPageDataResponse(
                 guest.name(), coupleNames, weddingDate,
                 website != null ? website.venueName() : null,
                 website != null ? website.venueCity()  : null,
                 website != null ? website.venueState() : null,
                 guest.plusOneAllowed(),
-                website != null ? website.slug() : null
+                website != null ? website.slug() : null,
+                partyMembers,
+                partyName
         );
     }
 
@@ -191,9 +236,35 @@ public class GuestService {
                 req.noteForCouple()       != null ? req.noteForCouple()       : guest.noteForCouple(),
                 guest.inviteSendCount(),
                 guest.inviteSentAt(), LocalDateTime.now(), remindAt,
-                guest.createdAt(), LocalDateTime.now()
+                guest.createdAt(), LocalDateTime.now(),
+                guest.partyId(), guest.partyName(), guest.partyContact()
         );
         guestRepository.save(responded);
+
+        // Save individual party member responses if provided. We validate that each
+        // member actually belongs to the same party to prevent cross-party tampering.
+        if (req.partyResponses() != null && !req.partyResponses().isEmpty() && guest.partyId() != null) {
+            for (com.altarwed.application.dto.PartyMemberResponse mr : req.partyResponses()) {
+                guestRepository.findById(mr.guestId()).ifPresent(member -> {
+                    if (!guest.partyId().equals(member.partyId())) return; // security guard
+                    LocalDateTime memberRemindAt = (mr.remindInDays() != null)
+                            ? LocalDateTime.now().plusDays(mr.remindInDays())
+                            : null;
+                    Guest memberResponded = new Guest(
+                            member.id(), member.coupleId(), member.name(), member.email(), member.phone(),
+                            mr.status(), member.plusOneAllowed(), member.plusOneName(),
+                            member.dietaryRestrictions(), member.mealPreference(), member.songRequest(),
+                            member.shuttleNeeded(), member.tableNumber(), member.side(), member.notes(),
+                            member.mailAddress(), member.noteForCouple(), member.inviteSendCount(),
+                            member.inviteSentAt(), LocalDateTime.now(), memberRemindAt,
+                            member.createdAt(), LocalDateTime.now(),
+                            member.partyId(), member.partyName(), member.partyContact()
+                    );
+                    guestRepository.save(memberResponded);
+                });
+            }
+        }
+
         // Only mark the token used if the guest is actually responding (not just setting a reminder).
         // For reminders the token stays valid so they can still use the same link when reminded.
         if (req.remindInDays() == null) {
@@ -255,7 +326,8 @@ public class GuestService {
                 guest.noteForCouple(), currentSends + 1,
                 LocalDateTime.now(), guest.respondedAt(),
                 null, // clear remindAt — the reminder was just fulfilled
-                guest.createdAt(), LocalDateTime.now()
+                guest.createdAt(), LocalDateTime.now(),
+                guest.partyId(), guest.partyName(), guest.partyContact()
         );
         return guestRepository.save(updated);
     }

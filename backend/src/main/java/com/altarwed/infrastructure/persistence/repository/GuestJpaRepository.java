@@ -19,4 +19,6 @@ public interface GuestJpaRepository extends JpaRepository<GuestEntity, UUID> {
     @Query("SELECT g FROM GuestEntity g WHERE g.remindAt IS NOT NULL AND g.remindAt <= :asOf AND g.rsvpStatus = :pending")
     List<GuestEntity> findDueReminders(@Param("asOf") LocalDateTime asOf,
                                        @Param("pending") GuestRsvpStatus pending);
+
+    List<GuestEntity> findAllByPartyIdOrderByCreatedAt(UUID partyId);
 }

@@ -51,6 +51,17 @@ public class GuestRepositoryAdapter implements GuestRepository {
         return jpa.findDueReminders(asOf, GuestRsvpStatus.PENDING).stream().map(this::toDomain).toList();
     }
 
+    @Override
+    public List<Guest> findAllByPartyId(UUID partyId) {
+        return jpa.findAllByPartyIdOrderByCreatedAt(partyId).stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public List<Guest> saveAll(List<Guest> guests) {
+        return jpa.saveAll(guests.stream().map(this::toEntity).toList())
+                  .stream().map(this::toDomain).toList();
+    }
+
     private Guest toDomain(GuestEntity e) {
         return new Guest(
                 e.getId(), e.getCoupleId(), e.getName(), e.getEmail(), e.getPhone(),
@@ -59,7 +70,8 @@ public class GuestRepositoryAdapter implements GuestRepository {
                 e.getTableNumber(), e.getSide(), e.getNotes(), e.getMailAddress(),
                 e.getNoteForCouple(), e.getInviteSendCount(),
                 e.getInviteSentAt(), e.getRespondedAt(), e.getRemindAt(),
-                e.getCreatedAt(), e.getUpdatedAt()
+                e.getCreatedAt(), e.getUpdatedAt(),
+                e.getPartyId(), e.getPartyName(), e.getPartyContact()
         );
     }
 
@@ -88,6 +100,9 @@ public class GuestRepositoryAdapter implements GuestRepository {
                 .remindAt(g.remindAt())
                 .createdAt(g.createdAt())
                 .updatedAt(g.updatedAt())
+                .partyId(g.partyId())
+                .partyName(g.partyName())
+                .partyContact(g.partyContact() != null ? g.partyContact() : false)
                 .build();
     }
 }

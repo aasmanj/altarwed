@@ -4,6 +4,11 @@ import RsvpForm from './RsvpForm'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
 
+interface PartyMemberInfo {
+  guestId: string
+  name: string
+}
+
 interface RsvpPageData {
   guestName: string
   coupleNames: string
@@ -13,6 +18,8 @@ interface RsvpPageData {
   venueState: string | null
   plusOneAllowed: boolean
   weddingSlug: string | null
+  partyMembers: PartyMemberInfo[] | null
+  partyName: string | null
 }
 
 async function getRsvpData(token: string): Promise<RsvpPageData | null> {
@@ -79,9 +86,18 @@ export default async function RsvpPage(
       <div className="max-w-lg mx-auto px-4 py-12">
         <div className="bg-white rounded-2xl border border-[#e8dcc8] shadow-sm p-8">
           <p className="text-[#6b5344] mb-6 text-center">
-            Dear <strong className="text-[#3b2f2f]">{data.guestName}</strong>, please let us know if you&apos;ll be joining us.
+            {data.partyName
+              ? <>Dear <strong className="text-[#3b2f2f]">{data.partyName}</strong>, please let us know if you&apos;ll be joining us.</>
+              : <>Dear <strong className="text-[#3b2f2f]">{data.guestName}</strong>, please let us know if you&apos;ll be joining us.</>
+            }
           </p>
-          <RsvpForm token={token} plusOneAllowed={data.plusOneAllowed} weddingSlug={data.weddingSlug} apiUrl={API} />
+          <RsvpForm
+            token={token}
+            plusOneAllowed={data.plusOneAllowed}
+            weddingSlug={data.weddingSlug}
+            apiUrl={API}
+            partyMembers={data.partyMembers ?? undefined}
+          />
         </div>
       </div>
 
