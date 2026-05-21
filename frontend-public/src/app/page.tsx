@@ -41,7 +41,7 @@ const features = [
       </svg>
     ),
     title: 'Free Wedding Website',
-    description: 'Your own shareable page at altarwed.com/wedding/your-names. Share your story, registry, travel details, and prayer wall.',
+    description: 'Your own shareable page at altarwed.com/wedding/your-names. Share your story, scripture, registry, travel, photos, and RSVP — all in one place.',
   },
   {
     icon: (
@@ -211,7 +211,7 @@ export default function HomePage() {
 
             {/* Tab nav mockup */}
             <div className="border-b border-[#e8dcc8] px-4 flex gap-1 overflow-x-auto bg-[#fdfaf6]">
-              {['Our Story', 'Details', 'Wedding Party', 'Registry', 'Travel', 'Prayer Wall'].map((tab, i) => (
+              {['Our Story', 'The Wedding', 'Wedding Party', 'Travel', 'Registry', 'RSVP'].map((tab, i) => (
                 <span
                   key={tab}
                   className={`px-4 py-3 text-sm font-medium whitespace-nowrap ${i === 0 ? 'border-b-2 border-[#d4af6a] text-[#3b2f2f]' : 'text-[#a08060]'}`}
@@ -229,7 +229,7 @@ export default function HomePage() {
               </p>
               <div className="flex gap-3">
                 <span className="px-4 py-2 bg-[#3b2f2f] text-white text-sm rounded-lg font-medium">RSVP Now</span>
-                <span className="px-4 py-2 border border-[#d4af6a] text-[#3b2f2f] text-sm rounded-lg font-medium">Submit a Prayer</span>
+                <span className="px-4 py-2 border border-[#d4af6a] text-[#3b2f2f] text-sm rounded-lg font-medium">View Registry</span>
               </div>
             </div>
           </div>

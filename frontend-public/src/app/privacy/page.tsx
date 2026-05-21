@@ -54,8 +54,8 @@ export default function PrivacyPage() {
             </Section>
 
             <Section title="4. Public Wedding Websites">
-              <p>When you publish your wedding website, certain information becomes publicly accessible at altarwed.com/wedding/[your-slug], including partner names, wedding date, venue, wedding party details, photos you upload, and your prayer wall. You control which content is published. You may unpublish or delete your website at any time from your dashboard.</p>
-              <p>You may optionally enable PIN protection to restrict access to your wedding website to guests who know the PIN.</p>
+              <p>When you publish your wedding website, certain information becomes publicly accessible at altarwed.com/wedding/[your-slug], including partner names, wedding date, venue, wedding party details, photos you upload, and registry links. You control which content is published. You may unpublish or delete your website at any time from your dashboard.</p>
+              <p>Guest information collected through your RSVP form (names, contact details, dietary preferences, notes left for the couple) is private to you and is never displayed publicly on the wedding website.</p>
             </Section>
 
             <Section title="5. Sharing of Information">
