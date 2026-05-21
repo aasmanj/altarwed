@@ -67,6 +67,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/wedding-photos/website/slug/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/wedding-page-blocks/slug/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/scripture/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/wedding-websites/*/hotels").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/wedding-websites/search").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/blog/**").permitAll()
                         // OpenAPI / Swagger — dev convenience

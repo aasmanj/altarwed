@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import confetti from 'canvas-confetti'
 import { useUpdateWeddingWebsite, usePublishWeddingWebsite, type WeddingWebsite } from './useWeddingWebsite'
+import { useHotels, useAddHotel, useUpdateHotel, useDeleteHotel, type WeddingHotelPayload, type WeddingHotel } from './useHotels'
 import PageHeader from '@/components/PageHeader'
 import { apiClient } from '@/core/api/client'
 
@@ -13,6 +14,10 @@ interface Props {
 export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
   const update = useUpdateWeddingWebsite(coupleId)
   const publish = usePublishWeddingWebsite(coupleId)
+  const { data: hotels = [] } = useHotels(website.id)
+  const addHotel    = useAddHotel(website.id)
+  const updateHotel = useUpdateHotel(website.id)
+  const deleteHotel = useDeleteHotel(website.id)
 
   const [saved, setSaved] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('story')
@@ -170,17 +175,17 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
           </Row>
         </>}
 
-        {activeTab === 'hotel' && <>
-          <Row label="Hotel name">
-            <Input value={form.hotelName} onChange={set('hotelName')} />
-          </Row>
-          <Row label="Booking link">
-            <Input type="url" placeholder="https://" value={form.hotelUrl} onChange={set('hotelUrl')} />
-          </Row>
-          <Row label="Details for guests" hint="Room block code, cut-off date, etc.">
-            <Textarea value={form.hotelDetails} onChange={set('hotelDetails')} rows={4} />
-          </Row>
-        </>}
+        {activeTab === 'hotel' && (
+          <HotelTab
+            hotels={hotels}
+            onAdd={(payload) => addHotel.mutate(payload)}
+            onUpdate={(hotelId, payload) => updateHotel.mutate({ hotelId, payload })}
+            onDelete={(hotelId) => deleteHotel.mutate(hotelId)}
+            isAddPending={addHotel.isPending}
+            isUpdatePending={updateHotel.isPending}
+            isDeletePending={deleteHotel.isPending}
+          />
+        )}
 
         {activeTab === 'registry' && <>
           {([1, 2, 3] as const).map(n => (
@@ -416,3 +421,153 @@ function ScriptureTab({
     </>
   )
 }
+
+// ---------------------------------------------------------------------------
+// Hotel tab — multi-hotel management
+// ---------------------------------------------------------------------------
+const hotelInputCls = 'w-full rounded-lg border border-gold-light px-3 py-2 text-brown text-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold'
+
+function HotelTab({ hotels, onAdd, onUpdate, onDelete, isAddPending, isUpdatePending, isDeletePending }: {
+  hotels: WeddingHotel[]
+  onAdd: (p: WeddingHotelPayload) => void
+  onUpdate: (id: string, p: WeddingHotelPayload) => void
+  onDelete: (id: string) => void
+  isAddPending: boolean
+  isUpdatePending: boolean
+  isDeletePending: boolean
+}) {
+  const [editingId, setEditingId] = useState<string | 'new' | null>(null)
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm font-medium text-brown">Hotel blocks for your guests</p>
+        <button
+          type="button"
+          onClick={() => setEditingId('new')}
+          className="rounded-lg bg-gold px-4 py-1.5 text-xs font-semibold text-white hover:bg-gold-dark transition"
+        >
+          + Add hotel
+        </button>
+      </div>
+
+      {editingId === 'new' && (
+        <HotelForm
+          onSave={(p) => { onAdd(p); setEditingId(null) }}
+          onCancel={() => setEditingId(null)}
+          isPending={isAddPending}
+        />
+      )}
+
+      {hotels.length === 0 && editingId !== 'new' && (
+        <p className="text-sm text-brown-light text-center py-8 border border-dashed border-gold-light rounded-xl">
+          No hotels added yet. Add your first hotel block so guests know where to stay.
+        </p>
+      )}
+
+      {hotels.map(hotel => editingId === hotel.id ? (
+        <HotelForm
+          key={hotel.id}
+          initial={hotel}
+          onSave={(p) => { onUpdate(hotel.id, p); setEditingId(null) }}
+          onCancel={() => setEditingId(null)}
+          isPending={isUpdatePending}
+        />
+      ) : (
+        <div key={hotel.id} className="rounded-xl border border-gold-light bg-white p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-brown">{hotel.name}</p>
+              {hotel.address && <p className="text-xs text-brown-light mt-0.5">{hotel.address}</p>}
+              <div className="flex flex-wrap gap-3 mt-2">
+                {hotel.distanceFromVenue && (
+                  <span className="text-xs text-brown-light">📍 {hotel.distanceFromVenue}</span>
+                )}
+                {hotel.blockRate && (
+                  <span className="text-xs text-brown-light">💰 {hotel.blockRate}</span>
+                )}
+                {hotel.bookingUrl && (
+                  <a href={hotel.bookingUrl} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-gold hover:underline">Book →</a>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button type="button" onClick={() => setEditingId(hotel.id)}
+                className="text-xs text-brown-light hover:text-brown">Edit</button>
+              <button
+                type="button"
+                onClick={() => { if (confirm(`Remove "${hotel.name}"?`)) onDelete(hotel.id) }}
+                disabled={isDeletePending}
+                className="text-xs text-red-400 hover:text-red-600 disabled:opacity-50"
+              >Remove</button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function HotelForm({ initial, onSave, onCancel, isPending }: {
+  initial?: WeddingHotel
+  onSave: (p: WeddingHotelPayload) => void
+  onCancel: () => void
+  isPending: boolean
+}) {
+  const [name, setName]     = useState(initial?.name ?? '')
+  const [address, setAddr]  = useState(initial?.address ?? '')
+  const [url, setUrl]       = useState(initial?.bookingUrl ?? '')
+  const [rate, setRate]     = useState(initial?.blockRate ?? '')
+  const [dist, setDist]     = useState(initial?.distanceFromVenue ?? '')
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    onSave({
+      name: name.trim(),
+      address: address.trim() || undefined,
+      bookingUrl: url.trim() || undefined,
+      blockRate: rate.trim() || undefined,
+      distanceFromVenue: dist.trim() || undefined,
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="rounded-xl border border-gold bg-white p-5 space-y-3">
+      <p className="text-sm font-medium text-brown">{initial ? 'Edit hotel' : 'New hotel'}</p>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs text-brown-light mb-1">Hotel name *</label>
+          <input required value={name} onChange={e => setName(e.target.value)} className={hotelInputCls} placeholder="Marriott Downtown" />
+        </div>
+        <div>
+          <label className="block text-xs text-brown-light mb-1">Address</label>
+          <input value={address} onChange={e => setAddr(e.target.value)} className={hotelInputCls} placeholder="123 Main St, Dallas TX" />
+        </div>
+        <div>
+          <label className="block text-xs text-brown-light mb-1">Booking link</label>
+          <input type="url" value={url} onChange={e => setUrl(e.target.value)} className={hotelInputCls} placeholder="https://..." />
+        </div>
+        <div>
+          <label className="block text-xs text-brown-light mb-1">Block rate / notes</label>
+          <input value={rate} onChange={e => setRate(e.target.value)} className={hotelInputCls} placeholder="$149/night — mention AltarWed" />
+        </div>
+        <div>
+          <label className="block text-xs text-brown-light mb-1">Distance from venue</label>
+          <input value={dist} onChange={e => setDist(e.target.value)} className={hotelInputCls} placeholder="e.g. 2.3 miles" />
+        </div>
+      </div>
+      <div className="flex gap-3 pt-1">
+        <button type="submit" disabled={isPending}
+          className="rounded-lg bg-gold px-5 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-60 transition">
+          {isPending ? 'Saving…' : 'Save hotel'}
+        </button>
+        <button type="button" onClick={onCancel}
+          className="rounded-lg border border-gold-light px-5 py-2 text-sm font-medium text-brown hover:bg-ivory transition">
+          Cancel
+        </button>
+      </div>
+    </form>
+  )
+}
+
