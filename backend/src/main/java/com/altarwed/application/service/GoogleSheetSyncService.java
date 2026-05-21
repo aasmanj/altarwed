@@ -60,12 +60,14 @@ public class GoogleSheetSyncService {
 
     public GoogleSheetSyncService(
             GoogleSheetSyncRepository syncRepository,
-            GuestRepository guestRepository,
-            RestClient.Builder restClientBuilder
+            GuestRepository guestRepository
     ) {
         this.syncRepository = syncRepository;
         this.guestRepository = guestRepository;
-        this.restClient = restClientBuilder.build();
+        // Spring Boot 4 does not auto-expose RestClient.Builder as a bean (same as
+        // ObjectMapper). Call RestClient.builder() statically, consistent with
+        // ResendEmailAdapter and NextjsRevalidationAdapter.
+        this.restClient = RestClient.builder().build();
     }
 
     // -----------------------------------------------------------------------
