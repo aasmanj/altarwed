@@ -52,6 +52,39 @@ global failover), Azure SQL Business Critical tier. Do not over-provision premat
 - Azure Blob Storage (vendor photos, wedding media) — SDK wired, container: altarwed-media
 - SpringDoc OpenAPI (auto-generated API docs)
 
+## Spring Boot 4 — CRITICAL BREAKING CHANGES (burned us already, never repeat)
+
+Spring Boot 4 split the old `spring-boot-autoconfigure` monolith into per-technology modules.
+**Always use these new packages — the old ones DO NOT EXIST in 4.x:**
+
+| What | Old (SB3) package — WRONG | New (SB4) package — CORRECT |
+|---|---|---|
+| Flyway autoconfigure | `org.springframework.boot.autoconfigure.flyway.*` | `org.springframework.boot.flyway.autoconfigure.*` |
+| JPA/Hibernate autoconfigure | `org.springframework.boot.autoconfigure.orm.jpa.*` | `org.springframework.boot.hibernate.autoconfigure.*` |
+| Security autoconfigure | `org.springframework.boot.autoconfigure.security.*` | `org.springframework.boot.security.autoconfigure.*` |
+| Web autoconfigure | `org.springframework.boot.autoconfigure.web.*` | check `spring-boot-web` module |
+
+**Test annotation changes (SB4 removed these — use Spring Framework 7 replacements):**
+- `@MockBean` (was `org.springframework.boot.test.mock.mockito`) → **REMOVED**. Use `@MockitoBean` from `org.springframework.test.context.bean.override.mockito`
+- `@DataJpaTest` (was `org.springframework.boot.test.autoconfigure.orm.jpa`) → **REMOVED** from SB4 autoconfigure jar. Avoid Spring test slices for now.
+- `@WebMvcTest` (was `org.springframework.boot.test.autoconfigure.web.servlet`) → **REMOVED** from SB4 autoconfigure jar. Avoid Spring test slices for now.
+
+**If you get a compile error "package org.springframework.boot.autoconfigure.X does not exist":**
+1. Find the actual jar: `jar tf ~/.gradle/caches/.../spring-boot-X-4.0.6.jar | grep ClassName`
+2. The new package is almost always `org.springframework.boot.X.autoconfigure.*`
+
+**SQL Server + Flyway DDL rule:** Never add a column and a constraint referencing that column
+as two separate statements in the same migration. SQL Server's parser resolves column names
+at compile time within a transaction and cannot see the new column. Always use inline syntax:
+```sql
+-- WRONG (separate statements in same transaction):
+ALTER TABLE t ADD col NVARCHAR(3) NULL;
+ALTER TABLE t ADD CONSTRAINT chk_col CHECK (col IN ('a','b'));
+
+-- CORRECT (single statement, inline constraint):
+ALTER TABLE t ADD col NVARCHAR(3) NULL CONSTRAINT chk_col CHECK (col IN ('a','b'));
+```
+
 ## Frontend Stack
 - frontend-public: Next.js 14, TypeScript, Tailwind CSS (SSR for SEO)
 - frontend-app: React 18, Vite, TypeScript, Tailwind CSS, React Query, React Router v6
