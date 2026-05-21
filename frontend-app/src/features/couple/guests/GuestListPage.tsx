@@ -10,13 +10,12 @@ import TipCallout from '@/components/TipCallout'
 import { TIPS } from '@/lib/tips'
 
 const STATUS_LABEL: Record<RsvpStatus, string> = {
-  PENDING: 'Pending', ATTENDING: 'Attending', DECLINING: 'Declining', MAYBE: 'Maybe',
+  PENDING: 'Remind me', ATTENDING: 'Attending', DECLINING: 'Declining',
 }
 const STATUS_COLOR: Record<RsvpStatus, string> = {
   PENDING:   'bg-yellow-50 text-yellow-700',
   ATTENDING: 'bg-green-50 text-green-700',
   DECLINING: 'bg-red-50 text-red-700',
-  MAYBE:     'bg-blue-50 text-blue-700',
 }
 const SIDES: GuestSide[] = ['BRIDE', 'GROOM', 'BOTH']
 
@@ -40,7 +39,7 @@ export default function GuestListPage() {
   const total     = guests.length
   const attending = guests.filter(g => g.rsvpStatus === 'ATTENDING').length
   const declining = guests.filter(g => g.rsvpStatus === 'DECLINING').length
-  const pending   = guests.filter(g => g.rsvpStatus === 'PENDING' || g.rsvpStatus === 'MAYBE').length
+  const pending   = guests.filter(g => g.rsvpStatus === 'PENDING').length
 
   return (
     <div className="min-h-screen bg-ivory">
@@ -89,7 +88,7 @@ export default function GuestListPage() {
 
         {/* Filter tabs */}
         <div className="flex gap-1 mb-6 border-b border-gold-light overflow-x-auto">
-          {(['ALL', 'PENDING', 'ATTENDING', 'DECLINING', 'MAYBE'] as const).map(f => (
+          {(['ALL', 'PENDING', 'ATTENDING', 'DECLINING'] as const).map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -358,7 +357,7 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
           </Field>
           <Field label="RSVP Status">
             <select value={status} onChange={e => setStatus(e.target.value as RsvpStatus)} className={inputCls}>
-              {(['PENDING', 'ATTENDING', 'DECLINING', 'MAYBE'] as RsvpStatus[]).map(s => (
+              {(['PENDING', 'ATTENDING', 'DECLINING'] as RsvpStatus[]).map(s => (
                 <option key={s} value={s}>{STATUS_LABEL[s]}</option>
               ))}
             </select>

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 
-export type RsvpStatus = 'PENDING' | 'ATTENDING' | 'DECLINING' | 'MAYBE'
+export type RsvpStatus = 'PENDING' | 'ATTENDING' | 'DECLINING'
 export type GuestSide = 'BRIDE' | 'GROOM' | 'BOTH'
 
 export interface Guest {
