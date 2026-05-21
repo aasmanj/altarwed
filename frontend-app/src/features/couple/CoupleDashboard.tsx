@@ -37,7 +37,7 @@ export default function CoupleDashboard() {
         <a href="mailto:hello@altarwed.com" className="font-medium text-gold hover:underline">
           Email hello@altarwed.com
         </a>
-        {' '}— Jordan responds personally.
+
       </div>
 
       <main className="mx-auto max-w-5xl px-6 py-10">
@@ -53,7 +53,7 @@ export default function CoupleDashboard() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <DashboardCard title="My Wedding Website" description="Build and share your public wedding page" href="/dashboard/website" live />
+          <DashboardCard title="My Wedding Website" description="Build and share your public wedding page" href="/dashboard/website" live showEditorLink />
           <DashboardCard title="Guest List" description="Manage guests and track RSVPs" href="/dashboard/guests" live />
           <DashboardCard title="Wedding Checklist" description="Faith-first planning, step by step" href="/dashboard/checklist" live />
           <DashboardCard title="Wedding Party" description="Add your party members and officiant" href="/dashboard/wedding-party" live />
@@ -71,20 +71,29 @@ export default function CoupleDashboard() {
   )
 }
 
-function DashboardCard({ title, description, href, live, external }: {
-  title: string; description: string; href: string; live?: boolean; external?: boolean
+function DashboardCard({ title, description, href, live, external, showEditorLink }: {
+  title: string; description: string; href: string; live?: boolean; external?: boolean; showEditorLink?: boolean
 }) {
   const cls = 'block rounded-xl border bg-white p-6 transition ' +
     (live ? 'border-gold hover:shadow-md' : 'border-gold-light opacity-60 cursor-not-allowed')
 
-  const badge = <span className="text-xs bg-gold/10 text-gold font-medium px-2 py-0.5 rounded-full">Live</span>
   const content = (
     <>
-      <div className="flex items-center justify-between mb-1">
+      <div className="mb-1">
         <h3 className="font-serif text-lg font-semibold text-brown">{title}</h3>
-        {live ? badge : <span className="text-xs bg-gray-100 text-gray-400 font-medium px-2 py-0.5 rounded-full">Soon</span>}
       </div>
       <p className="text-sm text-brown-light">{description}</p>
+      {showEditorLink && (
+        <div className="mt-3">
+          <Link
+            to="/dashboard/website/editor"
+            onClick={e => e.stopPropagation()}
+            className="inline-flex items-center gap-1 text-xs font-medium text-gold hover:underline"
+          >
+            Edit in side-by-side mode →
+          </Link>
+        </div>
+      )}
     </>
   )
 

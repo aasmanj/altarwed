@@ -70,10 +70,7 @@ function DashboardCard({ title, description, href, live }: {
   if (live && href !== '#') {
     return (
       <Link to={href} className={cls}>
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="font-serif text-lg font-semibold text-[#3b2f2f]">{title}</h3>
-          <span className="text-xs bg-[#d4af6a]/10 text-[#d4af6a] font-medium px-2 py-0.5 rounded-full">Live</span>
-        </div>
+        <h3 className="font-serif text-lg font-semibold text-[#3b2f2f] mb-1">{title}</h3>
         <p className="text-sm text-[#a08060]">{description}</p>
       </Link>
     )
@@ -81,10 +78,7 @@ function DashboardCard({ title, description, href, live }: {
 
   return (
     <div className={cls}>
-      <div className="flex items-center justify-between mb-1">
-        <h3 className="font-serif text-lg font-semibold text-[#3b2f2f]">{title}</h3>
-        <span className="text-xs bg-gray-100 text-gray-400 font-medium px-2 py-0.5 rounded-full">Soon</span>
-      </div>
+      <h3 className="font-serif text-lg font-semibold text-[#3b2f2f] mb-1">{title}</h3>
       <p className="text-sm text-[#a08060]">{description}</p>
     </div>
   )
