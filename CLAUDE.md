@@ -71,6 +71,7 @@ Spring Boot 4 split the old `spring-boot-autoconfigure` monolith into per-techno
 
 **Beans that Spring Boot 3 auto-exposed but Spring Boot 4 does NOT — declare these explicitly:**
 - `ObjectMapper` — declare in `JacksonConfig.java` (already done). Inject via constructor in any service that needs JSON serialization.
+- `RestClient.Builder` — NOT a Spring bean in SB4. Never inject it as a constructor parameter. Call `RestClient.builder()` as a static factory method directly inside the constructor instead. All existing adapters (ResendEmailAdapter, NextjsRevalidationAdapter, ScriptureService) already follow this pattern.
 - When adding any new `@Service` with non-obvious constructor deps, verify each dep resolves as a Spring bean before deploying.
 
 **If you get a compile error "package org.springframework.boot.autoconfigure.X does not exist":**
