@@ -30,6 +30,7 @@ ALTER TABLE guests ADD invite_send_count INT NOT NULL DEFAULT 0;
 ALTER TABLE planning_tasks ADD notes NVARCHAR(MAX) NULL;
 ALTER TABLE planning_tasks ADD assignee NVARCHAR(100) NULL;
 
-ALTER TABLE vendors ADD price_tier NVARCHAR(3) NULL;
-ALTER TABLE vendors ADD CONSTRAINT chk_vendors_price_tier
-    CHECK (price_tier IN ('$', '$$', '$$$') OR price_tier IS NULL);
+-- Inline constraint avoids SQL Server parse-time "Invalid column name" error
+-- when column and constraint are separate statements in the same transaction.
+ALTER TABLE vendors ADD price_tier NVARCHAR(3) NULL
+    CONSTRAINT chk_vendors_price_tier CHECK (price_tier IN ('$', '$$', '$$$') OR price_tier IS NULL);
