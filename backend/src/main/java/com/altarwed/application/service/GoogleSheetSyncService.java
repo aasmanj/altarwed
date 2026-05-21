@@ -211,9 +211,6 @@ public class GoogleSheetSyncService {
             String mealPref          = get(cols, colIndex, "meal preference");
             String dietary           = get(cols, colIndex, "dietary restrictions");
             String songRequest       = get(cols, colIndex, "song request");
-            String shuttleRaw        = get(cols, colIndex, "shuttle needed");
-            Boolean shuttle          = shuttleRaw == null ? null : parseBoolean(shuttleRaw);
-
             if (g == null) {
                 // New guest — id=null so JPA generates one; phone=null; tableNumber=null; side=null
                 toSave.add(new Guest(
@@ -222,7 +219,6 @@ public class GoogleSheetSyncService {
                         com.altarwed.domain.model.GuestRsvpStatus.PENDING,
                         false,  // plusOneAllowed (primitive, defaults false)
                         plusOneName, dietary, mealPref, songRequest,
-                        shuttle,
                         null,   // tableNumber
                         null,   // side
                         null,   // notes
@@ -248,7 +244,6 @@ public class GoogleSheetSyncService {
                         dietary     != null ? dietary     : g.dietaryRestrictions(),
                         mealPref    != null ? mealPref    : g.mealPreference(),
                         songRequest != null ? songRequest : g.songRequest(),
-                        shuttle     != null ? shuttle     : g.shuttleNeeded(),
                         g.tableNumber(), g.side(), g.notes(),
                         g.mailAddress(), g.noteForCouple(),
                         g.inviteSendCount(), g.inviteSentAt(), g.respondedAt(), g.remindAt(),
@@ -323,9 +318,6 @@ public class GoogleSheetSyncService {
                (email == null ? "" : email.toLowerCase());
     }
 
-    private Boolean parseBoolean(String s) {
-        return s.equalsIgnoreCase("yes") || s.equalsIgnoreCase("true") || s.equals("1");
-    }
 
     // -----------------------------------------------------------------------
     // Mapper

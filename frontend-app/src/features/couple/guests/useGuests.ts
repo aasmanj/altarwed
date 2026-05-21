@@ -16,7 +16,6 @@ export interface Guest {
   dietaryRestrictions: string | null
   mealPreference: string | null
   songRequest: string | null
-  shuttleNeeded: boolean | null
   tableNumber: number | null
   side: GuestSide | null
   notes: string | null
@@ -59,7 +58,6 @@ export interface UpdateGuestPayload {
   dietaryRestrictions?: string
   mealPreference?: string
   songRequest?: string
-  shuttleNeeded?: boolean
   tableNumber?: number
   side?: GuestSide
   notes?: string

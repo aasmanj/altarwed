@@ -20,7 +20,6 @@ public record GuestResponse(
         String dietaryRestrictions,
         String mealPreference,
         String songRequest,
-        Boolean shuttleNeeded,
         Integer tableNumber,
         GuestSide side,
         String notes,

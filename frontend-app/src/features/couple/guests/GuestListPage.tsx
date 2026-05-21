@@ -95,7 +95,6 @@ export default function GuestListPage() {
     const k = g.dietaryRestrictions!; acc[k] = (acc[k] ?? 0) + 1; return acc
   }, {})
   const songCount   = guests.filter(g => g.songRequest).length
-  const shuttleCount = guests.filter(g => g.shuttleNeeded).length
 
   return (
     <div className="min-h-screen bg-ivory">
@@ -212,7 +211,7 @@ export default function GuestListPage() {
             </div>
 
             <p className="mt-2 text-xs text-brown-light">
-              In your sheet: File &rarr; Share &rarr; Publish to web &rarr; CSV. Columns: Name, Email, Plus One Name, Meal Preference, Dietary Restrictions, Song Request, Shuttle Needed (yes/no).
+              In your sheet: File &rarr; Share &rarr; Publish to web &rarr; CSV. Columns: Name, Email, Plus One Name, Meal Preference, Dietary Restrictions, Song Request.
             </p>
           </div>
         )}
@@ -254,7 +253,6 @@ export default function GuestListPage() {
             mealCounts={mealCounts}
             dietaryCounts={dietaryCounts}
             songCount={songCount}
-            shuttleCount={shuttleCount}
           />
         )}
 
@@ -768,7 +766,6 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
   const [plusOne, setPlusOne]         = useState(guest.plusOneAllowed)
   const [meal, setMeal]               = useState(guest.mealPreference ?? '')
   const [song, setSong]               = useState(guest.songRequest ?? '')
-  const [shuttle, setShuttle]         = useState(guest.shuttleNeeded ?? false)
   const [mailAddress, setMailAddress] = useState(guest.mailAddress ?? '')
 
   const handleSave = (e: React.FormEvent) => {
@@ -781,7 +778,6 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
       plusOneAllowed: plusOne,
       mealPreference: meal || undefined,
       songRequest: song || undefined,
-      shuttleNeeded: shuttle,
       mailAddress: mailAddress || undefined,
     })
   }
@@ -830,11 +826,6 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
                 className="rounded border-gold-light" />
               Allow +1
             </label>
-            <label className="flex items-center gap-2 text-sm text-brown">
-              <input type="checkbox" checked={shuttle} onChange={e => setShuttle(e.target.checked)}
-                className="rounded border-gold-light" />
-              Needs shuttle
-            </label>
           </div>
           <div className="sm:col-span-3 flex gap-3 pt-1">
             <button type="submit" disabled={isPending}
@@ -857,11 +848,11 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
 // ---------------------------------------------------------------------------
 const PIE_COLORS = ['#4ade80', '#f87171', '#fbbf24', '#94a3b8']
 
-function GuestAnalyticsPanel({ attending, declining, pending, notSent, responseRate, total, mealCounts, dietaryCounts, songCount, shuttleCount }: {
+function GuestAnalyticsPanel({ attending, declining, pending, notSent, responseRate, total, mealCounts, dietaryCounts, songCount }: {
   attending: number; declining: number; pending: number; notSent: number
   responseRate: number; total: number
   mealCounts: Record<string, number>; dietaryCounts: Record<string, number>
-  songCount: number; shuttleCount: number
+  songCount: number
 }) {
   const pieData = [
     { name: 'Attending', value: attending },
@@ -902,10 +893,6 @@ function GuestAnalyticsPanel({ attending, declining, pending, notSent, responseR
           <div className="rounded-xl border border-gold-light bg-ivory/50 p-4 text-center">
             <p className="font-serif text-2xl font-bold text-brown">{responseRate}%</p>
             <p className="text-xs text-brown-light mt-0.5">Response rate</p>
-          </div>
-          <div className="rounded-xl border border-gold-light bg-ivory/50 p-4 text-center">
-            <p className="font-serif text-2xl font-bold text-brown">{shuttleCount}</p>
-            <p className="text-xs text-brown-light mt-0.5">Need shuttle</p>
           </div>
           <div className="rounded-xl border border-gold-light bg-ivory/50 p-4 text-center">
             <p className="font-serif text-2xl font-bold text-brown">{songCount}</p>

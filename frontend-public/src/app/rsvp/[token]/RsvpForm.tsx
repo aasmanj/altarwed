@@ -33,7 +33,6 @@ export default function RsvpForm({
   const [dietary, setDietary]           = useState('')
   const [meal, setMeal]                 = useState('')
   const [song, setSong]                 = useState('')
-  const [shuttle, setShuttle]           = useState(false)
   const [noteForCouple, setNoteForCouple] = useState('')
   const [submitting, setSubmitting]     = useState(false)
   const [done, setDone]                 = useState(false)
@@ -70,7 +69,6 @@ export default function RsvpForm({
           dietaryRestrictions: dietary || undefined,
           mealPreference: meal || undefined,
           songRequest: song || undefined,
-          shuttleNeeded: shuttle || undefined,
           noteForCouple: noteForCouple.trim() || undefined,
           remindInDays: remindInDays ?? undefined,
           partyResponses,
@@ -229,15 +227,6 @@ export default function RsvpForm({
               className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
             />
           </div>
-          <label className="flex items-center gap-3 text-sm text-[#3b2f2f] cursor-pointer">
-            <input
-              type="checkbox"
-              checked={shuttle}
-              onChange={e => setShuttle(e.target.checked)}
-              className="h-4 w-4 rounded border-[#e8dcc8] accent-[#4a1942]"
-            />
-            I&apos;ll need shuttle transportation
-          </label>
         </>
       )}
 

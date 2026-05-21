@@ -15,7 +15,6 @@ public record Guest(
         String dietaryRestrictions,
         String mealPreference,
         String songRequest,
-        Boolean shuttleNeeded,
         Integer tableNumber,
         GuestSide side,
         String notes,
