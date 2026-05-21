@@ -10,6 +10,10 @@ import {
 } from './useGuests'
 import TipCallout from '@/components/TipCallout'
 import { TIPS } from '@/lib/tips'
+import {
+  useGoogleSheetSync, useSetGoogleSheetSync, useDeleteGoogleSheetSync,
+  useTriggerGoogleSheetSync, relativeTime,
+} from './useGoogleSheetSync'
 
 const STATUS_LABEL: Record<RsvpStatus, string> = {
   PENDING: 'Remind me', ATTENDING: 'Attending', DECLINING: 'Declining',
@@ -34,6 +38,14 @@ export default function GuestListPage() {
 
   const createParty   = useCreateParty(coupleId)
   const bulkAdd       = useBulkAddGuests(coupleId)
+
+  const { data: sheetSync }     = useGoogleSheetSync(coupleId)
+  const setSheetSync            = useSetGoogleSheetSync(coupleId)
+  const deleteSheetSync         = useDeleteGoogleSheetSync(coupleId)
+  const triggerSheetSync        = useTriggerGoogleSheetSync(coupleId)
+
+  const [showSheetSync, setShowSheetSync] = useState(false)
+  const [sheetUrlInput, setSheetUrlInput] = useState('')
 
   const [showAdd, setShowAdd]         = useState(false)
   const [showParty, setShowParty]     = useState(false)
@@ -100,6 +112,12 @@ export default function GuestListPage() {
               {sendAll.isPending ? 'Sending…' : `Send all pending invites (${pending})`}
             </button>
             <button
+              onClick={() => { setShowSheetSync(v => !v); setSheetUrlInput(sheetSync?.sheetUrl ?? '') }}
+              className="rounded-lg border border-gold px-4 py-2 text-sm font-medium text-brown hover:bg-gold/10 transition"
+            >
+              Google Sheets
+            </button>
+            <button
               onClick={() => setShowImport(true)}
               className="rounded-lg border border-gold px-4 py-2 text-sm font-medium text-brown hover:bg-gold/10 transition"
             >
@@ -126,6 +144,78 @@ export default function GuestListPage() {
         <div className="mb-6">
           <TipCallout tip={TIPS.guestsRsvpTiming} />
         </div>
+
+        {/* Google Sheets live sync panel */}
+        {showSheetSync && (
+          <div className="mb-6 rounded-xl border border-gold-light bg-white p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="font-semibold text-brown">Google Sheets live sync</p>
+                <p className="text-xs text-brown-light mt-0.5">
+                  Paste the URL of a Google Sheet published as CSV. We'll sync every 15 minutes.
+                </p>
+              </div>
+              <button onClick={() => setShowSheetSync(false)} className="text-brown-light hover:text-brown text-xl">✕</button>
+            </div>
+
+            {sheetSync && (
+              <div className="mb-3 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 flex items-center justify-between gap-4">
+                <div>
+                  <span className="font-medium">Sync active</span>
+                  {' — '}Last synced: {relativeTime(sheetSync.lastSynced)}
+                  {sheetSync.rowCount != null && ` · ${sheetSync.rowCount} rows`}
+                  {sheetSync.lastError && (
+                    <p className="mt-1 text-red-600 text-xs">Error: {sheetSync.lastError}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => triggerSheetSync.mutate()}
+                  disabled={triggerSheetSync.isPending}
+                  className="shrink-0 rounded-lg bg-green-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-800 disabled:opacity-50 transition"
+                >
+                  {triggerSheetSync.isPending ? 'Syncing…' : 'Sync now'}
+                </button>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={sheetUrlInput}
+                onChange={e => setSheetUrlInput(e.target.value)}
+                placeholder="https://docs.google.com/spreadsheets/d/…"
+                className="flex-1 rounded-lg border border-gold-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40"
+              />
+              <button
+                onClick={async () => {
+                  if (!sheetUrlInput.trim()) return
+                  await setSheetSync.mutateAsync(sheetUrlInput.trim())
+                  setShowSheetSync(false)
+                }}
+                disabled={setSheetSync.isPending || !sheetUrlInput.trim()}
+                className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-50 transition"
+              >
+                {setSheetSync.isPending ? 'Saving…' : 'Save'}
+              </button>
+              {sheetSync && (
+                <button
+                  onClick={async () => {
+                    await deleteSheetSync.mutateAsync()
+                    setShowSheetSync(false)
+                  }}
+                  disabled={deleteSheetSync.isPending}
+                  className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 transition"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+
+            <p className="mt-2 text-xs text-brown-light">
+              In your sheet: File &rarr; Share &rarr; Publish to web &rarr; CSV. Columns: Name, Email, Plus One Name, Meal Preference, Dietary Restrictions, Song Request, Shuttle Needed (yes/no).
+            </p>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
