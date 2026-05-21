@@ -6,6 +6,7 @@ import SiteFooter from '@/components/SiteFooter'
 export const metadata: Metadata = {
   title: 'Terms of Service | AltarWed',
   description: 'The terms and conditions governing your use of AltarWed.',
+  alternates: { canonical: 'https://www.altarwed.com/terms' },
 }
 
 const EFFECTIVE_DATE = 'May 11, 2026'

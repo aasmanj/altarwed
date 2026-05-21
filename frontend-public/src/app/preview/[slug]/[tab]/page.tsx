@@ -4,7 +4,11 @@
 // just the content area. Checkpoint 5 will add signed preview tokens for draft sites;
 // for now we gate on isPublished just like the public wedding pages do.
 
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+
+// Preview routes are editor scaffolding rendered inside an iframe — not public content.
+export const metadata: Metadata = { robots: { index: false, follow: false } }
 import BlockRenderer, { WeddingPartyMember, WeddingPhoto } from '@/components/blocks/BlockRenderer'
 import { getWedding, getBlocks, type BlockTab } from '@/app/wedding/[slug]/data'
 

@@ -18,12 +18,18 @@ export async function generateMetadata(
     : `${wedding.partnerOneName} and ${wedding.partnerTwoName} are getting married. Join them to celebrate their covenant.`
   const image = wedding.heroPhotoUrl ?? 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&q=80'
 
+  // All tab sub-routes (/story, /details, /travel, etc.) inherit this canonical
+  // from the layout, so Google treats them as alternates of the main wedding page
+  // rather than independent duplicate pages.
+  const canonicalUrl = `https://www.altarwed.com/wedding/${slug}`
+
   return {
     title,
     description,
+    alternates: { canonical: canonicalUrl },
     openGraph: {
       title, description, type: 'website',
-      url: `https://www.altarwed.com/wedding/${slug}`,
+      url: canonicalUrl,
       images: [{ url: image, width: 1200, height: 800, alt: title }],
     },
     twitter: { card: 'summary_large_image', title, description, images: [image] },

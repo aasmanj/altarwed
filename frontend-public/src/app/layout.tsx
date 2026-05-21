@@ -67,9 +67,10 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true },
   },
-  alternates: {
-    canonical: siteUrl,
-  },
+  // NOTE: Do NOT set alternates.canonical here. Next.js merges layout metadata
+  // into every child page, so a canonical set on the root layout would cascade
+  // to all routes that don't override it — making Google think every page is
+  // a duplicate of the homepage. Each page sets its own canonical instead.
 }
 
 const orgJsonLd = {

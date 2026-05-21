@@ -6,9 +6,12 @@ import SiteFooter from '@/components/SiteFooter'
 export const metadata: Metadata = {
   title: 'Find a Wedding | AltarWed',
   description: 'Search for a couple\'s wedding website by name or wedding year on AltarWed.',
+  alternates: { canonical: 'https://www.altarwed.com/find-wedding' },
   openGraph: {
     title: 'Find a Wedding | AltarWed',
     description: 'Search for a couple\'s wedding website by name or wedding year.',
+    url: 'https://www.altarwed.com/find-wedding',
+    siteName: 'AltarWed',
     type: 'website',
   },
 }

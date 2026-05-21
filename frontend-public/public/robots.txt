@@ -1,0 +1,16 @@
+User-agent: *
+
+# Block Next.js build artifacts — font files, chunked JS, image optimizer cache.
+# These are implementation details, not content. Crawling them wastes crawl budget
+# and creates noise in Search Console.
+Disallow: /_next/static/
+Disallow: /_next/image/
+
+# Block private/functional pages that should never appear in search results.
+# RSVP links are personal invite tokens. Preview routes are editor scaffolding.
+Disallow: /rsvp/
+Disallow: /preview/
+
+Allow: /
+
+Sitemap: https://www.altarwed.com/sitemap.xml

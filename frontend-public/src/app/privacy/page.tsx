@@ -6,6 +6,7 @@ import SiteFooter from '@/components/SiteFooter'
 export const metadata: Metadata = {
   title: 'Privacy Policy | AltarWed',
   description: 'How AltarWed collects, uses, and protects your personal information.',
+  alternates: { canonical: 'https://www.altarwed.com/privacy' },
 }
 
 const EFFECTIVE_DATE = 'May 11, 2026'
