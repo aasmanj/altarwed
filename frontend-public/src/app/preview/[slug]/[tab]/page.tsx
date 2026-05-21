@@ -1,26 +1,32 @@
 // Preview route: /preview/[slug]/[tab]
-// Renders a block-driven preview of one tab for use in the SideBySideEditor iframe.
-// Intentionally minimal chrome (no site header/footer, no hero) so the editor sees
-// just the content area. Checkpoint 5 will add signed preview tokens for draft sites;
-// for now we gate on isPublished just like the public wedding pages do.
+// Renders a block-driven WYSIWYG preview of one tab inside the SideBySideEditor iframe.
+// Includes the hero + scripture banner so couples see a true-to-life rendering of
+// what guests will experience, minus the tab navigation (the editor's own tab bar
+// is the source of truth for which tab is being edited).
+//
+// Authorization: the slug acts as the unguessable secret. Same model as the editor
+// preview links on theknot.com and zola.com. Robots noindex prevents accidental
+// Google indexing of draft pages.
 
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import { notFound } from 'next/navigation'
-
-// Preview routes are editor scaffolding rendered inside an iframe — not public content.
-export const metadata: Metadata = { robots: { index: false, follow: false } }
 import BlockRenderer, { WeddingPartyMember, WeddingPhoto } from '@/components/blocks/BlockRenderer'
 import { getWedding, getBlocks, type BlockTab } from '@/app/wedding/[slug]/data'
+import { formatWeddingDate, daysUntilDate } from '@/lib/date'
+
+export const metadata: Metadata = { robots: { index: false, follow: false } }
 
 const VALID_TABS = new Set([
   'HOME', 'OUR_STORY', 'DETAILS', 'WEDDING_PARTY',
   'REGISTRY', 'TRAVEL', 'PHOTOS', 'RSVP',
 ])
 
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
+
 async function getPartyMembers(websiteId: string): Promise<WeddingPartyMember[]> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
   try {
-    const res = await fetch(`${apiUrl}/api/v1/wedding-party/website/${websiteId}`, { next: { revalidate: 60 } })
+    const res = await fetch(`${API}/api/v1/wedding-party/website/${websiteId}`, { cache: 'no-store' })
     if (!res.ok) return []
     return res.json()
   } catch {
@@ -29,9 +35,8 @@ async function getPartyMembers(websiteId: string): Promise<WeddingPartyMember[]>
 }
 
 async function getPhotos(slug: string): Promise<WeddingPhoto[]> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
   try {
-    const res = await fetch(`${apiUrl}/api/v1/wedding-photos/website/slug/${slug}`, { next: { revalidate: 60 } })
+    const res = await fetch(`${API}/api/v1/wedding-photos/website/slug/${slug}`, { cache: 'no-store' })
     if (!res.ok) return []
     return res.json()
   } catch {
@@ -54,11 +59,11 @@ export default async function PreviewPage({
     getBlocks(slug, tab as BlockTab),
   ])
 
-  // Gate on isPublished for now; Checkpoint 5 adds signed tokens for drafts.
-  if (!wedding || !wedding.isPublished) notFound()
+  // Preview must render drafts — that is the whole point of WYSIWYG.
+  // The route is noindex'd; the slug is unguessable.
+  if (!wedding) notFound()
 
-  // Eagerly fetch dynamic data only if the relevant block types are present in this tab.
-  const needsParty = blocks.some(b => b.type === 'WEDDING_PARTY_GRID')
+  const needsParty  = blocks.some(b => b.type === 'WEDDING_PARTY_GRID')
   const needsPhotos = blocks.some(b => b.type === 'PHOTO_ALBUM_GRID')
 
   const [partyMembers, photos] = await Promise.all([
@@ -66,30 +71,78 @@ export default async function PreviewPage({
     needsPhotos ? getPhotos(slug)             : Promise.resolve([] as WeddingPhoto[]),
   ])
 
-  const tabLabel: Record<string, string> = {
-    HOME: 'Home', OUR_STORY: 'Our Story', DETAILS: 'Details',
-    WEDDING_PARTY: 'Wedding Party', REGISTRY: 'Registry',
-    TRAVEL: 'Travel', PHOTOS: 'Photos', RSVP: 'RSVP',
-  }
+  const heroImage = wedding.heroPhotoUrl
+    ?? 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1600&q=80'
+  const countdown = wedding.weddingDate ? daysUntilDate(wedding.weddingDate) : null
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
-      {/* Minimal header — shows context without the full hero */}
-      <header className="border-b border-[#e8dcc8] bg-white px-6 py-4">
-        <p className="font-serif text-lg font-bold text-[#3b2f2f] leading-none">
-          {wedding.partnerOneName} &amp; {wedding.partnerTwoName}
-        </p>
-        <p className="text-xs uppercase tracking-[0.2em] text-[#a08060] mt-0.5">
-          Preview &mdash; {tabLabel[tab] ?? tab}
-        </p>
-      </header>
 
-      {/* Block content */}
+      {/* Draft watermark — only visible on unpublished sites so couples know
+          this preview is private. Sticky so it stays in view during scroll. */}
+      {!wedding.isPublished && (
+        <div className="sticky top-0 z-40 bg-amber-100 border-b border-amber-300 px-4 py-1.5 text-center">
+          <span className="text-xs font-semibold text-amber-900 uppercase tracking-wider">
+            Draft preview — only you can see this
+          </span>
+        </div>
+      )}
+
+      {/* Hero — compact for the editor iframe (smaller than the public site's
+          85vh hero so the editor can see content blocks without scrolling) */}
+      <section className="relative h-[40vh] min-h-[260px] flex items-end justify-center overflow-hidden">
+        <Image
+          src={heroImage}
+          alt={`${wedding.partnerOneName} and ${wedding.partnerTwoName}`}
+          fill className="object-cover" priority
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/10" />
+
+        <div className="relative z-10 text-center pb-8 px-6 w-full">
+          <p className="mb-2 text-[10px] uppercase tracking-[0.3em] text-white/70 font-light">
+            Together in covenant
+          </p>
+          <h1 className="font-serif text-3xl sm:text-5xl font-bold text-white leading-none">
+            {wedding.partnerOneName} &amp; {wedding.partnerTwoName}
+          </h1>
+          {wedding.weddingDate && (
+            <p className="mt-3 text-sm text-white/85 tracking-wide">
+              {formatWeddingDate(wedding.weddingDate)}
+            </p>
+          )}
+          {countdown !== null && countdown > 0 && (
+            <p className="mt-1 text-[#d4af6a] text-[10px] tracking-widest uppercase">
+              {countdown} days away
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* Scripture banner — same as the public site */}
+      {(wedding.scriptureText || wedding.scriptureReference) && (
+        <section className="bg-gradient-to-b from-[#3b2f2f] to-[#4a1942] py-10 px-6 text-center relative">
+          <div className="absolute inset-x-0 top-0 h-px bg-[#d4af6a]/40" />
+          <div className="absolute inset-x-0 bottom-0 h-px bg-[#d4af6a]/40" />
+          {wedding.scriptureText && (
+            <blockquote className="font-serif italic text-[#fdfaf6] max-w-3xl mx-auto leading-relaxed text-lg sm:text-xl">
+              &ldquo;{wedding.scriptureText}&rdquo;
+            </blockquote>
+          )}
+          {wedding.scriptureReference && (
+            <p className="mt-3 text-[#d4af6a] text-xs tracking-[0.25em] uppercase font-medium">
+              — {wedding.scriptureReference}
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* Tab content — blocks render here */}
       <main className="max-w-3xl mx-auto px-6 py-10 space-y-8">
         {blocks.length === 0 ? (
-          <p className="text-center text-[#a08060] text-sm py-16 italic">
-            No blocks yet on this tab. Add blocks in the editor on the right.
-          </p>
+          <div className="text-center text-[#a08060] text-sm py-16 italic border-2 border-dashed border-[#e8dcc8] rounded-xl">
+            <p>This tab is empty.</p>
+            <p className="mt-1 text-xs">Add blocks on the right to see them appear here.</p>
+          </div>
         ) : (
           blocks
             .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -104,6 +157,13 @@ export default async function PreviewPage({
             ))
         )}
       </main>
+
+      {/* Footer — matches public site for visual consistency */}
+      <footer className="border-t border-[#e8dcc8] py-8 text-center text-xs text-[#a08060]">
+        <span className="font-serif text-[#3b2f2f] font-semibold">AltarWed</span>
+        <span className="mx-2">·</span>
+        Faith-based wedding planning
+      </footer>
     </div>
   )
 }

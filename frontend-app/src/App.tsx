@@ -58,12 +58,17 @@ export default function App() {
             }
           />
           <Route
-            path="/dashboard/website/builder"
+            path="/dashboard/website/editor"
             element={
               <ProtectedRoute role="COUPLE">
                 <SideBySideEditor />
               </ProtectedRoute>
             }
+          />
+          {/* Legacy path — keep alive in case any old links reference /builder. */}
+          <Route
+            path="/dashboard/website/builder"
+            element={<Navigate to="/dashboard/website/editor" replace />}
           />
           <Route
             path="/dashboard/checklist"
