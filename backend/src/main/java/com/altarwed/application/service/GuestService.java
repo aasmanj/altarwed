@@ -51,7 +51,7 @@ public class GuestService {
                 req.dietaryRestrictions(), null, null, null,
                 null, req.side(), req.notes(), req.mailAddress(),
                 null, 0,
-                null, null, LocalDateTime.now(), LocalDateTime.now()
+                null, null, null, LocalDateTime.now(), LocalDateTime.now()
         );
         return guestRepository.save(guest);
     }
@@ -81,7 +81,7 @@ public class GuestService {
                 req.notes()              != null ? req.notes()              : existing.notes(),
                 req.mailAddress()        != null ? req.mailAddress()        : existing.mailAddress(),
                 existing.noteForCouple(), existing.inviteSendCount(),
-                existing.inviteSentAt(), existing.respondedAt(),
+                existing.inviteSentAt(), existing.respondedAt(), existing.remindAt(),
                 existing.createdAt(), LocalDateTime.now()
         );
         return guestRepository.save(updated);
@@ -172,6 +172,12 @@ public class GuestService {
         Guest guest = guestRepository.findById(token.guestId())
                 .orElseThrow(() -> new InvalidRsvpTokenException());
 
+        // When remindInDays is set, keep rsvpStatus PENDING and schedule a reminder.
+        // If the guest chose ATTENDING or DECLINING, clear any previous reminder.
+        LocalDateTime remindAt = (req.remindInDays() != null)
+                ? LocalDateTime.now().plusDays(req.remindInDays())
+                : null;
+
         Guest responded = new Guest(
                 guest.id(), guest.coupleId(), guest.name(), guest.email(), guest.phone(),
                 req.status(),
@@ -184,11 +190,15 @@ public class GuestService {
                 guest.tableNumber(), guest.side(), guest.notes(), guest.mailAddress(),
                 req.noteForCouple()       != null ? req.noteForCouple()       : guest.noteForCouple(),
                 guest.inviteSendCount(),
-                guest.inviteSentAt(), LocalDateTime.now(),
+                guest.inviteSentAt(), LocalDateTime.now(), remindAt,
                 guest.createdAt(), LocalDateTime.now()
         );
         guestRepository.save(responded);
-        tokenRepository.markUsed(hash(req.token()));
+        // Only mark the token used if the guest is actually responding (not just setting a reminder).
+        // For reminders the token stays valid so they can still use the same link when reminded.
+        if (req.remindInDays() == null) {
+            tokenRepository.markUsed(hash(req.token()));
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -244,6 +254,7 @@ public class GuestService {
                 guest.tableNumber(), guest.side(), guest.notes(), guest.mailAddress(),
                 guest.noteForCouple(), currentSends + 1,
                 LocalDateTime.now(), guest.respondedAt(),
+                null, // clear remindAt — the reminder was just fulfilled
                 guest.createdAt(), LocalDateTime.now()
         );
         return guestRepository.save(updated);

@@ -27,6 +27,7 @@ public record GuestResponse(
         Integer inviteSendCount,
         LocalDateTime inviteSentAt,
         LocalDateTime respondedAt,
+        LocalDateTime remindAt,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {}

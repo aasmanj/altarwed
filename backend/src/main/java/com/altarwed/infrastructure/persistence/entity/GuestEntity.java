@@ -81,6 +81,9 @@ public class GuestEntity {
     @Column(name = "responded_at")
     private LocalDateTime respondedAt;
 
+    @Column(name = "remind_at")
+    private LocalDateTime remindAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

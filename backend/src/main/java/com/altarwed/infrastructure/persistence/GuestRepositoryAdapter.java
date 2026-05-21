@@ -1,11 +1,13 @@
 package com.altarwed.infrastructure.persistence;
 
 import com.altarwed.domain.model.Guest;
+import com.altarwed.domain.model.GuestRsvpStatus;
 import com.altarwed.domain.port.GuestRepository;
 import com.altarwed.infrastructure.persistence.entity.GuestEntity;
 import com.altarwed.infrastructure.persistence.repository.GuestJpaRepository;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -44,6 +46,11 @@ public class GuestRepositoryAdapter implements GuestRepository {
         return jpa.existsByIdAndCoupleId(id, coupleId);
     }
 
+    @Override
+    public List<Guest> findDueReminders(LocalDateTime asOf) {
+        return jpa.findDueReminders(asOf, GuestRsvpStatus.PENDING).stream().map(this::toDomain).toList();
+    }
+
     private Guest toDomain(GuestEntity e) {
         return new Guest(
                 e.getId(), e.getCoupleId(), e.getName(), e.getEmail(), e.getPhone(),
@@ -51,7 +58,8 @@ public class GuestRepositoryAdapter implements GuestRepository {
                 e.getDietaryRestrictions(), e.getMealPreference(), e.getSongRequest(), e.getShuttleNeeded(),
                 e.getTableNumber(), e.getSide(), e.getNotes(), e.getMailAddress(),
                 e.getNoteForCouple(), e.getInviteSendCount(),
-                e.getInviteSentAt(), e.getRespondedAt(), e.getCreatedAt(), e.getUpdatedAt()
+                e.getInviteSentAt(), e.getRespondedAt(), e.getRemindAt(),
+                e.getCreatedAt(), e.getUpdatedAt()
         );
     }
 
@@ -77,6 +85,7 @@ public class GuestRepositoryAdapter implements GuestRepository {
                 .inviteSendCount(g.inviteSendCount() != null ? g.inviteSendCount() : 0)
                 .inviteSentAt(g.inviteSentAt())
                 .respondedAt(g.respondedAt())
+                .remindAt(g.remindAt())
                 .createdAt(g.createdAt())
                 .updatedAt(g.updatedAt())
                 .build();

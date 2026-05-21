@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 
-type Status = 'ATTENDING' | 'DECLINING' | 'MAYBE'
+// PENDING is the "remind me" path — status stays PENDING, remindInDays is sent.
+type Status = 'ATTENDING' | 'DECLINING' | 'PENDING'
 
 export default function RsvpForm({
   token, plusOneAllowed, weddingSlug, apiUrl,
@@ -12,20 +13,31 @@ export default function RsvpForm({
   weddingSlug: string | null
   apiUrl: string
 }) {
-  const [status, setStatus]       = useState<Status | null>(null)
-  const [plusOne, setPlusOne]     = useState('')
-  const [dietary, setDietary]     = useState('')
-  const [meal, setMeal]           = useState('')
-  const [song, setSong]           = useState('')
-  const [shuttle, setShuttle]     = useState(false)
+  const [status, setStatus]             = useState<Status | null>(null)
+  const [remindInDays, setRemindInDays] = useState<number | null>(null)
+  const [plusOne, setPlusOne]           = useState('')
+  const [dietary, setDietary]           = useState('')
+  const [meal, setMeal]                 = useState('')
+  const [song, setSong]                 = useState('')
+  const [shuttle, setShuttle]           = useState(false)
   const [noteForCouple, setNoteForCouple] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [done, setDone]           = useState(false)
-  const [error, setError]         = useState('')
+  const [submitting, setSubmitting]     = useState(false)
+  const [done, setDone]                 = useState(false)
+  const [error, setError]               = useState('')
+
+  // A submission is ready when ATTENDING/DECLINING is selected,
+  // OR the guest chose "remind me" and picked an interval.
+  const isReady = (status === 'ATTENDING' || status === 'DECLINING') ||
+                  (status === 'PENDING' && remindInDays !== null)
+
+  const handleStatusSelect = (s: Status) => {
+    setStatus(s)
+    if (s !== 'PENDING') setRemindInDays(null)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!status) return
+    if (!isReady) return
     setSubmitting(true)
     setError('')
     try {
@@ -34,13 +46,14 @@ export default function RsvpForm({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           token,
-          status,
+          status: status ?? 'PENDING',
           plusOneName: plusOne || undefined,
           dietaryRestrictions: dietary || undefined,
           mealPreference: meal || undefined,
           songRequest: song || undefined,
           shuttleNeeded: shuttle || undefined,
           noteForCouple: noteForCouple.trim() || undefined,
+          remindInDays: remindInDays ?? undefined,
         }),
       })
       if (!res.ok) throw new Error('Failed')
@@ -55,13 +68,17 @@ export default function RsvpForm({
   if (done) {
     return (
       <div className="text-center space-y-4 py-4">
-        <p className="text-2xl">{status === 'ATTENDING' ? '🎉' : '💌'}</p>
+        <p className="text-2xl">{status === 'ATTENDING' ? '🎉' : status === 'PENDING' ? '⏰' : '💌'}</p>
         <p className="font-serif text-xl font-semibold text-[#3b2f2f]">
-          {status === 'ATTENDING' ? 'See you there!' : 'Thanks for letting us know'}
+          {status === 'ATTENDING' ? 'See you there!'
+           : status === 'PENDING' ? "We'll remind you!"
+           : 'Thanks for letting us know'}
         </p>
         <p className="text-[#6b5344] text-sm">
           {status === 'ATTENDING'
             ? "We can't wait to celebrate with you."
+            : status === 'PENDING'
+            ? `We'll send you a reminder in ${remindInDays} day${remindInDays === 1 ? '' : 's'}.`
             : "We'll miss you and appreciate you responding."}
         </p>
         {status === 'ATTENDING' && weddingSlug && (
@@ -81,16 +98,15 @@ export default function RsvpForm({
       {/* Status selection */}
       <div>
         <p className="text-sm font-medium text-[#3b2f2f] mb-3 text-center">Will you be attending?</p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {([
-            { value: 'ATTENDING', label: 'Attending', icon: '✓' },
-            { value: 'DECLINING', label: 'Declining', icon: '✗' },
-            { value: 'MAYBE',     label: 'Maybe',     icon: '?' },
-          ] as { value: Status; label: string; icon: string }[]).map(opt => (
+            { value: 'ATTENDING' as Status, label: 'Attending', icon: '✓' },
+            { value: 'DECLINING' as Status, label: 'Declining', icon: '✗' },
+          ]).map(opt => (
             <button
               key={opt.value}
               type="button"
-              onClick={() => setStatus(opt.value)}
+              onClick={() => handleStatusSelect(opt.value)}
               className={`rounded-xl border py-3 text-sm font-medium transition ${
                 status === opt.value
                   ? 'border-[#4a1942] bg-[#4a1942] text-white'
@@ -101,6 +117,40 @@ export default function RsvpForm({
               {opt.label}
             </button>
           ))}
+        </div>
+
+        {/* "Remind me" replaces the MAYBE button. Backend keeps rsvpStatus=PENDING and
+            schedules a fresh invite after the chosen interval. */}
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => handleStatusSelect('PENDING')}
+            className={`w-full rounded-xl border py-2.5 text-sm font-medium transition ${
+              status === 'PENDING'
+                ? 'border-[#4a1942] bg-[#4a1942]/10 text-[#4a1942]'
+                : 'border-[#e8dcc8] text-[#6b5344] hover:border-[#d4af6a]'
+            }`}
+          >
+            Not sure yet? Remind me later
+          </button>
+          {status === 'PENDING' && (
+            <div className="mt-2 flex gap-2">
+              {([1, 3, 7] as const).map(days => (
+                <button
+                  key={days}
+                  type="button"
+                  onClick={() => setRemindInDays(days)}
+                  className={`flex-1 rounded-lg border py-2 text-sm font-medium transition ${
+                    remindInDays === days
+                      ? 'border-[#4a1942] bg-[#4a1942] text-white'
+                      : 'border-[#e8dcc8] text-[#3b2f2f] hover:border-[#d4af6a]'
+                  }`}
+                >
+                  {days} day{days > 1 ? 's' : ''}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -172,7 +222,7 @@ export default function RsvpForm({
       )}
 
       {/* Note to couple — available regardless of status so declining guests can leave a blessing */}
-      {status && (
+      {(status === 'ATTENDING' || status === 'DECLINING') && (
         <div>
           <label className="block text-sm font-medium text-[#3b2f2f] mb-1.5">
             Leave a note for the couple <span className="text-[#a08060] font-normal">(private — only they will see it)</span>
@@ -194,10 +244,12 @@ export default function RsvpForm({
 
       <button
         type="submit"
-        disabled={!status || submitting}
+        disabled={!isReady || submitting}
         className="w-full rounded-xl bg-[#4a1942] py-3 font-semibold text-white hover:bg-[#3b1235] disabled:opacity-50 transition"
       >
-        {submitting ? 'Submitting…' : 'Submit RSVP'}
+        {submitting ? 'Submitting…'
+         : status === 'PENDING' ? 'Set reminder'
+         : 'Submit RSVP'}
       </button>
     </form>
   )

@@ -26,6 +26,8 @@ public record Guest(
         Integer inviteSendCount,
         LocalDateTime inviteSentAt,
         LocalDateTime respondedAt,
+        // when set, the scheduler re-sends the RSVP invite at this time and then clears the field
+        LocalDateTime remindAt,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {}

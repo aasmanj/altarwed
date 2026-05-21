@@ -51,7 +51,8 @@
       "PowerShell(cmd /c \"dir \"\"C:\\\\Users\\\\Jordan\\\\altarwed\\\\frontend-public\\\\src\\\\app\\\\wedding\\\\[slug]\"\"\")",
       "PowerShell(cmd /c \"dir \"\"C:\\\\Users\\\\Jordan\\\\altarwed\\\\frontend-app\\\\src\\\\features\\\\couple\\\\website\\\\blocks\"\"\")",
       "PowerShell(cmd /c \"dir \"\"C:\\\\Users\\\\Jordan\\\\altarwed\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\altarwed\\\\domain\\\\model\"\" | findstr /i block\")",
-      "PowerShell(cmd /c \"type \"\"C:\\\\Users\\\\Jordan\\\\altarwed\\\\frontend-public\\\\src\\\\app\\\\wedding\\\\[slug]\\\\photos\\\\page.tsx\"\"\")"
+      "PowerShell(cmd /c \"type \"\"C:\\\\Users\\\\Jordan\\\\altarwed\\\\frontend-public\\\\src\\\\app\\\\wedding\\\\[slug]\\\\photos\\\\page.tsx\"\"\")",
+      "PowerShell(cmd /c \"type \"\"C:\\\\Users\\\\Jordan\\\\altarwed\\\\frontend-public\\\\src\\\\app\\\\rsvp\\\\[token]\\\\RsvpForm.tsx\"\"\")"
     ]
   }
 }

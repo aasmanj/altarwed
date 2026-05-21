@@ -14,7 +14,7 @@ public class GuestMapper {
                 g.dietaryRestrictions(), g.mealPreference(), g.songRequest(), g.shuttleNeeded(),
                 g.tableNumber(), g.side(), g.notes(), g.mailAddress(),
                 g.noteForCouple(), g.inviteSendCount(),
-                g.inviteSentAt(), g.respondedAt(), g.createdAt(), g.updatedAt()
+                g.inviteSentAt(), g.respondedAt(), g.remindAt(), g.createdAt(), g.updatedAt()
         );
     }
 }
