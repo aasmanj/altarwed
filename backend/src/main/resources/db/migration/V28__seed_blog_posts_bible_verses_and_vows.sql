@@ -9,6 +9,7 @@ WHERE slug = 'christian-wedding-ceremony-order';
 -- Target keyword: "bible verses for weddings" (~40K/mo)
 -- Cover: open Bible with wedding rings (Unsplash)
 -- ─────────────────────────────────────────────────────────────────────────────
+IF NOT EXISTS (SELECT 1 FROM blog_posts WHERE slug = 'bible-verses-for-weddings')
 INSERT INTO blog_posts (id, slug, title, excerpt, content, author, published_at, seo_title, seo_desc, tags, cover_image, is_published, created_at, updated_at)
 VALUES (
     NEWID(),
@@ -122,6 +123,7 @@ VALUES (
 -- Target keyword: "christian wedding vows" (~18K/mo)
 -- Cover: couple exchanging vows at altar (Unsplash)
 -- ─────────────────────────────────────────────────────────────────────────────
+IF NOT EXISTS (SELECT 1 FROM blog_posts WHERE slug = 'christian-wedding-vows')
 INSERT INTO blog_posts (id, slug, title, excerpt, content, author, published_at, seo_title, seo_desc, tags, cover_image, is_published, created_at, updated_at)
 VALUES (
     NEWID(),
@@ -236,6 +238,7 @@ VALUES (
 -- Target keyword: "christian wedding checklist" (~8K/mo)
 -- Cover: couple planning with notebook and flowers (Unsplash)
 -- ─────────────────────────────────────────────────────────────────────────────
+IF NOT EXISTS (SELECT 1 FROM blog_posts WHERE slug = 'christian-wedding-planning-checklist')
 INSERT INTO blog_posts (id, slug, title, excerpt, content, author, published_at, seo_title, seo_desc, tags, cover_image, is_published, created_at, updated_at)
 VALUES (
     NEWID(),
