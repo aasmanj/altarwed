@@ -53,7 +53,7 @@ export default function CoupleDashboard() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <DashboardCard title="My Wedding Website" description="Build and share your public wedding page" href="/dashboard/website" live showEditorLink />
+          <DashboardCard title="My Wedding Website" description="Build and share your public wedding page" href="/dashboard/website/editor" live />
           <DashboardCard title="Guest List" description="Manage guests and track RSVPs" href="/dashboard/guests" live />
           <DashboardCard title="Wedding Checklist" description="Faith-first planning, step by step" href="/dashboard/checklist" live />
           <DashboardCard title="Wedding Party" description="Add your party members and officiant" href="/dashboard/wedding-party" live />
