@@ -357,14 +357,20 @@ All items shipped. V25 columns were already in place; work was purely wiring + U
 - **Preview-before-publish warning** — SideBySideEditor shows draft state + "Publish first" message when `isPublished=false`.
 - **TipCallout component + nudge copy** — `TipCallout.tsx` + `tips.ts`; used on BudgetPage and ChecklistPage.
 
-### ✅ Phase 1 — Side-by-side block editor — COMPLETE (2026-05-21)
+### ✅ Phase 1 — Side-by-side block editor — COMPLETE (2026-05-21, extended 2026-05-23)
 - **V26 migration** creates `wedding_page_blocks` table (websiteId, tab, type, sortOrder, contentJson).
-- **13 block types**: HEADING, TEXT, DIVIDER, SCRIPTURE_BANNER, VENUE_CARD, HOTEL_CARD, REGISTRY_CARD, COUNTDOWN, RSVP_CTA, WEDDING_PARTY_GRID, PHOTO_ALBUM_GRID, VOWS_PREVIEW, CUSTOM_HTML.
-- **BlockBackfillService** seeds default blocks from existing website scalar fields on first backfill call. Idempotent (skips tabs that already have blocks).
+- **14 block types**: HEADING, TEXT, IMAGE, DIVIDER, SCRIPTURE, VENUE_CARD, HOTEL_CARD, REGISTRY_CARD, COUNTDOWN, RSVP_CTA, WEDDING_PARTY_GRID, PHOTO_ALBUM_GRID, VOWS_PREVIEW, **STORY_ENTRY**.
+- **BlockBackfillService** seeds default blocks from existing website scalar fields on first backfill call. Idempotent (skips tabs that already have blocks). Scripture block only seeded on HOME tab (not DETAILS).
 - **WeddingPageBlockController** — full CRUD + reorder + backfill endpoints.
-- **SideBySideEditor** (`frontend-app`) — left iframe preview, right rail block list; add/edit/delete/reorder blocks per tab.
-- **`/preview/[slug]/[tab]`** (`frontend-public`) — SSR preview route consumed by the iframe; gated on `isPublished`; no site chrome.
-- **BlockRenderer** — dispatches all 13 block types to styled React components.
+- **SideBySideEditor** (`frontend-app`) — left iframe preview, right rail block list; add/edit/delete/reorder blocks per tab. Hero photo + tagline panel above block tabs.
+- **`/preview/[slug]/[tab]`** (`frontend-public`) — SSR preview route consumed by the iframe; tab param is lowercased in URL, uppercased server-side. No site chrome.
+- **BlockRenderer** — dispatches all 14 block types to styled React components.
+- **STORY_ENTRY block** — free-form "Our Story" moment: optional date/label badge (any text, no forced date picker), body textarea, optional photo upload with left/right position toggle. Photo + text render side-by-side on the public page.
+- **IMAGE block** — upload from computer via `POST /api/v1/uploads/wedding-websites/{websiteId}/block-image`. Returns `{ url }` only (no DB record; URL lives in contentJson). Thumbnail preview in editor.
+- **Hero customization** — `hero_tagline` field (V32 migration). Tagline input + 6 default Unsplash photos in editor. Public page uses tagline with "Together in covenant" fallback.
+- **Dashboard tile** links directly to `/dashboard/website/editor` (skips classic editor landing).
+- **FloatingEditButton** on every public wedding page — links to `app.altarwed.com/dashboard/website/editor`. Always visible (cross-domain auth not possible).
+- **Wedding page footer** — "Created on AltarWed" + CTA + legal links.
 
 ### ✅ Phase 7 — Homepage launch + SEO content (COMPLETE)
 (a) Real marketing homepage live at altarwed.com — waitlist replaced with direct signup CTAs.
@@ -386,6 +392,9 @@ All items shipped. V25 columns were already in place; work was purely wiring + U
 - **V29** — Guest parties: groups guests under a shared `party_id`/`party_name`. One guest per party is `party_contact` and receives the invite email. Enables "The Smith Family" style grouping.
 - **V30** — Multiple hotel blocks: normalized `wedding_hotels` table replaces scalar hotel fields on `wedding_websites`. Couples can list multiple hotels with address, booking URL, block rate, distance from venue, and sort order. Old scalar fields retained for data safety; new UI writes to this table.
 - **V31** — Google Sheets sync: couples paste a public Google Sheet URL; a scheduled job polls every 15 minutes and upserts guests by name+email. One sheet per couple. `last_synced`, `last_error`, `row_count` tracked per sync run.
+
+### 🔜 Phase 2 (editor polish) — Next up
+- **RSVP "find your invitation" search** — guests visit the RSVP tab on the public wedding page and type their name to find their invitation (like The Knot). Searches guests by name, surfaces their RSVP token link so they can RSVP inline without needing the email. Needs a new public endpoint: `GET /api/v1/guests/rsvp/find?slug={slug}&name={name}` returning masked guest name + token. No auth — public but rate-limited (Bucket4j).
 
 ### 🔜 Phase 8 — Stripe billing
 Vendor subscriptions ($29/$79/$149), couple Covenant Plan ($9/mo). Wire VendorSubscription entity to Stripe. Add subscription management UI. Webhook handler for payment events.
