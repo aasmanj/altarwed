@@ -136,6 +136,94 @@ public class ResendEmailAdapter implements EmailPort {
     }
 
     @Override
+    public void sendRsvpNotificationToCouple(String coupleEmail, String coupleNames,
+                                              String guestName, String rsvpStatus,
+                                              String mealPreference, String noteForCouple,
+                                              String dashboardUrl) {
+        boolean attending = "ATTENDING".equalsIgnoreCase(rsvpStatus);
+        String emoji      = attending ? "🎉" : "😔";
+        String statusWord = attending ? "Attending" : "Declining";
+        String statusColor = attending ? "#16a34a" : "#dc2626";
+
+        String mealRow = (mealPreference != null && !mealPreference.isBlank())
+                ? "<tr><td style='color:#6b5344;padding:4px 0;'>Meal preference</td><td style='padding:4px 0;font-weight:600;color:#3b2f2f;'>%s</td></tr>".formatted(mealPreference)
+                : "";
+        String noteRow = (noteForCouple != null && !noteForCouple.isBlank())
+                ? """
+                  <tr><td colspan="2" style="padding-top:12px;">
+                    <div style="background:#fdf8f0;border-left:3px solid #d4af6a;padding:10px 14px;border-radius:4px;color:#3b2f2f;font-style:italic;">
+                      "%s"
+                    </div>
+                  </td></tr>
+                  """.formatted(noteForCouple)
+                : "";
+
+        String html = """
+                <div style="font-family:Georgia,serif;max-width:520px;margin:0 auto;background:#fdfaf6;padding:40px;border-radius:8px;">
+                  <p style="text-align:center;color:#a08060;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">AltarWed — RSVP Update</p>
+                  <h2 style="text-align:center;color:#3b2f2f;margin:0 0 8px;">%s %s</h2>
+                  <p style="text-align:center;color:#6b5344;margin:0 0 32px;font-size:16px;">
+                    <strong>%s</strong> has responded to your wedding invitation.
+                  </p>
+                  <table style="width:100%%;border-collapse:collapse;margin-bottom:24px;font-size:15px;">
+                    <tr>
+                      <td style="color:#6b5344;padding:4px 0;">Guest</td>
+                      <td style="padding:4px 0;font-weight:600;color:#3b2f2f;">%s</td>
+                    </tr>
+                    <tr>
+                      <td style="color:#6b5344;padding:4px 0;">Status</td>
+                      <td style="padding:4px 0;font-weight:700;color:%s;">%s</td>
+                    </tr>
+                    %s
+                    %s
+                  </table>
+                  <div style="text-align:center;">
+                    <a href="%s"
+                       style="display:inline-block;padding:12px 28px;background:#3b2f2f;color:#d4af6a;text-decoration:none;border-radius:4px;font-size:14px;letter-spacing:0.05em;">
+                      View Guest List
+                    </a>
+                  </div>
+                  <p style="text-align:center;color:#a08060;font-size:11px;margin-top:32px;">
+                    "And over all these virtues put on love, which binds them all together in perfect unity." — Colossians 3:14
+                  </p>
+                </div>
+                """.formatted(emoji, statusWord, guestName, guestName, statusColor, statusWord, mealRow, noteRow, dashboardUrl);
+
+        String text = """
+                %s %s responded to your wedding invitation.
+
+                Guest: %s
+                Status: %s
+                %s%s
+                View your guest list: %s
+                """.formatted(
+                emoji, guestName, guestName, statusWord,
+                mealPreference != null && !mealPreference.isBlank() ? "Meal preference: " + mealPreference + "\n" : "",
+                noteForCouple != null && !noteForCouple.isBlank() ? "Note for you: \"" + noteForCouple + "\"\n" : "",
+                dashboardUrl
+        );
+
+        String subject = attending
+                ? emoji + " " + guestName + " is attending your wedding!"
+                : emoji + " " + guestName + " can't make it to your wedding";
+
+        Map<String, Object> body = Map.of(
+                "from", "AltarWed <" + fromEmail + ">",
+                "to", List.of(coupleEmail),
+                "subject", subject,
+                "html", html,
+                "text", text
+        );
+
+        restClient.post()
+                .uri("/emails")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .toBodilessEntity();
+    }
+
+    @Override
     public void sendPasswordResetEmail(String toEmail, String resetToken) {
         String resetUrl = appBaseUrl + "/reset-password?token=" + resetToken;
 

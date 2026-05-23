@@ -35,4 +35,13 @@ public class AsyncEmailService {
     public void sendPasswordResetEmail(String toEmail, String resetToken) {
         emailPort.sendPasswordResetEmail(toEmail, resetToken);
     }
+
+    @Async("emailExecutor")
+    public void sendRsvpNotificationToCouple(String coupleEmail, String coupleNames,
+                                              String guestName, String rsvpStatus,
+                                              String mealPreference, String noteForCouple,
+                                              String dashboardUrl) {
+        emailPort.sendRsvpNotificationToCouple(coupleEmail, coupleNames, guestName,
+                rsvpStatus, mealPreference, noteForCouple, dashboardUrl);
+    }
 }

@@ -87,6 +87,34 @@ export default function GuestListPage() {
 
   const [showAnalytics, setShowAnalytics] = useState(false)
 
+  function exportCsv() {
+    const rows = guests.map(g => ({
+      Name:                g.name,
+      Email:               g.email ?? '',
+      Phone:               g.phone ?? '',
+      'RSVP Status':       g.rsvpStatus,
+      Side:                g.side ?? '',
+      'Plus One Allowed':  g.plusOneAllowed ? 'Yes' : 'No',
+      'Plus One Name':     g.plusOneName ?? '',
+      'Meal Preference':   g.mealPreference ?? '',
+      'Dietary Restrictions': g.dietaryRestrictions ?? '',
+      'Song Request':      g.songRequest ?? '',
+      'Table Number':      g.tableNumber ?? '',
+      'Mailing Address':   g.mailAddress ?? '',
+      'Party Name':        g.partyName ?? '',
+      'Invite Sent':       g.inviteSentAt ? new Date(g.inviteSentAt).toLocaleDateString() : '',
+      'Responded At':      g.respondedAt ? new Date(g.respondedAt).toLocaleDateString() : '',
+    }))
+    const csv = Papa.unparse(rows)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url  = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href     = url
+    link.download = `guest-list-${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   // Analytics data
   const mealCounts   = guests.filter(g => g.mealPreference).reduce<Record<string,number>>((acc, g) => {
     const k = g.mealPreference!; acc[k] = (acc[k] ?? 0) + 1; return acc
@@ -121,6 +149,13 @@ export default function GuestListPage() {
               className="rounded-lg border border-gold px-4 py-2 text-sm font-medium text-brown hover:bg-gold/10 transition"
             >
               Import CSV
+            </button>
+            <button
+              onClick={exportCsv}
+              disabled={guests.length === 0}
+              className="rounded-lg border border-gold px-4 py-2 text-sm font-medium text-brown hover:bg-gold/10 disabled:opacity-50 transition"
+            >
+              Export CSV
             </button>
             <button
               onClick={() => setShowParty(true)}

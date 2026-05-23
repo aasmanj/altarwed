@@ -316,6 +316,22 @@ public class GuestService {
         // For reminders the token stays valid so they can still use the same link when reminded.
         if (req.remindInDays() == null) {
             tokenRepository.markUsed(hash(req.token()));
+
+            // Notify the couple asynchronously. We never let an email failure break the RSVP
+            // submission -- the @Async executor absorbs any Resend API errors silently.
+            coupleRepository.findById(responded.coupleId()).ifPresent(couple -> {
+                String coupleNames = couple.partnerOneName() + " & " + couple.partnerTwoName();
+                String dashboardUrl = "https://app.altarwed.com/dashboard/guests";
+                emailPort.sendRsvpNotificationToCouple(
+                        couple.email(),
+                        coupleNames,
+                        responded.name(),
+                        responded.rsvpStatus().name(),
+                        responded.mealPreference(),
+                        responded.noteForCouple(),
+                        dashboardUrl
+                );
+            });
         }
     }
 
