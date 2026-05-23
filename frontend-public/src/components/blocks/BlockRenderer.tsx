@@ -71,7 +71,15 @@ export default function BlockRenderer({ block, wedding, partyMembers = [], photo
     case 'COUNTDOWN':
       return <CountdownBlock weddingDate={wedding.weddingDate} />
     case 'RSVP_CTA':
-      return <RsvpCtaBlock slug={wedding.slug} partnerOneName={wedding.partnerOneName} partnerTwoName={wedding.partnerTwoName} />
+      return (
+        <RsvpCtaBlock
+          slug={wedding.slug}
+          partnerOneName={wedding.partnerOneName}
+          partnerTwoName={wedding.partnerTwoName}
+          heading={str(content.heading)}
+          buttonLabel={str(content.buttonLabel)}
+        />
+      )
     case 'WEDDING_PARTY_GRID': {
       const sideRaw = str(content.side, 'ALL')
       const side = (sideRaw === 'BRIDE' || sideRaw === 'GROOM') ? sideRaw : 'ALL'
@@ -267,15 +275,19 @@ function CountdownBlock({ weddingDate }: { weddingDate: string | null }) {
   )
 }
 
-function RsvpCtaBlock({ slug, partnerOneName, partnerTwoName }: {
+function RsvpCtaBlock({ slug, partnerOneName, partnerTwoName, heading, buttonLabel }: {
   slug: string
   partnerOneName: string
   partnerTwoName: string
+  heading?: string
+  buttonLabel?: string
 }) {
+  const displayHeading = heading || `Will you join ${partnerOneName} & ${partnerTwoName}?`
+  const displayButton  = buttonLabel || 'RSVP now'
   return (
     <div className="rounded-2xl bg-[#fdf3e3] border border-[#e8dcc8] px-8 py-10 text-center">
       <p className="font-serif text-2xl font-bold text-[#3b2f2f] mb-2">
-        Will you join {partnerOneName} &amp; {partnerTwoName}?
+        {displayHeading}
       </p>
       <p className="text-sm text-[#6b5344] mb-6">
         Let us know you&rsquo;ll be there to celebrate our covenant.
@@ -284,7 +296,7 @@ function RsvpCtaBlock({ slug, partnerOneName, partnerTwoName }: {
         href={`/wedding/${slug}/rsvp`}
         className="inline-block px-8 py-3 rounded-full bg-[#3b2f2f] text-white text-sm font-medium hover:bg-[#4a3b3b] transition"
       >
-        RSVP now
+        {displayButton}
       </a>
     </div>
   )
