@@ -16,6 +16,7 @@ public record WeddingWebsiteResponse(
         LocalDate weddingDate,
 
         String heroPhotoUrl,
+        String heroTagline,
         String ourStory,
         String scriptureReference,
         String scriptureText,

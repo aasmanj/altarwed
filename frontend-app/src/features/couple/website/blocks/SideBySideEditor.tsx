@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2, ImagePlus } from 'lucide-react'
 import { apiClient } from '@/core/api/client'
-import { useWeddingWebsite, usePublishWeddingWebsite } from '../useWeddingWebsite'
+import { useWeddingWebsite, usePublishWeddingWebsite, useUpdateWeddingWebsite } from '../useWeddingWebsite'
 import {
   useBackfillBlocks,
   useCreateBlock,
@@ -33,7 +33,7 @@ const PREVIEW_ORIGIN =
 // Tabs that always make sense to show in the editor, even if empty.
 // Each one renders its own preview route via the iframe.
 const previewUrl = (slug: string, tab: BlockTab) =>
-  `${PREVIEW_ORIGIN}/preview/${slug}/${tab}`
+  `${PREVIEW_ORIGIN}/preview/${slug}/${tab.toLowerCase()}`
 
 export default function SideBySideEditor() {
   const { user } = useAuth()
@@ -42,6 +42,7 @@ export default function SideBySideEditor() {
   const { data: website, isLoading: websiteLoading } = useWeddingWebsite(coupleId)
   const websiteId = website?.id
 
+  const updateWebsite = useUpdateWeddingWebsite(coupleId)
   const { data: blocks = [], isLoading: blocksLoading } = useWeddingPageBlocks(websiteId)
   const create = useCreateBlock(websiteId ?? '')
   const update = useUpdateBlock(websiteId ?? '')
@@ -193,13 +194,13 @@ export default function SideBySideEditor() {
               </span>
             )}
             <a
-              href={tabPreviewUrl}
+              href={liveUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-brown-light hover:text-brown inline-flex items-center gap-1 px-2 py-1.5 rounded hover:bg-stone-100"
-              title="Open this tab's preview in a new browser tab"
+              title="Open the real public wedding page in a new tab"
             >
-              <ExternalLink size={12} /> Preview tab
+              <ExternalLink size={12} /> View live
             </a>
             <button
               onClick={togglePublish}
@@ -254,36 +255,23 @@ export default function SideBySideEditor() {
 
         {/* Right: block editor */}
         <div className="bg-white flex flex-col overflow-hidden">
-          {/* Hero photo upload — page-level setting above block tabs */}
-          <div className="border-b border-stone-200 px-3 py-2.5 flex-shrink-0 bg-stone-50 flex items-center gap-3">
-            <div
-              className="w-12 h-8 rounded overflow-hidden border border-stone-200 flex-shrink-0 bg-stone-200 flex items-center justify-center"
-              title="Current hero photo"
-            >
-              {website.heroPhotoUrl
-                ? <img src={website.heroPhotoUrl} alt="Hero" className="w-full h-full object-cover" />
-                : <ImagePlus size={14} className="text-stone-400" />
-              }
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-stone-700 leading-none mb-0.5">Hero photo</p>
-              <p className="text-[10px] text-stone-400 leading-none">JPEG / PNG / WebP, max 15 MB</p>
-            </div>
-            <input
-              ref={heroInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={handleHeroUpload}
-            />
-            <button
-              onClick={() => heroInputRef.current?.click()}
-              disabled={heroUploading}
-              className="text-xs px-2.5 py-1.5 rounded-md bg-white border border-stone-300 hover:border-gold hover:text-brown transition text-stone-600 disabled:opacity-50 flex items-center gap-1 flex-shrink-0"
-            >
-              {heroUploading ? <><Loader2 size={11} className="animate-spin" /> Uploading…</> : <><ImagePlus size={11} /> Change</>}
-            </button>
-          </div>
+          {/* Hero section — photo + tagline, page-level settings above block tabs */}
+          <HeroSettings
+            website={website}
+            websiteId={websiteId ?? ''}
+            heroInputRef={heroInputRef}
+            heroUploading={heroUploading}
+            onHeroUploadClick={() => heroInputRef.current?.click()}
+            onTaglineSave={(tagline) => updateWebsite.mutate({ heroTagline: tagline }, { onSuccess: bumpPreview })}
+            onDefaultPhotoSelect={(url) => updateWebsite.mutate({ heroPhotoUrl: url }, { onSuccess: bumpPreview })}
+          />
+          <input
+            ref={heroInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handleHeroUpload}
+          />
 
           {/* Tab bar — shows block counts as a badge */}
           <div className="border-b border-stone-200 overflow-x-auto flex-shrink-0">
@@ -445,6 +433,148 @@ const TAB_HINTS: Record<BlockTab, string> = {
   TRAVEL: 'Hotels, airports, and travel guidance for out-of-town guests.',
   PHOTOS: 'Add a photo album. Upload from the Photos tab of the dashboard, then it appears here.',
   RSVP: 'Show a call-to-action so guests RSVP. Add a countdown and a few details about the day.',
+}
+
+// ── Default hero photos ───────────────────────────────────────────────────────
+// Curated Unsplash photos that work well as wedding hero backgrounds.
+// Couples can pick one as a starting point before uploading their own photo.
+const DEFAULT_HERO_PHOTOS = [
+  { label: 'Altar couple',   url: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1600&q=80' },
+  { label: 'Church arch',    url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=1600&q=80' },
+  { label: 'Garden vows',    url: 'https://images.unsplash.com/photo-1465495976277-4387d4b0e4a6?w=1600&q=80' },
+  { label: 'Sunset walk',    url: 'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=1600&q=80' },
+  { label: 'Ring exchange',  url: 'https://images.unsplash.com/photo-1537633552985-df8429e8048b?w=1600&q=80' },
+  { label: 'Chapel door',    url: 'https://images.unsplash.com/photo-1550005809-91ad75fb315f?w=1600&q=80' },
+]
+
+// ── HeroSettings component ────────────────────────────────────────────────────
+function HeroSettings({
+  website,
+  heroInputRef,
+  heroUploading,
+  onHeroUploadClick,
+  onTaglineSave,
+  onDefaultPhotoSelect,
+}: {
+  website: { heroPhotoUrl?: string | null; heroTagline?: string | null }
+  websiteId: string
+  heroInputRef: React.RefObject<HTMLInputElement>
+  heroUploading: boolean
+  onHeroUploadClick: () => void
+  onTaglineSave: (tagline: string) => void
+  onDefaultPhotoSelect: (url: string) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [tagline, setTagline] = useState(website.heroTagline ?? '')
+  const [pickingPhoto, setPickingPhoto] = useState(false)
+
+  // Sync tagline field if website data refreshes
+  useEffect(() => { setTagline(website.heroTagline ?? '') }, [website.heroTagline])
+
+  return (
+    <div className="border-b border-stone-200 flex-shrink-0 bg-stone-50">
+      {/* Collapsed summary row */}
+      <div className="px-3 py-2.5 flex items-center gap-3">
+        <div
+          className="w-12 h-8 rounded overflow-hidden border border-stone-200 flex-shrink-0 bg-stone-200 flex items-center justify-center cursor-pointer"
+          onClick={() => setExpanded(e => !e)}
+          title="Hero photo"
+        >
+          {website.heroPhotoUrl
+            ? <img src={website.heroPhotoUrl} alt="Hero" className="w-full h-full object-cover" />
+            : <ImagePlus size={14} className="text-stone-400" />
+          }
+        </div>
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpanded(e => !e)}>
+          <p className="text-xs font-medium text-stone-700 leading-none mb-0.5">Hero photo &amp; tagline</p>
+          <p className="text-[10px] text-stone-400 leading-none truncate">
+            {website.heroTagline || 'Together in covenant (default)'}
+          </p>
+        </div>
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className="text-xs text-stone-500 hover:text-stone-800 flex-shrink-0"
+        >
+          {expanded ? '▲' : '▼'}
+        </button>
+      </div>
+
+      {/* Expanded editor */}
+      {expanded && (
+        <div className="px-3 pb-3 space-y-3 border-t border-stone-100 pt-3">
+          {/* Tagline */}
+          <div>
+            <label className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-1">
+              Tagline (shown over the photo)
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={tagline}
+                onChange={e => setTagline(e.target.value)}
+                onBlur={() => onTaglineSave(tagline)}
+                onKeyDown={e => e.key === 'Enter' && onTaglineSave(tagline)}
+                maxLength={200}
+                placeholder="Together in covenant"
+                className="flex-1 rounded-md border border-stone-300 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+              />
+              <button
+                onClick={() => onTaglineSave(tagline)}
+                className="text-xs px-2.5 py-1.5 rounded bg-gold text-white hover:bg-gold-dark transition flex-shrink-0"
+              >
+                Save
+              </button>
+            </div>
+            <p className="text-[10px] text-stone-400 mt-1">The small line above your names. Leave blank for the default.</p>
+          </div>
+
+          {/* Photo actions */}
+          <div>
+            <label className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-2">
+              Hero photo
+            </label>
+            <div className="flex gap-2 mb-2">
+              <button
+                onClick={onHeroUploadClick}
+                disabled={heroUploading}
+                className="flex-1 text-xs px-2.5 py-1.5 rounded border border-stone-300 bg-white hover:border-gold hover:text-brown transition text-stone-600 disabled:opacity-50 flex items-center justify-center gap-1"
+              >
+                {heroUploading ? <><Loader2 size={11} className="animate-spin" /> Uploading…</> : <><ImagePlus size={11} /> Upload my photo</>}
+              </button>
+              <button
+                onClick={() => setPickingPhoto(p => !p)}
+                className="flex-1 text-xs px-2.5 py-1.5 rounded border border-stone-300 bg-white hover:border-gold hover:text-brown transition text-stone-600 flex items-center justify-center gap-1"
+              >
+                {pickingPhoto ? 'Cancel' : '🖼 Choose default'}
+              </button>
+            </div>
+
+            {/* Default photo grid */}
+            {pickingPhoto && (
+              <div className="grid grid-cols-3 gap-1.5">
+                {DEFAULT_HERO_PHOTOS.map(photo => (
+                  <button
+                    key={photo.url}
+                    onClick={() => {
+                      onDefaultPhotoSelect(photo.url)
+                      setPickingPhoto(false)
+                    }}
+                    className="relative aspect-video rounded overflow-hidden border-2 border-transparent hover:border-gold transition group"
+                    title={photo.label}
+                  >
+                    <img src={`${photo.url.split('?')[0]}?w=200&q=60`} alt={photo.label} className="w-full h-full object-cover" />
+                    <span className="absolute inset-0 flex items-end justify-center pb-1 opacity-0 group-hover:opacity-100 bg-black/30 text-white text-[9px] transition">
+                      {photo.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // Returns a friendly "just now", "5s ago", "2m ago" string for a timestamp.

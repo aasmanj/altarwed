@@ -10,6 +10,7 @@ export interface WeddingWebsite {
   partnerTwoName: string
   weddingDate: string | null
   heroPhotoUrl: string | null
+  heroTagline: string | null
   ourStory: string | null
   scriptureReference: string | null
   scriptureText: string | null

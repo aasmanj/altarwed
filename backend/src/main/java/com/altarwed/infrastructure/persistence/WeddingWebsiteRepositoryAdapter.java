@@ -66,7 +66,7 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
         return new WeddingWebsite(
                 e.getId(), e.getCoupleId(), e.getSlug(), e.isPublished(),
                 e.getPartnerOneName(), e.getPartnerTwoName(), e.getWeddingDate(),
-                e.getHeroPhotoUrl(), e.getOurStory(),
+                e.getHeroPhotoUrl(), e.getHeroTagline(), e.getOurStory(),
                 e.getScriptureReference(), e.getScriptureText(),
                 e.getVenueName(), e.getVenueAddress(), e.getVenueCity(), e.getVenueState(),
                 e.getCeremonyTime(), e.getDressCode(),
@@ -92,6 +92,7 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 .partnerTwoName(w.partnerTwoName())
                 .weddingDate(w.weddingDate())
                 .heroPhotoUrl(w.heroPhotoUrl())
+                .heroTagline(w.heroTagline())
                 .ourStory(w.ourStory())
                 .scriptureReference(w.scriptureReference())
                 .scriptureText(w.scriptureText())

@@ -13,6 +13,7 @@ public record UpdateWeddingWebsiteRequest(
         LocalDate weddingDate,
 
         @Size(max = 500) String heroPhotoUrl,
+        @Size(max = 200) String heroTagline,
         String ourStory,
         @Size(max = 200) String scriptureReference,
         String scriptureText,

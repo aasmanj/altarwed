@@ -16,6 +16,7 @@ public record WeddingWebsite(
         LocalDate weddingDate,
 
         String heroPhotoUrl,
+        String heroTagline,
         String ourStory,
         String scriptureReference,
         String scriptureText,
@@ -56,7 +57,7 @@ public record WeddingWebsite(
     public WeddingWebsite published() {
         return new WeddingWebsite(id, coupleId, slug, true,
                 partnerOneName, partnerTwoName, weddingDate,
-                heroPhotoUrl, ourStory,
+                heroPhotoUrl, heroTagline, ourStory,
                 scriptureReference, scriptureText,
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
                 hotelName, hotelUrl, hotelDetails,
@@ -67,7 +68,7 @@ public record WeddingWebsite(
     public WeddingWebsite unpublished() {
         return new WeddingWebsite(id, coupleId, slug, false,
                 partnerOneName, partnerTwoName, weddingDate,
-                heroPhotoUrl, ourStory,
+                heroPhotoUrl, heroTagline, ourStory,
                 scriptureReference, scriptureText,
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
                 hotelName, hotelUrl, hotelDetails,
@@ -78,7 +79,7 @@ public record WeddingWebsite(
     public WeddingWebsite deleted() {
         return new WeddingWebsite(id, coupleId, slug, false,
                 partnerOneName, partnerTwoName, weddingDate,
-                heroPhotoUrl, ourStory,
+                heroPhotoUrl, heroTagline, ourStory,
                 scriptureReference, scriptureText,
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
                 hotelName, hotelUrl, hotelDetails,

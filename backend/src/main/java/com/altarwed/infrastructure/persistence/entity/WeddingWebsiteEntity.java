@@ -43,6 +43,9 @@ public class WeddingWebsiteEntity {
     @Column(name = "hero_photo_url", length = 500)
     private String heroPhotoUrl;
 
+    @Column(name = "hero_tagline", length = 200)
+    private String heroTagline;
+
     @Column(name = "our_story", columnDefinition = "NVARCHAR(MAX)")
     private String ourStory;
 

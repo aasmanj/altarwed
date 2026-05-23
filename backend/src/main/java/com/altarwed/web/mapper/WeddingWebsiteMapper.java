@@ -11,7 +11,7 @@ public class WeddingWebsiteMapper {
         return new WeddingWebsiteResponse(
                 w.id(), w.coupleId(), w.slug(), w.isPublished(),
                 w.partnerOneName(), w.partnerTwoName(), w.weddingDate(),
-                w.heroPhotoUrl(), w.ourStory(),
+                w.heroPhotoUrl(), w.heroTagline(), w.ourStory(),
                 w.scriptureReference(), w.scriptureText(),
                 w.venueName(), w.venueAddress(), w.venueCity(), w.venueState(),
                 w.ceremonyTime(), w.dressCode(),

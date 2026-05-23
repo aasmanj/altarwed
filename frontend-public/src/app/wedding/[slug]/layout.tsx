@@ -72,7 +72,7 @@ export default async function WeddingLayout({
 
         <div className="relative z-10 text-center pb-14 px-6 w-full">
           <p className="mb-3 text-xs uppercase tracking-[0.3em] text-white/70 font-light">
-            Together in covenant
+            {wedding.heroTagline || 'Together in covenant'}
           </p>
           <h1 className="font-serif text-5xl sm:text-7xl font-bold text-white leading-none">
             {wedding.partnerOneName}
