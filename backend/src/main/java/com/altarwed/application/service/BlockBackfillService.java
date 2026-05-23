@@ -131,14 +131,9 @@ public class BlockBackfillService {
     private List<WeddingPageBlock> buildDetailsBlocks(WeddingWebsite w) {
         List<WeddingPageBlock> out = new ArrayList<>();
         out.add(block(w.id(), BlockTab.DETAILS, BlockType.VENUE_CARD, nextOrder(out), "{}"));
-        if (isNotBlank(w.scriptureText())) {
-            out.add(block(w.id(), BlockTab.DETAILS, BlockType.SCRIPTURE, nextOrder(out),
-                    json(node -> {
-                        node.put("reference", nullSafe(w.scriptureReference()));
-                        node.put("text", w.scriptureText());
-                        node.put("translation", "ESV");
-                    })));
-        }
+        // Scripture belongs on HOME, not DETAILS. Putting it in both tabs caused
+        // couples to see a duplicate after the default backfill. DETAILS is for
+        // logistics (venue, time, dress code) — not worship content.
         return out;
     }
 

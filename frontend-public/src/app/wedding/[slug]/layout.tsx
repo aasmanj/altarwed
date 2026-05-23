@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import WeddingNav from './WeddingNav'
+import FloatingEditButton from '@/components/FloatingEditButton'
 import { getWedding } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
 
@@ -143,6 +144,9 @@ export default async function WeddingLayout({
         <span className="mx-2">·</span>
         Faith-based wedding planning
       </footer>
+
+      {/* Floating edit button — always shown so the couple can jump into the editor */}
+      <FloatingEditButton />
     </div>
   )
 }

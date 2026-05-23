@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
-import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2 } from 'lucide-react'
+import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2, ImagePlus } from 'lucide-react'
+import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite, usePublishWeddingWebsite } from '../useWeddingWebsite'
 import {
   useBackfillBlocks,
@@ -54,6 +55,8 @@ export default function SideBySideEditor() {
   const [previewKey, setPreviewKey] = useState(0)
   const [previewLoading, setPreviewLoading] = useState(true)
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
+  const [heroUploading, setHeroUploading] = useState(false)
+  const heroInputRef = useRef<HTMLInputElement>(null)
 
   // Block counts per tab — used to badge tabs that already have content so
   // couples can see at a glance which sections they've configured.
@@ -136,6 +139,24 @@ export default function SideBySideEditor() {
     reorder.mutate({ tab: activeTab, orderedBlockIds }, { onSuccess: bumpPreview })
   }
   const togglePublish = () => publish.mutate(!website.isPublished, { onSuccess: bumpPreview })
+
+  const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !websiteId) return
+    const form = new FormData()
+    form.append('file', file)
+    setHeroUploading(true)
+    try {
+      await apiClient.post(`/api/v1/uploads/wedding-websites/${websiteId}/hero`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      bumpPreview()
+    } finally {
+      setHeroUploading(false)
+      // Reset so re-selecting the same file triggers onChange again
+      if (heroInputRef.current) heroInputRef.current.value = ''
+    }
+  }
 
   const savedAgo = useFriendlyAgo(lastSavedAt)
 
@@ -233,6 +254,37 @@ export default function SideBySideEditor() {
 
         {/* Right: block editor */}
         <div className="bg-white flex flex-col overflow-hidden">
+          {/* Hero photo upload — page-level setting above block tabs */}
+          <div className="border-b border-stone-200 px-3 py-2.5 flex-shrink-0 bg-stone-50 flex items-center gap-3">
+            <div
+              className="w-12 h-8 rounded overflow-hidden border border-stone-200 flex-shrink-0 bg-stone-200 flex items-center justify-center"
+              title="Current hero photo"
+            >
+              {website.heroPhotoUrl
+                ? <img src={website.heroPhotoUrl} alt="Hero" className="w-full h-full object-cover" />
+                : <ImagePlus size={14} className="text-stone-400" />
+              }
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-stone-700 leading-none mb-0.5">Hero photo</p>
+              <p className="text-[10px] text-stone-400 leading-none">JPEG / PNG / WebP, max 15 MB</p>
+            </div>
+            <input
+              ref={heroInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleHeroUpload}
+            />
+            <button
+              onClick={() => heroInputRef.current?.click()}
+              disabled={heroUploading}
+              className="text-xs px-2.5 py-1.5 rounded-md bg-white border border-stone-300 hover:border-gold hover:text-brown transition text-stone-600 disabled:opacity-50 flex items-center gap-1 flex-shrink-0"
+            >
+              {heroUploading ? <><Loader2 size={11} className="animate-spin" /> Uploading…</> : <><ImagePlus size={11} /> Change</>}
+            </button>
+          </div>
+
           {/* Tab bar — shows block counts as a badge */}
           <div className="border-b border-stone-200 overflow-x-auto flex-shrink-0">
             <div className="flex">

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 
-export const revalidate = 60
+export const revalidate = 3600
 
 interface Post {
   id: string

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { BlockType, WeddingPageBlock } from './types'
 
 // Debounced autosave: every time `contentJson` changes locally, schedule a save
@@ -205,19 +206,71 @@ function FieldsFor({
         </Field>
       )
 
-    // The remaining types have no editable payload — content is pulled from the
-    // website's scalar fields (venue, hotel, photos, vows) at render time.
     case 'DIVIDER':
+      return <BlockHint>Visual separator between sections. Nothing to configure.</BlockHint>
+
     case 'VENUE_CARD':
+      return (
+        <BlockHint>
+          Displays your ceremony venue, address, time, and dress code.
+          Update these in the <EditorLink tab="details">Event Details tab</EditorLink>.
+        </BlockHint>
+      )
+
     case 'HOTEL_CARD':
+      return (
+        <BlockHint>
+          Shows your hotel block(s) for out-of-town guests.
+          Add or edit hotels in the <EditorLink tab="hotel">Travel tab</EditorLink>.
+        </BlockHint>
+      )
+
     case 'COUNTDOWN':
+      return (
+        <BlockHint>
+          Counts down to your wedding date automatically.
+          Update your date in <EditorLink tab="details">Event Details</EditorLink>.
+        </BlockHint>
+      )
+
     case 'RSVP_CTA':
+      return (
+        <>
+          <Field label="Heading (optional)">
+            <input
+              type="text"
+              value={str('heading') || ''}
+              onChange={e => onChange('heading', e.target.value)}
+              className={inputClass}
+              placeholder="Join us as we say 'I do'"
+            />
+          </Field>
+          <Field label="Button label (optional)">
+            <input
+              type="text"
+              value={str('buttonLabel') || ''}
+              onChange={e => onChange('buttonLabel', e.target.value)}
+              className={inputClass}
+              placeholder="RSVP Now"
+            />
+          </Field>
+        </>
+      )
+
     case 'PHOTO_ALBUM_GRID':
+      return (
+        <BlockHint>
+          Displays all photos you've uploaded.
+          Add more from the <EditorLink tab="photos">Photos dashboard</EditorLink>.
+        </BlockHint>
+      )
+
     case 'VOWS_PREVIEW':
       return (
-        <p className="text-xs text-stone-500 italic">
-          This block has no settings. Edit the related fields in the classic editor to change its content.
-        </p>
+        <BlockHint>
+          Shows your written vows (visible to guests only after you publish).
+          Write them in the <EditorLink tab="vows">Vows dashboard</EditorLink>.
+        </BlockHint>
       )
   }
 }
@@ -231,5 +284,31 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="block text-xs font-medium text-stone-600 mb-1">{label}</span>
       {children}
     </label>
+  )
+}
+
+// Friendly contextual hint for blocks whose content is driven by other data sources.
+function BlockHint({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-xs text-stone-500 leading-relaxed bg-stone-50 border border-stone-200 rounded-md px-3 py-2.5">
+      {children}
+    </p>
+  )
+}
+
+// Link to a specific tab in the classic wedding website editor.
+const TAB_PATHS: Record<string, string> = {
+  details: '/dashboard/website',
+  hotel:   '/dashboard/website',
+  photos:  '/dashboard/photos',
+  vows:    '/dashboard/vows',
+}
+
+function EditorLink({ tab, children }: { tab: string; children: React.ReactNode }) {
+  const path = TAB_PATHS[tab] ?? '/dashboard/website'
+  return (
+    <Link to={path} className="text-amber-700 underline hover:text-amber-900">
+      {children}
+    </Link>
   )
 }

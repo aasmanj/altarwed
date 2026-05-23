@@ -2,6 +2,15 @@
 # AltarWed — AI Assistant Instructions
 
 ## How to Communicate With Jordan
+
+**Default mode: skeptical consultant, not sycophant.** Jordan is a solo founder who needs honest pushback more than encouragement. This means:
+- Push back when an idea is weak, premature, or off-strategy. Say "I think this is the wrong call because…" instead of "great idea, let's do it."
+- Never open with "Great question", "Absolutely", "You're right", or any other validation prefix. Get to the answer.
+- When Jordan proposes a feature, ask whether it actually moves the needle on couples-shipped, vendor signups, or SEO traffic. If not, say so.
+- Distinguish *shiny* (new tool, new pattern, new framework) from *load-bearing* (ships a customer-facing feature). Default to load-bearing.
+- If you're uncertain, say "I don't know" or "I'd want to verify X first" rather than guessing confidently.
+- Disagreement is the high-value contribution. Agreement is cheap.
+
 Jordan is learning as he builds — every explanation should be framed so he could defend it in a senior engineering interview. This means:
 - Explain the **why** behind every decision, not just the what
 - Call out trade-offs (why this approach over alternatives)
@@ -9,6 +18,17 @@ Jordan is learning as he builds — every explanation should be framed so he cou
 - When fixing an error, explain what caused it and what the fix actually does
 - Flag patterns that commonly appear in system design or DevOps interviews
 - **After every coding response, include a "Senior engineer thinking" section** — 2–4 bullet points connecting what was just built to a broader CS/system design concept Jordan should be able to explain in an interview (e.g. ISR vs SSR trade-offs, optimistic updates, hexagonal architecture decisions, cache invalidation strategies, why we use boxed vs primitive types in DTOs, etc.)
+
+## Claude Tool Triggers — When to Remind Jordan
+
+These are contextual prompts you should surface unprompted when the moment is right. Do not mention them at random.
+
+| Trigger | What to say |
+|---|---|
+| Jordan is about to push changes that touch `frontend-public/` public pages, RSVP flow, or wedding page rendering | "Before you push — run `/verify` to confirm the actual page renders correctly in a browser. Type `/verify` now." |
+| Jordan finishes a feature branch with more than ~5 files changed and is ready to merge | "This is a good candidate for `/ultrareview` before merging — it runs multiple agents in parallel and catches things I miss in single-pass review. Type `/ultrareview` to launch it." |
+| Jordan asks about next steps, what to build, or monitoring | "Phase 7 is already live. This is the right time to set up scheduled monitoring agents via `/schedule`. I'd suggest: (1) nightly sitemap.xml validity check, (2) weekly check that /wedding/[jordan-slug] loads and is indexed. Want to do that now?" |
+| Jordan asks about monitoring, uptime, or "what happens when something breaks in prod" | "The right answer here is a scheduled Claude agent via `/schedule` — it runs on cron, checks your endpoints, and can notify you. Want to set one up now?" |
 
 ## What We Are Building
 AltarWed is a faith-first Christian wedding planning platform — a two-sided marketplace
@@ -27,7 +47,7 @@ couple who creates a site drives organic traffic and brand awareness.
   to generate buzz and waitlist signups before the platform is fully open
 - Vendors are NOT the initial focus — couples come first. Vendor self-serve and Stripe
   billing come after real couple usage is established (Phase 4+)
-- The waitlist (already live at altarwed.com) captures early interest via Resend
+- The marketing homepage is live at altarwed.com — waitlist replaced with direct signup CTAs
 - Business Pinterest and Facebook accounts are created and ready for content
 
 **Reliability goal:** Spare no expense within reason. Current: B2 App Service.
@@ -136,6 +156,10 @@ All entities below have Flyway migrations in production (V1–V15):
 - **WeddingPhoto** (V17) — weddingWebsiteId, blobUrl, caption, sortOrder, uploadedAt
 - **WeddingWebsite** (V18 patch, dropped in V25) — websitePin column removed; PIN privacy feature deprecated per walkthrough.
 - **SeatingTable** (V19) — coupleId, name, capacity, sortOrder; guests linked by tableNumber (1-based index)
+- **BlogPost** (V23) — slug, title, excerpt, content, author, publishedAt, seoTitle, seoDescription, tags. 4 posts seeded (V24, V28): christian-wedding-ceremony-order, bible-verses-for-weddings, christian-wedding-vows, christian-wedding-planning-checklist.
+- **WeddingHotel** (V30) — normalized hotel block table (name, address, booking_url, block_rate, distance_from_venue, sort_order). Multiple rows per website. Replaces scalar hotel fields on WeddingWebsite for new UI; old fields retained.
+- **GoogleSheetSync** (V31) — one row per couple; sheet_url, last_synced, last_error, row_count, is_active. Scheduled job polls every 15 min and upserts guests.
+- **Guest party fields** (V29) — guests gain party_id (UUID grouping), party_name (display label), party_contact (bool — which guest in the party gets the invite email).
 
 ## User Roles
 - COUPLE → can manage their wedding, guests, ceremony, vendor messaging
@@ -172,7 +196,7 @@ All entities below have Flyway migrations in production (V1–V15):
 - NEVER use spring.jpa.hibernate.ddl-auto=create or update in any environment
 - ALL schema changes go through Flyway migrations in db/migration/
 - Migration naming: V{number}__{description}.sql (e.g. V1__create_couples_table.sql)
-- Next migration number: V28
+- Next migration number: V32
 - UUID primary keys on all tables
 
 ## Security Rules
@@ -228,7 +252,7 @@ All entities below have Flyway migrations in production (V1–V15):
 - Couples have free and paid tiers (Covenant Plan $9/mo)
 - Church partnerships: churches pay $99/mo for congregation access
 - Stripe is the payment processor — VendorSubscription entity tracks this
-- **Payments are Phase 7 — do NOT add Stripe until vendor + couple usage is established**
+- **Payments are Phase 8 — do NOT add Stripe until vendor + couple usage is established**
 - Affiliate links: Amazon and Target (registry product links), "The Meaning of Marriage" by Timothy Keller, "The Five Love Languages" by Gary Chapman — add to a /resources page (Phase 6c)
 
 ## Build Phases — Current Status
@@ -342,10 +366,26 @@ All items shipped. V25 columns were already in place; work was purely wiring + U
 - **`/preview/[slug]/[tab]`** (`frontend-public`) — SSR preview route consumed by the iframe; gated on `isPublished`; no site chrome.
 - **BlockRenderer** — dispatches all 13 block types to styled React components.
 
-### 🔜 Phase 7 — Homepage launch + SEO content
-(a) Publish the real altarwed.com homepage — replace the waitlist with a full marketing homepage. Stop capturing waitlist emails; convert to direct sign-up CTAs. The homepage should showcase the wedding website feature, vendor directory, and faith-first differentiators. Open couple and vendor registration to the public.
-(b) Blog / content marketing — 2 posts per week targeting high-volume wedding SEO keywords. Blog at altarwed.com/blog/[slug]. Focus on faith-based wedding content: scripture for weddings, Christian vow examples, denomination-specific ceremony guides, etc. Schema: Article JSON-LD. Target keywords: "christian wedding vows" (18K/mo), "bible verses for weddings" (40K/mo), "christian wedding ceremony" (12K/mo).
-(c) Blog infra: BlogPost entity (slug, title, excerpt, content/MDX, author, publishedAt, seoTitle, seoDescription, tags). Flyway V28. ISR revalidate 3600s.
+### ✅ Phase 7 — Homepage launch + SEO content (COMPLETE)
+(a) Real marketing homepage live at altarwed.com — waitlist replaced with direct signup CTAs.
+(b) Blog infra live: BlogPost entity (V23), SSR at /blog and /blog/[slug]. ISR revalidate 3600s.
+(c) 4 posts seeded and live targeting high-volume keywords:
+  - bible-verses-for-weddings (~40K/mo)
+  - christian-wedding-vows (~18K/mo)
+  - christian-wedding-ceremony-order (~12K/mo)
+  - christian-wedding-planning-checklist (~8K/mo)
+
+**Verified complete:**
+- Article JSON-LD schema: PASS — `Article` type with headline, author, publisher, dates injected on every blog post page.
+- sitemap.xml: PASS — dynamic, fetches all blog posts + published wedding pages from API, graceful fallback if API is down.
+- Open Graph metadata: PASS — title, description, og:type=article, publishedTime, modifiedTime, authors all present.
+
+**Known minor issue:** blog post `revalidate = 60s` (should be 3600s per CLAUDE.md). Not urgent.
+
+### ✅ Phase 7b — Additional features shipped (V29-V31)
+- **V29** — Guest parties: groups guests under a shared `party_id`/`party_name`. One guest per party is `party_contact` and receives the invite email. Enables "The Smith Family" style grouping.
+- **V30** — Multiple hotel blocks: normalized `wedding_hotels` table replaces scalar hotel fields on `wedding_websites`. Couples can list multiple hotels with address, booking URL, block rate, distance from venue, and sort order. Old scalar fields retained for data safety; new UI writes to this table.
+- **V31** — Google Sheets sync: couples paste a public Google Sheet URL; a scheduled job polls every 15 minutes and upserts guests by name+email. One sheet per couple. `last_synced`, `last_error`, `row_count` tracked per sync run.
 
 ### 🔜 Phase 8 — Stripe billing
 Vendor subscriptions ($29/$79/$149), couple Covenant Plan ($9/mo). Wire VendorSubscription entity to Stripe. Add subscription management UI. Webhook handler for payment events.
