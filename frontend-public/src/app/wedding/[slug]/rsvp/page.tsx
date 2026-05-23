@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { getWedding } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate } from '@/lib/date'
+import FindInvitationWidget from './FindInvitationWidget'
 
 export default async function RsvpTabPage(
   { params }: { params: Promise<{ slug: string }> }
@@ -13,18 +14,40 @@ export default async function RsvpTabPage(
     <div className="space-y-10">
       <SectionHeading>RSVP</SectionHeading>
 
-      <div className="rounded-2xl border-2 border-[#d4af6a] bg-[#d4af6a]/5 p-10 text-center">
-        <p className="font-serif text-3xl font-bold text-[#3b2f2f] mb-3">Will you join us?</p>
-        {wedding.rsvpDeadline && (
-          <p className="text-sm text-[#a08060] mb-6">
-            Please RSVP by {formatWeddingDate(wedding.rsvpDeadline)}
-          </p>
-        )}
-        <p className="text-[#6b5344] mb-6 max-w-md mx-auto">
-          Check your email for your personal RSVP invitation link. Each invite is unique to your party.
-        </p>
-        <p className="text-xs text-[#a08060]">
-          Didn&apos;t receive an invite? Reach out to {wedding.partnerOneName} or {wedding.partnerTwoName} directly.
+      <div className="rounded-2xl border-2 border-[#d4af6a] bg-[#d4af6a]/5 p-8 sm:p-10 space-y-8">
+        {/* Heading row */}
+        <div className="text-center">
+          <p className="font-serif text-3xl font-bold text-[#3b2f2f] mb-2">Will you join us?</p>
+          {wedding.rsvpDeadline && (
+            <p className="text-sm text-[#a08060]">
+              Please RSVP by {formatWeddingDate(wedding.rsvpDeadline)}
+            </p>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="flex items-center gap-3">
+          <div className="h-px flex-1 bg-[#d4af6a]/30" />
+          <div className="h-1.5 w-1.5 rounded-full bg-[#d4af6a]" />
+          <div className="h-px flex-1 bg-[#d4af6a]/30" />
+        </div>
+
+        {/* Search section */}
+        <div className="space-y-4">
+          <div className="text-center">
+            <p className="font-medium text-[#3b2f2f]">Find your invitation</p>
+            <p className="mt-1 text-sm text-[#6b5344]">
+              Type your name below to look up your personal RSVP link.
+            </p>
+          </div>
+
+          <FindInvitationWidget slug={slug} />
+        </div>
+
+        {/* Fallback note */}
+        <p className="text-center text-xs text-[#a08060]">
+          You can also check your email for your personal invitation link sent by{' '}
+          {wedding.partnerOneName} &amp; {wedding.partnerTwoName}.
         </p>
       </div>
     </div>

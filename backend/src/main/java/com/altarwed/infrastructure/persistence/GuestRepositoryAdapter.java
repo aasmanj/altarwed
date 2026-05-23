@@ -57,6 +57,12 @@ public class GuestRepositoryAdapter implements GuestRepository {
     }
 
     @Override
+    public List<Guest> findByCoupleIdAndNameContaining(UUID coupleId, String name) {
+        return jpa.findAllByCoupleIdAndNameContainingIgnoreCase(coupleId, name)
+                  .stream().map(this::toDomain).toList();
+    }
+
+    @Override
     public List<Guest> saveAll(List<Guest> guests) {
         return jpa.saveAll(guests.stream().map(this::toEntity).toList())
                   .stream().map(this::toDomain).toList();

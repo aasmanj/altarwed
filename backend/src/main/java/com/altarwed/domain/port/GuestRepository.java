@@ -19,4 +19,6 @@ public interface GuestRepository {
     List<Guest> findAllByPartyId(UUID partyId);
     // Saves a list of guests atomically (used when creating a new party).
     List<Guest> saveAll(List<Guest> guests);
+    // Returns guests for a couple whose name contains the search term (case-insensitive).
+    List<Guest> findByCoupleIdAndNameContaining(UUID coupleId, String name);
 }

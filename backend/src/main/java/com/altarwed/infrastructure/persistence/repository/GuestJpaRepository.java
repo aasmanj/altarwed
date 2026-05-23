@@ -21,4 +21,6 @@ public interface GuestJpaRepository extends JpaRepository<GuestEntity, UUID> {
                                        @Param("pending") GuestRsvpStatus pending);
 
     List<GuestEntity> findAllByPartyIdOrderByCreatedAt(UUID partyId);
+
+    List<GuestEntity> findAllByCoupleIdAndNameContainingIgnoreCase(UUID coupleId, String name);
 }

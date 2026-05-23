@@ -89,6 +89,23 @@ public class GuestController {
     }
 
     // Public endpoints — no auth, used by the Next.js RSVP page
+
+    /**
+     * Find-your-invitation search. Guests who don't have their email handy can type
+     * their name to retrieve a short-lived RSVP token. Rate-limited by Bucket4j at the
+     * filter level; results are capped at 5 and names are masked to limit enumeration risk.
+     */
+    @GetMapping("/rsvp/find")
+    public ResponseEntity<List<com.altarwed.application.dto.RsvpFindResult>> findRsvp(
+            @RequestParam String slug,
+            @RequestParam String name
+    ) {
+        if (name == null || name.trim().length() < 2) {
+            return ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok(guestService.findGuestsByName(slug, name));
+    }
+
     @GetMapping("/rsvp/{token}")
     public ResponseEntity<RsvpPageDataResponse> getRsvpPage(@PathVariable String token) {
         return ResponseEntity.ok(guestService.getRsvpPageData(token));

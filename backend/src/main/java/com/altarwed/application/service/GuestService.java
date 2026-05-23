@@ -183,6 +183,40 @@ public class GuestService {
         return toInvite.size();
     }
 
+    /**
+     * Public "find your invitation" search. Given a wedding slug and a partial name,
+     * returns up to 5 matching guests with masked names and short-lived (1-hour) RSVP tokens.
+     * Issues fresh tokens without revoking existing email-invite tokens so the emailed link
+     * continues to work alongside the one returned here.
+     */
+    @Transactional
+    public List<com.altarwed.application.dto.RsvpFindResult> findGuestsByName(String slug, String name) {
+        var website = websiteRepository.findBySlug(slug)
+                .orElseThrow(() -> new IllegalArgumentException("Wedding not found"));
+        if (!website.isPublished()) {
+            throw new IllegalArgumentException("Wedding not found");
+        }
+
+        List<Guest> matches = guestRepository
+                .findByCoupleIdAndNameContaining(website.coupleId(), name.trim())
+                .stream()
+                .limit(5)
+                .toList();
+
+        return matches.stream()
+                .map(g -> {
+                    String rawToken = UUID.randomUUID().toString();
+                    RsvpInviteToken searchToken = new RsvpInviteToken(
+                            null, hash(rawToken), g.id(),
+                            LocalDateTime.now().plusHours(1),
+                            false, null
+                    );
+                    tokenRepository.save(searchToken);
+                    return new com.altarwed.application.dto.RsvpFindResult(maskName(g.name()), rawToken);
+                })
+                .toList();
+    }
+
     // Public — called from the Next.js RSVP page with no auth
     @Transactional(readOnly = true)
     public RsvpPageDataResponse getRsvpPageData(String rawToken) {
@@ -350,6 +384,17 @@ public class GuestService {
                 .orElseThrow(InvalidRsvpTokenException::new);
         if (!token.isValid()) throw new InvalidRsvpTokenException();
         return token;
+    }
+
+    /**
+     * Masks a guest name for the public find-invitation response.
+     * "Jordan Aasman" → "Jordan A."   Single-word names are returned as-is.
+     */
+    private String maskName(String fullName) {
+        if (fullName == null || fullName.isBlank()) return "Guest";
+        String[] parts = fullName.trim().split("\\s+");
+        if (parts.length == 1) return parts[0];
+        return parts[0] + " " + parts[parts.length - 1].charAt(0) + ".";
     }
 
     private String hash(String value) {
