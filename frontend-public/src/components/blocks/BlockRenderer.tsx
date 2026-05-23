@@ -48,6 +48,15 @@ export default function BlockRenderer({ block, wedding, partyMembers = [], photo
       return <HeadingBlock text={str(content.text)} level={num(content.level, 2)} />
     case 'IMAGE':
       return <ImageBlock url={str(content.url)} caption={str(content.caption)} alt={str(content.alt)} />
+    case 'STORY_ENTRY':
+      return (
+        <StoryEntryBlock
+          dateLabel={str(content.dateLabel)}
+          body={str(content.body)}
+          imageUrl={str(content.imageUrl)}
+          imagePosition={(content.imagePosition === 'left' ? 'left' : 'right')}
+        />
+      )
     case 'SCRIPTURE':
       return (
         <ScriptureBlock
@@ -414,6 +423,62 @@ function VowCard({ name, vows }: { name: string; vows: string }) {
       <p className="font-serif text-lg font-semibold text-[#3b2f2f] mb-3">{name}</p>
       <div className="absolute inset-x-6 h-px bg-[#d4af6a]/30" />
       <p className="text-sm text-[#3b2f2f] leading-relaxed whitespace-pre-wrap">{vows}</p>
+    </div>
+  )
+}
+
+// ── StoryEntryBlock ───────────────────────────────────────────────────────────
+// A free-form "moment" — optional date/label badge, body text, and an optional
+// photo that sits to the left or right of the text. No forced date picker;
+// the couple writes whatever they want in dateLabel (a date, a place, a caption).
+function StoryEntryBlock({
+  dateLabel,
+  body,
+  imageUrl,
+  imagePosition,
+}: {
+  dateLabel: string
+  body: string
+  imageUrl: string
+  imagePosition: 'left' | 'right'
+}) {
+  const hasImage = !!imageUrl
+  const hasContent = !!body.trim()
+  if (!hasContent && !hasImage && !dateLabel) return null
+
+  return (
+    <div className="space-y-3">
+      {/* Date / label badge */}
+      {dateLabel && (
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#d4af6a]">
+          {dateLabel}
+        </p>
+      )}
+
+      {/* Body + image side by side when both present */}
+      {hasImage ? (
+        <div className={`flex gap-5 items-start ${imagePosition === 'left' ? 'flex-row' : 'flex-row-reverse'}`}>
+          {/* Photo — fixed width on md+, full width below */}
+          <div className="w-full sm:w-2/5 flex-shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imageUrl}
+              alt={dateLabel || 'Story photo'}
+              className="w-full rounded-xl object-cover shadow-sm border border-[#e8dcc8]"
+              style={{ maxHeight: '320px' }}
+            />
+          </div>
+
+          {/* Text */}
+          {hasContent && (
+            <div className="flex-1 min-w-0">
+              <TextBlock markdown={body} />
+            </div>
+          )}
+        </div>
+      ) : (
+        hasContent && <TextBlock markdown={body} />
+      )}
     </div>
   )
 }

@@ -49,7 +49,7 @@ export type BlockTab =
   | 'REGISTRY' | 'TRAVEL' | 'PHOTOS' | 'RSVP'
 
 export type BlockType =
-  | 'TEXT' | 'HEADING' | 'IMAGE' | 'SCRIPTURE' | 'DIVIDER'
+  | 'TEXT' | 'HEADING' | 'IMAGE' | 'STORY_ENTRY' | 'SCRIPTURE' | 'DIVIDER'
   | 'VENUE_CARD' | 'HOTEL_CARD' | 'REGISTRY_CARD'
   | 'COUNTDOWN' | 'RSVP_CTA'
   | 'WEDDING_PARTY_GRID' | 'PHOTO_ALBUM_GRID' | 'VOWS_PREVIEW'

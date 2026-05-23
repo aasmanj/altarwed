@@ -34,6 +34,15 @@ public class MediaUploadService {
         return blobStorage.upload(blobName, file.getInputStream(), file.getSize(), file.getContentType());
     }
 
+    // Generic block image: stored under blocks/{websiteId}/ so it's scoped to the
+    // website but not tied to any specific table row (unlike WeddingPhoto or party photos).
+    public String uploadBlockImage(UUID websiteId, MultipartFile file) throws IOException {
+        validate(file);
+        String ext = getExtension(file.getContentType());
+        String blobName = "blocks/" + websiteId + "/" + UUID.randomUUID() + ext;
+        return blobStorage.upload(blobName, file.getInputStream(), file.getSize(), file.getContentType());
+    }
+
     public String uploadHeroPhoto(UUID websiteId, MultipartFile file) throws IOException {
         validate(file);
         String ext = getExtension(file.getContentType());

@@ -68,6 +68,18 @@ public class MediaUploadController {
                 .body(weddingPhotoMapper.toResponse(weddingPhotoService.addPhoto(websiteId, req)));
     }
 
+    // Uploads an image for use in a page block (IMAGE or STORY_ENTRY).
+    // Returns just the blob URL — no DB record created. The frontend writes the URL
+    // into the block's contentJson via the normal block PATCH flow.
+    @PostMapping("/wedding-websites/{websiteId}/block-image")
+    public ResponseEntity<Map<String, String>> uploadBlockImage(
+            @PathVariable UUID websiteId,
+            @RequestParam("file") MultipartFile file
+    ) throws IOException {
+        String url = mediaUploadService.uploadBlockImage(websiteId, file);
+        return ResponseEntity.ok(Map.of("url", url));
+    }
+
     @PostMapping("/wedding-websites/{websiteId}/hero")
     public ResponseEntity<Map<String, String>> uploadHeroPhoto(
             @PathVariable UUID websiteId,

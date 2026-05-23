@@ -29,6 +29,7 @@ export const BLOCK_TYPES = [
   'TEXT',
   'HEADING',
   'IMAGE',
+  'STORY_ENTRY',
   'SCRIPTURE',
   'DIVIDER',
   'VENUE_CARD',
@@ -47,6 +48,7 @@ export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   TEXT: 'Text paragraph',
   HEADING: 'Heading',
   IMAGE: 'Image',
+  STORY_ENTRY: 'Story moment (text + photo)',
   SCRIPTURE: 'Scripture verse',
   DIVIDER: 'Divider',
   VENUE_CARD: 'Venue card',
@@ -63,7 +65,7 @@ export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
 // e.g. you can't drop a HOTEL_CARD on the RSVP tab.
 export const ALLOWED_TYPES_PER_TAB: Record<BlockTab, BlockType[]> = {
   HOME: ['HEADING', 'TEXT', 'IMAGE', 'SCRIPTURE', 'DIVIDER', 'COUNTDOWN', 'RSVP_CTA'],
-  OUR_STORY: ['HEADING', 'TEXT', 'IMAGE', 'SCRIPTURE', 'DIVIDER'],
+  OUR_STORY: ['STORY_ENTRY', 'HEADING', 'TEXT', 'IMAGE', 'SCRIPTURE', 'DIVIDER'],
   DETAILS: ['HEADING', 'TEXT', 'IMAGE', 'SCRIPTURE', 'DIVIDER', 'VENUE_CARD'],
   WEDDING_PARTY: ['HEADING', 'TEXT', 'DIVIDER', 'WEDDING_PARTY_GRID'],
   REGISTRY: ['HEADING', 'TEXT', 'DIVIDER', 'REGISTRY_CARD'],
@@ -92,6 +94,8 @@ export function defaultContentJson(type: BlockType): string {
       return JSON.stringify({ text: 'New heading', level: 2 })
     case 'IMAGE':
       return JSON.stringify({ url: '', caption: '', alt: '' })
+    case 'STORY_ENTRY':
+      return JSON.stringify({ dateLabel: '', body: '', imageUrl: '', imagePosition: 'right' })
     case 'SCRIPTURE':
       return JSON.stringify({ reference: '', text: '', translation: 'ESV' })
     case 'REGISTRY_CARD':

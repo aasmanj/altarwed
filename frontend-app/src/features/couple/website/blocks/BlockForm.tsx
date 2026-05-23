@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ImagePlus, Loader2 } from 'lucide-react'
+import { apiClient } from '@/core/api/client'
+import { useWeddingWebsite } from '../useWeddingWebsite'
+import { useAuth } from '@/core/auth/AuthContext'
 import type { BlockType, WeddingPageBlock } from './types'
 
 // Debounced autosave: every time `contentJson` changes locally, schedule a save
@@ -49,7 +53,12 @@ export default function BlockForm({ block, onSave }: Props) {
     scheduleSave(JSON.stringify({ ...parsed, [key]: value }))
   }
 
-  return <FieldsFor type={block.type} content={parsed} onChange={updateField} />
+  const { user } = useAuth()
+  const coupleId = user?.id ?? ''
+  const { data: website } = useWeddingWebsite(coupleId)
+  const websiteId = website?.id ?? ''
+
+  return <FieldsFor type={block.type} content={parsed} onChange={updateField} websiteId={websiteId} onSaveNow={onSave} draft={draft} />
 }
 
 function safeParse(s: string): Record<string, unknown> {
@@ -65,10 +74,16 @@ function FieldsFor({
   type,
   content,
   onChange,
+  websiteId,
+  onSaveNow,
+  draft,
 }: {
   type: BlockType
   content: Record<string, unknown>
   onChange: (key: string, value: unknown) => void
+  websiteId: string
+  onSaveNow: (json: string) => void
+  draft: string
 }) {
   const str = (k: string) => (typeof content[k] === 'string' ? (content[k] as string) : '')
   const num = (k: string, fallback: number) =>
@@ -116,15 +131,11 @@ function FieldsFor({
     case 'IMAGE':
       return (
         <>
-          <Field label="Image URL">
-            <input
-              type="url"
-              value={str('url')}
-              onChange={e => onChange('url', e.target.value)}
-              className={inputClass}
-              placeholder="https://…"
-            />
-          </Field>
+          <BlockImageUpload
+            currentUrl={str('url')}
+            websiteId={websiteId}
+            onUploaded={url => onChange('url', url)}
+          />
           <Field label="Caption (optional)">
             <input
               type="text"
@@ -141,6 +152,63 @@ function FieldsFor({
               className={inputClass}
             />
           </Field>
+        </>
+      )
+
+    case 'STORY_ENTRY':
+      return (
+        <>
+          <Field label="Date or label (optional)">
+            <input
+              type="text"
+              value={str('dateLabel')}
+              onChange={e => onChange('dateLabel', e.target.value)}
+              className={inputClass}
+              placeholder="e.g. January 22, 2026 · The day we met"
+            />
+            <p className="text-xs text-stone-400 mt-1">Free text — write a date, a place, anything.</p>
+          </Field>
+          <Field label="Story text">
+            <textarea
+              value={str('body')}
+              onChange={e => onChange('body', e.target.value)}
+              rows={5}
+              className={inputClass}
+              placeholder="Tell the story of this moment…"
+            />
+          </Field>
+          <Field label="Photo (optional)">
+            <BlockImageUpload
+              currentUrl={str('imageUrl')}
+              websiteId={websiteId}
+              onUploaded={url => {
+                // Immediately flush the full draft with the new URL so the image
+                // isn't lost if the user saves before the debounce fires.
+                const current = safeParse(draft)
+                onSaveNow(JSON.stringify({ ...current, imageUrl: url }))
+              }}
+            />
+          </Field>
+          {str('imageUrl') && (
+            <Field label="Photo position">
+              <div className="flex gap-2">
+                {(['left', 'right'] as const).map(pos => (
+                  <button
+                    key={pos}
+                    type="button"
+                    onClick={() => onChange('imagePosition', pos)}
+                    className={`flex-1 py-1.5 rounded border text-xs font-medium transition ${
+                      str('imagePosition') === pos || (!str('imagePosition') && pos === 'right')
+                        ? 'border-amber-500 bg-amber-50 text-amber-800'
+                        : 'border-stone-300 text-stone-500 hover:border-stone-400'
+                    }`}
+                  >
+                    {pos === 'left' ? '◀ Photo left' : 'Photo right ▶'}
+                  </button>
+                ))}
+              </div>
+            </Field>
+          )}
         </>
       )
 
@@ -293,6 +361,74 @@ function BlockHint({ children }: { children: React.ReactNode }) {
     <p className="text-xs text-stone-500 leading-relaxed bg-stone-50 border border-stone-200 rounded-md px-3 py-2.5">
       {children}
     </p>
+  )
+}
+
+// ── BlockImageUpload ─────────────────────────────────────────────────────────
+// Upload-from-computer widget used by IMAGE and STORY_ENTRY blocks.
+// Calls POST /api/v1/uploads/wedding-websites/{websiteId}/block-image and hands
+// back the returned URL — caller writes it into contentJson via onChange.
+function BlockImageUpload({
+  currentUrl,
+  websiteId,
+  onUploaded,
+}: {
+  currentUrl: string
+  websiteId: string
+  onUploaded: (url: string) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !websiteId) return
+    setError(null)
+    setUploading(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await apiClient.post<{ url: string }>(
+        `/api/v1/uploads/wedding-websites/${websiteId}/block-image`,
+        form,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      )
+      onUploaded(res.data.url)
+    } catch {
+      setError('Upload failed — try again.')
+    } finally {
+      setUploading(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {currentUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={currentUrl} alt="Current" className="w-full max-h-36 object-cover rounded-lg border border-stone-200" />
+      )}
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading || !websiteId}
+        className="w-full flex items-center justify-center gap-2 py-2 rounded-md border border-dashed border-stone-300 text-xs text-stone-500 hover:border-amber-400 hover:text-amber-700 transition disabled:opacity-50"
+      >
+        {uploading
+          ? <><Loader2 size={12} className="animate-spin" /> Uploading…</>
+          : <><ImagePlus size={12} /> {currentUrl ? 'Replace photo' : 'Upload photo from computer'}</>
+        }
+      </button>
+      {error && <p className="text-xs text-red-500">{error}</p>}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={handleFile}
+      />
+    </div>
   )
 }
 

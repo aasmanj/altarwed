@@ -16,5 +16,6 @@ public enum BlockType {
     RSVP_CTA,
     WEDDING_PARTY_GRID,
     PHOTO_ALBUM_GRID,
-    VOWS_PREVIEW
+    VOWS_PREVIEW,
+    STORY_ENTRY
 }
