@@ -137,12 +137,28 @@ export default async function WeddingLayout({
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-[#e8dcc8] py-10 text-center text-sm text-[#a08060]">
-        <a href="https://www.altarwed.com" className="font-serif text-[#3b2f2f] font-semibold hover:underline">
-          AltarWed
-        </a>
-        <span className="mx-2">·</span>
-        Faith-based wedding planning
+      <footer className="border-t border-[#e8dcc8] py-12 text-center text-sm text-[#a08060] space-y-4">
+        <p className="text-xs uppercase tracking-widest text-[#c4a882] font-medium">
+          Created on AltarWed
+        </p>
+        <div>
+          <p className="text-[#6b5344] mb-3">
+            Getting married? Create your Christian wedding website for free.
+          </p>
+          <a
+            href="https://app.altarwed.com/register"
+            className="inline-block px-6 py-2.5 rounded-full bg-[#3b2f2f] text-white text-xs font-semibold hover:bg-[#5c4033] transition"
+          >
+            Start for free →
+          </a>
+        </div>
+        <div className="pt-2 flex items-center justify-center gap-4 text-xs text-[#c4a882]">
+          <a href="https://www.altarwed.com" className="hover:text-[#3b2f2f] transition">AltarWed</a>
+          <span>·</span>
+          <a href="https://www.altarwed.com/privacy" className="hover:text-[#3b2f2f] transition">Privacy Policy</a>
+          <span>·</span>
+          <a href="https://www.altarwed.com/terms" className="hover:text-[#3b2f2f] transition">Terms</a>
+        </div>
       </footer>
 
       {/* Floating edit button — always shown so the couple can jump into the editor */}
