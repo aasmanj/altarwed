@@ -259,7 +259,6 @@ export default function SideBySideEditor() {
           <HeroSettings
             website={website}
             websiteId={websiteId ?? ''}
-            heroInputRef={heroInputRef}
             heroUploading={heroUploading}
             onHeroUploadClick={() => heroInputRef.current?.click()}
             onTaglineSave={(tagline) => updateWebsite.mutate({ heroTagline: tagline }, { onSuccess: bumpPreview })}
@@ -450,7 +449,6 @@ const DEFAULT_HERO_PHOTOS = [
 // ── HeroSettings component ────────────────────────────────────────────────────
 function HeroSettings({
   website,
-  heroInputRef,
   heroUploading,
   onHeroUploadClick,
   onTaglineSave,
@@ -458,7 +456,6 @@ function HeroSettings({
 }: {
   website: { heroPhotoUrl?: string | null; heroTagline?: string | null }
   websiteId: string
-  heroInputRef: React.RefObject<HTMLInputElement>
   heroUploading: boolean
   onHeroUploadClick: () => void
   onTaglineSave: (tagline: string) => void
