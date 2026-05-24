@@ -67,6 +67,9 @@ altarwed:
   app:
     base-url: ${APP_BASE_URL:https://app.altarwed.com}
 
+  admin:
+    emails: ${ADMIN_EMAILS:aasmanj@gmail.com}
+
   nextjs:
     base-url: ${NEXTJS_BASE_URL:https://www.altarwed.com}
     revalidation-secret: ${REVALIDATION_SECRET}

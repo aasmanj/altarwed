@@ -21,6 +21,7 @@ import SeatingPage from '@/features/couple/seating/SeatingPage'
 import ScripturePage from '@/features/couple/scripture/ScripturePage'
 import VowsPage from '@/features/couple/vows/VowsPage'
 import CeremonyPage from '@/features/couple/ceremony/CeremonyPage'
+import AdminMetricsPage from '@/features/admin/AdminMetricsPage'
 
 export default function App() {
   return (
@@ -156,6 +157,15 @@ export default function App() {
             element={
               <ProtectedRoute role="VENDOR">
                 <VendorListingPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/metrics"
+            element={
+              <ProtectedRoute>
+                <AdminMetricsPage />
               </ProtectedRoute>
             }
           />
