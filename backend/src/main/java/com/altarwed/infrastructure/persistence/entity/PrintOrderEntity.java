@@ -50,7 +50,7 @@ public class PrintOrderEntity {
     private LocalDateTime submittedAt;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JoinColumn(name = "print_order_id")
+    @JoinColumn(name = "print_order_id", nullable = false)
     @Builder.Default
     private List<PrintOrderRecipientEntity> recipients = new ArrayList<>();
 
