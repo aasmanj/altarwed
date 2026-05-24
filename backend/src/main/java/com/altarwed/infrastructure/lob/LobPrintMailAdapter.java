@@ -76,7 +76,9 @@ public class LobPrintMailAdapter implements PrintMailPort {
         } catch (RestClientResponseException ex) {
             log.warn("Lob rejected postcard for {}: {} {}", req.to().name(), ex.getStatusCode(), ex.getResponseBodyAsString());
             throw new PrintMailException("Lob rejected postcard: " + ex.getStatusCode() + " " + ex.getResponseBodyAsString(), ex);
-        } catch (Exception ex) {
+        } catch (org.springframework.web.client.RestClientException ex) {
+            // Network / transport errors only. Let runtime exceptions (NPE, etc.) propagate
+            // so they surface as 500s rather than being mis-attributed as Lob failures.
             throw new PrintMailException("Lob call failed: " + ex.getMessage(), ex);
         }
     }
@@ -109,8 +111,12 @@ public class LobPrintMailAdapter implements PrintMailPort {
         boolean saveTheDate = "SAVE_THE_DATE_CLASSIC".equals(req.templateKey())
                 || req.templateKey().startsWith("SAVE_THE_DATE");
         String headline = saveTheDate ? "Save the Date" : "You're Invited";
-        String photo = req.heroPhotoUrl() != null
-                ? "background-image:url('" + escape(req.heroPhotoUrl()) + "');background-size:cover;background-position:center;"
+        // CSS context — escape() only handles HTML entities. Single quote / backslash
+        // would terminate the url('...') literal, so percent-encode them defensively.
+        String safePhotoUrl = req.heroPhotoUrl() == null ? null
+                : escape(req.heroPhotoUrl()).replace("\\", "%5C").replace("'", "%27");
+        String photo = safePhotoUrl != null
+                ? "background-image:url('" + safePhotoUrl + "');background-size:cover;background-position:center;"
                 : "background:linear-gradient(135deg,#fdfaf6,#f5e9d4);";
 
         return """
@@ -133,7 +139,7 @@ public class LobPrintMailAdapter implements PrintMailPort {
                       <div class="names">%s</div>
                       <div class="date">%s</div>
                     </div>
-                    <div class="verse">"Above all, love each other deeply." &mdash; 1 Peter 4:8</div>
+                    <div class="verse">"Above all, love each other deeply." - 1 Peter 4:8</div>
                   </div>
                 </body></html>
                 """.formatted(photo, headline, escape(req.coupleNames()), escape(req.weddingDate()));

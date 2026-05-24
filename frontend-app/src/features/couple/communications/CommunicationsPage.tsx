@@ -98,7 +98,7 @@ export default function CommunicationsPage() {
         order.status === 'SUBMITTED'
           ? `Submitted ${order.recipientCount} postcards to print.`
           : order.status === 'PARTIAL_FAILURE'
-            ? `Submitted ${order.recipientCount - failedCount} postcards. ${failedCount} failed — see order details below.`
+            ? `Submitted ${order.recipientCount - failedCount} postcards. ${failedCount} failed. See order details below.`
             : `Order failed: ${order.errorMessage ?? 'Unknown error'}`
       )
       setSelectedIds([])
@@ -322,7 +322,7 @@ export default function CommunicationsPage() {
                     {failed.length > 0 && (
                       <details className="mt-2 text-xs text-stone-500">
                         <summary className="cursor-pointer hover:text-stone-800">
-                          {failed.length} failed — see details
+                          {failed.length} failed - see details
                         </summary>
                         <ul className="mt-1 space-y-0.5 list-disc list-inside">
                           {failed.map(r => (

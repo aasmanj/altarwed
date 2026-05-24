@@ -59,7 +59,17 @@ public class PrintOrderService {
         return printOrderRepository.findAllByCoupleId(coupleId);
     }
 
-    @Transactional
+    /**
+     * Deliberately NOT @Transactional. Persisting a DRAFT order row BEFORE the Lob
+     * loop guarantees an audit row exists if anything explodes mid-flight — including
+     * a power loss between Lob acceptance and the final save. Wrapping the whole
+     * method in a transaction would roll back the DRAFT row on failure even though
+     * Lob has already accepted (and will charge for + mail) the postcards we sent so
+     * far, leaving us with phantom mail and no DB trail.
+     *
+     * Each printOrderRepository.save() is internally @Transactional via Spring Data,
+     * so the DRAFT-insert and the final UPDATE each run in their own short transaction.
+     */
     public PrintOrder createOrder(UUID coupleId, CreatePrintOrderRequest req) {
         PrintOrderType orderType = PrintOrderType.valueOf(req.orderType());
 
@@ -90,6 +100,14 @@ public class PrintOrderService {
                 req.returnCity(), req.returnState().toUpperCase(), req.returnZip()
         );
 
+        // Step 1: persist DRAFT before any external side-effect so we have an audit
+        // row even if Lob calls or the final save fail.
+        PrintOrder draft = printOrderRepository.save(new PrintOrder(
+                null, coupleId, orderType, PrintOrderStatus.DRAFT, req.templateKey(),
+                req.guestIds().size(), 0, null, LocalDateTime.now(), null, List.of()
+        ));
+        UUID orderId = draft.id();
+
         List<PrintOrderRecipient> recipients = new ArrayList<>();
         int successCount = 0;
         int failureCount = 0;
@@ -118,7 +136,7 @@ public class PrintOrderService {
 
             PostcardRequest postcard = new PostcardRequest(
                     req.templateKey(), coupleNames, weddingDate, weddingUrl,
-                    heroPhotoUrl, venueLine, from, to, false
+                    heroPhotoUrl, venueLine, from, to
             );
 
             try {
@@ -144,11 +162,12 @@ public class PrintOrderService {
             status = PrintOrderStatus.SUBMITTED;
         }
 
+        LocalDateTime now = LocalDateTime.now();
         PrintOrder order = new PrintOrder(
-                null, coupleId, orderType, status, req.templateKey(),
+                orderId, coupleId, orderType, status, req.templateKey(),
                 recipients.size(), successCount * COST_PER_POSTCARD_CENTS,
-                errorMessage, LocalDateTime.now(),
-                successCount > 0 ? LocalDateTime.now() : null,
+                errorMessage, draft.createdAt(),
+                successCount > 0 ? now : null,
                 recipients
         );
         return printOrderRepository.save(order);

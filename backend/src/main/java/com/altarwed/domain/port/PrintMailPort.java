@@ -9,6 +9,9 @@ public interface PrintMailPort {
      */
     String sendPostcard(PostcardRequest request);
 
+    // Lob distinguishes test vs live entirely by API key prefix (test_ vs live_),
+    // so we deliberately do not carry a mode flag on the request — there is no way
+    // for a caller to override the operating mode the configured key implies.
     record PostcardRequest(
             String templateKey,
             String coupleNames,
@@ -17,8 +20,7 @@ public interface PrintMailPort {
             String heroPhotoUrl,
             String venueLine,
             FromAddress from,
-            ToAddress to,
-            boolean liveMode
+            ToAddress to
     ) {}
 
     record FromAddress(String name, String addressLine1, String addressLine2,
