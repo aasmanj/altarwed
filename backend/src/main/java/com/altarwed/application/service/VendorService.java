@@ -39,7 +39,6 @@ public class VendorService {
 
     @Transactional
     public Vendor update(UUID vendorId, UpdateVendorRequest req) {
-        log.info("vendor listing updated, vendorId={}", vendorId);
         Vendor existing = getById(vendorId);
         Vendor updated = new Vendor(
                 existing.id(),
@@ -57,7 +56,9 @@ public class VendorService {
                 existing.createdAt(),
                 LocalDateTime.now()
         );
-        return vendorRepository.save(updated);
+        Vendor saved = vendorRepository.save(updated);
+        log.info("vendor listing updated, vendorId={}", vendorId);
+        return saved;
     }
 
     private String blankToNull(String s) {

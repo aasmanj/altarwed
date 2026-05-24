@@ -232,10 +232,10 @@ add them deliberately, not "just in case." These rules are enforced by the
 SLF4J's `{}` placeholders are parsed by App Insights into typed, indexable, queryable columns. Strings concatenated with `+` become opaque text that can only be `LIKE`-searched.
 
 ```java
-// WRONG — App Insights cannot index this
+// WRONG: App Insights cannot index this
 log.info("Order " + orderId + " for couple " + coupleId + " failed");
 
-// RIGHT — orderId and coupleId become searchable columns in App Insights
+// RIGHT: orderId and coupleId become searchable columns in App Insights
 log.info("print order submission failed, orderId={}, coupleId={}", orderId, coupleId);
 ```
 
@@ -245,12 +245,12 @@ Start with `noun verb [state]` in lowercase: `"print order submitted"`, `"guest 
 ### 4. Required correlation IDs (MDC)
 Every HTTP request gets a `requestId` automatically (from `RequestIdFilter` in `infrastructure/observability/`). It is in MDC for the life of the request, included on every log line, and returned to clients in the `X-Request-Id` response header so users can quote it in support tickets.
 
-When you write a log line in a request-scoped path you do NOT need to pass the requestId — it is already there. You DO need to add the domain-scoped ID as a structured arg:
+When you write a log line in a request-scoped path you do NOT need to pass the requestId. It is already there. You DO need to add the domain-scoped ID as a structured arg:
 - HTTP write endpoints: `coupleId` or `vendorId` (whichever owns the resource)
 - Scheduled jobs: a `jobRunId = UUID.randomUUID()` per invocation
-- `@Async` tasks: MDC propagates automatically via `AsyncMdcConfig`; add domain IDs as args
+- `@Async` tasks: MDC propagates automatically via `MdcTaskDecorator` wired on `emailExecutor` in `AsyncConfig`. Any new executor bean MUST also call `setTaskDecorator(new MdcTaskDecorator())`, or correlation IDs will vanish on its threads.
 
-### 5. External integrations — the contract
+### 5. External integrations: the contract
 Every call to Lob, Resend, Stripe (when added), Azure Blob, Next.js revalidate, bible-api.com, Google Sheets, or any future provider MUST log:
 
 ```java
@@ -268,14 +268,15 @@ try {
 ```
 
 Three rules:
-1. INFO **before** the call — proves we got that far when the response never comes back.
-2. INFO **after** success — includes the provider's ID for cross-referencing in their dashboard.
+1. INFO **before** the call. Proves we got that far when the response never comes back.
+2. INFO **after** success. Includes the provider's ID for cross-referencing in their dashboard. In high-throughput batch contexts (sending invites to 200 guests), downgrade the per-item success INFO to DEBUG and emit one aggregate INFO at the batch level instead. See rule 9.
 3. ERROR catches the **exception** as the last arg (not just `.getMessage()`), so the stack trace lands in App Insights.
 
 ### 6. Auth and security events (always log, always at INFO or WARN)
-- INFO: login success (email, role, userId), token refresh (userId), password reset request (email), logout, vendor approval state change
-- WARN: login failure (email + reason: "bad credentials" / "no such user" / "account inactive"), token refresh with revoked/expired token, password reset with bad token, IDOR attempt (`AccessDeniedException` thrown because path ID did not match principal), rate-limit hit, JWT signature failure
+- INFO: login success (masked email, role, userId), token refresh (userId), password reset request (masked email), logout, vendor approval state change
+- WARN: login failure (masked email + reason: "bad credentials" / "no such user" / "account inactive"), token refresh with revoked/expired token, password reset with bad token, IDOR attempt (`AccessDeniedException` thrown because path ID did not match principal), rate-limit hit, JWT signature failure
 - These are your security audit trail. Never silently `return 401`; always log first.
+- IP addresses are allowed (and required) ONLY in security-audit log lines: rate-limit-exceeded, brute-force lockout, IDOR attempts. Anywhere else they count as PII per rule 8.
 
 ### 7. Scheduled jobs and async tasks
 Every `@Scheduled` method MUST bracket itself:
@@ -303,7 +304,7 @@ Same shape for `@Async` methods: log entry with the IDs you got passed, exit wit
 - **PII (GDPR/CCPA classify log files as data stores):** email addresses, mailing addresses, phone numbers, guest names, partner names, payment details, profile photos, IP addresses unless explicitly required for security audit
 - **Secrets:** JWT contents (full or partial), refresh tokens (raw or hashed), passwords (even hashed), Stripe customer IDs that map to PII, API keys, connection strings, OAuth tokens, Lob/Resend/Stripe webhook payloads (they contain PII)
 - **Bulk data:** full request/response bodies from external APIs, full DB rows, file contents
-- **Use internal UUIDs instead** — they are pseudonymous identifiers, not personal data, and the DB has the join when you actually need to know who.
+- **Use internal UUIDs instead.** They are pseudonymous identifiers, not personal data, and the DB has the join when you actually need to know who.
 
 If you genuinely need an email address for an audit log (e.g., a login-failure event), log only the *prefix before @* (`j***@altarwed.com`) using a helper, never the full address.
 
@@ -315,13 +316,15 @@ App Insights bills per GB ingested. Two anti-patterns burn the budget fast:
 The reviewer flags any new log line inside a `for`/`while` loop unless it is a per-item WARN/ERROR (failure path) or batched.
 
 ### 10. Exception logging contract
-- Pass the exception as the last arg (no format specifier needed): `log.error("payment failed, orderId={}", id, ex);` — SLF4J finds it and prints the stack trace.
-- NEVER `log.error(ex.getMessage())` — loses the stack trace, makes debugging impossible.
-- NEVER `log.error("...", ex.getMessage())` — same problem.
+- Pass the exception as the last arg (no format specifier needed): `log.error("payment failed, orderId={}", id, ex);`. SLF4J finds it and prints the stack trace.
+- NEVER `log.error(ex.getMessage())`. Loses the stack trace, makes debugging impossible.
+- NEVER `log.error("...", ex.getMessage())`. Same problem.
 - Do not log AND rethrow the same exception unless you are adding context. The handler above you will log it.
 
 ### 11. Logback configuration
-Logback config lives in `backend/src/main/resources/logback-spring.xml`. It is the single source of truth for: log format (JSON in prod for App Insights structured ingest, pattern in local), MDC field inclusion, async appender for non-blocking writes, and per-package level overrides. Do not put logging config in `application.yml` beyond the bare minimum (root level + spring-specific tuning).
+Logback config lives in `backend/src/main/resources/logback-spring.xml`. It is the single source of truth for log format, MDC field inclusion, async appender for non-blocking writes, and per-package level overrides. Do not put logging config in `application.yml` beyond the bare minimum (root level + spring-specific tuning).
+
+Current output is a console pattern with `%X{requestId}` interpolated. App Insights' Java agent parses MDC fields from stdout into searchable columns. If/when we want true JSON-structured ingest, add `logstash-logback-encoder` and swap the encoder element. The MDC fields are already populated.
 
 ### 12. Anti-patterns the reviewer will flag
 - A new service method, controller, adapter, or scheduled job with **zero log lines**.

@@ -6,6 +6,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -21,6 +23,8 @@ import java.util.concurrent.ConcurrentHashMap;
 // ConcurrentHashMap is safe here because Bucket4j's consume() is thread-safe.
 @Component
 public class RateLimitingFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(RateLimitingFilter.class);
 
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 
@@ -49,6 +53,11 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         if (bucket.tryConsume(1)) {
             chain.doFilter(request, response);
         } else {
+            // Security signal: spikes here mean brute-force attempts on auth endpoints.
+            // IP is logged here (and only here) because it is required to actually
+            // act on the alert. This is the "explicitly required for security audit"
+            // exception called out in CLAUDE.md observability rule 8.
+            log.warn("rate limit exceeded, path={}, clientIp={}", request.getRequestURI(), ip);
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.getWriter().write("""

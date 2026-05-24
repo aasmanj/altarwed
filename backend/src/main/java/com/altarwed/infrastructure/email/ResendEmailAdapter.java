@@ -259,14 +259,21 @@ public class ResendEmailAdapter implements EmailPort {
     }
 
     /**
-     * Single entry point for all outbound Resend calls. Logs INFO before the call,
-     * INFO after success (with the Resend message id for cross-reference in their
-     * dashboard), WARN on provider rejection, ERROR on transport failure.
-     * Recipient email is masked in logs to comply with PII rules in CLAUDE.md.
+     * Single entry point for all outbound Resend calls.
+     *
+     * Log volume policy (per CLAUDE.md Observability rule 9):
+     * - DEBUG before each send and DEBUG on per-recipient success. The batch
+     *   wrappers in GuestService already emit aggregate INFO ("save-the-date
+     *   batch queued, count=N"), so per-recipient INFO would multiply log
+     *   volume by N for no incremental operational value.
+     * - WARN on provider rejection: keep at WARN since rejections need
+     *   per-recipient attention (bounce, suppressed, malformed).
+     * - ERROR on transport failure with the exception so the stack trace
+     *   reaches App Insights.
      */
     private void postEmail(String emailType, String toEmail, Map<String, Object> body) {
         String maskedTo = LogSanitizer.maskEmail(toEmail);
-        log.info("sending email via resend, type={}, to={}", emailType, maskedTo);
+        log.debug("sending email via resend, type={}, to={}", emailType, maskedTo);
         try {
             ResponseEntity<Map> response = restClient.post()
                     .uri("/emails")
@@ -275,7 +282,7 @@ public class ResendEmailAdapter implements EmailPort {
                     .retrieve()
                     .toEntity(Map.class);
             Object id = response.getBody() == null ? null : response.getBody().get("id");
-            log.info("resend accepted email, type={}, to={}, resendId={}", emailType, maskedTo, id);
+            log.debug("resend accepted email, type={}, to={}, resendId={}", emailType, maskedTo, id);
         } catch (RestClientResponseException ex) {
             log.warn("resend rejected email, type={}, to={}, status={}, body={}",
                     emailType, maskedTo, ex.getStatusCode(), ex.getResponseBodyAsString());

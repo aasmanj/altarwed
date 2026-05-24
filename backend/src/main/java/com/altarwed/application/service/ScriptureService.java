@@ -11,11 +11,18 @@ import org.springframework.web.client.RestClientResponseException;
 
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 @Service
 public class ScriptureService {
 
     private static final Logger log = LoggerFactory.getLogger(ScriptureService.class);
+
+    // Verse references look like: "John 3:16" or "1 Corinthians 13:4-7". Allow letters,
+    // digits, single spaces, colon, hyphen. Reject anything with slashes, percent-encoded
+    // chars, or other path-traversal vectors, since the query is interpolated into the
+    // bible-api URL path and we log it.
+    private static final Pattern SAFE_QUERY = Pattern.compile("^[A-Za-z0-9 :\\-]{1,80}$");
 
     // 15 curated covenant/wedding verses — references only; text fetched on demand
     private static final List<String> FEATURED_REFERENCES = List.of(
@@ -50,6 +57,10 @@ public class ScriptureService {
 
     @SuppressWarnings("unchecked")
     public ScriptureVerseResponse search(String query) {
+        if (query == null || !SAFE_QUERY.matcher(query).matches()) {
+            log.warn("scripture lookup rejected, reason=invalid query shape");
+            throw new IllegalArgumentException("Invalid verse reference");
+        }
         log.info("scripture lookup requested, query={}", query);
         Map<String, Object> response;
         try {

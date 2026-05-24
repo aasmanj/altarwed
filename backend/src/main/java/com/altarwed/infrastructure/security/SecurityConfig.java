@@ -105,6 +105,10 @@ public class SecurityConfig {
         config.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
+        // X-Request-Id is set on every response by RequestIdFilter so users can
+        // quote it in support. Browsers block fetch().headers.get() from reading
+        // response headers cross-origin unless they are in Access-Control-Expose-Headers.
+        config.setExposedHeaders(List.of("X-Request-Id"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 

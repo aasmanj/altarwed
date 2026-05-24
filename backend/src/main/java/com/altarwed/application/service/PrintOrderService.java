@@ -147,8 +147,9 @@ public class PrintOrderService {
                 recipients.add(new PrintOrderRecipient(null, null, guestId, lobId, "SUBMITTED", null));
                 successCount++;
             } catch (PrintMailPort.PrintMailException ex) {
-                log.warn("lob rejected postcard, orderId={}, guestId={}, reason={}",
-                         orderId, guestId, ex.getMessage());
+                // Pass the exception as the last arg per CLAUDE.md rule 10 (stack
+                // trace preserves the Lob response body wrapped by the adapter).
+                log.warn("lob rejected postcard, orderId={}, guestId={}", orderId, guestId, ex);
                 recipients.add(new PrintOrderRecipient(null, null, guestId, null, "FAILED", ex.getMessage()));
                 failureCount++;
             }

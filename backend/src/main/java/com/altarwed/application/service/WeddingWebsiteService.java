@@ -59,7 +59,10 @@ public class WeddingWebsiteService {
                 false, null,
                 LocalDateTime.now(), LocalDateTime.now()
         );
-        return websiteRepository.save(website);
+        WeddingWebsite saved = websiteRepository.save(website);
+        log.info("wedding website created, coupleId={}, websiteId={}, slug={}",
+                 coupleId, saved.id(), saved.slug());
+        return saved;
     }
 
     @Transactional(readOnly = true)

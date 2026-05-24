@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  AltarWed logging config. Console only — Azure App Service tails stdout into
+  AltarWed logging config. Console only. Azure App Service tails stdout into
   App Insights / Log Stream. No file appenders (App Service disks are ephemeral
   and per-instance; the pipeline is the source of truth).
 
   Pattern includes %X{requestId} so every line in App Insights can be filtered
   back to one HTTP request. requestId is populated by RequestIdFilter and
-  propagated across @Async via MdcTaskDecorator.
+  propagated across @Async via MdcTaskDecorator on the emailExecutor.
 
-  When adding JSON-structured ingest later: depend on logstash-logback-encoder
-  and swap the encoder block. The MDC fields are already there.
+  When adding JSON-structured ingest later: add logstash-logback-encoder as a
+  dependency and swap the encoder element. The MDC fields are already there.
 -->
 <configuration>
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
@@ -23,12 +23,26 @@
         </encoder>
     </appender>
 
-    <!-- Async wrapper keeps logging off the request thread under bursty load. -->
+    <!--
+      Async wrapper keeps logging off the request thread under bursty load.
+
+      neverBlock=false (default): when the queue is full, the calling thread blocks
+      until there's room. This is the correct choice for an audit log; silently
+      dropping security/auth events would defeat the whole point. The trade-off is
+      that a logging backpressure spike will slow request handling, which is
+      acceptable because the alternative is losing the evidence that we needed the
+      logs in the first place.
+
+      discardingThreshold=0 means "never auto-discard INFO/DEBUG when 80% full" -
+      again, audit-preserving over throughput-preserving.
+
+      queueSize=2048 (4x default) gives more headroom before any of the above kicks in.
+    -->
     <appender name="ASYNC_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
         <appender-ref ref="CONSOLE"/>
-        <queueSize>512</queueSize>
+        <queueSize>2048</queueSize>
         <discardingThreshold>0</discardingThreshold>
-        <neverBlock>true</neverBlock>
+        <neverBlock>false</neverBlock>
         <includeCallerData>false</includeCallerData>
     </appender>
 

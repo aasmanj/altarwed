@@ -18,6 +18,8 @@ import com.altarwed.domain.exception.WeddingWebsiteAlreadyExistsException;
 import com.altarwed.domain.exception.VendorNotFoundException;
 import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
 import io.jsonwebtoken.JwtException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -35,6 +37,8 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(CoupleNotFoundException.class)
     public ProblemDetail handleCoupleNotFound(CoupleNotFoundException ex) {
@@ -200,6 +204,9 @@ public class GlobalExceptionHandler {
     // (e.g. two simultaneous registrations with the same email — race condition)
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        // ERROR because this signals a service-layer check missed a constraint, OR a
+        // genuine race condition. Either way it deserves attention; not a routine 4xx.
+        log.error("data integrity violation", ex);
         var pd = ProblemDetail.forStatus(HttpStatus.CONFLICT);
         pd.setType(URI.create("https://altarwed.com/problems/data-conflict"));
         pd.setTitle("Data Conflict");
@@ -217,9 +224,12 @@ public class GlobalExceptionHandler {
         return notFound("blog-post-not-found", ex.getMessage());
     }
 
-    // Safety net — catches anything not handled above so stack traces never leak
+    // Safety net: catches anything not handled above so stack traces never leak.
+    // This is the ONE place we guarantee a log for every 500. Without it, an
+    // unhandled exception silently maps to JSON and disappears.
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleUnexpected(Exception ex) {
+        log.error("unhandled exception, exceptionType={}", ex.getClass().getSimpleName(), ex);
         var pd = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
         pd.setType(URI.create("https://altarwed.com/problems/internal-error"));
         pd.setTitle("Internal Server Error");
