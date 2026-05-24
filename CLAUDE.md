@@ -216,6 +216,40 @@ All entities below have Flyway migrations in production (V1–V15):
 - Rate limiting via Bucket4j (in-memory, per instance)
 - Swagger/OpenAPI disabled in prod profile
 
+## Observability Rules (logs that reach Azure Application Insights)
+
+App Service ships SLF4J logs to App Insights. Logs are the only window into prod;
+add them deliberately, not "just in case." Every new service method or external
+adapter MUST follow these:
+
+**Log levels (be strict):**
+- **INFO** at boundary events: request entry on any write endpoint, just before an external API call (Lob, Resend, Stripe, Blob upload), and just after a durable side-effect commits (DB write, queue publish). One INFO per logical step, not per line of code.
+- **WARN** for recoverable per-item failures inside a batch (one Lob postcard rejected out of 10, one guest email bounce). The overall operation continues.
+- **ERROR** for unexpected exceptions and unrecoverable state. If you can recover, it is WARN.
+- **DEBUG** is fine to write but is disabled in prod by default; do not rely on it for incident response.
+
+**What every log line must include:**
+- Correlation IDs as structured args, not interpolated strings: `log.info("submitting postcard order, coupleId={}, orderId={}, recipients={}", coupleId, orderId, count)`. App Insights indexes structured args as searchable columns; interpolated strings become opaque text.
+- A noun + verb at the start ("submitting postcard order", "guest email bounced") so log search by prefix is useful.
+
+**What to NEVER log:**
+- Email addresses, mailing addresses, phone numbers, names — PII per GDPR/CCPA.
+- JWT contents, refresh tokens, passwords (even hashed), Stripe IDs, API keys.
+- Full request/response bodies from external APIs (they may contain PII).
+- Use guest IDs / order IDs instead — the DB has the join.
+
+**External integrations specifically:**
+Wrap every external call (Lob, Resend, Stripe webhook, Blob upload, Next.js revalidate) with:
+1. INFO before: what we are about to do and the target ID (not the target's name).
+2. WARN on a domain-known failure path (e.g. provider rejection per item).
+3. ERROR on unexpected exception, with the exception passed as the last arg so the stack trace lands in App Insights.
+
+**Anti-patterns the code-reviewer will flag:**
+- A new service method or adapter with zero log lines.
+- `log.info("entering method")` / `"exiting method"` style noise.
+- String concatenation in the log message instead of structured args (`"order " + id + " failed"`).
+- Logging an exception's `.getMessage()` only — always pass the exception itself so the stack trace is preserved.
+
 ## Azure Configuration
 - App Service: backend Spring Boot JAR (B2 tier)
 - Static Web Apps: frontend-public (Next.js) and frontend-app (React)

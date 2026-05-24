@@ -46,14 +46,24 @@ If the parent agent specifies different files, review those instead.
 - Passwords not BCrypt-hashed
 - JWT changes that bypass `JwtService.extractUserId()`
 
-**6. Frontend**
+**6. Observability (Azure App Insights is the only prod debugger)**
+- New `@Service` method or external adapter with **zero log lines** — flag it. Boundary events (request entry on writes, before/after external calls, durable commits) must log INFO.
+- External integration (Lob, Resend, Stripe, Blob, Next.js revalidate) that doesn't WARN on per-item provider rejection or ERROR on unexpected exception.
+- Per-item failures inside a batch logged as ERROR instead of WARN (the operation continues — it is recoverable).
+- Log messages with string concatenation instead of structured args: `log.info("order " + id)` — App Insights cannot index that. Flag and require `log.info("submitting order, orderId={}", id)`.
+- Logging `ex.getMessage()` only instead of passing the exception as the last arg (loses the stack trace).
+- PII in logs: email addresses, mailing addresses, phone numbers, guest names, JWT contents, API keys. Always flag.
+- `log.info("entering method")` / `"exiting method"` noise — flag as anti-pattern.
+- Refer to the **Observability Rules** section of root CLAUDE.md for the full standard.
+
+**7. Frontend**
 - Em dashes anywhere (Jordan hates them — UI copy, comments, anywhere)
 - Relative parent imports in `frontend-public` (eslint bans them; use `@/`)
 - Public pages in `frontend-public` that aren't SSR/SSG (breaks SEO)
 - Missing Open Graph / meta tags on new public pages
 - Primitive `any` in TypeScript
 
-**7. Dead code / over-engineering**
+**8. Dead code / over-engineering**
 - New abstractions with one caller
 - Error handling for impossible cases
 - Comments that restate the code
