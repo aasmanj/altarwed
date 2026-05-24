@@ -74,6 +74,9 @@ altarwed:
     base-url: ${NEXTJS_BASE_URL:https://www.altarwed.com}
     revalidation-secret: ${REVALIDATION_SECRET}
 
+  lob:
+    api-key: ${LOB_API_KEY:}
+
   azure:
     storage:
       connection-string: ${AZURE_STORAGE_CONNECTION_STRING}
