@@ -4,12 +4,19 @@ interface Props {
   title: string
   subtitle?: string
   action?: React.ReactNode
+  /**
+   * Max-width of the inner content row — should match the page's own content width
+   * so the header title/actions align with the content below on wide screens.
+   * Defaults to 'max-w-5xl' (guests, budget, photos, communications).
+   * Pass 'max-w-4xl' or 'max-w-3xl' for narrower pages.
+   */
+  maxWidth?: string
 }
 
-export default function PageHeader({ title, subtitle, action }: Props) {
+export default function PageHeader({ title, subtitle, action, maxWidth = 'max-w-5xl' }: Props) {
   return (
-    <header className="bg-white border-b border-gold-light px-6 py-4 flex-shrink-0">
-      <div className="flex items-center justify-between gap-4">
+    <header className="bg-white border-b border-gold-light flex-shrink-0">
+      <div className={`mx-auto ${maxWidth} px-6 py-4 flex items-center justify-between gap-4`}>
         <div className="flex items-center gap-3">
           <Link
             to="/dashboard"

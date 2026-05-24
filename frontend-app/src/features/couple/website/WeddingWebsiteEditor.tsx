@@ -80,6 +80,7 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
       <PageHeader
         title="Wedding Website"
         subtitle={publicUrl}
+        maxWidth="max-w-3xl"
         action={
           <div className="flex items-center gap-3">
             <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${website.isPublished ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>

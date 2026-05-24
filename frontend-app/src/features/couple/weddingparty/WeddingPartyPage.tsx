@@ -51,6 +51,7 @@ export default function WeddingPartyPage() {
         subtitle={members.length > 0
           ? `${brideParty.length} bride's · ${groomParty.length} groom's${neutralParty.length > 0 ? ` · ${neutralParty.length} ceremony` : ''}`
           : 'Add your wedding party members'}
+        maxWidth="max-w-3xl"
         action={
           <button
             onClick={() => setShowAdd(v => !v)}

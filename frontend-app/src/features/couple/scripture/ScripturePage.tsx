@@ -77,6 +77,7 @@ export default function ScripturePage() {
       <PageHeader
         title="Scripture Builder"
         subtitle="Search for a verse or browse curated wedding scriptures to pin to your website."
+        maxWidth="max-w-3xl"
       />
 
       <main className="mx-auto max-w-3xl px-6 py-8 space-y-10">

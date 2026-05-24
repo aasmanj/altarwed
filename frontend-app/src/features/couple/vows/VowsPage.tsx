@@ -57,6 +57,7 @@ export default function VowsPage() {
       <PageHeader
         title="Vow Builder"
         subtitle="Write and save your wedding vows — just for the two of you."
+        maxWidth="max-w-4xl"
         action={
           <button
             onClick={handleSave}

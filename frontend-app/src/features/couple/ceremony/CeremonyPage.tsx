@@ -92,6 +92,7 @@ export default function CeremonyPage() {
       <PageHeader
         title="Ceremony Builder"
         subtitle="Plan your order of service — scripture, vows, music, and more."
+        maxWidth="max-w-3xl"
         action={
           <button
             onClick={openAdd}

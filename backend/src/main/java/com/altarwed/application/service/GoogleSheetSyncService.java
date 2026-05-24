@@ -181,10 +181,19 @@ public class GoogleSheetSyncService {
     }
 
     private String fetchCsv(String url) {
-        return restClient.get()
+        String csv = restClient.get()
                 .uri(URI.create(url))
+                .header("Accept", "text/csv, text/plain, */*")
                 .retrieve()
                 .body(String.class);
+        // Google Sheets "Publish to web as CSV" prepends a UTF-8 BOM (﻿) for
+        // Excel compatibility. Java's String.trim() does NOT strip BOM characters,
+        // so the first header cell becomes "﻿Name" instead of "Name", causing
+        // the column index lookup to silently return null for every row.
+        if (csv != null && csv.startsWith("﻿")) {
+            csv = csv.substring(1);
+        }
+        return csv;
     }
 
     /**
@@ -197,6 +206,14 @@ public class GoogleSheetSyncService {
 
         String[] headers = rows.get(0);
         Map<String, Integer> colIndex = buildColumnIndex(headers);
+
+        if (!colIndex.containsKey("name")) {
+            throw new IllegalArgumentException(
+                "CSV does not contain a 'Name' column. " +
+                "Ensure the sheet is published as CSV and the first row contains column headers: " +
+                "Name, Email, Plus One Name, Meal Preference, Dietary Restrictions, Song Request. " +
+                "Actual headers found: " + String.join(", ", headers));
+        }
 
         // Load existing guests for efficient lookup
         List<Guest> existing = guestRepository.findAllByCoupleId(coupleId);

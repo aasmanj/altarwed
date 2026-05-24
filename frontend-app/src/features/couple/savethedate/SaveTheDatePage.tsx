@@ -38,7 +38,7 @@ export default function SaveTheDatePage() {
 
   return (
     <div className="min-h-screen bg-ivory">
-      <PageHeader title="Save the Dates" subtitle="Send a faith-themed email to all your guests" />
+      <PageHeader title="Save the Dates" subtitle="Send a faith-themed email to all your guests" maxWidth="max-w-3xl" />
 
       <div className="max-w-3xl mx-auto px-6 py-10 space-y-8">
 

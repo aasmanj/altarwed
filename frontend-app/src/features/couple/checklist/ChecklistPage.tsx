@@ -71,6 +71,7 @@ export default function ChecklistPage() {
       <PageHeader
         title="Wedding Checklist"
         subtitle="Faith-first planning, every step of the way"
+        maxWidth="max-w-3xl"
         action={
           <button
             onClick={() => setShowAdd(v => !v)}
