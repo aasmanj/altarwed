@@ -133,42 +133,42 @@ export default function GuestListPage() {
         title="Guest List"
         subtitle="Manage invites and track RSVPs"
         action={
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => sendAll.mutate()}
               disabled={sendAll.isPending || pending === 0}
-              className="rounded-lg border border-gold px-4 py-2 text-sm font-medium text-brown hover:bg-gold/10 disabled:opacity-50 transition"
+              className="rounded-lg border border-gold px-3 py-2 text-sm font-medium text-brown hover:bg-gold/10 disabled:opacity-50 transition min-h-[44px]"
             >
-              {sendAll.isPending ? 'Sending…' : `Send all pending invites (${pending})`}
+              {sendAll.isPending ? 'Sending…' : `Send pending (${pending})`}
             </button>
             <button
               onClick={() => { setShowSheetSync(v => !v); setSheetUrlInput(sheetSync?.sheetUrl ?? '') }}
-              className="rounded-lg border border-gold px-4 py-2 text-sm font-medium text-brown hover:bg-gold/10 transition"
+              className="rounded-lg border border-gold px-3 py-2 text-sm font-medium text-brown hover:bg-gold/10 transition min-h-[44px]"
             >
-              Google Sheets
+              Sheets
             </button>
             <button
               onClick={() => setShowImport(true)}
-              className="rounded-lg border border-gold px-4 py-2 text-sm font-medium text-brown hover:bg-gold/10 transition"
+              className="rounded-lg border border-gold px-3 py-2 text-sm font-medium text-brown hover:bg-gold/10 transition min-h-[44px]"
             >
-              Import CSV
+              Import
             </button>
             <button
               onClick={exportCsv}
               disabled={guests.length === 0}
-              className="rounded-lg border border-gold px-4 py-2 text-sm font-medium text-brown hover:bg-gold/10 disabled:opacity-50 transition"
+              className="rounded-lg border border-gold px-3 py-2 text-sm font-medium text-brown hover:bg-gold/10 disabled:opacity-50 transition min-h-[44px]"
             >
-              Export CSV
+              Export
             </button>
             <button
               onClick={() => setShowParty(true)}
-              className="rounded-lg border border-gold px-4 py-2 text-sm font-medium text-brown hover:bg-gold/10 transition"
+              className="rounded-lg border border-gold px-3 py-2 text-sm font-medium text-brown hover:bg-gold/10 transition min-h-[44px]"
             >
-              + Create party
+              + Party
             </button>
             <button
               onClick={() => setShowAdd(true)}
-              className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark transition"
+              className="rounded-lg bg-gold px-3 py-2 text-sm font-semibold text-white hover:bg-gold-dark transition min-h-[44px]"
             >
               + Add guest
             </button>
@@ -176,7 +176,7 @@ export default function GuestListPage() {
         }
       />
 
-      <main className="mx-auto max-w-5xl px-6 py-10">
+      <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-10">
 
         <div className="mb-6">
           <TipCallout tip={TIPS.guestsRsvpTiming} />

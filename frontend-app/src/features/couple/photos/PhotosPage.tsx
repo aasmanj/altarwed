@@ -99,7 +99,7 @@ export default function PhotosPage() {
         }
       />
 
-      <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
 
         {/* Upload section */}
         <div className="bg-white rounded-xl border border-stone-200 p-6">
@@ -190,8 +190,8 @@ export default function PhotosPage() {
 
       {/* Edit caption modal */}
       {editingCaption && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-semibold text-stone-900 mb-4">Edit Caption</h2>
             <textarea
               value={editingCaption.value}

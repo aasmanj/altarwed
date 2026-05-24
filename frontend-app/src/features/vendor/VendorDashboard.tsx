@@ -10,17 +10,17 @@ export default function VendorDashboard() {
 
   return (
     <div className="min-h-screen bg-[#fdfaf6]">
-      <header className="border-b border-[#e8dcc8] bg-white px-6 py-4 flex items-center justify-between">
-        <span className="font-serif text-xl font-bold text-[#3b2f2f]">AltarWed</span>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-[#a08060]">{user?.email}</span>
-          <button onClick={logout} className="text-sm text-[#a08060] hover:text-[#3b2f2f] transition">
+      <header className="border-b border-[#e8dcc8] bg-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
+        <span className="font-serif text-xl font-bold text-[#3b2f2f] shrink-0">AltarWed</span>
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          <span className="text-sm text-[#a08060] truncate hidden sm:block">{user?.email}</span>
+          <button onClick={logout} className="shrink-0 text-sm text-[#a08060] hover:text-[#3b2f2f] transition py-2 px-3 rounded-lg hover:bg-[#fdfaf6]">
             Sign out
           </button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-6 py-10">
+      <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-10">
         <h2 className="font-serif text-2xl font-bold text-[#3b2f2f] mb-1">
           Welcome, {displayName}
         </h2>

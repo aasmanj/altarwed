@@ -40,12 +40,12 @@ export default function SaveTheDatePage() {
     <div className="min-h-screen bg-ivory">
       <PageHeader title="Save the Dates" subtitle="Send a faith-themed email to all your guests" maxWidth="max-w-3xl" />
 
-      <div className="max-w-3xl mx-auto px-6 py-10 space-y-8">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-8">
 
         {/* Email preview */}
         <div>
           <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wide mb-4">Email Preview</h2>
-          <div className="bg-[#fdfaf6] rounded-2xl border border-[#e8dcc8] p-10 text-center shadow-sm">
+          <div className="bg-[#fdfaf6] rounded-2xl border border-[#e8dcc8] p-6 sm:p-10 text-center shadow-sm overflow-hidden">
             <p className="text-xs uppercase tracking-[0.2em] text-[#a08060] mb-2">Save the Date</p>
             <p className="font-serif text-3xl font-bold text-[#3b2f2f] mb-1">{coupleNames.split(' & ')[0]}</p>
             <p className="font-serif text-xl text-[#d4af6a] mb-1">&amp;</p>
@@ -66,7 +66,7 @@ export default function SaveTheDatePage() {
 
         {/* Send panel */}
         <div className="bg-white rounded-xl border border-stone-200 p-6">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div>
               <h2 className="font-semibold text-stone-900 mb-1">Send to your guest list</h2>
               <p className="text-sm text-stone-500">

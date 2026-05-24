@@ -34,7 +34,7 @@ export default function AtAGlanceCard({ coupleId, website }: Props) {
 
   return (
     <div className="mb-8 rounded-2xl border border-gold-light bg-gradient-to-br from-white to-ivory p-6 shadow-sm">
-      <div className="grid gap-6 md:grid-cols-4">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <Metric
           label="Wedding day"
           primary={days === null ? '—' : days > 0 ? `${days}` : days === 0 ? 'Today!' : `${Math.abs(days)}`}
@@ -85,7 +85,7 @@ function Metric({ label, primary, suffix, sub, bar }: {
           <div className={`h-full ${bar.color} transition-all`} style={{ width: `${bar.pct}%` }} />
         </div>
       )}
-      <div className="mt-1 text-xs text-brown-light">{sub}</div>
+      <div className="mt-1 text-xs text-brown-light break-words">{sub}</div>
     </div>
   )
 }

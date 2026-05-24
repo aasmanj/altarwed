@@ -70,14 +70,14 @@ export default function VendorListingPage() {
 
   return (
     <div className="min-h-screen bg-[#fdfaf6]">
-      <header className="border-b border-[#e8dcc8] bg-white px-6 py-4 flex items-center justify-between">
-        <span className="font-serif text-xl font-bold text-[#3b2f2f]">AltarWed</span>
-        <Link to="/vendor" className="text-sm text-[#a08060] hover:text-[#3b2f2f] transition">
+      <header className="border-b border-[#e8dcc8] bg-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
+        <span className="font-serif text-xl font-bold text-[#3b2f2f] shrink-0">AltarWed</span>
+        <Link to="/vendor" className="shrink-0 text-sm text-[#a08060] hover:text-[#3b2f2f] transition">
           ← Dashboard
         </Link>
       </header>
 
-      <main className="mx-auto max-w-2xl px-6 py-10">
+      <main className="mx-auto max-w-2xl px-4 sm:px-6 py-6 sm:py-10">
         <div className="mb-8">
           <h1 className="font-serif text-2xl font-bold text-[#3b2f2f]">My Listing</h1>
           <p className="text-[#6b5344] text-sm mt-1">
@@ -94,13 +94,13 @@ export default function VendorListingPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-[#e8dcc8] p-8 space-y-6">
+        <div className="bg-white rounded-2xl border border-[#e8dcc8] p-5 sm:p-8 space-y-6">
           <div>
             <label className="block text-sm font-medium text-[#3b2f2f] mb-1">Business name</label>
             <input value={form.businessName} onChange={set('businessName')} className={inputCls} />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-[#3b2f2f] mb-1">Category</label>
               <select value={form.category} onChange={set('category')} className={inputCls}>

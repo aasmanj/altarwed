@@ -142,7 +142,7 @@ export default function BudgetPage() {
         }
       />
 
-      <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         <TipCallout tip={TIPS.budgetGoal} />
 
         {/* Goal vs Spent */}
@@ -231,41 +231,26 @@ export default function BudgetPage() {
             </button>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-stone-100 text-left text-stone-500 text-xs uppercase tracking-wide">
-                  <th className="px-5 py-3">Category</th>
-                  <th className="px-5 py-3">Vendor / Item</th>
-                  <th className="px-5 py-3 text-right">Estimated</th>
-                  <th className="px-5 py-3 text-right">Actual</th>
-                  <th className="px-5 py-3 text-center">Paid</th>
-                  <th className="px-5 py-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {summary.items.map(item => (
-                  <tr key={item.id} className="border-b border-stone-50 hover:bg-stone-50 transition-colors">
-                    <td className="px-5 py-3">
-                      <span className="inline-block px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-xs font-medium">
+          <>
+            {/* Mobile card list (hidden on sm+) */}
+            <div className="sm:hidden space-y-3">
+              {summary.items.map(item => (
+                <div key={item.id} className="bg-white rounded-xl border border-stone-200 p-4">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-stone-800 text-sm truncate">{item.vendorName}</p>
+                      <span className="inline-block px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-xs font-medium mt-0.5">
                         {CATEGORY_LABELS[item.category]}
                       </span>
-                    </td>
-                    <td className="px-5 py-3 text-stone-800 font-medium">
-                      {item.vendorName}
                       {item.notes && (
-                        <p className="text-xs text-stone-400 mt-0.5 font-normal">{item.notes}</p>
+                        <p className="text-xs text-stone-400 mt-1">{item.notes}</p>
                       )}
-                    </td>
-                    <td className="px-5 py-3 text-right text-stone-600">{fmt(item.estimatedCost)}</td>
-                    <td className="px-5 py-3 text-right text-stone-600">{fmt(item.actualCost)}</td>
-                    <td className="px-5 py-3 text-center">
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
                       <button
                         onClick={() => updateItem.mutate({ itemId: item.id, isPaid: !item.isPaid })}
-                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mx-auto transition-colors ${
-                          item.isPaid
-                            ? 'bg-green-500 border-green-500 text-white'
-                            : 'border-stone-300 hover:border-green-400'
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                          item.isPaid ? 'bg-green-500 border-green-500 text-white' : 'border-stone-300 hover:border-green-400'
                         }`}
                       >
                         {item.isPaid && (
@@ -274,54 +259,129 @@ export default function BudgetPage() {
                           </svg>
                         )}
                       </button>
-                    </td>
-                    <td className="px-5 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openEditForm(item)}
-                          className="text-stone-400 hover:text-stone-700 transition-colors"
-                          title="Edit"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (confirm('Remove this budget item?')) {
-                              deleteItem.mutate(item.id)
-                            }
-                          }}
-                          className="text-stone-400 hover:text-rose-500 transition-colors"
-                          title="Delete"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-stone-50 font-semibold text-stone-700">
-                  <td className="px-5 py-3" colSpan={2}>Totals</td>
-                  <td className="px-5 py-3 text-right">{fmt(summary.totalBudget)}</td>
-                  <td className="px-5 py-3 text-right">{fmt(summary.totalActual)}</td>
-                  <td />
-                  <td />
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                      <button onClick={() => openEditForm(item)} className="text-stone-400 hover:text-stone-700 p-1">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button onClick={() => { if (confirm('Remove this budget item?')) deleteItem.mutate(item.id) }} className="text-stone-400 hover:text-rose-500 p-1">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex gap-4 text-xs text-stone-500">
+                    <span>Est: <span className="font-medium text-stone-700">{fmt(item.estimatedCost)}</span></span>
+                    <span>Actual: <span className="font-medium text-stone-700">{fmt(item.actualCost)}</span></span>
+                    {item.isPaid && <span className="text-green-600 font-medium">Paid</span>}
+                  </div>
+                </div>
+              ))}
+              <div className="bg-stone-50 rounded-xl border border-stone-200 p-4 flex justify-between text-sm font-semibold text-stone-700">
+                <span>Totals</span>
+                <div className="flex gap-4">
+                  <span>{fmt(summary.totalBudget)}</span>
+                  <span>{fmt(summary.totalActual)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop table (hidden on mobile) */}
+            <div className="hidden sm:block bg-white rounded-xl border border-stone-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-stone-100 text-left text-stone-500 text-xs uppercase tracking-wide">
+                      <th className="px-5 py-3">Category</th>
+                      <th className="px-5 py-3">Vendor / Item</th>
+                      <th className="px-5 py-3 text-right">Estimated</th>
+                      <th className="px-5 py-3 text-right">Actual</th>
+                      <th className="px-5 py-3 text-center">Paid</th>
+                      <th className="px-5 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {summary.items.map(item => (
+                      <tr key={item.id} className="border-b border-stone-50 hover:bg-stone-50 transition-colors">
+                        <td className="px-5 py-3">
+                          <span className="inline-block px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-xs font-medium">
+                            {CATEGORY_LABELS[item.category]}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-stone-800 font-medium">
+                          {item.vendorName}
+                          {item.notes && (
+                            <p className="text-xs text-stone-400 mt-0.5 font-normal">{item.notes}</p>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 text-right text-stone-600">{fmt(item.estimatedCost)}</td>
+                        <td className="px-5 py-3 text-right text-stone-600">{fmt(item.actualCost)}</td>
+                        <td className="px-5 py-3 text-center">
+                          <button
+                            onClick={() => updateItem.mutate({ itemId: item.id, isPaid: !item.isPaid })}
+                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mx-auto transition-colors ${
+                              item.isPaid
+                                ? 'bg-green-500 border-green-500 text-white'
+                                : 'border-stone-300 hover:border-green-400'
+                            }`}
+                          >
+                            {item.isPaid && (
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </button>
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => openEditForm(item)}
+                              className="text-stone-400 hover:text-stone-700 transition-colors"
+                              title="Edit"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm('Remove this budget item?')) {
+                                  deleteItem.mutate(item.id)
+                                }
+                              }}
+                              className="text-stone-400 hover:text-rose-500 transition-colors"
+                              title="Delete"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-stone-50 font-semibold text-stone-700">
+                      <td className="px-5 py-3" colSpan={2}>Totals</td>
+                      <td className="px-5 py-3 text-right">{fmt(summary.totalBudget)}</td>
+                      <td className="px-5 py-3 text-right">{fmt(summary.totalActual)}</td>
+                      <td />
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
       {/* Add/Edit modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-semibold text-stone-900 mb-5">
               {editingId ? 'Edit Budget Item' : 'Add Budget Item'}
             </h2>

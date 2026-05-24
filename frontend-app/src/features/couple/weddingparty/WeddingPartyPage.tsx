@@ -62,7 +62,7 @@ export default function WeddingPartyPage() {
         }
       />
 
-      <main className="mx-auto max-w-3xl px-6 py-10">
+      <main className="mx-auto max-w-3xl px-4 sm:px-6 py-6 sm:py-10">
 
         {!websiteId && (
           <div className="rounded-xl border border-gold-light bg-white p-8 text-center mb-8">
@@ -92,12 +92,12 @@ export default function WeddingPartyPage() {
 
         {/* Side filter */}
         {members.length > 0 && (
-          <div className="flex gap-1 mb-6 border-b border-gold-light">
+          <div className="flex gap-1 mb-6 border-b border-gold-light overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
             {(['ALL', 'BRIDE', 'GROOM', 'NEUTRAL'] as const).map(f => (
               <button
                 key={f}
                 onClick={() => setSideFilter(f)}
-                className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition ${
+                className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition whitespace-nowrap ${
                   sideFilter === f ? 'border-gold text-brown' : 'border-transparent text-brown-light hover:text-brown'
                 }`}
               >

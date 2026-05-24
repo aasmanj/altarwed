@@ -91,7 +91,7 @@ export default function CeremonyPage() {
     <div className="min-h-screen bg-ivory">
       <PageHeader
         title="Ceremony Builder"
-        subtitle="Plan your order of service — scripture, vows, music, and more."
+        subtitle="Plan your order of service: scripture, vows, music, and more."
         maxWidth="max-w-3xl"
         action={
           <button
@@ -151,13 +151,13 @@ export default function CeremonyPage() {
                 <div className="flex shrink-0 gap-2">
                   <button
                     onClick={() => openEdit(s)}
-                    className="rounded-lg border border-gold-light px-3 py-1.5 text-xs font-medium text-brown hover:border-gold hover:bg-gold/5 transition"
+                    className="rounded-lg border border-gold-light px-3 py-2 text-xs font-medium text-brown hover:border-gold hover:bg-gold/5 transition min-h-[44px]"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => handleDelete(s.id)}
-                    className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 transition"
+                    className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-500 hover:bg-red-50 transition min-h-[44px]"
                   >
                     Remove
                   </button>

@@ -56,7 +56,7 @@ export default function VowsPage() {
     <div className="min-h-screen bg-ivory">
       <PageHeader
         title="Vow Builder"
-        subtitle="Write and save your wedding vows — just for the two of you."
+        subtitle="Write and save your wedding vows, just for the two of you."
         maxWidth="max-w-4xl"
         action={
           <button

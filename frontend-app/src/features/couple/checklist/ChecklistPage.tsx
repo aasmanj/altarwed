@@ -82,7 +82,7 @@ export default function ChecklistPage() {
         }
       />
 
-      <main className="mx-auto max-w-3xl px-6 py-10">
+      <main className="mx-auto max-w-3xl px-4 sm:px-6 py-6 sm:py-10">
         <div className="mb-6">
           <TipCallout tip={TIPS.checklistFaith} />
         </div>

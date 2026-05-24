@@ -33,7 +33,7 @@ export default function CoupleDashboard() {
       </header>
 
       {/* Help banner */}
-      <div className="bg-gold/10 border-b border-gold-light px-6 py-2.5 text-center text-sm text-brown">
+      <div className="bg-gold/10 border-b border-gold-light px-4 sm:px-6 py-2.5 text-center text-sm text-brown">
         Questions or found a bug?{' '}
         <a href="mailto:hello@altarwed.com" className="font-medium text-gold hover:underline">
           Email hello@altarwed.com
@@ -41,7 +41,7 @@ export default function CoupleDashboard() {
 
       </div>
 
-      <main className="mx-auto max-w-5xl px-6 py-10">
+      <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-10">
         <h2 className="font-serif text-2xl font-bold text-brown mb-2">
           Welcome back, {user?.partnerOneName && user?.partnerTwoName
             ? `${user.partnerOneName} & ${user.partnerTwoName}`

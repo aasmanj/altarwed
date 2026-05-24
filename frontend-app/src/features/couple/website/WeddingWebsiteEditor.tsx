@@ -82,7 +82,7 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
         subtitle={publicUrl}
         maxWidth="max-w-3xl"
         action={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${website.isPublished ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
               {website.isPublished ? 'Published' : 'Draft'}
             </span>
@@ -93,7 +93,7 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
             <button
               onClick={handlePublishToggle}
               disabled={publish.isPending}
-              className="rounded-lg border border-gold px-4 py-1.5 text-sm font-medium text-brown hover:bg-gold/10 disabled:opacity-60 transition"
+              className="rounded-lg border border-gold px-3 py-1.5 text-sm font-medium text-brown hover:bg-gold/10 disabled:opacity-60 transition min-h-[36px]"
             >
               {publish.isPending ? '…' : website.isPublished ? 'Unpublish' : 'Publish'}
             </button>
@@ -101,7 +101,7 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
         }
       />
 
-      <div className="max-w-3xl mx-auto py-8 px-6">
+      <div className="max-w-3xl mx-auto py-6 sm:py-8 px-4 sm:px-6">
 
       {/* Tabs */}
       <div className="flex gap-1 mb-8 border-b border-gold-light overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
