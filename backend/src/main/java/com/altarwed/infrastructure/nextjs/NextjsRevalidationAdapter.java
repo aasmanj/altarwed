@@ -29,14 +29,20 @@ public class NextjsRevalidationAdapter implements RevalidationPort {
     // If Next.js is unreachable, the ISR TTL (60s) acts as the fallback.
     @Override
     public void revalidateWeddingPage(String slug) {
+        log.info("nextjs revalidation requested, path=/wedding/{}", slug);
         try {
             restClient.post()
                     .uri("/api/revalidate?secret={secret}&slug={slug}", secret, slug)
                     .retrieve()
                     .toBodilessEntity();
-            log.info("[revalidation] Purged /wedding/{}", slug);
-        } catch (Exception e) {
-            log.warn("[revalidation] Failed to revalidate /wedding/{}: {}", slug, e.getMessage());
+            log.info("nextjs revalidation succeeded, path=/wedding/{}", slug);
+        } catch (org.springframework.web.client.RestClientResponseException ex) {
+            // Provider-level rejection (4xx/5xx). Recoverable: ISR TTL handles fallback.
+            log.warn("nextjs revalidation rejected, path=/wedding/{}, status={}",
+                    slug, ex.getStatusCode());
+        } catch (org.springframework.web.client.RestClientException ex) {
+            // Transport failure (network, DNS, timeout). Still recoverable via ISR.
+            log.warn("nextjs revalidation transport error, path=/wedding/{}", slug, ex);
         }
     }
 }

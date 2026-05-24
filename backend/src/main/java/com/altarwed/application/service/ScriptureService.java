@@ -2,14 +2,20 @@ package com.altarwed.application.service;
 
 import com.altarwed.application.dto.ScriptureFeaturedResponse;
 import com.altarwed.application.dto.ScriptureVerseResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.util.List;
 import java.util.Map;
 
 @Service
 public class ScriptureService {
+
+    private static final Logger log = LoggerFactory.getLogger(ScriptureService.class);
 
     // 15 curated covenant/wedding verses — references only; text fetched on demand
     private static final List<String> FEATURED_REFERENCES = List.of(
@@ -44,12 +50,23 @@ public class ScriptureService {
 
     @SuppressWarnings("unchecked")
     public ScriptureVerseResponse search(String query) {
-        var response = restClient.get()
-                .uri("/{query}", query)
-                .retrieve()
-                .body(Map.class);
+        log.info("scripture lookup requested, query={}", query);
+        Map<String, Object> response;
+        try {
+            response = restClient.get()
+                    .uri("/{query}", query)
+                    .retrieve()
+                    .body(Map.class);
+        } catch (RestClientResponseException ex) {
+            log.warn("bible-api rejected lookup, query={}, status={}", query, ex.getStatusCode());
+            throw new IllegalArgumentException("Verse not found: " + query);
+        } catch (RestClientException ex) {
+            log.error("bible-api call failed, query={}", query, ex);
+            throw ex;
+        }
 
         if (response == null || !response.containsKey("text")) {
+            log.warn("bible-api returned no text, query={}", query);
             throw new IllegalArgumentException("Verse not found: " + query);
         }
 
@@ -57,6 +74,7 @@ public class ScriptureService {
                 ? (String) response.get("reference")
                 : query;
         String text = ((String) response.get("text")).strip();
+        log.info("scripture lookup succeeded, reference={}", reference);
 
         return new ScriptureVerseResponse(reference, text);
     }

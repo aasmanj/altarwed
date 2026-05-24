@@ -7,7 +7,10 @@ import com.altarwed.domain.model.RefreshToken;
 import com.altarwed.domain.model.Vendor;
 import com.altarwed.domain.port.RefreshTokenRepository;
 import com.altarwed.domain.port.VendorRepository;
+import com.altarwed.infrastructure.observability.LogSanitizer;
 import com.altarwed.infrastructure.security.JwtService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +22,7 @@ import java.util.UUID;
 @Service
 public class VendorAuthService {
 
+    private static final Logger log = LoggerFactory.getLogger(VendorAuthService.class);
     private static final String ROLE_VENDOR = "VENDOR";
 
     private final VendorRepository vendorRepository;
@@ -40,7 +44,10 @@ public class VendorAuthService {
 
     @Transactional
     public AuthResponse register(RegisterVendorRequest request) {
+        String maskedEmail = LogSanitizer.maskEmail(request.email());
+        log.info("vendor registration started, email={}, category={}", maskedEmail, request.category());
         if (vendorRepository.existsByEmail(request.email())) {
+            log.warn("vendor registration rejected, email already exists, email={}", maskedEmail);
             throw new EmailAlreadyExistsException(request.email());
         }
 
@@ -67,6 +74,7 @@ public class VendorAuthService {
         String rawRefresh = jwtService.generateRefreshToken(saved.email(), ROLE_VENDOR, saved.id());
         persistRefreshToken(rawRefresh, saved.id(), ROLE_VENDOR);
 
+        log.info("vendor registration succeeded, vendorId={}, email={}", saved.id(), maskedEmail);
         return AuthResponse.of(accessToken, rawRefresh, saved.id(), saved.email(), null, null, null);
     }
 

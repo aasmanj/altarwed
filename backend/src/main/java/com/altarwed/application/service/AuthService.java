@@ -9,9 +9,13 @@ import com.altarwed.domain.model.Couple;
 import com.altarwed.domain.model.RefreshToken;
 import com.altarwed.domain.port.CoupleRepository;
 import com.altarwed.domain.port.RefreshTokenRepository;
+import com.altarwed.infrastructure.observability.LogSanitizer;
 import com.altarwed.infrastructure.security.JwtService;
 import io.jsonwebtoken.Claims;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -22,6 +26,7 @@ import java.time.LocalDateTime;
 @Service
 public class AuthService {
 
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     private static final String ROLE_COUPLE = "COUPLE";
 
     private final CoupleRepository coupleRepository;
@@ -46,7 +51,10 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterCoupleRequest request) {
+        String maskedEmail = LogSanitizer.maskEmail(request.email());
+        log.info("couple registration started, email={}", maskedEmail);
         if (coupleRepository.existsByEmail(request.email())) {
+            log.warn("couple registration rejected, email already exists, email={}", maskedEmail);
             throw new EmailAlreadyExistsException(request.email());
         }
 
@@ -69,15 +77,23 @@ public class AuthService {
         String rawRefresh = jwtService.generateRefreshToken(saved.email(), ROLE_COUPLE, saved.id());
         persistRefreshToken(rawRefresh, saved.id(), ROLE_COUPLE);
 
+        log.info("couple registration succeeded, coupleId={}, email={}", saved.id(), maskedEmail);
         return AuthResponse.of(accessToken, rawRefresh, saved.id(), saved.email(),
                 saved.partnerOneName(), saved.partnerTwoName(), saved.weddingDate());
     }
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.email(), request.password())
-        );
+        String maskedEmail = LogSanitizer.maskEmail(request.email());
+        log.info("login attempt, role=COUPLE, email={}", maskedEmail);
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.email(), request.password())
+            );
+        } catch (AuthenticationException ex) {
+            log.warn("login failed, role=COUPLE, email={}, reason={}", maskedEmail, ex.getClass().getSimpleName());
+            throw ex;
+        }
 
         Couple couple = coupleRepository.findByEmail(request.email())
                 .orElseThrow(() -> new IllegalStateException("Couple not found after authentication"));
@@ -89,6 +105,7 @@ public class AuthService {
         String rawRefresh = jwtService.generateRefreshToken(couple.email(), ROLE_COUPLE, couple.id());
         persistRefreshToken(rawRefresh, couple.id(), ROLE_COUPLE);
 
+        log.info("login succeeded, role=COUPLE, coupleId={}, email={}", couple.id(), maskedEmail);
         return AuthResponse.of(accessToken, rawRefresh, couple.id(), couple.email(),
                 couple.partnerOneName(), couple.partnerTwoName(), couple.weddingDate());
     }
@@ -99,9 +116,13 @@ public class AuthService {
         String tokenHash = jwtService.hashToken(rawRefreshToken);
 
         RefreshToken stored = refreshTokenRepository.findByTokenHash(tokenHash)
-                .orElseThrow(InvalidRefreshTokenException::new);
+                .orElseThrow(() -> {
+                    log.warn("token refresh rejected, reason=token not found");
+                    return new InvalidRefreshTokenException();
+                });
 
         if (!stored.isValid()) {
+            log.warn("token refresh rejected, reason=token invalid or expired, userId={}", stored.userId());
             refreshTokenRepository.deleteByTokenHash(tokenHash);
             throw new InvalidRefreshTokenException();
         }
@@ -116,6 +137,7 @@ public class AuthService {
         String newAccessToken = jwtService.generateAccessToken(email, role, userId);
         String newRawRefresh = jwtService.generateRefreshToken(email, role, userId);
         persistRefreshToken(newRawRefresh, userId, role);
+        log.info("token refresh succeeded, userId={}, role={}", userId, role);
 
         // Load couple to return partner names — needed so the frontend can display them after a token refresh
         Couple couple = coupleRepository.findByEmail(email).orElse(null);
@@ -130,6 +152,7 @@ public class AuthService {
     public void logout(String rawRefreshToken) {
         String tokenHash = jwtService.hashToken(rawRefreshToken);
         refreshTokenRepository.deleteByTokenHash(tokenHash);
+        log.info("logout completed");
     }
 
     // -------------------------------------------------------------------------

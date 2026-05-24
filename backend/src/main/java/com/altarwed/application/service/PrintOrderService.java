@@ -72,6 +72,8 @@ public class PrintOrderService {
      */
     public PrintOrder createOrder(UUID coupleId, CreatePrintOrderRequest req) {
         PrintOrderType orderType = PrintOrderType.valueOf(req.orderType());
+        log.info("print order requested, coupleId={}, orderType={}, templateKey={}, recipients={}",
+                 coupleId, orderType, req.templateKey(), req.guestIds().size());
 
         Couple couple = coupleRepository.findById(coupleId)
                 .orElseThrow(() -> new IllegalArgumentException("Couple not found"));
@@ -107,6 +109,7 @@ public class PrintOrderService {
                 req.guestIds().size(), 0, null, LocalDateTime.now(), null, List.of()
         ));
         UUID orderId = draft.id();
+        log.info("print order draft persisted, orderId={}, coupleId={}", orderId, coupleId);
 
         List<PrintOrderRecipient> recipients = new ArrayList<>();
         int successCount = 0;
@@ -144,7 +147,8 @@ public class PrintOrderService {
                 recipients.add(new PrintOrderRecipient(null, null, guestId, lobId, "SUBMITTED", null));
                 successCount++;
             } catch (PrintMailPort.PrintMailException ex) {
-                log.warn("Print mail rejected for guest {}: {}", guestId, ex.getMessage());
+                log.warn("lob rejected postcard, orderId={}, guestId={}, reason={}",
+                         orderId, guestId, ex.getMessage());
                 recipients.add(new PrintOrderRecipient(null, null, guestId, null, "FAILED", ex.getMessage()));
                 failureCount++;
             }
@@ -170,7 +174,10 @@ public class PrintOrderService {
                 successCount > 0 ? now : null,
                 recipients
         );
-        return printOrderRepository.save(order);
+        PrintOrder saved = printOrderRepository.save(order);
+        log.info("print order finalized, orderId={}, coupleId={}, status={}, succeeded={}, failed={}",
+                 orderId, coupleId, status, successCount, failureCount);
+        return saved;
     }
 
     // -------------------------------------------------------------------------

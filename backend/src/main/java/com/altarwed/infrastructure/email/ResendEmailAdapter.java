@@ -1,16 +1,24 @@
 package com.altarwed.infrastructure.email;
 
 import com.altarwed.domain.port.EmailPort;
+import com.altarwed.infrastructure.observability.LogSanitizer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.util.List;
 import java.util.Map;
 
 @Component
 public class ResendEmailAdapter implements EmailPort {
+
+    private static final Logger log = LoggerFactory.getLogger(ResendEmailAdapter.class);
 
     private final RestClient restClient;
     private final String fromEmail;
@@ -73,12 +81,7 @@ public class ResendEmailAdapter implements EmailPort {
                 "text", text
         );
 
-        restClient.post()
-                .uri("/emails")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(body)
-                .retrieve()
-                .toBodilessEntity();
+        postEmail("rsvp-invite", toEmail, body);
     }
 
     @Override
@@ -127,12 +130,7 @@ public class ResendEmailAdapter implements EmailPort {
                 "text", text
         );
 
-        restClient.post()
-                .uri("/emails")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(body)
-                .retrieve()
-                .toBodilessEntity();
+        postEmail("save-the-date", toEmail, body);
     }
 
     @Override
@@ -215,12 +213,7 @@ public class ResendEmailAdapter implements EmailPort {
                 "text", text
         );
 
-        restClient.post()
-                .uri("/emails")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(body)
-                .retrieve()
-                .toBodilessEntity();
+        postEmail("rsvp-notification", coupleEmail, body);
     }
 
     @Override
@@ -262,11 +255,34 @@ public class ResendEmailAdapter implements EmailPort {
                 "text", text
         );
 
-        restClient.post()
-                .uri("/emails")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(body)
-                .retrieve()
-                .toBodilessEntity();
+        postEmail("password-reset", toEmail, body);
+    }
+
+    /**
+     * Single entry point for all outbound Resend calls. Logs INFO before the call,
+     * INFO after success (with the Resend message id for cross-reference in their
+     * dashboard), WARN on provider rejection, ERROR on transport failure.
+     * Recipient email is masked in logs to comply with PII rules in CLAUDE.md.
+     */
+    private void postEmail(String emailType, String toEmail, Map<String, Object> body) {
+        String maskedTo = LogSanitizer.maskEmail(toEmail);
+        log.info("sending email via resend, type={}, to={}", emailType, maskedTo);
+        try {
+            ResponseEntity<Map> response = restClient.post()
+                    .uri("/emails")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .toEntity(Map.class);
+            Object id = response.getBody() == null ? null : response.getBody().get("id");
+            log.info("resend accepted email, type={}, to={}, resendId={}", emailType, maskedTo, id);
+        } catch (RestClientResponseException ex) {
+            log.warn("resend rejected email, type={}, to={}, status={}, body={}",
+                    emailType, maskedTo, ex.getStatusCode(), ex.getResponseBodyAsString());
+            throw ex;
+        } catch (RestClientException ex) {
+            log.error("resend call failed, type={}, to={}", emailType, maskedTo, ex);
+            throw ex;
+        }
     }
 }

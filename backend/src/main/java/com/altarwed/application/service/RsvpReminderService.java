@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 // Scheduled service that polls once per hour for guests who requested a reminder.
 // When remind_at <= now and rsvpStatus = PENDING, it re-sends the RSVP invite
@@ -38,21 +39,29 @@ public class RsvpReminderService {
     @Scheduled(fixedRate = 3_600_000, initialDelay = 60_000)
     @Transactional
     public void sendDueReminders() {
+        UUID runId = UUID.randomUUID();
+        long startMs = System.currentTimeMillis();
         List<Guest> due = guestRepository.findDueReminders(LocalDateTime.now());
+        log.info("rsvp reminder job started, runId={}, dueCount={}", runId, due.size());
         if (due.isEmpty()) return;
 
-        log.info("RsvpReminderService: sending {} reminder(s)", due.size());
+        int sent = 0;
+        int failed = 0;
         for (Guest guest : due) {
             try {
                 // issueInvite increments inviteSendCount, issues a fresh token, sends the email,
-                // and clears remindAt. It respects the MAX_INVITE_SENDS cap — if the cap is hit
+                // and clears remindAt. It respects the MAX_INVITE_SENDS cap; if the cap is hit
                 // the call throws, which we catch so one over-limit guest doesn't abort the batch.
                 guestService.sendInvite(guest.coupleId(), guest.id());
-                log.debug("Reminder sent to guestId={}", guest.id());
+                sent++;
             } catch (Exception ex) {
-                // Log and continue — never let one failed reminder abort the rest of the batch.
-                log.warn("Failed to send reminder for guestId={}: {}", guest.id(), ex.getMessage());
+                // Log and continue: never let one failed reminder abort the rest of the batch.
+                failed++;
+                log.warn("rsvp reminder failed for guest, runId={}, guestId={}, coupleId={}",
+                         runId, guest.id(), guest.coupleId(), ex);
             }
         }
+        log.info("rsvp reminder job finished, runId={}, sent={}, failed={}, durationMs={}",
+                 runId, sent, failed, System.currentTimeMillis() - startMs);
     }
 }

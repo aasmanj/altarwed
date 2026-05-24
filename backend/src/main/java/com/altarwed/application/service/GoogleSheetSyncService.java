@@ -112,17 +112,22 @@ public class GoogleSheetSyncService {
         return toResponse(runSync(sync));
     }
 
-    /** Called by the scheduler — processes all active configs. */
+    /** Called by the scheduler; processes all active configs. */
     public void runAllActive() {
         List<GoogleSheetSync> active = syncRepository.findAllActive();
-        log.info("Google Sheets polling: {} active configs", active.size());
+        log.info("google sheet sync batch started, activeConfigs={}", active.size());
+        int succeeded = 0;
+        int failed = 0;
         for (GoogleSheetSync sync : active) {
             try {
                 runSync(sync);
-            } catch (Exception e) {
-                log.error("Google Sheets sync failed for couple {}: {}", sync.coupleId(), e.getMessage());
+                succeeded++;
+            } catch (Exception ex) {
+                failed++;
+                log.warn("google sheet sync failed for couple, coupleId={}", sync.coupleId(), ex);
             }
         }
+        log.info("google sheet sync batch finished, succeeded={}, failed={}", succeeded, failed);
     }
 
     // -----------------------------------------------------------------------
@@ -131,6 +136,7 @@ public class GoogleSheetSyncService {
 
     private GoogleSheetSync runSync(GoogleSheetSync sync) {
         String csvUrl = toCsvUrl(sync.sheetUrl());
+        log.info("google sheet sync started, coupleId={}", sync.coupleId());
         try {
             String csv = fetchCsv(csvUrl);
             int rowsProcessed = upsertGuests(sync.coupleId(), csv);
@@ -140,11 +146,15 @@ public class GoogleSheetSyncService {
                     LocalDateTime.now(), null, rowsProcessed,
                     true, sync.createdAt(), null
             );
-            return syncRepository.save(updated);
+            GoogleSheetSync saved = syncRepository.save(updated);
+            log.info("google sheet sync succeeded, coupleId={}, rowsProcessed={}",
+                     sync.coupleId(), rowsProcessed);
+            return saved;
         } catch (Exception e) {
             String errorMsg = e.getMessage() != null
                     ? e.getMessage().substring(0, Math.min(e.getMessage().length(), 990))
                     : "Unknown error";
+            log.warn("google sheet sync errored, coupleId={}", sync.coupleId(), e);
             GoogleSheetSync errored = new GoogleSheetSync(
                     sync.id(), sync.coupleId(), sync.sheetUrl(),
                     sync.lastSynced(), errorMsg, sync.rowCount(),

@@ -5,6 +5,9 @@ import com.altarwed.domain.model.PasswordResetToken;
 import com.altarwed.domain.port.CoupleRepository;
 import com.altarwed.application.service.AsyncEmailService;
 import com.altarwed.domain.port.PasswordResetTokenRepository;
+import com.altarwed.infrastructure.observability.LogSanitizer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +23,7 @@ import java.util.UUID;
 @Service
 public class PasswordResetService {
 
+    private static final Logger log = LoggerFactory.getLogger(PasswordResetService.class);
     private static final int EXPIRY_MINUTES = 15;
 
     private final PasswordResetTokenRepository tokenRepository;
@@ -44,7 +48,12 @@ public class PasswordResetService {
     // same 200 response regardless of whether the email is registered.
     @Transactional
     public void requestReset(String email) {
+        String maskedEmail = LogSanitizer.maskEmail(email);
+        log.info("password reset requested, email={}", maskedEmail);
         if (!coupleRepository.existsByEmail(email)) {
+            // Deliberately silent to the caller to prevent account enumeration, but
+            // we log so support can see attempted-but-no-account events.
+            log.info("password reset skipped, no account, email={}", maskedEmail);
             return;
         }
 
@@ -65,6 +74,7 @@ public class PasswordResetService {
         tokenRepository.save(resetToken);
 
         emailPort.sendPasswordResetEmail(email, rawToken);
+        log.info("password reset email queued, email={}", maskedEmail);
     }
 
     @Transactional
@@ -72,9 +82,14 @@ public class PasswordResetService {
         String tokenHash = hash(rawToken);
 
         PasswordResetToken token = tokenRepository.findByTokenHash(tokenHash)
-                .orElseThrow(InvalidPasswordResetTokenException::new);
+                .orElseThrow(() -> {
+                    log.warn("password reset rejected, reason=token not found");
+                    return new InvalidPasswordResetTokenException();
+                });
 
         if (!token.isValid()) {
+            log.warn("password reset rejected, reason=token invalid or expired, email={}",
+                     LogSanitizer.maskEmail(token.email()));
             throw new InvalidPasswordResetTokenException();
         }
 
@@ -85,6 +100,8 @@ public class PasswordResetService {
 
         // Mark token consumed so replay attempts are rejected.
         tokenRepository.markUsed(tokenHash);
+        log.info("password reset succeeded, coupleId={}, email={}",
+                 couple.id(), LogSanitizer.maskEmail(token.email()));
     }
 
     private String hash(String value) {

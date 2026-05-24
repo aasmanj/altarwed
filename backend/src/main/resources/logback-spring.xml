@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AltarWed logging config. Console only — Azure App Service tails stdout into
+  App Insights / Log Stream. No file appenders (App Service disks are ephemeral
+  and per-instance; the pipeline is the source of truth).
+
+  Pattern includes %X{requestId} so every line in App Insights can be filtered
+  back to one HTTP request. requestId is populated by RequestIdFilter and
+  propagated across @Async via MdcTaskDecorator.
+
+  When adding JSON-structured ingest later: depend on logstash-logback-encoder
+  and swap the encoder block. The MDC fields are already there.
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <property name="LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [%t] [requestId=%X{requestId:-none}] %logger{36} - %msg%n%wEx"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Async wrapper keeps logging off the request thread under bursty load. -->
+    <appender name="ASYNC_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="CONSOLE"/>
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>true</neverBlock>
+        <includeCallerData>false</includeCallerData>
+    </appender>
+
+    <!-- Hibernate query firehose: turn down to WARN in prod, override locally if debugging SQL. -->
+    <logger name="org.hibernate.SQL" level="WARN"/>
+    <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="WARN"/>
+
+    <!-- Tomcat / Spring boilerplate: keep at INFO so startup banner + lifecycle events show. -->
+    <logger name="org.apache.catalina" level="INFO"/>
+    <logger name="org.springframework.web" level="INFO"/>
+    <logger name="org.springframework.security" level="INFO"/>
+
+    <!-- Our code: INFO baseline. Per-package overrides via spring profile or env var. -->
+    <logger name="com.altarwed" level="INFO"/>
+
+    <root level="INFO">
+        <appender-ref ref="ASYNC_CONSOLE"/>
+    </root>
+
+    <!-- Local profile: louder console for development. -->
+    <springProfile name="local">
+        <logger name="com.altarwed" level="DEBUG"/>
+        <logger name="org.hibernate.SQL" level="DEBUG"/>
+    </springProfile>
+</configuration>

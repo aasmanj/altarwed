@@ -219,36 +219,119 @@ All entities below have Flyway migrations in production (V1–V15):
 ## Observability Rules (logs that reach Azure Application Insights)
 
 App Service ships SLF4J logs to App Insights. Logs are the only window into prod;
-add them deliberately, not "just in case." Every new service method or external
-adapter MUST follow these:
+add them deliberately, not "just in case." These rules are enforced by the
+`code-reviewer` agent.
 
-**Log levels (be strict):**
-- **INFO** at boundary events: request entry on any write endpoint, just before an external API call (Lob, Resend, Stripe, Blob upload), and just after a durable side-effect commits (DB write, queue publish). One INFO per logical step, not per line of code.
-- **WARN** for recoverable per-item failures inside a batch (one Lob postcard rejected out of 10, one guest email bounce). The overall operation continues.
-- **ERROR** for unexpected exceptions and unrecoverable state. If you can recover, it is WARN.
-- **DEBUG** is fine to write but is disabled in prod by default; do not rely on it for incident response.
+### 1. Log levels (be strict)
+- **INFO** at boundary events only: HTTP write-endpoint entry, just before an external API call, just after a durable side-effect commits, scheduled-job start/finish, auth events (login success/failure, token refresh, password reset). One INFO per logical step, never per line of code.
+- **WARN** for recoverable per-item failures inside a batch (one bounced email out of 50), domain-rule rejections that are expected (RSVP token expired, invite-cap exceeded), and any retry attempt.
+- **ERROR** for unexpected exceptions and unrecoverable state. If you can recover or the failure was expected, it is WARN, not ERROR. ERROR pages on-call when alerting is wired; do not cry wolf.
+- **DEBUG** is fine in code but disabled in prod by default. Never rely on it for incident response.
 
-**What every log line must include:**
-- Correlation IDs as structured args, not interpolated strings: `log.info("submitting postcard order, coupleId={}, orderId={}, recipients={}", coupleId, orderId, count)`. App Insights indexes structured args as searchable columns; interpolated strings become opaque text.
-- A noun + verb at the start ("submitting postcard order", "guest email bounced") so log search by prefix is useful.
+### 2. Structured args, never string concatenation
+SLF4J's `{}` placeholders are parsed by App Insights into typed, indexable, queryable columns. Strings concatenated with `+` become opaque text that can only be `LIKE`-searched.
 
-**What to NEVER log:**
-- Email addresses, mailing addresses, phone numbers, names — PII per GDPR/CCPA.
-- JWT contents, refresh tokens, passwords (even hashed), Stripe IDs, API keys.
-- Full request/response bodies from external APIs (they may contain PII).
-- Use guest IDs / order IDs instead — the DB has the join.
+```java
+// WRONG — App Insights cannot index this
+log.info("Order " + orderId + " for couple " + coupleId + " failed");
 
-**External integrations specifically:**
-Wrap every external call (Lob, Resend, Stripe webhook, Blob upload, Next.js revalidate) with:
-1. INFO before: what we are about to do and the target ID (not the target's name).
-2. WARN on a domain-known failure path (e.g. provider rejection per item).
-3. ERROR on unexpected exception, with the exception passed as the last arg so the stack trace lands in App Insights.
+// RIGHT — orderId and coupleId become searchable columns in App Insights
+log.info("print order submission failed, orderId={}, coupleId={}", orderId, coupleId);
+```
 
-**Anti-patterns the code-reviewer will flag:**
-- A new service method or adapter with zero log lines.
-- `log.info("entering method")` / `"exiting method"` style noise.
-- String concatenation in the log message instead of structured args (`"order " + id + " failed"`).
-- Logging an exception's `.getMessage()` only — always pass the exception itself so the stack trace is preserved.
+### 3. Message style
+Start with `noun verb [state]` in lowercase: `"print order submitted"`, `"guest invite issued"`, `"resend rejected email"`. Consistent prefixes make Kusto/KQL prefix-search useful (`| where message startswith "print order"`).
+
+### 4. Required correlation IDs (MDC)
+Every HTTP request gets a `requestId` automatically (from `RequestIdFilter` in `infrastructure/observability/`). It is in MDC for the life of the request, included on every log line, and returned to clients in the `X-Request-Id` response header so users can quote it in support tickets.
+
+When you write a log line in a request-scoped path you do NOT need to pass the requestId — it is already there. You DO need to add the domain-scoped ID as a structured arg:
+- HTTP write endpoints: `coupleId` or `vendorId` (whichever owns the resource)
+- Scheduled jobs: a `jobRunId = UUID.randomUUID()` per invocation
+- `@Async` tasks: MDC propagates automatically via `AsyncMdcConfig`; add domain IDs as args
+
+### 5. External integrations — the contract
+Every call to Lob, Resend, Stripe (when added), Azure Blob, Next.js revalidate, bible-api.com, Google Sheets, or any future provider MUST log:
+
+```java
+log.info("submitting postcard to lob, orderId={}, guestId={}", orderId, guestId);
+try {
+    String lobId = client.send(...);
+    log.info("lob accepted postcard, orderId={}, guestId={}, lobId={}", orderId, guestId, lobId);
+} catch (ProviderRejectionException ex) {
+    log.warn("lob rejected postcard, orderId={}, guestId={}, status={}", orderId, guestId, ex.status());
+    // ... handle, do NOT rethrow as ERROR
+} catch (Exception ex) {
+    log.error("lob call failed unexpectedly, orderId={}, guestId={}", orderId, guestId, ex);
+    throw ex;
+}
+```
+
+Three rules:
+1. INFO **before** the call — proves we got that far when the response never comes back.
+2. INFO **after** success — includes the provider's ID for cross-referencing in their dashboard.
+3. ERROR catches the **exception** as the last arg (not just `.getMessage()`), so the stack trace lands in App Insights.
+
+### 6. Auth and security events (always log, always at INFO or WARN)
+- INFO: login success (email, role, userId), token refresh (userId), password reset request (email), logout, vendor approval state change
+- WARN: login failure (email + reason: "bad credentials" / "no such user" / "account inactive"), token refresh with revoked/expired token, password reset with bad token, IDOR attempt (`AccessDeniedException` thrown because path ID did not match principal), rate-limit hit, JWT signature failure
+- These are your security audit trail. Never silently `return 401`; always log first.
+
+### 7. Scheduled jobs and async tasks
+Every `@Scheduled` method MUST bracket itself:
+
+```java
+@Scheduled(fixedRate = 15 * 60_000)
+public void poll() {
+    UUID runId = UUID.randomUUID();
+    log.info("google sheet poll started, runId={}", runId);
+    int processed = 0, failed = 0;
+    try {
+        // ... work ...
+        log.info("google sheet poll finished, runId={}, processed={}, failed={}, durationMs={}",
+                 runId, processed, failed, ...);
+    } catch (Exception ex) {
+        log.error("google sheet poll crashed, runId={}, processed={}", runId, processed, ex);
+        throw ex; // let Spring's scheduler logging catch it too
+    }
+}
+```
+
+Same shape for `@Async` methods: log entry with the IDs you got passed, exit with the outcome.
+
+### 8. What to NEVER log
+- **PII (GDPR/CCPA classify log files as data stores):** email addresses, mailing addresses, phone numbers, guest names, partner names, payment details, profile photos, IP addresses unless explicitly required for security audit
+- **Secrets:** JWT contents (full or partial), refresh tokens (raw or hashed), passwords (even hashed), Stripe customer IDs that map to PII, API keys, connection strings, OAuth tokens, Lob/Resend/Stripe webhook payloads (they contain PII)
+- **Bulk data:** full request/response bodies from external APIs, full DB rows, file contents
+- **Use internal UUIDs instead** — they are pseudonymous identifiers, not personal data, and the DB has the join when you actually need to know who.
+
+If you genuinely need an email address for an audit log (e.g., a login-failure event), log only the *prefix before @* (`j***@altarwed.com`) using a helper, never the full address.
+
+### 9. Cost of logging
+App Insights bills per GB ingested. Two anti-patterns burn the budget fast:
+- Logging inside a tight loop (per-row, per-pixel, per-byte). Log the aggregate, not the iteration.
+- Verbose INFO on hot paths (every GET to a polled endpoint). Use DEBUG, or count once and emit one INFO per minute.
+
+The reviewer flags any new log line inside a `for`/`while` loop unless it is a per-item WARN/ERROR (failure path) or batched.
+
+### 10. Exception logging contract
+- Pass the exception as the last arg (no format specifier needed): `log.error("payment failed, orderId={}", id, ex);` — SLF4J finds it and prints the stack trace.
+- NEVER `log.error(ex.getMessage())` — loses the stack trace, makes debugging impossible.
+- NEVER `log.error("...", ex.getMessage())` — same problem.
+- Do not log AND rethrow the same exception unless you are adding context. The handler above you will log it.
+
+### 11. Logback configuration
+Logback config lives in `backend/src/main/resources/logback-spring.xml`. It is the single source of truth for: log format (JSON in prod for App Insights structured ingest, pattern in local), MDC field inclusion, async appender for non-blocking writes, and per-package level overrides. Do not put logging config in `application.yml` beyond the bare minimum (root level + spring-specific tuning).
+
+### 12. Anti-patterns the reviewer will flag
+- A new service method, controller, adapter, or scheduled job with **zero log lines**.
+- `log.info("entering method")` / `log.info("exiting method")` style noise.
+- String concatenation in the log message (`"order " + id`).
+- Logging `ex.getMessage()` only without passing the exception itself.
+- PII in any log argument.
+- New external integration without the INFO-before / INFO-after-success / ERROR-with-exception triplet.
+- A scheduled job that does not log start + finish + outcome counts.
+- A WARN logged for something that is actually working as designed (warning fatigue erodes signal).
 
 ## Azure Configuration
 - App Service: backend Spring Boot JAR (B2 tier)

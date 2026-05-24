@@ -5,6 +5,8 @@ import com.altarwed.domain.exception.GuestNotFoundException;
 import com.altarwed.domain.exception.InvalidRsvpTokenException;
 import com.altarwed.domain.model.*;
 import com.altarwed.domain.port.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +22,7 @@ import java.util.UUID;
 @Service
 public class GuestService {
 
+    private static final Logger log = LoggerFactory.getLogger(GuestService.class);
     private static final int INVITE_EXPIRY_DAYS = 30;
     private static final int MAX_INVITE_SENDS = 3;
 
@@ -148,6 +151,7 @@ public class GuestService {
 
     @Transactional
     public int sendSaveDates(UUID coupleId) {
+        log.info("save-the-date send batch started, coupleId={}", coupleId);
         var website = websiteRepository.findByCoupleId(coupleId).orElse(null);
         var couple  = coupleRepository.findById(coupleId).orElse(null);
         String coupleNames = couple != null
@@ -167,6 +171,7 @@ public class GuestService {
         for (Guest guest : toSend) {
             emailPort.sendSaveTheDateEmail(guest.email(), guest.name(), coupleNames, weddingDate, weddingUrl);
         }
+        log.info("save-the-date send batch queued, coupleId={}, queued={}", coupleId, toSend.size());
         return toSend.size();
     }
 
@@ -177,6 +182,7 @@ public class GuestService {
                 .filter(g -> g.rsvpStatus() == GuestRsvpStatus.PENDING)
                 .toList();
 
+        log.info("invite-all batch started, coupleId={}, eligibleCount={}", coupleId, toInvite.size());
         for (Guest guest : toInvite) {
             issueInvite(guest, coupleId);
         }
@@ -264,6 +270,8 @@ public class GuestService {
         RsvpInviteToken token = resolveToken(req.token());
         Guest guest = guestRepository.findById(token.guestId())
                 .orElseThrow(() -> new InvalidRsvpTokenException());
+        log.info("rsvp submission received, guestId={}, coupleId={}, status={}, remindInDays={}",
+                 guest.id(), guest.coupleId(), req.status(), req.remindInDays());
 
         // When remindInDays is set, keep rsvpStatus PENDING and schedule a reminder.
         // If the guest chose ATTENDING or DECLINING, clear any previous reminder.
@@ -350,10 +358,13 @@ public class GuestService {
 
     private Guest issueInvite(Guest guest, UUID coupleId) {
         if (guest.email() == null || guest.email().isBlank()) {
+            log.warn("invite rejected, guest has no email, guestId={}, coupleId={}", guest.id(), coupleId);
             throw new IllegalArgumentException("Guest has no email address");
         }
         int currentSends = guest.inviteSendCount() != null ? guest.inviteSendCount() : 0;
         if (currentSends >= MAX_INVITE_SENDS) {
+            log.warn("invite rejected, max sends reached, guestId={}, coupleId={}, sends={}",
+                     guest.id(), coupleId, currentSends);
             throw new IllegalArgumentException(
                 "This guest has already received the maximum of " + MAX_INVITE_SENDS + " invites.");
         }
@@ -380,6 +391,8 @@ public class GuestService {
                 : "TBD";
 
         emailPort.sendRsvpInviteEmail(guest.email(), guest.name(), coupleNames, weddingDate, rawToken);
+        log.info("rsvp invite queued, guestId={}, coupleId={}, sendNumber={}",
+                 guest.id(), coupleId, currentSends + 1);
 
         Guest updated = new Guest(
                 guest.id(), guest.coupleId(), guest.name(), guest.email(), guest.phone(),
@@ -397,8 +410,14 @@ public class GuestService {
 
     private RsvpInviteToken resolveToken(String rawToken) {
         RsvpInviteToken token = tokenRepository.findByTokenHash(hash(rawToken))
-                .orElseThrow(InvalidRsvpTokenException::new);
-        if (!token.isValid()) throw new InvalidRsvpTokenException();
+                .orElseThrow(() -> {
+                    log.warn("rsvp token rejected, reason=token not found");
+                    return new InvalidRsvpTokenException();
+                });
+        if (!token.isValid()) {
+            log.warn("rsvp token rejected, reason=token invalid or expired, guestId={}", token.guestId());
+            throw new InvalidRsvpTokenException();
+        }
         return token;
     }
 

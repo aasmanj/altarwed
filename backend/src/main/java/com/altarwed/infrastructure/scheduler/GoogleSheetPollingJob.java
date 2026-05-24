@@ -6,6 +6,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.util.UUID;
+
 /**
  * Polls all active Google Sheet sync configs every 15 minutes.
  *
@@ -30,8 +32,17 @@ public class GoogleSheetPollingJob {
 
     @Scheduled(fixedDelay = 900_000)   // 15 minutes in ms
     public void poll() {
-        log.info("Google Sheets polling job started");
-        syncService.runAllActive();
-        log.info("Google Sheets polling job completed");
+        UUID runId = UUID.randomUUID();
+        long startMs = System.currentTimeMillis();
+        log.info("google sheet poll started, runId={}", runId);
+        try {
+            syncService.runAllActive();
+            log.info("google sheet poll finished, runId={}, durationMs={}",
+                     runId, System.currentTimeMillis() - startMs);
+        } catch (Exception ex) {
+            log.error("google sheet poll crashed, runId={}, durationMs={}",
+                      runId, System.currentTimeMillis() - startMs, ex);
+            throw ex;
+        }
     }
 }

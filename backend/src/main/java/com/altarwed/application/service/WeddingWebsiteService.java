@@ -9,6 +9,8 @@ import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
 import com.altarwed.domain.model.WeddingWebsite;
 import com.altarwed.domain.port.RevalidationPort;
 import com.altarwed.domain.port.WeddingWebsiteRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,8 @@ import java.util.UUID;
 
 @Service
 public class WeddingWebsiteService {
+
+    private static final Logger log = LoggerFactory.getLogger(WeddingWebsiteService.class);
 
     private final WeddingWebsiteRepository websiteRepository;
     private final RevalidationPort revalidationPort;
@@ -40,6 +44,7 @@ public class WeddingWebsiteService {
             throw new SlugAlreadyTakenException(slug);
         }
 
+        log.info("wedding website creation started, coupleId={}, slug={}", coupleId, slug);
         WeddingWebsite website = new WeddingWebsite(
                 null, coupleId, slug, false,
                 request.partnerOneName(), request.partnerTwoName(), request.weddingDate(),
@@ -78,6 +83,7 @@ public class WeddingWebsiteService {
 
     @Transactional
     public void delete(UUID coupleId) {
+        log.info("wedding website deletion started, coupleId={}", coupleId);
         websiteRepository.save(getByCoupleId(coupleId).deleted());
     }
 
@@ -164,6 +170,8 @@ public class WeddingWebsiteService {
     @Transactional
     public WeddingWebsite publish(UUID coupleId) {
         WeddingWebsite saved = websiteRepository.save(getByCoupleId(coupleId).published());
+        log.info("wedding website published, coupleId={}, websiteId={}, slug={}",
+                 coupleId, saved.id(), saved.slug());
         revalidationPort.revalidateWeddingPage(saved.slug());
         return saved;
     }
@@ -171,6 +179,8 @@ public class WeddingWebsiteService {
     @Transactional
     public WeddingWebsite unpublish(UUID coupleId) {
         WeddingWebsite saved = websiteRepository.save(getByCoupleId(coupleId).unpublished());
+        log.info("wedding website unpublished, coupleId={}, websiteId={}, slug={}",
+                 coupleId, saved.id(), saved.slug());
         revalidationPort.revalidateWeddingPage(saved.slug());
         return saved;
     }

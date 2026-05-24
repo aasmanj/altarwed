@@ -47,6 +47,7 @@ public class LobPrintMailAdapter implements PrintMailPort {
         if (apiKey == null || apiKey.isBlank()) {
             throw new PrintMailException("Lob API key not configured. Set LOB_API_KEY env var.");
         }
+        log.info("submitting postcard to lob, templateKey={}", req.templateKey());
 
         String front = renderFront(req);
         String back = renderBack(req);
@@ -72,13 +73,17 @@ public class LobPrintMailAdapter implements PrintMailPort {
             if (response == null || response.get("id") == null) {
                 throw new PrintMailException("Lob returned empty response");
             }
-            return response.get("id").toString();
+            String lobId = response.get("id").toString();
+            log.info("lob accepted postcard, lobId={}, templateKey={}", lobId, req.templateKey());
+            return lobId;
         } catch (RestClientResponseException ex) {
-            log.warn("Lob rejected postcard for {}: {} {}", req.to().name(), ex.getStatusCode(), ex.getResponseBodyAsString());
+            // PII guard: do NOT log req.to().name() — guest name. Use status + body for diagnosis.
+            log.warn("lob rejected postcard, status={}, body={}", ex.getStatusCode(), ex.getResponseBodyAsString());
             throw new PrintMailException("Lob rejected postcard: " + ex.getStatusCode() + " " + ex.getResponseBodyAsString(), ex);
         } catch (org.springframework.web.client.RestClientException ex) {
             // Network / transport errors only. Let runtime exceptions (NPE, etc.) propagate
             // so they surface as 500s rather than being mis-attributed as Lob failures.
+            log.error("lob call failed unexpectedly, templateKey={}", req.templateKey(), ex);
             throw new PrintMailException("Lob call failed: " + ex.getMessage(), ex);
         }
     }

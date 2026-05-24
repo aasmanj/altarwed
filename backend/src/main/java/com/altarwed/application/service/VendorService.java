@@ -5,6 +5,8 @@ import com.altarwed.domain.exception.VendorNotFoundException;
 import com.altarwed.domain.model.Vendor;
 import com.altarwed.domain.model.VendorCategory;
 import com.altarwed.domain.port.VendorRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +16,8 @@ import java.util.UUID;
 
 @Service
 public class VendorService {
+
+    private static final Logger log = LoggerFactory.getLogger(VendorService.class);
 
     private final VendorRepository vendorRepository;
 
@@ -35,6 +39,7 @@ public class VendorService {
 
     @Transactional
     public Vendor update(UUID vendorId, UpdateVendorRequest req) {
+        log.info("vendor listing updated, vendorId={}", vendorId);
         Vendor existing = getById(vendorId);
         Vendor updated = new Vendor(
                 existing.id(),

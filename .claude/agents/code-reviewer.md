@@ -47,14 +47,32 @@ If the parent agent specifies different files, review those instead.
 - JWT changes that bypass `JwtService.extractUserId()`
 
 **6. Observability (Azure App Insights is the only prod debugger)**
-- New `@Service` method or external adapter with **zero log lines** — flag it. Boundary events (request entry on writes, before/after external calls, durable commits) must log INFO.
-- External integration (Lob, Resend, Stripe, Blob, Next.js revalidate) that doesn't WARN on per-item provider rejection or ERROR on unexpected exception.
-- Per-item failures inside a batch logged as ERROR instead of WARN (the operation continues — it is recoverable).
-- Log messages with string concatenation instead of structured args: `log.info("order " + id)` — App Insights cannot index that. Flag and require `log.info("submitting order, orderId={}", id)`.
-- Logging `ex.getMessage()` only instead of passing the exception as the last arg (loses the stack trace).
-- PII in logs: email addresses, mailing addresses, phone numbers, guest names, JWT contents, API keys. Always flag.
-- `log.info("entering method")` / `"exiting method"` noise — flag as anti-pattern.
-- Refer to the **Observability Rules** section of root CLAUDE.md for the full standard.
+The full standard is in root CLAUDE.md under "Observability Rules". Enforce strictly:
+
+*Coverage gaps (zero-log code is the most common violation):*
+- New `@Service` write method, controller write endpoint, external adapter, `@Scheduled`, or `@Async` method with **zero log lines**. Flag every one.
+- External integration (Lob, Resend, Stripe, Blob, Next.js, bible-api, Google Sheets) missing the INFO-before / INFO-after-success / ERROR-with-exception triplet. All three are required, not optional.
+- Scheduled job missing the `start / finish-with-counts / crash-with-exception` bracket pattern.
+- Auth/security event (login, refresh, reset, IDOR attempt, rate-limit hit, JWT failure) silently returning a status without a log.
+
+*Mechanical bugs:*
+- Log message with string concatenation: `"order " + id`. Must be `"order, orderId={}", id`. App Insights cannot index concatenated strings.
+- `log.error(ex.getMessage())` or `log.error("...", ex.getMessage())` — loses stack trace. Must be `log.error("...", ex)` with the exception as the last arg.
+- Per-item failure inside a batch logged as ERROR instead of WARN (it is recoverable — ERROR pages on-call).
+- WARN logged for something working as designed (warning-fatigue erodes signal).
+
+*PII leakage (regulatory):*
+- Email addresses, mailing addresses, phone numbers, guest/partner names, payment details, IP addresses, JWT contents, raw tokens, API keys, full external-API request/response bodies. Always flag as CRITICAL.
+- Helper exists for masked-email audit logs; if the new code needs an email for a security event, point at the helper.
+
+*Noise / cost:*
+- `log.info("entering method")` / `"exiting method"` — flag as anti-pattern.
+- Log line inside a `for`/`while` loop unless it is a per-item failure (WARN/ERROR) or pre-aggregated. App Insights bills per GB ingested.
+- Verbose INFO on hot paths (GET endpoints polled by the frontend).
+
+*Format style:*
+- Message does not start with `noun verb [state]` lowercase (e.g. `"print order submitted"`). Flag as a nit.
+- Domain ID (coupleId, orderId, guestId, vendorId, runId) missing from a log line in a path where one is available. Required for filter-by-ID in KQL.
 
 **7. Frontend**
 - Em dashes anywhere (Jordan hates them — UI copy, comments, anywhere)
