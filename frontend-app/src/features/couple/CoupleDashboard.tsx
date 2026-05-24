@@ -4,6 +4,7 @@ import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import OnboardingWizard from '@/features/couple/onboarding/OnboardingWizard'
 import TipCallout from '@/components/TipCallout'
 import { TIPS } from '@/lib/tips'
+import AtAGlanceCard from '@/features/couple/AtAGlanceCard'
 
 export default function CoupleDashboard() {
   const { user, logout } = useAuth()
@@ -47,6 +48,8 @@ export default function CoupleDashboard() {
             : user?.partnerOneName ?? user?.email}
         </h2>
         <p className="text-brown-light mb-6">Your wedding planning dashboard</p>
+
+        <AtAGlanceCard coupleId={coupleId} website={website} />
 
         <div className="mb-6">
           <TipCallout tip={TIPS.dashboardWelcome} />
