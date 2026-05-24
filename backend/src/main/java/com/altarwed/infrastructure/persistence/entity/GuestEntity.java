@@ -72,7 +72,7 @@ public class GuestEntity {
     @Column(name = "mail_city", length = 100)
     private String mailCity;
 
-    @Column(name = "mail_state", length = 2)
+    @Column(name = "mail_state", columnDefinition = "NCHAR(2)")
     private String mailState;
 
     @Column(name = "mail_zip", length = 10)
