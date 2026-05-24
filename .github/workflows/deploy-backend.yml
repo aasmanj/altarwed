@@ -9,9 +9,28 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  # ── Job 1 ─────────────────────────────────────────────────────────────────
+  # Build the JAR, run Flyway migrations against a real SQL Server container,
+  # then let Hibernate validate every entity column. If a migration and an
+  # entity disagree on a column type this job fails and nothing reaches Azure.
+  # ──────────────────────────────────────────────────────────────────────────
+  build-and-validate:
     runs-on: ubuntu-latest
-    name: Build and deploy Spring Boot to Azure App Service
+    name: Build JAR and validate DB schema
+
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          SA_PASSWORD: "AltarWedCI@2024"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P AltarWedCI@2024 -Q 'SELECT 1' -No"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 15
 
     steps:
       - uses: actions/checkout@v4
@@ -30,13 +49,83 @@ jobs:
         working-directory: backend
         run: ./gradlew build -x test
 
-      - name: Run tests
+      # SQL Server health-check passes before step 1, but the DB itself must
+      # be created — the container starts with only the system databases.
+      - name: Install sqlcmd and create test database
+        run: |
+          curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+            | sudo gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] \
+            https://packages.microsoft.com/ubuntu/22.04/prod jammy main" \
+            | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update -qq
+          sudo ACCEPT_EULA=Y apt-get install -y -qq mssql-tools18 unixodbc-dev
+          /opt/mssql-tools18/bin/sqlcmd \
+            -S localhost,1433 -U sa -P "AltarWedCI@2024" \
+            -Q "CREATE DATABASE altarwed" -No
+
+      - name: Schema validation test (Flyway + Hibernate vs real SQL Server)
         working-directory: backend
-        run: ./gradlew test -Dspring.profiles.active=test
+        run: ./gradlew schemaValidationTest
+        # application-ci.yml (in src/test/resources) is activated by @ActiveProfiles("ci")
+        # on SchemaValidationTest — no -D flag needed here.
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          # Exclude the -plain.jar (no embedded deps) — we want the fat JAR.
+          path: backend/build/libs/*[!plain].jar
+          retention-days: 1
+
+  # ── Job 2 ─────────────────────────────────────────────────────────────────
+  # Deploy the pre-validated JAR to Azure App Service.
+  # Only runs if build-and-validate succeeds — schema mismatches never deploy.
+  # ──────────────────────────────────────────────────────────────────────────
+  deploy:
+    needs: build-and-validate
+    runs-on: ubuntu-latest
+    name: Deploy to Azure App Service
+
+    steps:
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-jar
+          path: jar/
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         with:
           app-name: altarwed-prod-api
           publish-profile: ${{ secrets.AZURE_APP_SERVICE_PUBLISH_PROFILE }}
-          package: backend/build/libs/*[^plain].jar
+          package: jar/
+
+  # ── Job 3 ─────────────────────────────────────────────────────────────────
+  # Poll /actuator/health until the app reports UP (HTTP 200).
+  # Catches startup failures that slip past the schema validation test —
+  # e.g., a bad env var reference, a missing Key Vault secret, an OOM crash.
+  # Fails the workflow if the app doesn't become healthy within 6 minutes.
+  # ──────────────────────────────────────────────────────────────────────────
+  smoke-test:
+    needs: deploy
+    runs-on: ubuntu-latest
+    name: Smoke test — verify Azure is healthy after deploy
+
+    steps:
+      - name: Wait for app to become healthy
+        run: |
+          URL="https://altarwed-prod-api.azurewebsites.net/actuator/health"
+          echo "Polling $URL ..."
+          for i in $(seq 1 24); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+            echo "Attempt $i/24: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "App is healthy — deployment succeeded."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "ERROR: app did not return HTTP 200 within 6 minutes after deploy."
+          echo "Check Azure App Service logs for startup errors."
+          exit 1

@@ -80,6 +80,26 @@ dependencies {
     testAnnotationProcessor("org.projectlombok:lombok")
 }
 
+// Default test task — unit and application-layer tests only.
+// Excludes the schema-validation integration test because that test
+// requires a live SQL Server instance (only available in CI).
 tasks.withType<Test> {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags("schema-validation")
+    }
+}
+
+// Schema validation task — runs ONLY the @Tag("schema-validation") tests.
+// Requires a SQL Server container on localhost:1433 with an empty "altarwed"
+// database. The GitHub Actions deploy workflow runs this before every deploy.
+// To run locally: ./gradlew schemaValidationTest -Dspring.profiles.active=ci
+//   (after: docker run -e ACCEPT_EULA=Y -e SA_PASSWORD=AltarWedCI@2024
+//            -p 1433:1433 mcr.microsoft.com/mssql/server:2022-latest)
+tasks.register<Test>("schemaValidationTest") {
+    description = "Boots the Spring context against a real SQL Server container to validate Flyway migrations and Hibernate entity mappings."
+    group = "verification"
+    useJUnitPlatform {
+        includeTags("schema-validation")
+    }
+    shouldRunAfter("test")
 }
