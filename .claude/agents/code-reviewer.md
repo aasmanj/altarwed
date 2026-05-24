@@ -39,6 +39,11 @@ If the parent agent specifies different files, review those instead.
 - Migration numbering conflict (check `backend/src/main/resources/db/migration/` for next number)
 - SQL Server gotcha: adding a column and a constraint referencing it in two separate statements in the same migration (must be inline)
 - `ddl-auto=create/update` anywhere
+- **Entity column type mismatch (caused a prod outage):** `@Column(length = n)` without `columnDefinition` on a field backed by a SQL Server non-standard type. Hibernate maps `@Column(length = n)` to `varchar(n)` (Types#VARCHAR). If the migration used `NCHAR(n)`, Hibernate sees a different JDBC type code (Types#NCHAR) and refuses to start under `ddl-auto: validate`. The fix and the rule:
+  - `NCHAR(n)` in migration → `@Column(columnDefinition = "NCHAR(n)")` on entity. Never `@Column(length = n)` alone.
+  - `NVARCHAR(MAX)` in migration → `@Column(columnDefinition = "NVARCHAR(MAX)")`. See `GuestEntity.notes` as the reference.
+  - Standard `NVARCHAR(n)` (200, 100, 10, etc.) → `@Column(length = n)` is fine; Hibernate and SQL Server agree on those.
+  - Thumb rule: if the migration DDL is not plain `NVARCHAR(n)` — if it uses `NCHAR`, `NVARCHAR(MAX)`, `UNIQUEIDENTIFIER`, or `DATETIMEOFFSET` — the entity **must** declare `columnDefinition`. Flag any new `@Column(length = n)` that corresponds to a non-standard migration type.
 
 **5. Security**
 - New endpoint that should be authenticated but isn't in `SecurityConfig` whitelist correctly
