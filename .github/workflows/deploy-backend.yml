@@ -11,12 +11,13 @@ on:
 jobs:
   # ── Job 1 ─────────────────────────────────────────────────────────────────
   # Build the JAR, run Flyway migrations against a real SQL Server container,
-  # then let Hibernate validate every entity column. If a migration and an
-  # entity disagree on a column type this job fails and nothing reaches Azure.
+  # then let Hibernate validate every entity column. A type mismatch between a
+  # migration and a JPA entity fails here — nothing reaches Azure.
   # ──────────────────────────────────────────────────────────────────────────
   build-and-validate:
     runs-on: ubuntu-latest
     name: Build JAR and validate DB schema
+    timeout-minutes: 15
 
     services:
       mssql:
@@ -26,7 +27,10 @@ jobs:
           SA_PASSWORD: "AltarWedCI@2024"
         ports:
           - 1433:1433
+        # --name gives the container a stable handle so docker exec is unambiguous.
+        # Health check uses sqlcmd that ships inside the image — no host install needed.
         options: >-
+          --name mssql-ci
           --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P AltarWedCI@2024 -Q 'SELECT 1' -No"
           --health-interval 10s
           --health-timeout 5s
@@ -49,43 +53,44 @@ jobs:
         working-directory: backend
         run: ./gradlew build -x test
 
-      # SQL Server health-check passes before step 1, but the DB itself must
-      # be created — the container starts with only the system databases.
-      - name: Install sqlcmd and create test database
+      # The SQL Server image ships sqlcmd at /opt/mssql-tools18/bin/sqlcmd.
+      # docker exec reaches it directly — no host-side mssql-tools installation,
+      # no GPG key juggling, no apt-get. 30-60 seconds saved per run.
+      # The service health check already guarantees SQL Server is ready before
+      # step 1 runs, so no wait loop is needed here.
+      - name: Create test database
         run: |
-          curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
-            | sudo gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
-          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] \
-            https://packages.microsoft.com/ubuntu/22.04/prod jammy main" \
-            | sudo tee /etc/apt/sources.list.d/mssql-release.list
-          sudo apt-get update -qq
-          sudo ACCEPT_EULA=Y apt-get install -y -qq mssql-tools18 unixodbc-dev
-          /opt/mssql-tools18/bin/sqlcmd \
-            -S localhost,1433 -U sa -P "AltarWedCI@2024" \
+          docker exec mssql-ci \
+            /opt/mssql-tools18/bin/sqlcmd \
+            -S localhost -U sa -P "AltarWedCI@2024" \
             -Q "CREATE DATABASE altarwed" -No
 
       - name: Schema validation test (Flyway + Hibernate vs real SQL Server)
         working-directory: backend
+        # @ActiveProfiles("ci") on SchemaValidationTest activates application-ci.yml
+        # (src/test/resources). No -D flag needed.
         run: ./gradlew schemaValidationTest
-        # application-ci.yml (in src/test/resources) is activated by @ActiveProfiles("ci")
-        # on SchemaValidationTest — no -D flag needed here.
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
           name: backend-jar
-          # Exclude the -plain.jar (no embedded deps) — we want the fat JAR.
-          path: backend/build/libs/*[!plain].jar
+          # Two-line exclusion: include all JARs, then negate the -plain.jar
+          # (no embedded deps). @actions/glob treats leading ! as a negation.
+          path: |
+            backend/build/libs/*.jar
+            !backend/build/libs/*-plain.jar
           retention-days: 1
 
   # ── Job 2 ─────────────────────────────────────────────────────────────────
-  # Deploy the pre-validated JAR to Azure App Service.
-  # Only runs if build-and-validate succeeds — schema mismatches never deploy.
+  # Deploy the pre-validated JAR. Only runs when build-and-validate passes —
+  # schema mismatches block here and never reach Azure.
   # ──────────────────────────────────────────────────────────────────────────
   deploy:
     needs: build-and-validate
     runs-on: ubuntu-latest
     name: Deploy to Azure App Service
+    timeout-minutes: 10
 
     steps:
       - name: Download JAR artifact
@@ -102,15 +107,16 @@ jobs:
           package: jar/
 
   # ── Job 3 ─────────────────────────────────────────────────────────────────
-  # Poll /actuator/health until the app reports UP (HTTP 200).
-  # Catches startup failures that slip past the schema validation test —
-  # e.g., a bad env var reference, a missing Key Vault secret, an OOM crash.
-  # Fails the workflow if the app doesn't become healthy within 6 minutes.
+  # Poll /actuator/health until UP (HTTP 200). Catches startup failures the
+  # schema test cannot see: a missing Key Vault secret, a bad env var, OOM.
+  # Fails the workflow (and notifies via GitHub) if the app isn't healthy
+  # within 6 minutes of deployment completing.
   # ──────────────────────────────────────────────────────────────────────────
   smoke-test:
     needs: deploy
     runs-on: ubuntu-latest
     name: Smoke test — verify Azure is healthy after deploy
+    timeout-minutes: 10
 
     steps:
       - name: Wait for app to become healthy
@@ -126,6 +132,6 @@ jobs:
             fi
             sleep 15
           done
-          echo "ERROR: app did not return HTTP 200 within 6 minutes after deploy."
+          echo "ERROR: app did not return HTTP 200 within 6 minutes."
           echo "Check Azure App Service logs for startup errors."
           exit 1
