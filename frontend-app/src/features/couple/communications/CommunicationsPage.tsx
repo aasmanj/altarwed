@@ -54,7 +54,7 @@ export default function CommunicationsPage() {
   const [lastResult, setLastResult] = useState<string | null>(null)
 
   const mailableGuests = useMemo(
-    () => guests.filter(g => g.mailAddress && g.mailAddress.trim().length > 0),
+    () => guests.filter(g => g.mailLine1 && g.mailLine1.trim().length > 0),
     [guests]
   )
 
@@ -220,7 +220,9 @@ export default function CommunicationsPage() {
                       />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-stone-800">{g.name}</p>
-                        <p className="text-xs text-stone-500 truncate">{g.mailAddress}</p>
+                        <p className="text-xs text-stone-500 truncate">
+                          {[g.mailLine1, g.mailCity, g.mailState, g.mailZip].filter(Boolean).join(', ')}
+                        </p>
                       </div>
                     </label>
                   )

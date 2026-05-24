@@ -18,7 +18,12 @@ public record Guest(
         Integer tableNumber,
         GuestSide side,
         String notes,
-        String mailAddress,
+        // Structured mailing address for physical mail (Lob.com postcards).
+        // All four fields must be non-null to submit a postcard for this guest.
+        String mailLine1,
+        String mailCity,
+        String mailState,
+        String mailZip,
         // private note left by the guest on the RSVP form; never returned by any public endpoint
         String noteForCouple,
         // number of invite emails sent for this guest; capped to prevent spamming

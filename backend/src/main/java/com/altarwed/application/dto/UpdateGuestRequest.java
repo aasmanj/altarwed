@@ -18,7 +18,10 @@ public record UpdateGuestRequest(
         Integer tableNumber,
         GuestSide side,
         String notes,
-        @Size(max = 500) String mailAddress,
+        @Size(max = 200) String mailLine1,
+        @Size(max = 100) String mailCity,
+        @Size(min = 2, max = 2) String mailState,
+        @Size(max = 10) String mailZip,
         java.util.UUID partyId,
         @Size(max = 100) String partyName,
         Boolean partyContact

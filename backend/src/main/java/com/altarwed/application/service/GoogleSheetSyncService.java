@@ -234,7 +234,7 @@ public class GoogleSheetSyncService {
                         null,   // tableNumber
                         null,   // side
                         null,   // notes
-                        null,   // mailAddress
+                        null, null, null, null,   // mailLine1/City/State/Zip (not in sheet)
                         null,   // noteForCouple
                         0,      // inviteSendCount
                         null,   // inviteSentAt
@@ -257,7 +257,8 @@ public class GoogleSheetSyncService {
                         mealPref    != null ? mealPref    : g.mealPreference(),
                         songRequest != null ? songRequest : g.songRequest(),
                         g.tableNumber(), g.side(), g.notes(),
-                        g.mailAddress(), g.noteForCouple(),
+                        g.mailLine1(), g.mailCity(), g.mailState(), g.mailZip(),
+                        g.noteForCouple(),
                         g.inviteSendCount(), g.inviteSentAt(), g.respondedAt(), g.remindAt(),
                         g.createdAt(), g.updatedAt(),
                         g.partyId(), g.partyName(), g.partyContact()

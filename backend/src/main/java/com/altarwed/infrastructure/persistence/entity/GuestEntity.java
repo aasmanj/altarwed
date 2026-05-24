@@ -66,8 +66,17 @@ public class GuestEntity {
     @Column(name = "notes", columnDefinition = "NVARCHAR(MAX)")
     private String notes;
 
-    @Column(name = "mail_address", length = 500)
-    private String mailAddress;
+    @Column(name = "mail_line1", length = 200)
+    private String mailLine1;
+
+    @Column(name = "mail_city", length = 100)
+    private String mailCity;
+
+    @Column(name = "mail_state", length = 2)
+    private String mailState;
+
+    @Column(name = "mail_zip", length = 10)
+    private String mailZip;
 
     @Column(name = "note_for_couple", length = 1000)
     private String noteForCouple;

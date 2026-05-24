@@ -13,7 +13,10 @@ public record CreateGuestRequest(
         GuestSide side,
         @Size(max = 500) String dietaryRestrictions,
         String notes,
-        @Size(max = 500) String mailAddress,
+        @Size(max = 200) String mailLine1,
+        @Size(max = 100) String mailCity,
+        @Size(min = 2, max = 2) String mailState,
+        @Size(max = 10) String mailZip,
         // Optional: assign guest to an existing party. Provide partyId to join an existing party.
         // Provide partyName without partyId to start a new party (a new UUID is generated server-side).
         java.util.UUID partyId,

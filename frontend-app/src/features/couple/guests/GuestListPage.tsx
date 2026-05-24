@@ -100,7 +100,10 @@ export default function GuestListPage() {
       'Dietary Restrictions': g.dietaryRestrictions ?? '',
       'Song Request':      g.songRequest ?? '',
       'Table Number':      g.tableNumber ?? '',
-      'Mailing Address':   g.mailAddress ?? '',
+      'Address Line 1':    g.mailLine1 ?? '',
+      'City':              g.mailCity ?? '',
+      'State':             g.mailState ?? '',
+      'ZIP':               g.mailZip ?? '',
       'Party Name':        g.partyName ?? '',
       'Invite Sent':       g.inviteSentAt ? new Date(g.inviteSentAt).toLocaleDateString() : '',
       'Responded At':      g.respondedAt ? new Date(g.respondedAt).toLocaleDateString() : '',
@@ -718,12 +721,15 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
   onCancel: () => void
   isPending: boolean
 }) {
-  const [name, setName]               = useState('')
-  const [email, setEmail]             = useState('')
-  const [phone, setPhone]             = useState('')
-  const [side, setSide]               = useState<GuestSide | ''>('')
-  const [plusOne, setPlusOne]         = useState(false)
-  const [mailAddress, setMailAddress] = useState('')
+  const [name, setName]           = useState('')
+  const [email, setEmail]         = useState('')
+  const [phone, setPhone]         = useState('')
+  const [side, setSide]           = useState<GuestSide | ''>('')
+  const [plusOne, setPlusOne]     = useState(false)
+  const [mailLine1, setMailLine1] = useState('')
+  const [mailCity, setMailCity]   = useState('')
+  const [mailState, setMailState] = useState('')
+  const [mailZip, setMailZip]     = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -733,7 +739,10 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
       phone: phone || undefined,
       plusOneAllowed: plusOne,
       side: side || undefined,
-      mailAddress: mailAddress || undefined,
+      mailLine1: mailLine1 || undefined,
+      mailCity: mailCity || undefined,
+      mailState: mailState || undefined,
+      mailZip: mailZip || undefined,
     })
   }
 
@@ -760,9 +769,21 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
             {SIDES.map(s => <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>)}
           </select>
         </Field>
-        <Field label="Mailing address">
-          <input value={mailAddress} onChange={e => setMailAddress(e.target.value)}
-            className={inputCls} placeholder="123 Main St, Dallas TX 75201" />
+        <Field label="Address line 1">
+          <input value={mailLine1} onChange={e => setMailLine1(e.target.value)}
+            className={inputCls} placeholder="123 Main St" />
+        </Field>
+        <Field label="City">
+          <input value={mailCity} onChange={e => setMailCity(e.target.value)}
+            className={inputCls} placeholder="Dallas" />
+        </Field>
+        <Field label="State (2-letter)">
+          <input value={mailState} onChange={e => setMailState(e.target.value.toUpperCase())}
+            className={inputCls} placeholder="TX" maxLength={2} />
+        </Field>
+        <Field label="ZIP">
+          <input value={mailZip} onChange={e => setMailZip(e.target.value)}
+            className={inputCls} placeholder="75201" maxLength={10} />
         </Field>
       </div>
       <label className="flex items-center gap-2 text-sm text-brown">
@@ -799,9 +820,12 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
   const [status, setStatus]           = useState(guest.rsvpStatus)
   const [table, setTable]             = useState(guest.tableNumber?.toString() ?? '')
   const [plusOne, setPlusOne]         = useState(guest.plusOneAllowed)
-  const [meal, setMeal]               = useState(guest.mealPreference ?? '')
-  const [song, setSong]               = useState(guest.songRequest ?? '')
-  const [mailAddress, setMailAddress] = useState(guest.mailAddress ?? '')
+  const [meal, setMeal]           = useState(guest.mealPreference ?? '')
+  const [song, setSong]           = useState(guest.songRequest ?? '')
+  const [mailLine1, setMailLine1] = useState(guest.mailLine1 ?? '')
+  const [mailCity, setMailCity]   = useState(guest.mailCity ?? '')
+  const [mailState, setMailState] = useState(guest.mailState ?? '')
+  const [mailZip, setMailZip]     = useState(guest.mailZip ?? '')
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
@@ -813,7 +837,10 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
       plusOneAllowed: plusOne,
       mealPreference: meal || undefined,
       songRequest: song || undefined,
-      mailAddress: mailAddress || undefined,
+      mailLine1: mailLine1 || undefined,
+      mailCity: mailCity || undefined,
+      mailState: mailState || undefined,
+      mailZip: mailZip || undefined,
     })
   }
 
@@ -851,9 +878,21 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
             <input value={song} onChange={e => setSong(e.target.value)}
               placeholder="e.g. How Great Thou Art" className={inputCls} />
           </Field>
-          <Field label="Mailing address">
-            <input value={mailAddress} onChange={e => setMailAddress(e.target.value)}
-              placeholder="123 Main St, Dallas TX 75201" className={inputCls} />
+          <Field label="Address line 1">
+            <input value={mailLine1} onChange={e => setMailLine1(e.target.value)}
+              placeholder="123 Main St" className={inputCls} />
+          </Field>
+          <Field label="City">
+            <input value={mailCity} onChange={e => setMailCity(e.target.value)}
+              placeholder="Dallas" className={inputCls} />
+          </Field>
+          <Field label="State (2-letter)">
+            <input value={mailState} onChange={e => setMailState(e.target.value.toUpperCase())}
+              placeholder="TX" maxLength={2} className={inputCls} />
+          </Field>
+          <Field label="ZIP">
+            <input value={mailZip} onChange={e => setMailZip(e.target.value)}
+              placeholder="75201" maxLength={10} className={inputCls} />
           </Field>
           <div className="flex items-end gap-6 pb-0.5">
             <label className="flex items-center gap-2 text-sm text-brown">

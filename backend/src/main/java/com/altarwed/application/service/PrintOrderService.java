@@ -17,8 +17,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Service
 public class PrintOrderService {
@@ -28,11 +26,6 @@ public class PrintOrderService {
     // Rough per-postcard cost preview (USPS first-class 6x11 via Lob ~ $1.50).
     // This is informational only — Lob bills us out of band.
     private static final int COST_PER_POSTCARD_CENTS = 150;
-
-    // Greedy first group captures "line1[, line2]"; then city, state (2 letters), zip (5 or 9).
-    private static final Pattern ADDRESS_PATTERN = Pattern.compile(
-            "^(.+),\\s*([^,]+),\\s*([A-Za-z]{2})\\s+(\\d{5}(?:-\\d{4})?)$"
-    );
 
     private final PrintOrderRepository printOrderRepository;
     private final PrintMailPort printMailPort;
@@ -124,17 +117,17 @@ public class PrintOrderService {
                 continue;
             }
 
-            ParsedAddress parsed = parseAddress(guest.mailAddress());
-            if (parsed == null) {
+            if (guest.mailLine1() == null || guest.mailCity() == null
+                    || guest.mailState() == null || guest.mailZip() == null) {
                 recipients.add(new PrintOrderRecipient(null, null, guestId, null, "FAILED",
-                        "Could not parse mailing address. Expected format: \"123 Main St, City, ST 12345\""));
+                        "Guest is missing a mailing address. Fill in address line, city, state, and ZIP on the guest list."));
                 failureCount++;
                 continue;
             }
 
             ToAddress to = new ToAddress(
-                    guest.name(), parsed.line1, parsed.line2,
-                    parsed.city, parsed.state, parsed.zip
+                    guest.name(), guest.mailLine1(), null,
+                    guest.mailCity(), guest.mailState(), guest.mailZip()
             );
 
             PostcardRequest postcard = new PostcardRequest(
@@ -181,36 +174,4 @@ public class PrintOrderService {
         return saved;
     }
 
-    // -------------------------------------------------------------------------
-    // Address parsing — best-effort regex. Skip guests whose address won't parse;
-    // they get a FAILED recipient and the couple sees a clear error in the UI.
-    // -------------------------------------------------------------------------
-
-    private record ParsedAddress(String line1, String line2, String city, String state, String zip) {}
-
-    static ParsedAddress parseAddress(String raw) {
-        if (raw == null || raw.isBlank()) return null;
-        String normalized = raw.replace("\n", ", ").replace("\r", " ").trim().replaceAll("\\s{2,}", " ");
-        // Collapse repeated commas that newline normalization can introduce.
-        normalized = normalized.replaceAll(",\\s*,", ",");
-        Matcher m = ADDRESS_PATTERN.matcher(normalized);
-        if (!m.matches()) return null;
-
-        String linePart = m.group(1).trim();
-        String city = m.group(2).trim();
-        String state = m.group(3).trim().toUpperCase();
-        String zip = m.group(4).trim();
-
-        // If the line part contains an extra comma, treat everything before the last
-        // comma as line1 and the remainder as line2.
-        String line1 = linePart;
-        String line2 = null;
-        int lastComma = linePart.lastIndexOf(',');
-        if (lastComma >= 0) {
-            line1 = linePart.substring(0, lastComma).trim();
-            line2 = linePart.substring(lastComma + 1).trim();
-            if (line2.isBlank()) line2 = null;
-        }
-        return new ParsedAddress(line1, line2, city, state, zip);
-    }
 }

@@ -12,7 +12,8 @@ public class GuestMapper {
                 g.id(), g.coupleId(), g.name(), g.email(), g.phone(),
                 g.rsvpStatus(), g.plusOneAllowed(), g.plusOneName(),
                 g.dietaryRestrictions(), g.mealPreference(), g.songRequest(),
-                g.tableNumber(), g.side(), g.notes(), g.mailAddress(),
+                g.tableNumber(), g.side(), g.notes(),
+                g.mailLine1(), g.mailCity(), g.mailState(), g.mailZip(),
                 g.noteForCouple(), g.inviteSendCount(),
                 g.inviteSentAt(), g.respondedAt(), g.remindAt(), g.createdAt(), g.updatedAt(),
                 g.partyId(), g.partyName(), g.partyContact()
