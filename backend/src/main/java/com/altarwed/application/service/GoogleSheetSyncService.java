@@ -42,9 +42,11 @@ import java.util.stream.Collectors;
  *   Name (required), Email, Plus One Name, Meal Preference, Dietary Restrictions,
  *   Song Request, Shuttle Needed (yes/no/true/false)
  *
- * Sync strategy: upsert by (name, email). If a guest with that name+email already
- * exists we update their fields; otherwise we create a new guest. We never delete
- * guests automatically (the couple may have manually added notes).
+ * Sync strategy: upsert by name (case-insensitive). If a guest with that name already
+ * exists we update their fields (including email if newly added); otherwise we create
+ * a new guest. Name is the stable identifier — email and other columns are enriched
+ * on subsequent syncs. We never delete guests automatically (the couple may have
+ * manually added notes).
  */
 @Service
 public class GoogleSheetSyncService {
@@ -260,14 +262,17 @@ public class GoogleSheetSyncService {
                 "Actual headers found: " + String.join(", ", headers));
         }
 
-        // Load existing guests for efficient lookup
+        // Load existing guests for efficient lookup.
+        // Key by lowercased name only — email is often absent on the first sync
+        // and added on a later one. Keying by name|email would treat the same
+        // person as a new guest each time a field is filled in, creating duplicates.
+        // If two guests share a name the first one wins (collision handler keeps a).
         List<Guest> existing = guestRepository.findAllByCoupleId(coupleId);
-        // Key: lowercased "name|email" for dedup
-        Map<String, Guest> byKey = existing.stream()
+        Map<String, Guest> byName = existing.stream()
                 .collect(Collectors.toMap(
-                        g -> key(g.name(), g.email()),
+                        g -> g.name().toLowerCase().trim(),
                         Function.identity(),
-                        (a, b) -> a   // keep first on collision
+                        (a, b) -> a   // keep first on same-name collision
                 ));
 
         List<Guest> toSave = new ArrayList<>();
@@ -278,8 +283,7 @@ public class GoogleSheetSyncService {
             if (name == null || name.isBlank()) continue;
 
             String email = get(cols, colIndex, "email");
-            String k = key(name, email);
-            Guest g = byKey.get(k);
+            Guest g = byName.get(name.toLowerCase().trim());
 
             String plusOneName       = get(cols, colIndex, "plus one name");
             String mealPref          = get(cols, colIndex, "meal preference");
@@ -386,11 +390,6 @@ public class GoogleSheetSyncService {
         if (i == null || i >= cols.length) return null;
         String v = cols[i].trim();
         return v.isEmpty() ? null : v;
-    }
-
-    private String key(String name, String email) {
-        return (name == null ? "" : name.toLowerCase()) + "|" +
-               (email == null ? "" : email.toLowerCase());
     }
 
 
