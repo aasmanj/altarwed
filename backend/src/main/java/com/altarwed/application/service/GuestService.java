@@ -268,6 +268,8 @@ public class GuestService {
                 && website.isPublished()
                 && (website.registryUrl1() != null || website.registryUrl2() != null || website.registryUrl3() != null);
 
+        log.info("rsvp page data fetched, guestId={}, coupleId={}, hasRegistry={}", guest.id(), guest.coupleId(), hasRegistry);
+
         return new RsvpPageDataResponse(
                 guest.name(), coupleNames, weddingDate,
                 website != null ? website.venueName() : null,

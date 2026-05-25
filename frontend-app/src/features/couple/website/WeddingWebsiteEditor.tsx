@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import confetti from 'canvas-confetti'
 import { useUpdateWeddingWebsite, usePublishWeddingWebsite, type WeddingWebsite } from './useWeddingWebsite'
@@ -19,8 +20,16 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
   const updateHotel = useUpdateHotel(website.id)
   const deleteHotel = useDeleteHotel(website.id)
 
+  const [searchParams] = useSearchParams()
   const [saved, setSaved] = useState(false)
-  const [activeTab, setActiveTab] = useState<Tab>('story')
+  // Honour ?tab=registry (or any valid tab name) so external links can deep-link
+  // to a specific section (e.g. the Registry dashboard tile). Unknown values fall
+  // back to 'story' so a typo in the URL doesn't break the editor.
+  const tabParam = searchParams.get('tab')
+  const validTabs: Tab[] = ['story', 'scripture', 'details', 'hotel', 'registry']
+  const [activeTab, setActiveTab] = useState<Tab>(
+    validTabs.includes(tabParam as Tab) ? (tabParam as Tab) : 'story'
+  )
 
   // Local form state — mirror of the website fields
   const [form, setForm] = useState({

@@ -86,7 +86,7 @@ function RegistryCard({ website }: { website: WeddingWebsite | undefined | null 
 
   return (
     <Link
-      to="/dashboard/website"
+      to="/dashboard/website?tab=registry"
       className="block rounded-xl border border-gold bg-white p-6 transition hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-2 mb-1">

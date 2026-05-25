@@ -243,7 +243,7 @@ export default function GuestListPage() {
             {/* One-way sync notice */}
             <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800">
               <span className="font-semibold">One-way sync: Sheet to AltarWed.</span>{' '}
-              Changes you make to guests on this dashboard are saved here only — they won&apos;t update your spreadsheet.
+              Changes you make to guests on this dashboard are saved here only. They won&apos;t update your spreadsheet.
               If you edit a guest here after syncing, that edit stays unless the sheet overwrites it on the next pull.
             </div>
 

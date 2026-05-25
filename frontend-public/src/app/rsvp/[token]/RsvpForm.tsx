@@ -108,7 +108,7 @@ export default function RsvpForm({
             </a>
           ) : (
             <p className="mt-2 text-sm text-[#a08060] italic">
-              The couple hasn&apos;t set up their registry yet — check back soon.
+              The couple hasn&apos;t set up their registry yet. Check back soon.
             </p>
           )
         )}

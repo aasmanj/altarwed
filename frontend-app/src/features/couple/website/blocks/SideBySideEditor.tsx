@@ -283,6 +283,7 @@ export default function SideBySideEditor() {
                     key={t}
                     onClick={() => {
                       setActiveTab(t)
+                      setPicking(false)
                       bumpPreview()
                     }}
                     className={`px-3 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 transition inline-flex items-center gap-1.5 ${
