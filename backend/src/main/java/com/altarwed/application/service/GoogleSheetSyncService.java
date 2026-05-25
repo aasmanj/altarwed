@@ -8,6 +8,7 @@ import com.altarwed.domain.port.GoogleSheetSyncRepository;
 import com.altarwed.domain.port.GuestRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
@@ -64,10 +65,19 @@ public class GoogleSheetSyncService {
     ) {
         this.syncRepository = syncRepository;
         this.guestRepository = guestRepository;
-        // Spring Boot 4 does not auto-expose RestClient.Builder as a bean (same as
-        // ObjectMapper). Call RestClient.builder() statically, consistent with
-        // ResendEmailAdapter and NextjsRevalidationAdapter.
-        this.restClient = RestClient.builder().build();
+        // Spring Boot 4 does not auto-expose RestClient.Builder as a bean.
+        // We explicitly use SimpleClientHttpRequestFactory (wraps HttpURLConnection)
+        // rather than the default JdkClientHttpRequestFactory (wraps java.net.http.HttpClient).
+        // Reason: Google Sheets publish-to-web CSV URLs issue a 302 redirect before
+        // delivering the actual CSV. HttpClient does NOT follow redirects by default;
+        // HttpURLConnection DOES. Without this, we silently get an empty body and
+        // record 0 rows synced.
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(10_000);
+        factory.setReadTimeout(30_000);
+        this.restClient = RestClient.builder()
+                .requestFactory(factory)
+                .build();
     }
 
     // -----------------------------------------------------------------------
@@ -187,18 +197,37 @@ public class GoogleSheetSyncService {
     }
 
     private String fetchCsv(String url) {
+        log.info("google sheet csv fetch started, url={}", url);
         String csv = restClient.get()
                 .uri(URI.create(url))
                 .header("Accept", "text/csv, text/plain, */*")
+                .header("User-Agent", "AltarWed-Guest-Sync/1.0")
                 .retrieve()
                 .body(String.class);
-        // Google Sheets "Publish to web as CSV" prepends a UTF-8 BOM (﻿) for
-        // Excel compatibility. Java's String.trim() does NOT strip BOM characters,
-        // so the first header cell becomes "﻿Name" instead of "Name", causing
-        // the column index lookup to silently return null for every row.
-        if (csv != null && csv.startsWith("﻿")) {
+
+        if (csv == null || csv.isBlank()) {
+            throw new IllegalStateException(
+                "Google Sheets returned an empty response. " +
+                "Ensure the sheet is published to the web: " +
+                "File > Share > Publish to web > Comma-separated values (.csv).");
+        }
+
+        // If we got HTML, the sheet is not publicly published or the URL is wrong.
+        if (csv.stripLeading().startsWith("<")) {
+            throw new IllegalStateException(
+                "Google Sheets returned HTML instead of CSV. " +
+                "The sheet must be published publicly: " +
+                "File > Share > Publish to web > select Comma-separated values (.csv).");
+        }
+
+        // Strip UTF-8 BOM (U+FEFF, bytes 0xEF 0xBB 0xBF) that Google prepends for
+        // Excel compatibility. String.trim() does NOT strip BOM. The string literal
+        // below contains the literal BOM character; the Java UTF-8 compiler preserves it.
+        if (csv.charAt(0) == '﻿') {
             csv = csv.substring(1);
         }
+
+        log.info("google sheet csv fetched, bytes={}", csv.length());
         return csv;
     }
 
