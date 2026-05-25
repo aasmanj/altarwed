@@ -151,42 +151,59 @@ jobs:
           echo "Check Azure App Service logs for startup errors."
           exit 1
 
-      - name: Verify controller registration (expect 401, not 404/500)
-        # Calls each endpoint without a token. A registered, secured endpoint
-        # returns 401. A missing endpoint (wrong JAR, bean wiring failure)
-        # returns 404 or 500. This catches the "app.jar not overwritten" class
-        # of deploy bugs that /actuator/health cannot detect.
+      - name: Verify controller registration (expect 4xx, not 404/500)
+        # Calls each secured endpoint without a token and asserts the response
+        # is a 4xx in the range 400-403 — NOT 404 (unmapped) or 5xx (wiring
+        # failure). Spring Security 6+ returns 401 or 403 depending on whether
+        # the anonymous principal is treated as unauthenticated vs. unauthorised;
+        # both are acceptable and both prove the controller is registered.
+        # A 404 here means the wrong app.jar is still running.
+        # A 5xx here means the controller mapped but a bean blew up at request time.
         run: |
           BASE="https://altarwed-prod-api.azurewebsites.net"
           FAIL=0
 
-          check() {
+          check_secured() {
             local label="$1"
             local url="$2"
-            local expected="$3"
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$url")
-            if [ "$STATUS" = "$expected" ]; then
-              echo "PASS $label → HTTP $STATUS"
+            if [ "$STATUS" = "401" ] || [ "$STATUS" = "403" ]; then
+              echo "PASS $label → HTTP $STATUS (controller registered, security active)"
+            elif [ "$STATUS" = "404" ]; then
+              echo "FAIL $label → HTTP 404 (endpoint not mapped — wrong app.jar?)"
+              FAIL=1
             else
-              echo "FAIL $label → expected HTTP $expected, got HTTP $STATUS"
+              echo "FAIL $label → HTTP $STATUS (unexpected — check container logs)"
               FAIL=1
             fi
           }
 
-          # Auth-required endpoints: expect 401 (unauthenticated, not missing)
-          check "google-sheets/status"   "$BASE/api/v1/integrations/google-sheets/status"   401
-          check "couples/me"             "$BASE/api/v1/couples/me"                           401
-          check "wedding-websites/mine"  "$BASE/api/v1/wedding-websites/mine"                401
-          check "guests"                 "$BASE/api/v1/guests"                               401
+          check_public() {
+            local label="$1"
+            local url="$2"
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+            if [ "$STATUS" = "200" ]; then
+              echo "PASS $label → HTTP 200"
+            else
+              echo "FAIL $label → expected HTTP 200, got HTTP $STATUS"
+              FAIL=1
+            fi
+          }
 
-          # Public endpoints: expect 200
-          check "denominations"          "$BASE/api/v1/denominations"                        200
+          # Secured endpoints: 401 or 403 both mean "mapped and secured"
+          check_secured "google-sheets/status"   "$BASE/api/v1/integrations/google-sheets/status"
+          check_secured "couples/me"             "$BASE/api/v1/couples/me"
+          check_secured "wedding-websites/mine"  "$BASE/api/v1/wedding-websites/mine"
+          check_secured "guests"                 "$BASE/api/v1/guests"
+
+          # Public endpoints: must be 200
+          check_public  "denominations"          "$BASE/api/v1/denominations"
 
           if [ "$FAIL" = "1" ]; then
             echo ""
-            echo "ERROR: one or more controller probes returned an unexpected status."
-            echo "Most likely cause: App Service is still booting the old app.jar."
-            echo "Check that the rename step ran and inspect the container logs."
+            echo "ERROR: one or more controller probes failed."
+            echo "404 → wrong app.jar still running; 5xx → bean wiring failure."
+            echo "Check the rename step output and container logs."
             exit 1
           fi
 
