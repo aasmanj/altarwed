@@ -422,54 +422,63 @@ export default function GuestListPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {groups.map((group) => group.type === 'party' ? (
-              <div key={group.partyId} className="rounded-xl border border-gold-light bg-white overflow-hidden">
-                {/* Party header */}
-                <div className="px-4 py-2.5 bg-gold/5 border-b border-gold-light flex items-center gap-2">
-                  <span className="text-xs font-semibold text-gold uppercase tracking-wide">Party</span>
-                  <span className="font-medium text-brown text-sm">{group.partyName}</span>
-                  <span className="text-xs text-brown-light ml-1">({group.members.length} members)</span>
-                </div>
-                <table className="w-full text-sm">
-                  <tbody>
-                    {group.members.map(guest => (
-                      editingId === guest.id ? (
-                        <EditGuestRow
-                          key={guest.id}
-                          guest={guest}
-                          onSave={async (payload) => {
-                            await updateGuest.mutateAsync({ guestId: guest.id, payload })
-                            setEditingId(null)
-                          }}
-                          onCancel={() => setEditingId(null)}
-                          isPending={updateGuest.isPending}
-                        />
-                      ) : (
-                        <GuestRow
-                          key={guest.id}
-                          guest={guest}
-                          onEdit={() => setEditingId(guest.id)}
-                          onRemove={() => { if (confirm(`Remove ${guest.name}?`)) removeGuest.mutate(guest.id) }}
-                          onInvite={() => {
-                            const action = guest.inviteSentAt ? 'Resend' : 'Send'
-                            if (confirm(`${action} RSVP invite to ${guest.name} at ${guest.email}?\nThis link covers all party members.`)) {
-                              sendInvite.mutate(guest.id)
-                            }
-                          }}
-                          sendInvitePending={sendInvite.isPending}
-                        />
-                      )
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div key={group.guest.id} className="rounded-xl border border-gold-light bg-white overflow-hidden">
-                <table className="w-full text-sm">
-                  <tbody>
-                    {editingId === group.guest.id ? (
+          <div className="rounded-xl border border-gold-light bg-white overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gold-light bg-ivory/60">
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-brown-light uppercase tracking-wide">Name</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-brown-light uppercase tracking-wide hidden sm:table-cell">Email</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-brown-light uppercase tracking-wide hidden md:table-cell">Side</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-brown-light uppercase tracking-wide">Status</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-brown-light uppercase tracking-wide hidden lg:table-cell">Table</th>
+                    <th className="px-4 py-2.5" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {groups.map((group) => group.type === 'party' ? (
+                    <>
+                      {/* Party section header */}
+                      <tr key={`party-hdr-${group.partyId}`} className="border-b border-gold-light bg-gold/5">
+                        <td colSpan={6} className="px-4 py-2 flex items-center gap-2">
+                          <span className="text-xs font-semibold text-gold uppercase tracking-wide">Party</span>
+                          <span className="font-medium text-brown text-sm">{group.partyName}</span>
+                          <span className="text-xs text-brown-light">({group.members.length} members)</span>
+                        </td>
+                      </tr>
+                      {group.members.map(guest => (
+                        editingId === guest.id ? (
+                          <EditGuestRow
+                            key={guest.id}
+                            guest={guest}
+                            onSave={async (payload) => {
+                              await updateGuest.mutateAsync({ guestId: guest.id, payload })
+                              setEditingId(null)
+                            }}
+                            onCancel={() => setEditingId(null)}
+                            isPending={updateGuest.isPending}
+                          />
+                        ) : (
+                          <GuestRow
+                            key={guest.id}
+                            guest={guest}
+                            onEdit={() => setEditingId(guest.id)}
+                            onRemove={() => { if (confirm(`Remove ${guest.name}?`)) removeGuest.mutate(guest.id) }}
+                            onInvite={() => {
+                              const action = guest.inviteSentAt ? 'Resend' : 'Send'
+                              if (confirm(`${action} RSVP invite to ${guest.name} at ${guest.email}?\nThis link covers all party members.`)) {
+                                sendInvite.mutate(guest.id)
+                              }
+                            }}
+                            sendInvitePending={sendInvite.isPending}
+                          />
+                        )
+                      ))}
+                    </>
+                  ) : (
+                    editingId === group.guest.id ? (
                       <EditGuestRow
+                        key={group.guest.id}
                         guest={group.guest}
                         onSave={async (payload) => {
                           await updateGuest.mutateAsync({ guestId: group.guest.id, payload })
@@ -480,6 +489,7 @@ export default function GuestListPage() {
                       />
                     ) : (
                       <GuestRow
+                        key={group.guest.id}
                         guest={group.guest}
                         onEdit={() => setEditingId(group.guest.id)}
                         onRemove={() => { if (confirm(`Remove ${group.guest.name}?`)) removeGuest.mutate(group.guest.id) }}
@@ -492,11 +502,11 @@ export default function GuestListPage() {
                         }}
                         sendInvitePending={sendInvite.isPending}
                       />
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            ))}
+                    )
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </main>
