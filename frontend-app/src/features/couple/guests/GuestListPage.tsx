@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import confetti from 'canvas-confetti'
 import Papa from 'papaparse'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { useAuth } from '@/core/auth/AuthContext'
@@ -113,6 +114,31 @@ export default function GuestListPage() {
   const responseRate = total > 0 ? Math.round((responded / total) * 100) : 0
 
   const [showAnalytics, setShowAnalytics] = useState(false)
+
+  // Celebrate the very first RSVP. We persist the "seen first RSVP" flag in
+  // localStorage so the confetti only fires once per couple, even across page
+  // reloads. Uses a ref to gate effect re-runs within the same session.
+  const firstRsvpFiredRef = useRef(false)
+  useEffect(() => {
+    if (firstRsvpFiredRef.current) return
+    if (guests.length === 0) return
+    const storageKey = `confetti.firstRsvp.${coupleId}`
+    if (window.localStorage.getItem(storageKey) === '1') {
+      firstRsvpFiredRef.current = true
+      return
+    }
+    const hasResponse = guests.some(g => g.respondedAt)
+    if (hasResponse) {
+      window.localStorage.setItem(storageKey, '1')
+      firstRsvpFiredRef.current = true
+      confetti({
+        particleCount: 150,
+        spread: 80,
+        origin: { y: 0.4 },
+        colors: ['#d4af6a', '#22c55e', '#f5ede0', '#fbbf24'],
+      })
+    }
+  }, [guests, coupleId])
 
   function exportCsv() {
     const rows = guests.map(g => ({
@@ -449,8 +475,18 @@ export default function GuestListPage() {
         {showAdd && (
           <AddGuestForm
             onSubmit={async (data) => {
+              const wasFirstGuest = guests.length === 0
               await addGuest.mutateAsync(data)
               setShowAdd(false)
+              if (wasFirstGuest) {
+                // First guest added — celebrate the milestone.
+                confetti({
+                  particleCount: 120,
+                  spread: 70,
+                  origin: { y: 0.4 },
+                  colors: ['#d4af6a', '#3b2f2f', '#f5ede0', '#fbbf24'],
+                })
+              }
             }}
             onCancel={() => setShowAdd(false)}
             isPending={addGuest.isPending}

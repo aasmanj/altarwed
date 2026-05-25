@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import confetti from 'canvas-confetti'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import { useMutation } from '@tanstack/react-query'
@@ -21,7 +22,17 @@ export default function SaveTheDatePage() {
   const sendMutation = useMutation({
     mutationFn: () =>
       apiClient.post(`/api/v1/save-the-dates/couple/${coupleId}/send`).then(r => r.data),
-    onSuccess: () => setSent(true),
+    onSuccess: () => {
+      setSent(true)
+      // Celebrate the milestone — first save-the-date blast is the first time
+      // a couple's announcement actually reaches their guests.
+      confetti({
+        particleCount: 180,
+        spread: 90,
+        origin: { y: 0.5 },
+        colors: ['#d4af6a', '#3b2f2f', '#f5ede0', '#fbbf24', '#fde68a'],
+      })
+    },
   })
 
   const coupleNames = user?.partnerOneName && user?.partnerTwoName

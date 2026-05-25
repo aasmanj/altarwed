@@ -25,7 +25,17 @@ import {
 
 // ─── Guest chip (draggable on desktop) ──────────────────────────────────────
 
-function GuestChip({ guest, locked = false }: { guest: Guest; locked?: boolean }) {
+function GuestChip({
+  guest,
+  locked = false,
+  isAssigned = false,
+  onUnassign,
+}: {
+  guest: Guest
+  locked?: boolean
+  isAssigned?: boolean
+  onUnassign?: () => void
+}) {
   // useDraggable must still be called (hook rules), but we drop the listeners/
   // attributes when locked so the chip is non-interactive and shows the default
   // cursor instead of cursor-grab.
@@ -37,17 +47,28 @@ function GuestChip({ guest, locked = false }: { guest: Guest; locked?: boolean }
   return (
     <div
       ref={setNodeRef}
-      {...(locked ? {} : listeners)}
-      {...(locked ? {} : attributes)}
       style={{ ...style, opacity: isDragging ? 0.3 : 1 }}
-      className={`flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-stone-200 shadow-sm select-none text-sm text-stone-800 ${
+      className={`group flex items-center gap-2 pl-3 pr-1 py-2 bg-white rounded-lg border border-stone-200 shadow-sm select-none text-sm text-stone-800 ${
         locked ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'
       }`}
+      {...(locked ? {} : listeners)}
+      {...(locked ? {} : attributes)}
     >
       <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
-      <span className="truncate">{guest.name}</span>
+      <span className="truncate flex-1">{guest.name}</span>
       {guest.plusOneName && (
         <span className="text-xs text-stone-400 flex-shrink-0">+{guest.plusOneName}</span>
+      )}
+      {isAssigned && !locked && onUnassign && (
+        <button
+          onPointerDown={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); onUnassign() }}
+          className="opacity-0 group-hover:opacity-100 transition flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-stone-400 hover:text-rose-600 hover:bg-rose-50"
+          title="Remove from table"
+          aria-label={`Unassign ${guest.name}`}
+        >
+          ✕
+        </button>
       )}
     </div>
   )
@@ -59,30 +80,40 @@ function TableColumn({
   table,
   guests,
   onEdit,
+  onUnassign,
   locked = false,
+  sticky = false,
 }: {
   table: SeatingTable | null
   guests: Guest[]
   onEdit?: (t: SeatingTable) => void
+  onUnassign?: (guestId: string) => void
   locked?: boolean
+  sticky?: boolean
 }) {
   const id = table ? table.id : 'unassigned'
   const { setNodeRef, isOver } = useDroppable({ id })
   const filled = guests.length
   const capacity = table?.capacity ?? Infinity
   const overCapacity = filled > capacity
+  const isUnassigned = !table
+
+  // Unassigned column is sticky to the left so it's always reachable as a drop
+  // target, no matter how many tables the couple has added.
+  const stickyCls = sticky ? 'sticky left-0 z-10' : ''
+  const baseColorCls = isUnassigned
+    ? (isOver ? 'border-amber-500 bg-amber-100' : 'border-amber-300 bg-amber-50/70')
+    : (isOver ? 'border-amber-400 bg-amber-50' : 'border-stone-200 bg-stone-50')
 
   return (
     <div
       ref={setNodeRef}
-      className={`flex-shrink-0 w-52 rounded-xl border-2 transition-colors flex flex-col ${
-        isOver ? 'border-amber-400 bg-amber-50' : 'border-stone-200 bg-stone-50'
-      }`}
+      className={`flex-shrink-0 w-52 rounded-xl border-2 transition-colors flex flex-col ${baseColorCls} ${stickyCls}`}
     >
-      <div className="px-3 py-2 border-b border-stone-200 bg-white rounded-t-xl">
+      <div className={`px-3 py-2 border-b rounded-t-xl ${isUnassigned ? 'border-amber-200 bg-amber-50' : 'border-stone-200 bg-white'}`}>
         <div className="flex items-center justify-between gap-1">
-          <p className="text-xs font-semibold text-stone-700 truncate">
-            {table ? table.name : 'Unassigned'}
+          <p className={`text-xs font-semibold truncate ${isUnassigned ? 'text-amber-900' : 'text-stone-700'}`}>
+            {table ? table.name : '○ Unassigned'}
           </p>
           {table && onEdit && (
             <button
@@ -102,13 +133,26 @@ function TableColumn({
           </p>
         )}
         {!table && (
-          <p className="text-xs text-stone-400 mt-0.5">{filled} guests</p>
+          <p className="text-xs text-amber-700 mt-0.5">
+            {filled} {filled === 1 ? 'guest' : 'guests'} · drop here to remove
+          </p>
         )}
       </div>
       <div className="p-2 space-y-1.5 flex-1 min-h-[80px]">
         {guests.map(g => (
-          <GuestChip key={g.id} guest={g} locked={locked} />
+          <GuestChip
+            key={g.id}
+            guest={g}
+            locked={locked}
+            isAssigned={!isUnassigned}
+            onUnassign={onUnassign ? () => onUnassign(g.id) : undefined}
+          />
         ))}
+        {isUnassigned && filled === 0 && (
+          <p className="text-xs text-amber-700/60 italic px-1 py-2">
+            All guests seated. Drag a guest here to remove them from a table.
+          </p>
+        )}
       </div>
     </div>
   )
@@ -529,7 +573,8 @@ export default function SeatingPage() {
           // Desktop: drag-and-drop
           <>
             <p className="text-sm text-stone-500 mb-4">
-              Drag guests between tables. Click the pencil icon to rename a table or change its capacity.
+              Drag guests between tables, or drop them on the Unassigned column to remove a seat assignment.
+              Hover a seated guest and click ✕ for a one-click unassign.
             </p>
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
               <div className="flex gap-4 items-start pb-4 overflow-x-auto">
@@ -537,6 +582,7 @@ export default function SeatingPage() {
                   table={null}
                   guests={unassignedGuests}
                   locked={locked}
+                  sticky
                 />
                 {tables.map(t => (
                   <TableColumn
@@ -544,6 +590,7 @@ export default function SeatingPage() {
                     table={t}
                     guests={guestsForTable(t)}
                     onEdit={locked ? undefined : setEditingTable}
+                    onUnassign={locked ? undefined : (guestId) => updateGuest.mutate({ guestId, payload: { tableNumber: undefined } })}
                     locked={locked}
                   />
                 ))}
