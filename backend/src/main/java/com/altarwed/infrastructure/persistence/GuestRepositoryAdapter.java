@@ -72,7 +72,7 @@ public class GuestRepositoryAdapter implements GuestRepository {
         return new Guest(
                 e.getId(), e.getCoupleId(), e.getName(), e.getEmail(), e.getPhone(),
                 e.getRsvpStatus(), e.isPlusOneAllowed(), e.getPlusOneName(),
-                e.getDietaryRestrictions(), e.getMealPreference(), e.getSongRequest(),
+                e.getDietaryRestrictions(), e.getSongRequest(),
                 e.getTableNumber(), e.getSide(), e.getNotes(),
                 e.getMailLine1(), e.getMailCity(), e.getMailState(), e.getMailZip(),
                 e.getNoteForCouple(), e.getInviteSendCount(),
@@ -93,7 +93,6 @@ public class GuestRepositoryAdapter implements GuestRepository {
                 .plusOneAllowed(g.plusOneAllowed())
                 .plusOneName(g.plusOneName())
                 .dietaryRestrictions(g.dietaryRestrictions())
-                .mealPreference(g.mealPreference())
                 .songRequest(g.songRequest())
                 .tableNumber(g.tableNumber())
                 .side(g.side())

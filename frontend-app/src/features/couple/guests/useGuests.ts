@@ -14,7 +14,6 @@ export interface Guest {
   plusOneAllowed: boolean
   plusOneName: string | null
   dietaryRestrictions: string | null
-  mealPreference: string | null
   songRequest: string | null
   tableNumber: number | null
   side: GuestSide | null
@@ -62,7 +61,6 @@ export interface UpdateGuestPayload {
   plusOneAllowed?: boolean
   plusOneName?: string
   dietaryRestrictions?: string
-  mealPreference?: string
   songRequest?: string
   tableNumber?: number
   side?: GuestSide

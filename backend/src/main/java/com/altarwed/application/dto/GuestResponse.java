@@ -18,7 +18,6 @@ public record GuestResponse(
         boolean plusOneAllowed,
         String plusOneName,
         String dietaryRestrictions,
-        String mealPreference,
         String songRequest,
         Integer tableNumber,
         GuestSide side,

@@ -136,16 +136,13 @@ public class ResendEmailAdapter implements EmailPort {
     @Override
     public void sendRsvpNotificationToCouple(String coupleEmail, String coupleNames,
                                               String guestName, String rsvpStatus,
-                                              String mealPreference, String noteForCouple,
+                                              String noteForCouple,
                                               String dashboardUrl) {
         boolean attending = "ATTENDING".equalsIgnoreCase(rsvpStatus);
         String emoji      = attending ? "🎉" : "😔";
         String statusWord = attending ? "Attending" : "Declining";
         String statusColor = attending ? "#16a34a" : "#dc2626";
 
-        String mealRow = (mealPreference != null && !mealPreference.isBlank())
-                ? "<tr><td style='color:#6b5344;padding:4px 0;'>Meal preference</td><td style='padding:4px 0;font-weight:600;color:#3b2f2f;'>%s</td></tr>".formatted(mealPreference)
-                : "";
         String noteRow = (noteForCouple != null && !noteForCouple.isBlank())
                 ? """
                   <tr><td colspan="2" style="padding-top:12px;">
@@ -173,7 +170,6 @@ public class ResendEmailAdapter implements EmailPort {
                       <td style="padding:4px 0;font-weight:700;color:%s;">%s</td>
                     </tr>
                     %s
-                    %s
                   </table>
                   <div style="text-align:center;">
                     <a href="%s"
@@ -185,18 +181,17 @@ public class ResendEmailAdapter implements EmailPort {
                     "And over all these virtues put on love, which binds them all together in perfect unity." — Colossians 3:14
                   </p>
                 </div>
-                """.formatted(emoji, statusWord, guestName, guestName, statusColor, statusWord, mealRow, noteRow, dashboardUrl);
+                """.formatted(emoji, statusWord, guestName, guestName, statusColor, statusWord, noteRow, dashboardUrl);
 
         String text = """
                 %s %s responded to your wedding invitation.
 
                 Guest: %s
                 Status: %s
-                %s%s
+                %s
                 View your guest list: %s
                 """.formatted(
                 emoji, guestName, guestName, statusWord,
-                mealPreference != null && !mealPreference.isBlank() ? "Meal preference: " + mealPreference + "\n" : "",
                 noteForCouple != null && !noteForCouple.isBlank() ? "Note for you: \"" + noteForCouple + "\"\n" : "",
                 dashboardUrl
         );

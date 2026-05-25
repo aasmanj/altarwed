@@ -39,8 +39,11 @@ import java.util.stream.Collectors;
  *   https://docs.google.com/spreadsheets/d/{id}/export?format=csv
  *
  * Expected CSV columns (case-insensitive, order flexible):
- *   Name (required), Email, Plus One Name, Meal Preference, Dietary Restrictions,
- *   Song Request, Shuttle Needed (yes/no/true/false)
+ *   Side, Names of all guests in Party (required), Phone Number, Email Address,
+ *   Street Address, City, State, Zip Code, Allowed Plus One?, Plus One Name,
+ *   RSVP Status, Table #, Dietary Restriction, Notes
+ *
+ * Old column names are supported as fallbacks for backward compatibility.
  *
  * Sync strategy: upsert by name (case-insensitive). If a guest with that name already
  * exists we update their fields (including email if newly added); otherwise we create
@@ -254,11 +257,15 @@ public class GoogleSheetSyncService {
         String[] headers = rows.get(0);
         Map<String, Integer> colIndex = buildColumnIndex(headers);
 
-        if (!colIndex.containsKey("name")) {
+        // Accept both the new sister-sheet column name and the old "name" fallback
+        boolean hasNameCol = colIndex.containsKey("names of all guests in party") || colIndex.containsKey("name");
+        if (!hasNameCol) {
             throw new IllegalArgumentException(
-                "CSV does not contain a 'Name' column. " +
-                "Ensure the sheet is published as CSV and the first row contains column headers: " +
-                "Name, Email, Plus One Name, Meal Preference, Dietary Restrictions, Song Request. " +
+                "CSV does not contain a 'Name' or 'Names of all guests in Party' column. " +
+                "Ensure the sheet is published as CSV and the first row contains column headers. " +
+                "Expected columns: Side, Names of all guests in Party, Phone Number, Email Address, " +
+                "Street Address, City, State, Zip Code, Allowed Plus One?, Plus One Name, RSVP Status, " +
+                "Table #, Dietary Restriction, Notes. " +
                 "Actual headers found: " + String.join(", ", headers));
         }
 
@@ -279,51 +286,105 @@ public class GoogleSheetSyncService {
         int processed = 0;
         for (int i = 1; i < rows.size(); i++) {
             String[] cols = rows.get(i);
-            String name = get(cols, colIndex, "name");
+            // Support both new column name and old fallback
+            String name = getAny(cols, colIndex, "names of all guests in party", "name");
             if (name == null || name.isBlank()) continue;
 
-            String email = get(cols, colIndex, "email");
             Guest g = byName.get(name.toLowerCase().trim());
 
-            String plusOneName       = get(cols, colIndex, "plus one name");
-            String mealPref          = get(cols, colIndex, "meal preference");
-            String dietary           = get(cols, colIndex, "dietary restrictions");
-            String songRequest       = get(cols, colIndex, "song request");
+            // Support both new column names and old column names for backward compatibility.
+            // getAny() tries each name in order and returns the first non-null value.
+            String side        = getAny(cols, colIndex, "side");
+            String phone       = getAny(cols, colIndex, "phone number", "phone");
+            String emailVal    = getAny(cols, colIndex, "email address", "email");
+            String street      = getAny(cols, colIndex, "street address", "address line 1");
+            String apt         = getAny(cols, colIndex, "apt/suite", "apt", "suite");
+            String city        = getAny(cols, colIndex, "city");
+            String state       = getAny(cols, colIndex, "state");
+            String zip         = getAny(cols, colIndex, "zip code", "zip");
+            String plusOneRaw  = getAny(cols, colIndex, "allowed plus one?", "allowed plus one", "plus one allowed");
+            String plusOneName = getAny(cols, colIndex, "plus one name");
+            String rsvpRaw     = getAny(cols, colIndex, "rsvp status");
+            String tableRaw    = getAny(cols, colIndex, "table #", "table number", "table");
+            String dietary     = getAny(cols, colIndex, "dietary restriction", "dietary restrictions");
+            String notes       = getAny(cols, colIndex, "notes");
+
+            // Combine street + apt into mailLine1
+            String mailLine1 = street != null
+                    ? (apt != null ? street + " " + apt : street)
+                    : null;
+
+            // Parse plusOneAllowed
+            boolean plusOneAllowed = plusOneRaw != null &&
+                    (plusOneRaw.equalsIgnoreCase("yes") || plusOneRaw.equalsIgnoreCase("true") || plusOneRaw.equals("1"));
+
+            // Parse rsvpStatus
+            com.altarwed.domain.model.GuestRsvpStatus rsvpStatus = null;
+            if (rsvpRaw != null) {
+                String r = rsvpRaw.trim().toUpperCase();
+                if (r.equals("ATTENDING") || r.equals("YES") || r.equals("GOING")) {
+                    rsvpStatus = com.altarwed.domain.model.GuestRsvpStatus.ATTENDING;
+                } else if (r.equals("DECLINING") || r.equals("NO") || r.equals("NOT GOING") || r.equals("DECLINED")) {
+                    rsvpStatus = com.altarwed.domain.model.GuestRsvpStatus.DECLINING;
+                }
+                // null means keep existing / PENDING
+            }
+
+            // Parse tableNumber
+            Integer tableNumber = null;
+            if (tableRaw != null) {
+                try { tableNumber = Integer.parseInt(tableRaw.trim()); } catch (NumberFormatException ignored) {}
+            }
+
+            // Parse side
+            com.altarwed.domain.model.GuestSide sideVal = null;
+            if (side != null) {
+                String s = side.trim().toUpperCase();
+                if (s.equals("BRIDE") || s.equals("BRIDE SIDE")) sideVal = com.altarwed.domain.model.GuestSide.BRIDE;
+                else if (s.equals("GROOM") || s.equals("GROOM SIDE")) sideVal = com.altarwed.domain.model.GuestSide.GROOM;
+                else if (s.equals("BOTH")) sideVal = com.altarwed.domain.model.GuestSide.BOTH;
+            }
+
+            // email: use the dedicated email column value
+            String email = emailVal;
+
             if (g == null) {
-                // New guest — id=null so JPA generates one; phone=null; tableNumber=null; side=null
+                // New guest — id=null so JPA generates one
                 toSave.add(new Guest(
                         null, coupleId, name, email,
-                        null,   // phone
-                        com.altarwed.domain.model.GuestRsvpStatus.PENDING,
-                        false,  // plusOneAllowed (primitive, defaults false)
-                        plusOneName, dietary, mealPref, songRequest,
-                        null,   // tableNumber
-                        null,   // side
-                        null,   // notes
-                        null, null, null, null,   // mailLine1/City/State/Zip (not in sheet)
-                        null,   // noteForCouple
-                        0,      // inviteSendCount
-                        null,   // inviteSentAt
-                        null,   // respondedAt
-                        null,   // remindAt
-                        null,   // createdAt (set by @PrePersist)
-                        null,   // updatedAt
+                        phone,
+                        rsvpStatus != null ? rsvpStatus : com.altarwed.domain.model.GuestRsvpStatus.PENDING,
+                        plusOneAllowed,
+                        plusOneName, dietary,
+                        null,           // songRequest
+                        tableNumber,
+                        sideVal,
+                        notes,
+                        mailLine1, city, state, zip,
+                        null,           // noteForCouple
+                        0,              // inviteSendCount
+                        null, null, null, null,   // inviteSentAt, respondedAt, remindAt, createdAt
+                        null,           // updatedAt (set by @PrePersist)
                         null, null, null  // partyId, partyName, partyContact
                 ));
             } else {
-                // Update only non-RSVP fields; preserve everything the couple set manually
+                // Update only non-destructive fields; preserve everything the couple set manually
                 toSave.add(new Guest(
                         g.id(), g.coupleId(), name,
                         email       != null ? email       : g.email(),
-                        g.phone(),
-                        g.rsvpStatus(),
-                        g.plusOneAllowed(),
+                        phone       != null ? phone       : g.phone(),
+                        rsvpStatus  != null ? rsvpStatus  : g.rsvpStatus(),
+                        plusOneRaw  != null ? plusOneAllowed : g.plusOneAllowed(),
                         plusOneName != null ? plusOneName : g.plusOneName(),
                         dietary     != null ? dietary     : g.dietaryRestrictions(),
-                        mealPref    != null ? mealPref    : g.mealPreference(),
-                        songRequest != null ? songRequest : g.songRequest(),
-                        g.tableNumber(), g.side(), g.notes(),
-                        g.mailLine1(), g.mailCity(), g.mailState(), g.mailZip(),
+                        g.songRequest(),
+                        tableNumber != null ? tableNumber : g.tableNumber(),
+                        sideVal     != null ? sideVal     : g.side(),
+                        notes       != null ? notes       : g.notes(),
+                        mailLine1   != null ? mailLine1   : g.mailLine1(),
+                        city        != null ? city        : g.mailCity(),
+                        state       != null ? state       : g.mailState(),
+                        zip         != null ? zip         : g.mailZip(),
                         g.noteForCouple(),
                         g.inviteSendCount(), g.inviteSentAt(), g.respondedAt(), g.remindAt(),
                         g.createdAt(), g.updatedAt(),
@@ -392,6 +453,14 @@ public class GoogleSheetSyncService {
         return v.isEmpty() ? null : v;
     }
 
+    /** Like get() but tries multiple column names in order, returns first non-null. */
+    private String getAny(String[] cols, Map<String, Integer> index, String... names) {
+        for (String name : names) {
+            String v = get(cols, index, name);
+            if (v != null) return v;
+        }
+        return null;
+    }
 
     // -----------------------------------------------------------------------
     // Mapper

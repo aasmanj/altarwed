@@ -1,12 +1,12 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import Papa from 'papaparse'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import {
   useGuests, useAddGuest, useUpdateGuest, useRemoveGuest,
-  useSendInvite, useSendAllInvites, useCreateParty, useBulkAddGuests,
-  type Guest, type RsvpStatus, type GuestSide, type CreatePartyPayload, type CreateGuestPayload,
+  useSendInvite, useSendAllInvites,
+  type Guest, type RsvpStatus, type GuestSide,
 } from './useGuests'
 import TipCallout from '@/components/TipCallout'
 import { TIPS } from '@/lib/tips'
@@ -37,9 +37,6 @@ export default function GuestListPage() {
   const sendInvite  = useSendInvite(coupleId)
   const sendAll     = useSendAllInvites(coupleId)
 
-  const createParty   = useCreateParty(coupleId)
-  const bulkAdd       = useBulkAddGuests(coupleId)
-
   const { data: sheetSync }     = useGoogleSheetSync(coupleId)
   const setSheetSync            = useSetGoogleSheetSync(coupleId)
   const deleteSheetSync         = useDeleteGoogleSheetSync(coupleId)
@@ -58,35 +55,12 @@ export default function GuestListPage() {
     return false
   })
 
-  const [showAdd, setShowAdd]         = useState(false)
-  const [showParty, setShowParty]     = useState(false)
-  const [showImport, setShowImport]   = useState(false)
-  const [filter, setFilter]           = useState<RsvpStatus | 'ALL'>('ALL')
-  const [editingId, setEditingId]     = useState<string | null>(null)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [showAdd, setShowAdd]           = useState(false)
+  const [filter, setFilter]             = useState<RsvpStatus | 'ALL'>('ALL')
+  const [editingId, setEditingId]       = useState<string | null>(null)
 
   const filtered = filter === 'ALL' ? guests : guests.filter(g => g.rsvpStatus === filter)
-
-  // Group filtered guests: parties first (grouped by partyId), then solo guests
-  type GuestGroup = { type: 'party'; partyId: string; partyName: string; members: Guest[] } | { type: 'solo'; guest: Guest }
-  const groups: GuestGroup[] = (() => {
-    const partyMap = new Map<string, Guest[]>()
-    const solos: Guest[] = []
-    for (const g of filtered) {
-      if (g.partyId) {
-        const arr = partyMap.get(g.partyId) ?? []
-        arr.push(g)
-        partyMap.set(g.partyId, arr)
-      } else {
-        solos.push(g)
-      }
-    }
-    const result: GuestGroup[] = []
-    partyMap.forEach((members, partyId) => {
-      result.push({ type: 'party', partyId, partyName: members[0].partyName ?? 'Party', members })
-    })
-    solos.forEach(g => result.push({ type: 'solo', guest: g }))
-    return result
-  })()
 
   const total     = guests.length
   const attending = guests.filter(g => g.rsvpStatus === 'ATTENDING').length
@@ -100,24 +74,22 @@ export default function GuestListPage() {
 
   function exportCsv() {
     const rows = guests.map(g => ({
-      Name:                    g.name,
-      Email:                   g.email ?? '',
-      Phone:                   g.phone ?? '',
-      'RSVP Status':           g.rsvpStatus,
-      Side:                    g.side ?? '',
-      'Plus One Allowed':      g.plusOneAllowed ? 'Yes' : 'No',
-      'Plus One Name':         g.plusOneName ?? '',
-      'Meal Preference':       g.mealPreference ?? '',
-      'Dietary Restrictions':  g.dietaryRestrictions ?? '',
-      'Song Request':          g.songRequest ?? '',
-      'Table Number':          g.tableNumber ?? '',
-      'Address Line 1':        g.mailLine1 ?? '',
-      'City':                  g.mailCity ?? '',
-      'State':                 g.mailState ?? '',
-      'ZIP':                   g.mailZip ?? '',
-      'Party Name':            g.partyName ?? '',
-      'Invite Sent':           g.inviteSentAt ? new Date(g.inviteSentAt).toLocaleDateString() : '',
-      'Responded At':          g.respondedAt ? new Date(g.respondedAt).toLocaleDateString() : '',
+      'Side':                         g.side ?? '',
+      'Names of all guests in Party': g.name,
+      'Phone Number':                 g.phone ?? '',
+      'Email Address':                g.email ?? '',
+      'Street Address':               g.mailLine1 ?? '',
+      'City':                         g.mailCity ?? '',
+      'State':                        g.mailState ?? '',
+      'Zip Code':                     g.mailZip ?? '',
+      'Allowed Plus One?':            g.plusOneAllowed ? 'Yes' : 'No',
+      'Plus One Name':                g.plusOneName ?? '',
+      'RSVP Status':                  g.rsvpStatus,
+      'Table #':                      g.tableNumber ?? '',
+      'Dietary Restriction':          g.dietaryRestrictions ?? '',
+      'Notes':                        g.notes ?? '',
+      'Invitation Sent':              g.inviteSentAt ? new Date(g.inviteSentAt).toLocaleDateString() : '',
+      'Responded At':                 g.respondedAt ? new Date(g.respondedAt).toLocaleDateString() : '',
     }))
     // BOM prefix so Excel opens the file with correct UTF-8 encoding
     const csv = '﻿' + Papa.unparse(rows)
@@ -134,9 +106,6 @@ export default function GuestListPage() {
   }
 
   // Analytics data
-  const mealCounts   = guests.filter(g => g.mealPreference).reduce<Record<string,number>>((acc, g) => {
-    const k = g.mealPreference!; acc[k] = (acc[k] ?? 0) + 1; return acc
-  }, {})
   const dietaryCounts = guests.filter(g => g.dietaryRestrictions).reduce<Record<string,number>>((acc, g) => {
     const k = g.dietaryRestrictions!; acc[k] = (acc[k] ?? 0) + 1; return acc
   }, {})
@@ -150,42 +119,18 @@ export default function GuestListPage() {
         action={
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => sendAll.mutate()}
-              disabled={sendAll.isPending || pending === 0}
-              className="rounded-lg border border-gold px-3 py-2 text-sm font-medium text-brown hover:bg-gold/10 disabled:opacity-50 transition min-h-[44px]"
-            >
-              {sendAll.isPending ? 'Sending…' : `Send pending (${pending})`}
-            </button>
-            <button
-              onClick={() => { setShowSheetSync(v => !v); setSheetUrlInput(sheetSync?.sheetUrl ?? '') }}
-              className="rounded-lg border border-gold px-3 py-2 text-sm font-medium text-brown hover:bg-gold/10 transition min-h-[44px]"
-            >
-              Sheets<span className="hidden sm:inline"> Sync</span>
-            </button>
-            <button
-              onClick={() => setShowImport(true)}
-              className="rounded-lg border border-gold px-3 py-2 text-sm font-medium text-brown hover:bg-gold/10 transition min-h-[44px]"
-            >
-              Import<span className="hidden sm:inline"> CSV</span>
-            </button>
-            <button
               onClick={exportCsv}
               disabled={guests.length === 0}
               className="rounded-lg border border-gold px-3 py-2 text-sm font-medium text-brown hover:bg-gold/10 disabled:opacity-50 transition min-h-[44px]"
+              title="Downloads as CSV"
             >
-              Export<span className="hidden sm:inline"> CSV</span>
+              Export<span className="hidden sm:inline"> Guest List</span>
             </button>
             <button
-              onClick={() => setShowParty(true)}
-              className="rounded-lg border border-gold px-3 py-2 text-sm font-medium text-brown hover:bg-gold/10 transition min-h-[44px]"
-            >
-              +<span className="hidden sm:inline"> Create</span> Party
-            </button>
-            <button
-              onClick={() => setShowAdd(true)}
+              onClick={() => setShowAddModal(true)}
               className="rounded-lg bg-gold px-3 py-2 text-sm font-semibold text-white hover:bg-gold-dark transition min-h-[44px]"
             >
-              + Add guest
+              + Add Guest
             </button>
           </div>
         }
@@ -196,6 +141,23 @@ export default function GuestListPage() {
         <div className="mb-6">
           <TipCallout tip={TIPS.guestsRsvpTiming} />
         </div>
+
+        {/* Google Sheets connected status banner */}
+        {sheetSync && !showSheetSync && (
+          <div className="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-center justify-between gap-4 text-sm text-green-800">
+            <span>
+              <span className="font-medium">Google Sheet connected</span>
+              {' · '}Last synced: {relativeTime(sheetSync.lastSynced)}
+            </span>
+            <button
+              onClick={() => triggerSheetSync.mutate()}
+              disabled={triggerSheetSync.isPending}
+              className="shrink-0 rounded-lg bg-green-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-800 disabled:opacity-50 transition"
+            >
+              {triggerSheetSync.isPending ? 'Syncing...' : 'Sync Now'}
+            </button>
+          </div>
+        )}
 
         {/* Google Sheets live sync panel */}
         {showSheetSync && (
@@ -312,7 +274,7 @@ export default function GuestListPage() {
 
             <p className="mt-2 text-xs text-brown-light">
               {oauthStatus?.connected
-                ? 'Paste the URL from your browser address bar while viewing the sheet. Columns: Name, Email, Plus One Name, Meal Preference, Dietary Restrictions, Song Request.'
+                ? 'Paste the URL from your browser address bar while viewing the sheet. Columns: Side, Names of all guests in Party, Phone Number, Email Address, Street Address, City, State, Zip Code, Allowed Plus One?, Plus One Name, RSVP Status, Table #, Dietary Restriction, Notes'
                 : 'Or connect your Google account above to sync private sheets without publishing them.'}
             </p>
           </div>
@@ -352,7 +314,6 @@ export default function GuestListPage() {
             notSent={notSent}
             responseRate={responseRate}
             total={total}
-            mealCounts={mealCounts}
             dietaryCounts={dietaryCounts}
             songCount={songCount}
           />
@@ -373,27 +334,12 @@ export default function GuestListPage() {
           ))}
         </div>
 
-        {/* CSV import modal */}
-        {showImport && (
-          <CsvImportModal
-            onImport={async (rows) => {
-              await bulkAdd.mutateAsync(rows)
-              setShowImport(false)
-            }}
-            onClose={() => setShowImport(false)}
-            isPending={bulkAdd.isPending}
-          />
-        )}
-
-        {/* Create party form */}
-        {showParty && (
-          <CreatePartyForm
-            onSubmit={async (data) => {
-              await createParty.mutateAsync(data)
-              setShowParty(false)
-            }}
-            onCancel={() => setShowParty(false)}
-            isPending={createParty.isPending}
+        {/* Add guest choice modal */}
+        {showAddModal && (
+          <AddGuestModal
+            onClose={() => setShowAddModal(false)}
+            onManual={() => { setShowAddModal(false); setShowAdd(true) }}
+            onSheetSync={() => { setShowAddModal(false); setShowSheetSync(true); setSheetUrlInput(sheetSync?.sheetUrl ?? '') }}
           />
         )}
 
@@ -436,52 +382,13 @@ export default function GuestListPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {groups.map((group) => group.type === 'party' ? (
-                    <>
-                      {/* Party section header */}
-                      <tr key={`party-hdr-${group.partyId}`} className="border-b border-gold-light bg-gold/5">
-                        <td colSpan={6} className="px-4 py-2 flex items-center gap-2">
-                          <span className="text-xs font-semibold text-gold uppercase tracking-wide">Party</span>
-                          <span className="font-medium text-brown text-sm">{group.partyName}</span>
-                          <span className="text-xs text-brown-light">({group.members.length} members)</span>
-                        </td>
-                      </tr>
-                      {group.members.map(guest => (
-                        editingId === guest.id ? (
-                          <EditGuestRow
-                            key={guest.id}
-                            guest={guest}
-                            onSave={async (payload) => {
-                              await updateGuest.mutateAsync({ guestId: guest.id, payload })
-                              setEditingId(null)
-                            }}
-                            onCancel={() => setEditingId(null)}
-                            isPending={updateGuest.isPending}
-                          />
-                        ) : (
-                          <GuestRow
-                            key={guest.id}
-                            guest={guest}
-                            onEdit={() => setEditingId(guest.id)}
-                            onRemove={() => { if (confirm(`Remove ${guest.name}?`)) removeGuest.mutate(guest.id) }}
-                            onInvite={() => {
-                              const action = guest.inviteSentAt ? 'Resend' : 'Send'
-                              if (confirm(`${action} RSVP invite to ${guest.name} at ${guest.email}?\nThis link covers all party members.`)) {
-                                sendInvite.mutate(guest.id)
-                              }
-                            }}
-                            sendInvitePending={sendInvite.isPending}
-                          />
-                        )
-                      ))}
-                    </>
-                  ) : (
-                    editingId === group.guest.id ? (
+                  {filtered.map(guest => (
+                    editingId === guest.id ? (
                       <EditGuestRow
-                        key={group.guest.id}
-                        guest={group.guest}
+                        key={guest.id}
+                        guest={guest}
                         onSave={async (payload) => {
-                          await updateGuest.mutateAsync({ guestId: group.guest.id, payload })
+                          await updateGuest.mutateAsync({ guestId: guest.id, payload })
                           setEditingId(null)
                         }}
                         onCancel={() => setEditingId(null)}
@@ -489,15 +396,14 @@ export default function GuestListPage() {
                       />
                     ) : (
                       <GuestRow
-                        key={group.guest.id}
-                        guest={group.guest}
-                        onEdit={() => setEditingId(group.guest.id)}
-                        onRemove={() => { if (confirm(`Remove ${group.guest.name}?`)) removeGuest.mutate(group.guest.id) }}
+                        key={guest.id}
+                        guest={guest}
+                        onEdit={() => setEditingId(guest.id)}
+                        onRemove={() => { if (confirm(`Remove ${guest.name}?`)) removeGuest.mutate(guest.id) }}
                         onInvite={() => {
-                          const g = group.guest
-                          const action = g.inviteSentAt ? 'Resend' : 'Send'
-                          if (confirm(`${action} an RSVP invite to ${g.name} at ${g.email}?`)) {
-                            sendInvite.mutate(g.id)
+                          const action = guest.inviteSentAt ? 'Resend' : 'Send'
+                          if (confirm(`${action} an RSVP invite to ${guest.name} at ${guest.email}?`)) {
+                            sendInvite.mutate(guest.id)
                           }
                         }}
                         sendInvitePending={sendInvite.isPending}
@@ -570,220 +476,42 @@ function GuestRow({ guest, onEdit, onRemove, onInvite, sendInvitePending }: {
 }
 
 // ---------------------------------------------------------------------------
-// CSV import modal
+// Add guest choice modal
 // ---------------------------------------------------------------------------
-const CSV_TEMPLATE = 'Name,Email,Phone,Side,Party Name\nJohn Smith,john@example.com,555-0100,GROOM,Smith Family\nJane Smith,,, GROOM,Smith Family\nMary Jones,mary@example.com,,BRIDE,'
-
-function CsvImportModal({ onImport, onClose, isPending }: {
-  onImport: (rows: CreateGuestPayload[]) => Promise<void>
+function AddGuestModal({
+  onClose,
+  onManual,
+  onSheetSync,
+}: {
   onClose: () => void
-  isPending: boolean
+  onManual: () => void
+  onSheetSync: () => void
 }) {
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [preview, setPreview] = useState<CreateGuestPayload[] | null>(null)
-  const [parseError, setParseError] = useState('')
-
-  const downloadTemplate = () => {
-    const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = 'guest-import-template.csv'; a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setParseError('')
-    Papa.parse<Record<string, string>>(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (result) => {
-        if (result.errors.length > 0) {
-          setParseError(`Parse error: ${result.errors[0].message}`)
-          return
-        }
-        // Build party groups: rows with the same Party Name share a partyId.
-        const partyIdMap = new Map<string, string>()
-        const rows: CreateGuestPayload[] = result.data
-          .filter(row => (row['Name'] ?? '').trim())
-          .map(row => {
-            const name  = (row['Name']  ?? '').trim()
-            const email = (row['Email'] ?? '').trim() || undefined
-            const phone = (row['Phone'] ?? '').trim() || undefined
-            const side  = (['BRIDE','GROOM','BOTH'].includes((row['Side'] ?? '').trim().toUpperCase())
-              ? (row['Side'] ?? '').trim().toUpperCase()
-              : undefined) as GuestSide | undefined
-            const partyNameVal = (row['Party Name'] ?? '').trim() || undefined
-            let partyId: string | undefined
-            let partyName: string | undefined
-            if (partyNameVal) {
-              if (!partyIdMap.has(partyNameVal)) {
-                partyIdMap.set(partyNameVal, crypto.randomUUID())
-              }
-              partyId   = partyIdMap.get(partyNameVal)
-              partyName = partyNameVal
-            }
-            return { name, email, phone, side, plusOneAllowed: false, partyId, partyName }
-          })
-        if (rows.length === 0) { setParseError('No valid rows found.'); return }
-        setPreview(rows)
-      },
-      error: (err) => setParseError(err.message),
-    })
-  }
-
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-serif text-lg font-semibold text-brown">Import guests from CSV</h3>
+          <h3 className="font-serif text-lg font-semibold text-brown">Add Guests</h3>
           <button onClick={onClose} className="text-brown-light hover:text-brown text-xl leading-none">✕</button>
         </div>
-
-        {!preview ? (
-          <>
-            <p className="text-sm text-brown-light mb-4">
-              Upload a CSV file with columns: <strong>Name, Email, Phone, Side, Party Name</strong>.<br />
-              Rows with the same Party Name are automatically grouped into a party.
-            </p>
-            <button onClick={downloadTemplate}
-              className="text-sm text-gold hover:underline mb-4 block">
-              Download template CSV →
-            </button>
-            <input ref={fileRef} type="file" accept=".csv,.txt" onChange={handleFile}
-              className="block w-full text-sm text-brown-light file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gold/10 file:text-brown hover:file:bg-gold/20 cursor-pointer" />
-            {parseError && <p className="mt-3 text-sm text-red-600">{parseError}</p>}
-          </>
-        ) : (
-          <>
-            <p className="text-sm text-brown-light mb-3">{preview.length} guest{preview.length !== 1 ? 's' : ''} ready to import:</p>
-            <div className="rounded-xl border border-gold-light overflow-hidden mb-5">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-ivory/60 border-b border-gold-light">
-                    <th className="text-left px-3 py-2 text-brown font-semibold">Name</th>
-                    <th className="text-left px-3 py-2 text-brown font-semibold hidden sm:table-cell">Email</th>
-                    <th className="text-left px-3 py-2 text-brown font-semibold">Side</th>
-                    <th className="text-left px-3 py-2 text-brown font-semibold">Party</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.map((g, i) => (
-                    <tr key={i} className="border-b border-gold-light/40 last:border-0">
-                      <td className="px-3 py-1.5 text-brown">{g.name}</td>
-                      <td className="px-3 py-1.5 text-brown-light hidden sm:table-cell">{g.email ?? '—'}</td>
-                      <td className="px-3 py-1.5 text-brown-light capitalize">{g.side?.toLowerCase() ?? '—'}</td>
-                      <td className="px-3 py-1.5 text-brown-light">{g.partyName ?? '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => onImport(preview)}
-                disabled={isPending}
-                className="rounded-lg bg-gold px-5 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-60 transition"
-              >
-                {isPending ? 'Importing…' : `Import ${preview.length} guest${preview.length !== 1 ? 's' : ''}`}
-              </button>
-              <button onClick={() => setPreview(null)}
-                className="rounded-lg border border-gold-light px-5 py-2 text-sm font-medium text-brown hover:bg-ivory transition">
-                Back
-              </button>
-            </div>
-          </>
-        )}
+        <div className="space-y-3">
+          <button
+            onClick={onSheetSync}
+            className="w-full rounded-xl border-2 border-gold/40 hover:border-gold bg-ivory/50 hover:bg-gold/5 px-5 py-4 text-left transition"
+          >
+            <p className="font-semibold text-brown text-sm">📋 Sync Google Sheet</p>
+            <p className="text-xs text-brown-light mt-1">Connect your Google Sheet and we'll keep your guest list in sync automatically.</p>
+          </button>
+          <button
+            onClick={onManual}
+            className="w-full rounded-xl border-2 border-gold/40 hover:border-gold bg-ivory/50 hover:bg-gold/5 px-5 py-4 text-left transition"
+          >
+            <p className="font-semibold text-brown text-sm">✏️ Add Guest Manually</p>
+            <p className="text-xs text-brown-light mt-1">Add one guest at a time with name, email, address and RSVP details.</p>
+          </button>
+        </div>
       </div>
     </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Create party form
-// ---------------------------------------------------------------------------
-function CreatePartyForm({ onSubmit, onCancel, isPending }: {
-  onSubmit: (data: CreatePartyPayload) => Promise<void>
-  onCancel: () => void
-  isPending: boolean
-}) {
-  const [partyName, setPartyName] = useState('')
-  const [members, setMembers] = useState([
-    { name: '', email: '', side: '' as GuestSide | '' },
-    { name: '', email: '', side: '' as GuestSide | '' },
-  ])
-
-  const updateMember = (i: number, field: string, value: string) => {
-    setMembers(ms => ms.map((m, idx) => idx === i ? { ...m, [field]: value } : m))
-  }
-  const addRow = () => setMembers(ms => [...ms, { name: '', email: '', side: '' }])
-  const removeRow = (i: number) => setMembers(ms => ms.filter((_, idx) => idx !== i))
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const validMembers = members.filter(m => m.name.trim())
-    if (validMembers.length < 1) return
-    onSubmit({
-      partyName: partyName.trim(),
-      members: validMembers.map(m => ({
-        name: m.name.trim(),
-        email: m.email.trim() || undefined,
-        plusOneAllowed: false,
-        side: m.side || undefined,
-      })),
-    })
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="rounded-xl border border-gold bg-white p-5 mb-6 space-y-4">
-      <p className="font-medium text-brown text-sm">Create a guest party</p>
-      <p className="text-xs text-brown-light">Group a family or household under one party name. The first member will receive the shared RSVP invite.</p>
-      <Field label="Party name *">
-        <input required value={partyName} onChange={e => setPartyName(e.target.value)}
-          className={inputCls} placeholder="e.g. The Johnson Family" />
-      </Field>
-      <div className="space-y-3">
-        {members.map((m, i) => (
-          <div key={i} className="grid sm:grid-cols-3 gap-3 items-end">
-            <Field label={i === 0 ? 'Name * (contact)' : 'Name'}>
-              <input value={m.name} onChange={e => updateMember(i, 'name', e.target.value)}
-                className={inputCls} placeholder="Full name" required={i === 0} />
-            </Field>
-            <Field label="Email">
-              <input type="email" value={m.email} onChange={e => updateMember(i, 'email', e.target.value)}
-                className={inputCls} placeholder="Optional" />
-            </Field>
-            <div className="flex gap-2 items-end">
-              <div className="flex-1">
-                <Field label="Side">
-                  <select value={m.side} onChange={e => updateMember(i, 'side', e.target.value)} className={inputCls}>
-                    <option value="">—</option>
-                    {SIDES.map(s => <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>)}
-                  </select>
-                </Field>
-              </div>
-              {members.length > 1 && (
-                <button type="button" onClick={() => removeRow(i)}
-                  className="mb-0.5 text-xs text-red-400 hover:text-red-600 pb-2">Remove</button>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-      <button type="button" onClick={addRow}
-        className="text-sm text-gold hover:underline">+ Add another member</button>
-      <div className="flex gap-3 pt-1">
-        <button type="submit" disabled={isPending}
-          className="rounded-lg bg-gold px-5 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-60 transition">
-          {isPending ? 'Creating…' : 'Create party'}
-        </button>
-        <button type="button" onClick={onCancel}
-          className="rounded-lg border border-gold-light px-5 py-2 text-sm font-medium text-brown hover:bg-ivory transition">
-          Cancel
-        </button>
-      </div>
-    </form>
   )
 }
 
@@ -894,7 +622,6 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
   const [status, setStatus]           = useState(guest.rsvpStatus)
   const [table, setTable]             = useState(guest.tableNumber?.toString() ?? '')
   const [plusOne, setPlusOne]         = useState(guest.plusOneAllowed)
-  const [meal, setMeal]           = useState(guest.mealPreference ?? '')
   const [song, setSong]           = useState(guest.songRequest ?? '')
   const [mailLine1, setMailLine1] = useState(guest.mailLine1 ?? '')
   const [mailCity, setMailCity]   = useState(guest.mailCity ?? '')
@@ -909,7 +636,6 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
       rsvpStatus: status,
       tableNumber: table ? parseInt(table) : undefined,
       plusOneAllowed: plusOne,
-      mealPreference: meal || undefined,
       songRequest: song || undefined,
       mailLine1: mailLine1 || undefined,
       mailCity: mailCity || undefined,
@@ -943,10 +669,6 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
           </Field>
           <Field label="Table #">
             <input type="number" min="1" value={table} onChange={e => setTable(e.target.value)} className={inputCls} />
-          </Field>
-          <Field label="Meal preference">
-            <input value={meal} onChange={e => setMeal(e.target.value)}
-              placeholder="e.g. Chicken, Vegetarian" className={inputCls} />
           </Field>
           <Field label="Song request">
             <input value={song} onChange={e => setSong(e.target.value)}
@@ -996,10 +718,10 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
 // ---------------------------------------------------------------------------
 const PIE_COLORS = ['#4ade80', '#f87171', '#fbbf24', '#94a3b8']
 
-function GuestAnalyticsPanel({ attending, declining, pending, notSent, responseRate, total, mealCounts, dietaryCounts, songCount }: {
+function GuestAnalyticsPanel({ attending, declining, pending, notSent, responseRate, total, dietaryCounts, songCount }: {
   attending: number; declining: number; pending: number; notSent: number
   responseRate: number; total: number
-  mealCounts: Record<string, number>; dietaryCounts: Record<string, number>
+  dietaryCounts: Record<string, number>
   songCount: number
 }) {
   const pieData = [
@@ -1052,20 +774,6 @@ function GuestAnalyticsPanel({ attending, declining, pending, notSent, responseR
           </div>
         </div>
       </div>
-
-      {/* Meal preferences */}
-      {Object.keys(mealCounts).length > 0 && (
-        <div>
-          <p className="text-sm font-medium text-brown mb-2">Meal preferences</p>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(mealCounts).map(([meal, count]) => (
-              <span key={meal} className="px-3 py-1 rounded-full bg-gold/10 text-brown text-xs font-medium">
-                {meal} <span className="text-gold font-bold ml-1">{count}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Dietary restrictions */}
       {Object.keys(dietaryCounts).length > 0 && (

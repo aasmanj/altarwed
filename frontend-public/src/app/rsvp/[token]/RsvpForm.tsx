@@ -31,7 +31,6 @@ export default function RsvpForm({
   })
   const [plusOne, setPlusOne]           = useState('')
   const [dietary, setDietary]           = useState('')
-  const [meal, setMeal]                 = useState('')
   const [song, setSong]                 = useState('')
   const [noteForCouple, setNoteForCouple] = useState('')
   const [submitting, setSubmitting]     = useState(false)
@@ -67,7 +66,6 @@ export default function RsvpForm({
           status: status ?? 'PENDING',
           plusOneName: plusOne || undefined,
           dietaryRestrictions: dietary || undefined,
-          mealPreference: meal || undefined,
           songRequest: song || undefined,
           noteForCouple: noteForCouple.trim() || undefined,
           remindInDays: remindInDays ?? undefined,
@@ -191,18 +189,6 @@ export default function RsvpForm({
       {/* Attending-only fields */}
       {status === 'ATTENDING' && (
         <>
-          <div>
-            <label className="block text-sm font-medium text-[#3b2f2f] mb-1.5">
-              Meal preference <span className="text-[#a08060] font-normal">(optional)</span>
-            </label>
-            <input
-              type="text"
-              value={meal}
-              onChange={e => setMeal(e.target.value)}
-              placeholder="e.g. Chicken, Fish, Vegetarian"
-              className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
-            />
-          </div>
           <div>
             <label className="block text-sm font-medium text-[#3b2f2f] mb-1.5">
               Dietary restrictions <span className="text-[#a08060] font-normal">(optional)</span>

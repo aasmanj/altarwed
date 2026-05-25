@@ -51,7 +51,7 @@ public class GuestService {
         List<Guest> guests = reqs.stream().map(req -> new Guest(
                 null, coupleId, req.name(), req.email(), req.phone(),
                 GuestRsvpStatus.PENDING, req.plusOneAllowed(), null,
-                req.dietaryRestrictions(), null, null,
+                req.dietaryRestrictions(), null,
                 null, req.side(), req.notes(),
                 req.mailLine1(), req.mailCity(), req.mailState(), req.mailZip(),
                 null, 0,
@@ -67,7 +67,7 @@ public class GuestService {
         Guest guest = new Guest(
                 null, coupleId, req.name(), req.email(), req.phone(),
                 GuestRsvpStatus.PENDING, req.plusOneAllowed(), null,
-                req.dietaryRestrictions(), null, null,
+                req.dietaryRestrictions(), null,
                 null, req.side(), req.notes(),
                 req.mailLine1(), req.mailCity(), req.mailState(), req.mailZip(),
                 null, 0,
@@ -94,7 +94,7 @@ public class GuestService {
             members.add(new Guest(
                     null, coupleId, m.name(), m.email(), m.phone(),
                     GuestRsvpStatus.PENDING, m.plusOneAllowed(), null,
-                    m.dietaryRestrictions(), null, null,
+                    m.dietaryRestrictions(), null,
                     null, m.side(), m.notes(),
                     m.mailLine1(), m.mailCity(), m.mailState(), m.mailZip(),
                     null, 0,
@@ -122,7 +122,6 @@ public class GuestService {
                 req.plusOneAllowed()     != null ? req.plusOneAllowed()     : existing.plusOneAllowed(),
                 req.plusOneName()        != null ? req.plusOneName()        : existing.plusOneName(),
                 req.dietaryRestrictions()!= null ? req.dietaryRestrictions(): existing.dietaryRestrictions(),
-                req.mealPreference()     != null ? req.mealPreference()     : existing.mealPreference(),
                 req.songRequest()        != null ? req.songRequest()        : existing.songRequest(),
                 req.tableNumber()        != null ? req.tableNumber()        : existing.tableNumber(),
                 req.side()               != null ? req.side()               : existing.side(),
@@ -291,7 +290,6 @@ public class GuestService {
                 guest.plusOneAllowed(),
                 req.plusOneName()         != null ? req.plusOneName()         : guest.plusOneName(),
                 req.dietaryRestrictions() != null ? req.dietaryRestrictions() : guest.dietaryRestrictions(),
-                req.mealPreference()      != null ? req.mealPreference()      : guest.mealPreference(),
                 req.songRequest()         != null ? req.songRequest()         : guest.songRequest(),
                 guest.tableNumber(), guest.side(), guest.notes(),
                 guest.mailLine1(), guest.mailCity(), guest.mailState(), guest.mailZip(),
@@ -315,7 +313,7 @@ public class GuestService {
                     Guest memberResponded = new Guest(
                             member.id(), member.coupleId(), member.name(), member.email(), member.phone(),
                             mr.status(), member.plusOneAllowed(), member.plusOneName(),
-                            member.dietaryRestrictions(), member.mealPreference(), member.songRequest(),
+                            member.dietaryRestrictions(), member.songRequest(),
                             member.tableNumber(), member.side(), member.notes(),
                             member.mailLine1(), member.mailCity(), member.mailState(), member.mailZip(),
                             member.noteForCouple(), member.inviteSendCount(),
@@ -343,7 +341,6 @@ public class GuestService {
                         coupleNames,
                         responded.name(),
                         responded.rsvpStatus().name(),
-                        responded.mealPreference(),
                         responded.noteForCouple(),
                         dashboardUrl
                 );
@@ -405,7 +402,7 @@ public class GuestService {
         Guest updated = new Guest(
                 guest.id(), guest.coupleId(), guest.name(), guest.email(), guest.phone(),
                 guest.rsvpStatus(), guest.plusOneAllowed(), guest.plusOneName(),
-                guest.dietaryRestrictions(), guest.mealPreference(), guest.songRequest(),
+                guest.dietaryRestrictions(), guest.songRequest(),
                 guest.tableNumber(), guest.side(), guest.notes(),
                 guest.mailLine1(), guest.mailCity(), guest.mailState(), guest.mailZip(),
                 guest.noteForCouple(), currentSends + 1,
