@@ -274,12 +274,19 @@ public class GoogleSheetSyncService {
         Map<String, Integer> colIndex = buildColumnIndex(headers);
         validateRequiredColumns(colIndex, headers);
 
-        // Locate or plan the "AltarWed ID" column
+        // Locate or plan the "AltarWed ID" column.
+        // Header is "AltarWed ID (do not modify)" so couples see the warning
+        // right in the sheet. Accept any variant containing "altarwed id" for
+        // backward compat with sheets stamped before the warning was added.
         boolean needToWriteHeader = false;
-        int idColIndex;
-        if (colIndex.containsKey("altarwed id")) {
-            idColIndex = colIndex.get("altarwed id");
-        } else {
+        int idColIndex = -1;
+        for (Map.Entry<String, Integer> e : colIndex.entrySet()) {
+            if (e.getKey().startsWith("altarwed id")) {
+                idColIndex = e.getValue();
+                break;
+            }
+        }
+        if (idColIndex == -1) {
             idColIndex = headers.length; // append as the next column
             needToWriteHeader = true;
         }
@@ -301,7 +308,7 @@ public class GoogleSheetSyncService {
         // cellRange → value to write back (e.g., "P1" → "AltarWed ID", "P2" → "uuid-...")
         Map<String, String> writeBackCells = new LinkedHashMap<>();
         if (needToWriteHeader) {
-            writeBackCells.put(idColLetter + "1", "AltarWed ID");
+            writeBackCells.put(idColLetter + "1", "AltarWed ID (do not modify)");
         }
 
         List<Guest> toSave = new ArrayList<>();

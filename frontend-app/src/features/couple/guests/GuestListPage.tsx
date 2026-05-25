@@ -58,7 +58,7 @@ export default function GuestListPage() {
   const SHEET_TEMPLATE_COLUMNS =
     'Side\tNames of all guests in Party (separated by , if multiple)\tPhone Number\tEmail Address\t' +
     'Street Address\tCity\tState\tZip Code\tAllowed Plus One?\tPlus One Name\t' +
-    'RSVP Status\tTable #\tDietary Restriction\tNotes'
+    'RSVP Status\tTable #\tDietary Restriction\tNotes\tAltarWed ID (do not modify)'
   const copyHeaders = useCallback(() => {
     navigator.clipboard.writeText(SHEET_TEMPLATE_COLUMNS).then(() => {
       setCopiedHeaders(true)
@@ -70,8 +70,39 @@ export default function GuestListPage() {
   const [showAdd, setShowAdd]           = useState(false)
   const [filter, setFilter]             = useState<RsvpStatus | 'ALL'>('ALL')
   const [editingId, setEditingId]       = useState<string | null>(null)
+  const [searchQuery, setSearchQuery]   = useState('')
+  type SortKey = 'name' | 'email' | 'side' | 'status' | 'table'
+  const [sortKey, setSortKey]           = useState<SortKey>('name')
+  const [sortDir, setSortDir]           = useState<'asc' | 'desc'>('asc')
 
-  const filtered = filter === 'ALL' ? guests : guests.filter(g => g.rsvpStatus === filter)
+  const toggleSort = (k: SortKey) => {
+    if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(k); setSortDir('asc') }
+  }
+
+  const STATUS_RANK: Record<RsvpStatus, number> = { ATTENDING: 0, PENDING: 1, DECLINING: 2 }
+  const SIDE_RANK: Record<string, number> = { BRIDE: 0, GROOM: 1, BOTH: 2, '': 3 }
+  const compareGuests = (a: Guest, b: Guest): number => {
+    let cmp = 0
+    switch (sortKey) {
+      case 'name':   cmp = a.name.localeCompare(b.name); break
+      case 'email':  cmp = (a.email ?? '').localeCompare(b.email ?? ''); break
+      case 'side':   cmp = (SIDE_RANK[a.side ?? ''] ?? 3) - (SIDE_RANK[b.side ?? ''] ?? 3); break
+      case 'status': cmp = STATUS_RANK[a.rsvpStatus] - STATUS_RANK[b.rsvpStatus]; break
+      case 'table':  cmp = (a.tableNumber ?? 999) - (b.tableNumber ?? 999); break
+    }
+    return sortDir === 'asc' ? cmp : -cmp
+  }
+
+  const q = searchQuery.trim().toLowerCase()
+  const filtered = guests
+    .filter(g => filter === 'ALL' || g.rsvpStatus === filter)
+    .filter(g => !q
+      || g.name.toLowerCase().includes(q)
+      || (g.email ?? '').toLowerCase().includes(q)
+      || (g.partyName ?? '').toLowerCase().includes(q)
+      || (g.plusOneName ?? '').toLowerCase().includes(q))
+    .sort(compareGuests)
 
   const total     = guests.length
   const attending = guests.filter(g => g.rsvpStatus === 'ATTENDING').length
@@ -292,12 +323,16 @@ export default function GuestListPage() {
               <div className="flex flex-wrap gap-1 mb-2">
                 {['Side', 'Names of all guests in Party (separated by , if multiple)', 'Phone Number', 'Email Address',
                   'Street Address', 'City', 'State', 'Zip Code', 'Allowed Plus One?',
-                  'Plus One Name', 'RSVP Status', 'Table #', 'Dietary Restriction', 'Notes'].map(col => (
+                  'Plus One Name', 'RSVP Status', 'Table #', 'Dietary Restriction', 'Notes',
+                  'AltarWed ID (do not modify)'].map(col => (
                   <span key={col} className="rounded bg-amber-100 border border-amber-200 px-1.5 py-0.5 text-[10px] font-mono text-amber-900">
                     {col}
                   </span>
                 ))}
               </div>
+              <p className="text-stone-500 mb-2">
+                AltarWed will fill in the last column automatically — it's how we keep your sheet in sync even if you rename guests.
+              </p>
               <button
                 onClick={copyHeaders}
                 className="rounded-md bg-amber-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-amber-700 transition"
@@ -351,6 +386,40 @@ export default function GuestListPage() {
             songCount={songCount}
           />
         )}
+
+        {/* Search bar */}
+        <div className="mb-4">
+          <div className="relative">
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search by name, email, or party..."
+              className="w-full rounded-lg border border-gold-light pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40"
+            />
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brown-light pointer-events-none"
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+            </svg>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-brown-light hover:text-brown text-sm"
+                aria-label="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          {searchQuery && (
+            <p className="mt-1.5 text-xs text-brown-light">
+              {filtered.length} {filtered.length === 1 ? 'match' : 'matches'}
+            </p>
+          )}
+        </div>
 
         {/* Filter tabs */}
         <div className="flex gap-1 mb-6 border-b border-gold-light overflow-x-auto">
@@ -406,11 +475,11 @@ export default function GuestListPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gold-light bg-ivory/60">
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-brown-light uppercase tracking-wide">Name</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-brown-light uppercase tracking-wide hidden sm:table-cell">Email</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-brown-light uppercase tracking-wide hidden md:table-cell">Side</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-brown-light uppercase tracking-wide">Status</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-brown-light uppercase tracking-wide hidden lg:table-cell">Table</th>
+                    <SortableTh label="Name"   col="name"   sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label="Email"  col="email"  sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="hidden sm:table-cell" />
+                    <SortableTh label="Side"   col="side"   sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="hidden md:table-cell" />
+                    <SortableTh label="Status" col="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label="Table"  col="table"  sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="hidden lg:table-cell" />
                     <th className="px-4 py-2.5" />
                   </tr>
                 </thead>
@@ -467,9 +536,18 @@ function GuestRow({ guest, onEdit, onRemove, onInvite, sendInvitePending }: {
     <>
       <tr className="border-b border-gold-light/50 hover:bg-ivory/30 transition">
         <td className="px-4 py-3 font-medium text-brown">
-          {guest.name}
+          <button
+            onClick={onEdit}
+            className="text-left hover:text-gold hover:underline transition"
+            title="Click to edit"
+          >
+            {guest.name}
+          </button>
           {guest.partyContact && <span className="ml-2 text-xs text-gold font-normal">(contact)</span>}
           {guest.plusOneName && <span className="ml-2 text-xs text-brown-light">+ {guest.plusOneName}</span>}
+          {guest.partyName && (
+            <span className="block text-xs text-brown-light/80 mt-0.5 italic truncate">{guest.partyName}</span>
+          )}
         </td>
         <td className="px-4 py-3 text-brown-light hidden sm:table-cell">{guest.email ?? '—'}</td>
         <td className="px-4 py-3 text-brown-light hidden md:table-cell capitalize">
@@ -833,5 +911,35 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <label className="block text-xs font-medium text-brown-light mb-1">{label}</label>
       {children}
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Sortable column header
+// ---------------------------------------------------------------------------
+function SortableTh<K extends string>({
+  label, col, sortKey, sortDir, onSort, className = '',
+}: {
+  label: string
+  col: K
+  sortKey: K
+  sortDir: 'asc' | 'desc'
+  onSort: (k: K) => void
+  className?: string
+}) {
+  const isActive = sortKey === col
+  return (
+    <th className={`text-left px-4 py-2.5 text-xs font-semibold text-brown-light uppercase tracking-wide ${className}`}>
+      <button
+        onClick={() => onSort(col)}
+        className={`flex items-center gap-1 hover:text-brown transition ${isActive ? 'text-brown' : ''}`}
+        title={`Sort by ${label}`}
+      >
+        {label}
+        <span className="text-[10px] leading-none">
+          {isActive ? (sortDir === 'asc' ? '▲' : '▼') : '↕'}
+        </span>
+      </button>
+    </th>
   )
 }
