@@ -99,6 +99,9 @@ public class GuestEntity {
     @Column(name = "party_contact", nullable = false)
     private Boolean partyContact;
 
+    @Column(name = "sheet_sync_id", length = 36)
+    private String sheetSyncId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

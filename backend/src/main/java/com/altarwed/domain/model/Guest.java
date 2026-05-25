@@ -37,5 +37,8 @@ public record Guest(
         UUID partyId,
         String partyName,
         // true for the one party member who receives the invite email on behalf of the group
-        Boolean partyContact
+        Boolean partyContact,
+        // UUID stamped into the couple's Google Sheet so sync can match rows by ID rather than name.
+        // Null for guests added manually or synced before write-back was introduced.
+        String sheetSyncId
 ) {}

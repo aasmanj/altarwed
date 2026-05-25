@@ -78,7 +78,8 @@ public class GuestRepositoryAdapter implements GuestRepository {
                 e.getNoteForCouple(), e.getInviteSendCount(),
                 e.getInviteSentAt(), e.getRespondedAt(), e.getRemindAt(),
                 e.getCreatedAt(), e.getUpdatedAt(),
-                e.getPartyId(), e.getPartyName(), e.getPartyContact()
+                e.getPartyId(), e.getPartyName(), e.getPartyContact(),
+                e.getSheetSyncId()
         );
     }
 
@@ -111,6 +112,7 @@ public class GuestRepositoryAdapter implements GuestRepository {
                 .partyId(g.partyId())
                 .partyName(g.partyName())
                 .partyContact(g.partyContact() != null ? g.partyContact() : false)
+                .sheetSyncId(g.sheetSyncId())
                 .build();
     }
 }

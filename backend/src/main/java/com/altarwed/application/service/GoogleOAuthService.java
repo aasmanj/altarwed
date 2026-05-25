@@ -42,7 +42,10 @@ public class GoogleOAuthService {
     private static final List<String> SCOPES = List.of(
             "openid",
             "email",
-            "https://www.googleapis.com/auth/spreadsheets.readonly"
+            // Full spreadsheets scope (read + write) is required for UUID write-back.
+            // Couples who authorized with the old spreadsheets.readonly scope will
+            // continue to sync read-only until they disconnect and re-authorize.
+            "https://www.googleapis.com/auth/spreadsheets"
     );
 
     private static final Pattern SHEET_ID_PATTERN =
@@ -243,6 +246,48 @@ public class GoogleOAuthService {
             String freshToken = refreshAccessToken(coupleId);
             return doReadSheet(spreadsheetId, freshToken, coupleId);
         }
+    }
+
+    /**
+     * Writes cell values to a spreadsheet via the Sheets API batchUpdate.
+     * Each key in cellValues is a cell range (e.g., "P2", "P3") and the value
+     * is the string to write. Used by GoogleSheetSyncService for UUID write-back.
+     *
+     * Callers should catch HttpClientErrorException.Forbidden and treat it as a
+     * non-fatal warning — it means the stored token has the old spreadsheets.readonly
+     * scope and the couple needs to disconnect and re-authorize.
+     */
+    @Transactional
+    public void writeSheetCells(UUID coupleId, String spreadsheetId, Map<String, String> cellValues) {
+        if (cellValues.isEmpty()) return;
+
+        String accessToken = getValidAccessToken(coupleId);
+        String url = SHEETS_API_URL + "/" + spreadsheetId + "/values:batchUpdate";
+
+        List<Map<String, Object>> data = cellValues.entrySet().stream()
+                .map(e -> Map.<String, Object>of(
+                        "range",  e.getKey(),
+                        "values", List.of(List.of(e.getValue()))
+                ))
+                .toList();
+
+        Map<String, Object> body = Map.of(
+                "valueInputOption", "RAW",
+                "data", data
+        );
+
+        log.info("google sheets write-back started, coupleId={}, spreadsheetId={}, cellCount={}",
+                 coupleId, spreadsheetId, cellValues.size());
+
+        restClient.post()
+                .uri(url)
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .toBodilessEntity();
+
+        log.info("google sheets write-back succeeded, coupleId={}, spreadsheetId={}", coupleId, spreadsheetId);
     }
 
     // -------------------------------------------------------------------------

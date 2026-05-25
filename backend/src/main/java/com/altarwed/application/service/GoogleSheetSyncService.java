@@ -19,6 +19,7 @@ import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -161,17 +162,25 @@ public class GoogleSheetSyncService {
     private GoogleSheetSync runSync(GoogleSheetSync sync) {
         log.info("google sheet sync started, coupleId={}", sync.coupleId());
         try {
-            List<String[]> rows;
+            int rowsProcessed;
             if (googleOAuthService.hasOAuthTokens(sync.coupleId())) {
-                log.info("google sheet sync using oauth, coupleId={}", sync.coupleId());
-                rows = googleOAuthService.readSheet(sync.coupleId(), sync.sheetUrl());
+                // OAuth path: read via Sheets API + UUID write-back for stable row identity
+                log.info("google sheet sync using oauth with uuid write-back, coupleId={}", sync.coupleId());
+                String spreadsheetId = extractSpreadsheetId(sync.sheetUrl());
+                if (spreadsheetId == null) {
+                    throw new IllegalArgumentException(
+                            "Could not extract spreadsheet ID from URL. " +
+                            "Paste the URL from your browser address bar while the sheet is open.");
+                }
+                rowsProcessed = upsertGuestsWithWriteBack(sync.coupleId(), spreadsheetId, sync.sheetUrl());
             } else {
-                log.info("google sheet sync using public url, coupleId={}", sync.coupleId());
+                // No-OAuth fallback: read public CSV, upsert by name
+                log.info("google sheet sync using public csv url, coupleId={}", sync.coupleId());
                 String csvUrl = toCsvUrl(sync.sheetUrl());
                 String csv = fetchCsv(csvUrl);
-                rows = parseCsv(csv);
+                List<String[]> rows = parseCsv(csv);
+                rowsProcessed = upsertGuestsByName(sync.coupleId(), rows);
             }
-            int rowsProcessed = upsertGuestsFromRows(sync.coupleId(), rows);
 
             GoogleSheetSync updated = new GoogleSheetSync(
                     sync.id(), sync.coupleId(), sync.sheetUrl(),
@@ -248,52 +257,77 @@ public class GoogleSheetSyncService {
     }
 
     /**
-     * Upserts guests by (name, email) from pre-parsed rows.
-     * Row[0] is the header row. Returns the number of data rows successfully processed.
+     * OAuth sync path: reads via Sheets API, stamps a UUID into the "AltarWed ID"
+     * column for each new row, and uses that UUID as the stable row key on all
+     * future syncs. This survives name changes, email additions, reordering — any
+     * mutation other than deleting the UUID cell itself.
+     *
+     * Write-back is best-effort: if the stored token has the old spreadsheets.readonly
+     * scope the write call returns 403. We catch that, log a warning, and continue
+     * syncing read-only. The couple just needs to disconnect + re-authorize once.
      */
-    private int upsertGuestsFromRows(UUID coupleId, List<String[]> rows) throws Exception {
+    private int upsertGuestsWithWriteBack(UUID coupleId, String spreadsheetId, String sheetUrl) throws Exception {
+        List<String[]> rows = googleOAuthService.readSheet(coupleId, sheetUrl);
         if (rows.isEmpty()) return 0;
 
         String[] headers = rows.get(0);
         Map<String, Integer> colIndex = buildColumnIndex(headers);
+        validateRequiredColumns(colIndex, headers);
 
-        // Accept both the new sister-sheet column name and the old "name" fallback
-        boolean hasNameCol = colIndex.containsKey("names of all guests in party") || colIndex.containsKey("name");
-        if (!hasNameCol) {
-            throw new IllegalArgumentException(
-                "CSV does not contain a 'Name' or 'Names of all guests in Party' column. " +
-                "Ensure the sheet is published as CSV and the first row contains column headers. " +
-                "Expected columns: Side, Names of all guests in Party, Phone Number, Email Address, " +
-                "Street Address, City, State, Zip Code, Allowed Plus One?, Plus One Name, RSVP Status, " +
-                "Table #, Dietary Restriction, Notes. " +
-                "Actual headers found: " + String.join(", ", headers));
+        // Locate or plan the "AltarWed ID" column
+        boolean needToWriteHeader = false;
+        int idColIndex;
+        if (colIndex.containsKey("altarwed id")) {
+            idColIndex = colIndex.get("altarwed id");
+        } else {
+            idColIndex = headers.length; // append as the next column
+            needToWriteHeader = true;
         }
+        String idColLetter = columnLetter(idColIndex);
 
-        // Load existing guests for efficient lookup.
-        // Key by lowercased name only — email is often absent on the first sync
-        // and added on a later one. Keying by name|email would treat the same
-        // person as a new guest each time a field is filled in, creating duplicates.
-        // If two guests share a name the first one wins (collision handler keeps a).
+        // Build lookup maps from existing guests
         List<Guest> existing = guestRepository.findAllByCoupleId(coupleId);
-        Map<String, Guest> byName = existing.stream()
+        Map<String, Guest> bySheetSyncId = existing.stream()
+                .filter(g -> g.sheetSyncId() != null)
+                .collect(Collectors.toMap(Guest::sheetSyncId, Function.identity(), (a, b) -> a));
+        // Name-keyed fallback for guests synced before write-back was introduced (sheetSyncId == null)
+        Map<String, Guest> byNameFallback = existing.stream()
+                .filter(g -> g.sheetSyncId() == null)
                 .collect(Collectors.toMap(
                         g -> g.name().toLowerCase().trim(),
                         Function.identity(),
-                        (a, b) -> a   // keep first on same-name collision
-                ));
+                        (a, b) -> a));
+
+        // cellRange → value to write back (e.g., "P1" → "AltarWed ID", "P2" → "uuid-...")
+        Map<String, String> writeBackCells = new LinkedHashMap<>();
+        if (needToWriteHeader) {
+            writeBackCells.put(idColLetter + "1", "AltarWed ID");
+        }
 
         List<Guest> toSave = new ArrayList<>();
         int processed = 0;
+
         for (int i = 1; i < rows.size(); i++) {
+            int sheetRowNumber = i + 1; // sheet row 1 = header, data starts at row 2
             String[] cols = rows.get(i);
-            // Support both new column name and old fallback
+
             String name = getAny(cols, colIndex, "names of all guests in party", "name");
             if (name == null || name.isBlank()) continue;
 
-            Guest g = byName.get(name.toLowerCase().trim());
+            // Read the UUID that was stamped on a previous sync (if any)
+            String existingUuid = null;
+            if (idColIndex < cols.length) {
+                String v = cols[idColIndex].trim();
+                if (!v.isEmpty()) existingUuid = v;
+            }
 
-            // Support both new column names and old column names for backward compatibility.
-            // getAny() tries each name in order and returns the first non-null value.
+            // Resolve existing DB guest: UUID first, name as migration-period fallback
+            Guest g = existingUuid != null ? bySheetSyncId.get(existingUuid) : null;
+            if (g == null) {
+                g = byNameFallback.get(name.toLowerCase().trim());
+            }
+
+            // Parse all columns (same logic as the CSV path)
             String side        = getAny(cols, colIndex, "side");
             String phone       = getAny(cols, colIndex, "phone number", "phone");
             String emailVal    = getAny(cols, colIndex, "email address", "email");
@@ -309,69 +343,44 @@ public class GoogleSheetSyncService {
             String dietary     = getAny(cols, colIndex, "dietary restriction", "dietary restrictions");
             String notes       = getAny(cols, colIndex, "notes");
 
-            // Combine street + apt into mailLine1
-            String mailLine1 = street != null
-                    ? (apt != null ? street + " " + apt : street)
-                    : null;
-
-            // Parse plusOneAllowed
+            String mailLine1 = street != null ? (apt != null ? street + " " + apt : street) : null;
             boolean plusOneAllowed = plusOneRaw != null &&
                     (plusOneRaw.equalsIgnoreCase("yes") || plusOneRaw.equalsIgnoreCase("true") || plusOneRaw.equals("1"));
+            com.altarwed.domain.model.GuestRsvpStatus rsvpStatus = parseRsvpStatus(rsvpRaw);
+            Integer tableNumber = parseTableNumber(tableRaw);
+            com.altarwed.domain.model.GuestSide sideVal = parseSide(side);
 
-            // Parse rsvpStatus
-            com.altarwed.domain.model.GuestRsvpStatus rsvpStatus = null;
-            if (rsvpRaw != null) {
-                String r = rsvpRaw.trim().toUpperCase();
-                if (r.equals("ATTENDING") || r.equals("YES") || r.equals("GOING")) {
-                    rsvpStatus = com.altarwed.domain.model.GuestRsvpStatus.ATTENDING;
-                } else if (r.equals("DECLINING") || r.equals("NO") || r.equals("NOT GOING") || r.equals("DECLINED")) {
-                    rsvpStatus = com.altarwed.domain.model.GuestRsvpStatus.DECLINING;
-                }
-                // null means keep existing / PENDING
+            // Assign or reuse the UUID for this row
+            String syncId;
+            if (existingUuid != null) {
+                syncId = existingUuid;
+            } else {
+                syncId = UUID.randomUUID().toString();
+                writeBackCells.put(idColLetter + sheetRowNumber, syncId);
             }
-
-            // Parse tableNumber
-            Integer tableNumber = null;
-            if (tableRaw != null) {
-                try { tableNumber = Integer.parseInt(tableRaw.trim()); } catch (NumberFormatException ignored) {}
-            }
-
-            // Parse side
-            com.altarwed.domain.model.GuestSide sideVal = null;
-            if (side != null) {
-                String s = side.trim().toUpperCase();
-                if (s.equals("BRIDE") || s.equals("BRIDE SIDE")) sideVal = com.altarwed.domain.model.GuestSide.BRIDE;
-                else if (s.equals("GROOM") || s.equals("GROOM SIDE")) sideVal = com.altarwed.domain.model.GuestSide.GROOM;
-                else if (s.equals("BOTH")) sideVal = com.altarwed.domain.model.GuestSide.BOTH;
-            }
-
-            // email: use the dedicated email column value
-            String email = emailVal;
 
             if (g == null) {
-                // New guest — id=null so JPA generates one
                 toSave.add(new Guest(
-                        null, coupleId, name, email,
+                        null, coupleId, name, emailVal,
                         phone,
                         rsvpStatus != null ? rsvpStatus : com.altarwed.domain.model.GuestRsvpStatus.PENDING,
                         plusOneAllowed,
                         plusOneName, dietary,
-                        null,           // songRequest
+                        null,       // songRequest
                         tableNumber,
                         sideVal,
                         notes,
                         mailLine1, city, state, zip,
-                        null,           // noteForCouple
-                        0,              // inviteSendCount
-                        null, null, null, null,   // inviteSentAt, respondedAt, remindAt, createdAt
-                        null,           // updatedAt (set by @PrePersist)
-                        null, null, null  // partyId, partyName, partyContact
+                        null, 0,    // noteForCouple, inviteSendCount
+                        null, null, null, null, null,  // inviteSentAt, respondedAt, remindAt, createdAt, updatedAt
+                        null, null, null,  // partyId, partyName, partyContact
+                        syncId
                 ));
             } else {
-                // Update only non-destructive fields; preserve everything the couple set manually
+                // Non-destructive merge: sheet value wins if non-null, else keep manual edits
                 toSave.add(new Guest(
                         g.id(), g.coupleId(), name,
-                        email       != null ? email       : g.email(),
+                        emailVal    != null ? emailVal    : g.email(),
                         phone       != null ? phone       : g.phone(),
                         rsvpStatus  != null ? rsvpStatus  : g.rsvpStatus(),
                         plusOneRaw  != null ? plusOneAllowed : g.plusOneAllowed(),
@@ -388,7 +397,118 @@ public class GoogleSheetSyncService {
                         g.noteForCouple(),
                         g.inviteSendCount(), g.inviteSentAt(), g.respondedAt(), g.remindAt(),
                         g.createdAt(), g.updatedAt(),
-                        g.partyId(), g.partyName(), g.partyContact()
+                        g.partyId(), g.partyName(), g.partyContact(),
+                        syncId  // stamp UUID even when resolved via name fallback
+                ));
+                // Consume from name map so a second row with the same name creates a new guest
+                byNameFallback.remove(name.toLowerCase().trim());
+            }
+            processed++;
+        }
+
+        guestRepository.saveAll(toSave);
+
+        // Write UUIDs back to the sheet — best-effort, non-fatal
+        if (!writeBackCells.isEmpty()) {
+            try {
+                googleOAuthService.writeSheetCells(coupleId, spreadsheetId, writeBackCells);
+            } catch (org.springframework.web.client.HttpClientErrorException.Forbidden ex) {
+                log.warn("google sheet uuid write-back skipped, insufficient scope (re-authorize required), coupleId={}", coupleId);
+            } catch (Exception ex) {
+                log.warn("google sheet uuid write-back failed (non-fatal), coupleId={}", coupleId, ex);
+            }
+        }
+
+        return processed;
+    }
+
+    /**
+     * CSV fallback path for couples without OAuth.
+     * Upserts by lowercased name — stable enough for public sheets where write-back
+     * is not possible. Name changes will create a new guest; the old one is not deleted.
+     */
+    private int upsertGuestsByName(UUID coupleId, List<String[]> rows) throws Exception {
+        if (rows.isEmpty()) return 0;
+
+        String[] headers = rows.get(0);
+        Map<String, Integer> colIndex = buildColumnIndex(headers);
+        validateRequiredColumns(colIndex, headers);
+
+        List<Guest> existing = guestRepository.findAllByCoupleId(coupleId);
+        Map<String, Guest> byName = existing.stream()
+                .collect(Collectors.toMap(
+                        g -> g.name().toLowerCase().trim(),
+                        Function.identity(),
+                        (a, b) -> a));
+
+        List<Guest> toSave = new ArrayList<>();
+        int processed = 0;
+
+        for (int i = 1; i < rows.size(); i++) {
+            String[] cols = rows.get(i);
+            String name = getAny(cols, colIndex, "names of all guests in party", "name");
+            if (name == null || name.isBlank()) continue;
+
+            Guest g = byName.get(name.toLowerCase().trim());
+
+            String side        = getAny(cols, colIndex, "side");
+            String phone       = getAny(cols, colIndex, "phone number", "phone");
+            String emailVal    = getAny(cols, colIndex, "email address", "email");
+            String street      = getAny(cols, colIndex, "street address", "address line 1");
+            String apt         = getAny(cols, colIndex, "apt/suite", "apt", "suite");
+            String city        = getAny(cols, colIndex, "city");
+            String state       = getAny(cols, colIndex, "state");
+            String zip         = getAny(cols, colIndex, "zip code", "zip");
+            String plusOneRaw  = getAny(cols, colIndex, "allowed plus one?", "allowed plus one", "plus one allowed");
+            String plusOneName = getAny(cols, colIndex, "plus one name");
+            String rsvpRaw     = getAny(cols, colIndex, "rsvp status");
+            String tableRaw    = getAny(cols, colIndex, "table #", "table number", "table");
+            String dietary     = getAny(cols, colIndex, "dietary restriction", "dietary restrictions");
+            String notes       = getAny(cols, colIndex, "notes");
+
+            String mailLine1 = street != null ? (apt != null ? street + " " + apt : street) : null;
+            boolean plusOneAllowed = plusOneRaw != null &&
+                    (plusOneRaw.equalsIgnoreCase("yes") || plusOneRaw.equalsIgnoreCase("true") || plusOneRaw.equals("1"));
+            com.altarwed.domain.model.GuestRsvpStatus rsvpStatus = parseRsvpStatus(rsvpRaw);
+            Integer tableNumber = parseTableNumber(tableRaw);
+            com.altarwed.domain.model.GuestSide sideVal = parseSide(side);
+
+            if (g == null) {
+                toSave.add(new Guest(
+                        null, coupleId, name, emailVal,
+                        phone,
+                        rsvpStatus != null ? rsvpStatus : com.altarwed.domain.model.GuestRsvpStatus.PENDING,
+                        plusOneAllowed,
+                        plusOneName, dietary,
+                        null, tableNumber, sideVal, notes,
+                        mailLine1, city, state, zip,
+                        null, 0,
+                        null, null, null, null, null,
+                        null, null, null,
+                        null  // sheetSyncId — CSV path cannot write-back
+                ));
+            } else {
+                toSave.add(new Guest(
+                        g.id(), g.coupleId(), name,
+                        emailVal    != null ? emailVal    : g.email(),
+                        phone       != null ? phone       : g.phone(),
+                        rsvpStatus  != null ? rsvpStatus  : g.rsvpStatus(),
+                        plusOneRaw  != null ? plusOneAllowed : g.plusOneAllowed(),
+                        plusOneName != null ? plusOneName : g.plusOneName(),
+                        dietary     != null ? dietary     : g.dietaryRestrictions(),
+                        g.songRequest(),
+                        tableNumber != null ? tableNumber : g.tableNumber(),
+                        sideVal     != null ? sideVal     : g.side(),
+                        notes       != null ? notes       : g.notes(),
+                        mailLine1   != null ? mailLine1   : g.mailLine1(),
+                        city        != null ? city        : g.mailCity(),
+                        state       != null ? state       : g.mailState(),
+                        zip         != null ? zip         : g.mailZip(),
+                        g.noteForCouple(),
+                        g.inviteSendCount(), g.inviteSentAt(), g.respondedAt(), g.remindAt(),
+                        g.createdAt(), g.updatedAt(),
+                        g.partyId(), g.partyName(), g.partyContact(),
+                        g.sheetSyncId()  // preserve any UUID already stamped
                 ));
             }
             processed++;
@@ -396,6 +516,68 @@ public class GoogleSheetSyncService {
 
         guestRepository.saveAll(toSave);
         return processed;
+    }
+
+    // -----------------------------------------------------------------------
+    // Shared parsing helpers (used by both sync paths)
+    // -----------------------------------------------------------------------
+
+    private void validateRequiredColumns(Map<String, Integer> colIndex, String[] headers) {
+        boolean hasNameCol = colIndex.containsKey("names of all guests in party") || colIndex.containsKey("name");
+        if (!hasNameCol) {
+            throw new IllegalArgumentException(
+                "Sheet does not contain a 'Name' or 'Names of all guests in Party' column. " +
+                "Ensure the first row contains column headers. " +
+                "Expected: Side, Names of all guests in Party, Phone Number, Email Address, " +
+                "Street Address, City, State, Zip Code, Allowed Plus One?, Plus One Name, RSVP Status, " +
+                "Table #, Dietary Restriction, Notes. " +
+                "Actual headers: " + String.join(", ", headers));
+        }
+    }
+
+    private com.altarwed.domain.model.GuestRsvpStatus parseRsvpStatus(String raw) {
+        if (raw == null) return null;
+        String r = raw.trim().toUpperCase();
+        if (r.equals("ATTENDING") || r.equals("YES") || r.equals("GOING"))
+            return com.altarwed.domain.model.GuestRsvpStatus.ATTENDING;
+        if (r.equals("DECLINING") || r.equals("NO") || r.equals("NOT GOING") || r.equals("DECLINED"))
+            return com.altarwed.domain.model.GuestRsvpStatus.DECLINING;
+        return null; // unknown value → keep existing / PENDING
+    }
+
+    private Integer parseTableNumber(String raw) {
+        if (raw == null) return null;
+        try { return Integer.parseInt(raw.trim()); } catch (NumberFormatException ignored) { return null; }
+    }
+
+    private com.altarwed.domain.model.GuestSide parseSide(String raw) {
+        if (raw == null) return null;
+        String s = raw.trim().toUpperCase();
+        if (s.equals("BRIDE") || s.equals("BRIDE SIDE")) return com.altarwed.domain.model.GuestSide.BRIDE;
+        if (s.equals("GROOM") || s.equals("GROOM SIDE")) return com.altarwed.domain.model.GuestSide.GROOM;
+        if (s.equals("BOTH")) return com.altarwed.domain.model.GuestSide.BOTH;
+        return null;
+    }
+
+    /**
+     * Converts a 0-based column index to a spreadsheet column letter (A, B, ..., Z, AA, AB, ...).
+     * Index 0 → "A", 25 → "Z", 26 → "AA".
+     */
+    static String columnLetter(int zeroBasedIndex) {
+        StringBuilder sb = new StringBuilder();
+        int n = zeroBasedIndex + 1; // convert to 1-based
+        while (n > 0) {
+            n--;  // shift to 0-based within the 26-letter cycle
+            sb.insert(0, (char) ('A' + (n % 26)));
+            n /= 26;
+        }
+        return sb.toString();
+    }
+
+    /** Extracts the spreadsheet ID from any Google Sheets URL. Returns null if not found. */
+    private String extractSpreadsheetId(String url) {
+        Matcher m = SHEET_ID_PATTERN.matcher(url);
+        return m.find() ? m.group(1) : null;
     }
 
     // -----------------------------------------------------------------------
