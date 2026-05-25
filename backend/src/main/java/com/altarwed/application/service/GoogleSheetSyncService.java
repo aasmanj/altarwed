@@ -311,7 +311,10 @@ public class GoogleSheetSyncService {
             int sheetRowNumber = i + 1; // sheet row 1 = header, data starts at row 2
             String[] cols = rows.get(i);
 
-            String name = getAny(cols, colIndex, "names of all guests in party", "name");
+            String name = getAny(cols, colIndex,
+                    "names of all guests in party",
+                    "names of all guests in party (separated by , if multiple)",
+                    "name");
             if (name == null || name.isBlank()) continue;
 
             // Read the UUID that was stamped on a previous sync (if any)
@@ -446,7 +449,10 @@ public class GoogleSheetSyncService {
 
         for (int i = 1; i < rows.size(); i++) {
             String[] cols = rows.get(i);
-            String name = getAny(cols, colIndex, "names of all guests in party", "name");
+            String name = getAny(cols, colIndex,
+                    "names of all guests in party",
+                    "names of all guests in party (separated by , if multiple)",
+                    "name");
             if (name == null || name.isBlank()) continue;
 
             Guest g = byName.get(name.toLowerCase().trim());
@@ -523,10 +529,13 @@ public class GoogleSheetSyncService {
     // -----------------------------------------------------------------------
 
     private void validateRequiredColumns(Map<String, Integer> colIndex, String[] headers) {
-        boolean hasNameCol = colIndex.containsKey("names of all guests in party") || colIndex.containsKey("name");
+        boolean hasNameCol = colIndex.containsKey("names of all guests in party")
+                || colIndex.containsKey("names of all guests in party (separated by , if multiple)")
+                || colIndex.containsKey("name");
         if (!hasNameCol) {
             throw new IllegalArgumentException(
-                "Sheet does not contain a 'Name' or 'Names of all guests in Party' column. " +
+                "Sheet does not contain a 'Name' or 'Names of all guests in Party' column " +
+                "(also accepted: 'Names of all guests in Party (separated by , if multiple)'). " +
                 "Ensure the first row contains column headers. " +
                 "Expected: Side, Names of all guests in Party, Phone Number, Email Address, " +
                 "Street Address, City, State, Zip Code, Allowed Plus One?, Plus One Name, RSVP Status, " +
