@@ -99,6 +99,13 @@ jobs:
           name: backend-jar
           path: jar/
 
+      # App Service (JAVA|21-java21, no startup command) looks for app.jar first.
+      # Without this rename, Gradle's versioned JAR sits unused while the old
+      # app.jar from a prior deploy keeps running. Rename here ensures every
+      # deploy overwrites the file App Service actually boots.
+      - name: Rename JAR to app.jar
+        run: mv jar/*.jar jar/app.jar
+
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         with:

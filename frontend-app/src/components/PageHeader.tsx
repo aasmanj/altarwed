@@ -28,7 +28,7 @@ export default function PageHeader({ title, subtitle, action, maxWidth = 'max-w-
             <span className="text-gold-light shrink-0 mt-0.5">|</span>
             <div className="min-w-0">
               <h1 className="font-serif text-lg sm:text-xl font-bold text-brown leading-tight">{title}</h1>
-              {subtitle && <p className="text-xs text-brown-light mt-0.5 break-words">{subtitle}</p>}
+              {subtitle && <p className="hidden sm:block text-xs text-brown-light mt-0.5 truncate">{subtitle}</p>}
             </div>
           </div>
           {action && <div className="flex-shrink-0">{action}</div>}
