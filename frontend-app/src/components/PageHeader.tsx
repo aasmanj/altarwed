@@ -5,7 +5,7 @@ interface Props {
   subtitle?: string
   action?: React.ReactNode
   /**
-   * Max-width of the inner content row — should match the page's own content width
+   * Max-width of the inner content row. Should match the page's own content width
    * so the header title/actions align with the content below on wide screens.
    * Defaults to 'max-w-5xl' (guests, budget, photos, communications).
    * Pass 'max-w-4xl' or 'max-w-3xl' for narrower pages.

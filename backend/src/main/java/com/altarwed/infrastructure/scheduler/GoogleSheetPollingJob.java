@@ -36,9 +36,9 @@ public class GoogleSheetPollingJob {
         long startMs = System.currentTimeMillis();
         log.info("google sheet poll started, runId={}", runId);
         try {
-            syncService.runAllActive();
-            log.info("google sheet poll finished, runId={}, durationMs={}",
-                     runId, System.currentTimeMillis() - startMs);
+            int[] counts = syncService.runAllActive();
+            log.info("google sheet poll finished, runId={}, succeeded={}, failed={}, durationMs={}",
+                     runId, counts[0], counts[1], System.currentTimeMillis() - startMs);
         } catch (Exception ex) {
             log.error("google sheet poll crashed, runId={}, durationMs={}",
                       runId, System.currentTimeMillis() - startMs, ex);

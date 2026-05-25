@@ -145,26 +145,26 @@ export default function GuestListPage() {
               onClick={() => { setShowSheetSync(v => !v); setSheetUrlInput(sheetSync?.sheetUrl ?? '') }}
               className="rounded-lg border border-gold px-3 py-2 text-sm font-medium text-brown hover:bg-gold/10 transition min-h-[44px]"
             >
-              Sheets
+              Sheets<span className="hidden sm:inline"> Sync</span>
             </button>
             <button
               onClick={() => setShowImport(true)}
               className="rounded-lg border border-gold px-3 py-2 text-sm font-medium text-brown hover:bg-gold/10 transition min-h-[44px]"
             >
-              Import
+              Import<span className="hidden sm:inline"> CSV</span>
             </button>
             <button
               onClick={exportCsv}
               disabled={guests.length === 0}
               className="rounded-lg border border-gold px-3 py-2 text-sm font-medium text-brown hover:bg-gold/10 disabled:opacity-50 transition min-h-[44px]"
             >
-              Export
+              Export<span className="hidden sm:inline"> CSV</span>
             </button>
             <button
               onClick={() => setShowParty(true)}
               className="rounded-lg border border-gold px-3 py-2 text-sm font-medium text-brown hover:bg-gold/10 transition min-h-[44px]"
             >
-              + Party
+              +<span className="hidden sm:inline"> Create</span> Party
             </button>
             <button
               onClick={() => setShowAdd(true)}

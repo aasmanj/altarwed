@@ -112,8 +112,13 @@ public class GoogleSheetSyncService {
         return toResponse(runSync(sync));
     }
 
-    /** Called by the scheduler; processes all active configs. */
-    public void runAllActive() {
+    /**
+     * Called by the scheduler; processes all active configs.
+     * Returns a two-element int array: [succeeded, failed].
+     * The scheduler uses these counts to include them in its finish log,
+     * keeping all outcome data on the runId-tagged line for KQL correlation.
+     */
+    public int[] runAllActive() {
         List<GoogleSheetSync> active = syncRepository.findAllActive();
         log.info("google sheet sync batch started, activeConfigs={}", active.size());
         int succeeded = 0;
@@ -128,6 +133,7 @@ public class GoogleSheetSyncService {
             }
         }
         log.info("google sheet sync batch finished, succeeded={}, failed={}", succeeded, failed);
+        return new int[]{succeeded, failed};
     }
 
     // -----------------------------------------------------------------------
