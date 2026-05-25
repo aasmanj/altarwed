@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import {
@@ -94,12 +95,22 @@ export default function CeremonyPage() {
         subtitle="Plan your order of service: scripture, vows, music, and more."
         maxWidth="max-w-3xl"
         action={
-          <button
-            onClick={openAdd}
-            className="rounded-lg bg-brown px-4 py-2 text-sm font-semibold text-white hover:bg-brown/90 transition"
-          >
-            + Add section
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {sections.length > 0 && (
+              <Link
+                to="/dashboard/ceremony/program"
+                className="rounded-lg border border-brown px-4 py-2 text-sm font-semibold text-brown hover:bg-brown/5 transition"
+              >
+                Print Program
+              </Link>
+            )}
+            <button
+              onClick={openAdd}
+              className="rounded-lg bg-brown px-4 py-2 text-sm font-semibold text-white hover:bg-brown/90 transition"
+            >
+              + Add section
+            </button>
+          </div>
         }
       />
 
@@ -174,7 +185,15 @@ export default function CeremonyPage() {
             <li>• Open with prayer to invite God into your covenant moment.</li>
             <li>• Choose 1–2 scripture readings that speak to covenant love.</li>
             <li>• Unity ceremonies (candle, sand, communion) represent two becoming one.</li>
-            <li>• Share a printed order of service so guests can follow along.</li>
+            <li>
+              • Add your officiant, musicians, and readers on the{' '}
+              <Link to="/dashboard/wedding-party" className="underline hover:text-brown">Wedding Party</Link>{' '}
+              page (set side to "Ceremony"). They'll appear on your printed program.
+            </li>
+            <li>
+              • When you're ready, hit <span className="font-medium text-brown">Print Program</span>{' '}
+              up top — generates a letter-sized order of service guests can hold during the ceremony.
+            </li>
           </ul>
         </div>
       </main>

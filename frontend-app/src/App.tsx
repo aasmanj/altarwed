@@ -21,6 +21,7 @@ import SeatingPage from '@/features/couple/seating/SeatingPage'
 import ScripturePage from '@/features/couple/scripture/ScripturePage'
 import VowsPage from '@/features/couple/vows/VowsPage'
 import CeremonyPage from '@/features/couple/ceremony/CeremonyPage'
+import CeremonyProgramPage from '@/features/couple/ceremony/CeremonyProgramPage'
 import CommunicationsPage from '@/features/couple/communications/CommunicationsPage'
 import AdminMetricsPage from '@/features/admin/AdminMetricsPage'
 
@@ -149,6 +150,14 @@ export default function App() {
             element={
               <ProtectedRoute role="COUPLE">
                 <CeremonyPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/ceremony/program"
+            element={
+              <ProtectedRoute role="COUPLE">
+                <CeremonyProgramPage />
               </ProtectedRoute>
             }
           />
