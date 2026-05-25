@@ -261,6 +261,13 @@ public class GuestService {
                     .toList();
         }
 
+        // Show the registry link on the RSVP confirmation only when the site is published
+        // AND at least one registry URL has been configured. Otherwise the link would 404
+        // (unpublished site) or land on an empty "Registry coming soon" page.
+        boolean hasRegistry = website != null
+                && website.isPublished()
+                && (website.registryUrl1() != null || website.registryUrl2() != null || website.registryUrl3() != null);
+
         return new RsvpPageDataResponse(
                 guest.name(), coupleNames, weddingDate,
                 website != null ? website.venueName() : null,
@@ -268,6 +275,7 @@ public class GuestService {
                 website != null ? website.venueState() : null,
                 guest.plusOneAllowed(),
                 website != null ? website.slug() : null,
+                hasRegistry,
                 partyMembers,
                 partyName
         );

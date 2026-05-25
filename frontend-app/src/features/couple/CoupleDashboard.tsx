@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
-import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
+import { useWeddingWebsite, type WeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import OnboardingWizard from '@/features/couple/onboarding/OnboardingWizard'
 import TipCallout from '@/components/TipCallout'
 import { TIPS } from '@/lib/tips'
@@ -62,6 +62,7 @@ export default function CoupleDashboard() {
           <DashboardCard title="Wedding Party" description="Add your party members and officiant" href="/dashboard/wedding-party" live />
           <DashboardCard title="Find Vendors" description="Browse faith-aligned vendors near you" href="https://www.altarwed.com/vendors" external live />
           <DashboardCard title="Budget Tracker" description="Plan and track wedding spending" href="/dashboard/budget" live />
+          <RegistryCard website={website} />
           <DashboardCard title="Save the Dates" description="Design and send save-the-date emails" href="/dashboard/save-the-date" live />
           <DashboardCard title="Communications" description="Send printed save-the-dates and invitations via Lob" href="/dashboard/communications" live />
           <DashboardCard title="Wedding Photos" description="Upload and share photos with guests" href="/dashboard/photos" live />
@@ -72,6 +73,41 @@ export default function CoupleDashboard() {
         </div>
       </main>
     </div>
+  )
+}
+
+// Dedicated registry card that shows how many of 3 registry slots have been filled.
+// Placed prominently so couples configure it before sending invitations — the RSVP
+// confirmation page links to the registry, and an empty one creates a dead end.
+function RegistryCard({ website }: { website: WeddingWebsite | undefined | null }) {
+  const filled = [website?.registryUrl1, website?.registryUrl2, website?.registryUrl3].filter(Boolean).length
+  const isComplete = filled === 3
+  const isEmpty = filled === 0
+
+  return (
+    <Link
+      to="/dashboard/website"
+      className="block rounded-xl border border-gold bg-white p-6 transition hover:shadow-md"
+    >
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <h3 className="font-serif text-lg font-semibold text-brown">Registry</h3>
+        <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${
+          isComplete
+            ? 'bg-emerald-100 text-emerald-700'
+            : isEmpty
+            ? 'bg-amber-100 text-amber-700'
+            : 'bg-blue-100 text-blue-700'
+        }`}>
+          {filled} of 3 added
+        </span>
+      </div>
+      <p className="text-sm text-brown-light">Link your Amazon, Target, or Zola registries</p>
+      {isEmpty && (
+        <p className="mt-2 text-xs text-amber-700 font-medium">
+          Set this up before sending invites — guests expect a registry link after RSVPing.
+        </p>
+      )}
+    </Link>
   )
 }
 

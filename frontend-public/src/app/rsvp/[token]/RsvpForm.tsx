@@ -13,11 +13,12 @@ interface PartyMemberInfo {
 type PartyStatus = 'ATTENDING' | 'DECLINING' | 'PENDING'
 
 export default function RsvpForm({
-  token, plusOneAllowed, weddingSlug, apiUrl, partyMembers,
+  token, plusOneAllowed, weddingSlug, hasRegistry, apiUrl, partyMembers,
 }: {
   token: string
   plusOneAllowed: boolean
   weddingSlug: string | null
+  hasRegistry: boolean
   apiUrl: string
   partyMembers?: PartyMemberInfo[]
 }) {
@@ -98,12 +99,18 @@ export default function RsvpForm({
             : "We'll miss you and appreciate you responding."}
         </p>
         {status === 'ATTENDING' && weddingSlug && (
-          <a
-            href={`/wedding/${weddingSlug}/registry`}
-            className="inline-block mt-2 rounded-xl border border-[#d4af6a] px-5 py-2.5 text-sm font-semibold text-[#3b2f2f] hover:bg-[#d4af6a]/10 transition"
-          >
-            Now go check out the registry →
-          </a>
+          hasRegistry ? (
+            <a
+              href={`/wedding/${weddingSlug}/registry`}
+              className="inline-block mt-2 rounded-xl border border-[#d4af6a] px-5 py-2.5 text-sm font-semibold text-[#3b2f2f] hover:bg-[#d4af6a]/10 transition"
+            >
+              Now go check out the registry →
+            </a>
+          ) : (
+            <p className="mt-2 text-sm text-[#a08060] italic">
+              The couple hasn&apos;t set up their registry yet — check back soon.
+            </p>
+          )
         )}
       </div>
     )

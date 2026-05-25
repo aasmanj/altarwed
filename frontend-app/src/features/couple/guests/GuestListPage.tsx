@@ -240,6 +240,13 @@ export default function GuestListPage() {
               <button onClick={() => setShowSheetSync(false)} className="text-brown-light hover:text-brown text-xl">x</button>
             </div>
 
+            {/* One-way sync notice */}
+            <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800">
+              <span className="font-semibold">One-way sync: Sheet to AltarWed.</span>{' '}
+              Changes you make to guests on this dashboard are saved here only — they won&apos;t update your spreadsheet.
+              If you edit a guest here after syncing, that edit stays unless the sheet overwrites it on the next pull.
+            </div>
+
             {/* OAuth connection status */}
             {oauthStatus?.connected ? (
               <div className="mb-3 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800 flex items-center justify-between gap-4">

@@ -313,10 +313,21 @@ export default function SideBySideEditor() {
                 {backfill.isPending ? 'Setting up your page…' : 'Loading blocks…'}
               </div>
             ) : blocksForTab.length === 0 ? (
-              <EmptyTabState
-                tab={activeTab}
-                onAdd={() => setPicking(true)}
-              />
+              // Empty tab: show picker if the user already clicked "Add your first block",
+              // otherwise show the empty-state prompt. The BlockPicker CANNOT live in the
+              // "has blocks" branch below — it would never render when the tab is empty.
+              picking ? (
+                <BlockPicker
+                  tab={activeTab}
+                  onPick={handleAdd}
+                  onCancel={() => setPicking(false)}
+                />
+              ) : (
+                <EmptyTabState
+                  tab={activeTab}
+                  onAdd={() => setPicking(true)}
+                />
+              )
             ) : (
               <SortableBlockList
                 blocks={blocksForTab}
@@ -326,7 +337,7 @@ export default function SideBySideEditor() {
               />
             )}
 
-            {/* Add-block UI — always visible at the bottom when there are blocks */}
+            {/* Add-block UI — only shown when the tab already has blocks */}
             {!blocksLoading && blocksForTab.length > 0 && (
               <div className="mt-3">
                 {picking ? (

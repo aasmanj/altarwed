@@ -18,6 +18,7 @@ interface RsvpPageData {
   venueState: string | null
   plusOneAllowed: boolean
   weddingSlug: string | null
+  hasRegistry: boolean
   partyMembers: PartyMemberInfo[] | null
   partyName: string | null
 }
@@ -98,6 +99,7 @@ export default async function RsvpPage(
             token={token}
             plusOneAllowed={data.plusOneAllowed}
             weddingSlug={data.weddingSlug}
+            hasRegistry={data.hasRegistry}
             apiUrl={API}
             partyMembers={data.partyMembers ?? undefined}
           />
