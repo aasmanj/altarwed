@@ -5,7 +5,7 @@ import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import {
   useGuests, useAddGuest, useUpdateGuest, useRemoveGuest,
-  useSendInvite, useSendAllInvites,
+  useSendInvite,
   type Guest, type RsvpStatus, type GuestSide,
 } from './useGuests'
 import TipCallout from '@/components/TipCallout'
@@ -35,7 +35,6 @@ export default function GuestListPage() {
   const updateGuest = useUpdateGuest(coupleId)
   const removeGuest = useRemoveGuest(coupleId)
   const sendInvite  = useSendInvite(coupleId)
-  const sendAll     = useSendAllInvites(coupleId)
 
   const { data: sheetSync }     = useGoogleSheetSync(coupleId)
   const setSheetSync            = useSetGoogleSheetSync(coupleId)
