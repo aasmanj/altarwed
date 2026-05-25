@@ -30,6 +30,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.net.URI;
 import java.util.Map;
@@ -222,6 +223,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BlogPostNotFoundException.class)
     public ProblemDetail handleBlogPostNotFound(BlogPostNotFoundException ex) {
         return notFound("blog-post-not-found", ex.getMessage());
+    }
+
+    // Unmapped routes hit Spring's default handler and throw this. Without an explicit
+    // handler it falls through to the catch-all below and reports as a 500, which is
+    // misleading (the request was syntactically fine; the path just does not exist).
+    // Common cause: client/server version skew during a rolling deploy.
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ProblemDetail handleNoResourceFound(NoResourceFoundException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
+        pd.setType(URI.create("https://altarwed.com/problems/route-not-found"));
+        pd.setTitle("Not Found");
+        pd.setDetail("No endpoint exists for this path.");
+        return pd;
     }
 
     // Safety net: catches anything not handled above so stack traces never leak.
