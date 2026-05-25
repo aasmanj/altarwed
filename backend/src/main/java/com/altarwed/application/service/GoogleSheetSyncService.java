@@ -57,14 +57,17 @@ public class GoogleSheetSyncService {
 
     private final GoogleSheetSyncRepository syncRepository;
     private final GuestRepository guestRepository;
+    private final GoogleOAuthService googleOAuthService;
     private final RestClient restClient;
 
     public GoogleSheetSyncService(
             GoogleSheetSyncRepository syncRepository,
-            GuestRepository guestRepository
+            GuestRepository guestRepository,
+            GoogleOAuthService googleOAuthService
     ) {
         this.syncRepository = syncRepository;
         this.guestRepository = guestRepository;
+        this.googleOAuthService = googleOAuthService;
         // Spring Boot 4 does not auto-expose RestClient.Builder as a bean.
         // We explicitly use SimpleClientHttpRequestFactory (wraps HttpURLConnection)
         // rather than the default JdkClientHttpRequestFactory (wraps java.net.http.HttpClient).
@@ -151,11 +154,19 @@ public class GoogleSheetSyncService {
     // -----------------------------------------------------------------------
 
     private GoogleSheetSync runSync(GoogleSheetSync sync) {
-        String csvUrl = toCsvUrl(sync.sheetUrl());
         log.info("google sheet sync started, coupleId={}", sync.coupleId());
         try {
-            String csv = fetchCsv(csvUrl);
-            int rowsProcessed = upsertGuests(sync.coupleId(), csv);
+            List<String[]> rows;
+            if (googleOAuthService.hasOAuthTokens(sync.coupleId())) {
+                log.info("google sheet sync using oauth, coupleId={}", sync.coupleId());
+                rows = googleOAuthService.readSheet(sync.coupleId(), sync.sheetUrl());
+            } else {
+                log.info("google sheet sync using public url, coupleId={}", sync.coupleId());
+                String csvUrl = toCsvUrl(sync.sheetUrl());
+                String csv = fetchCsv(csvUrl);
+                rows = parseCsv(csv);
+            }
+            int rowsProcessed = upsertGuestsFromRows(sync.coupleId(), rows);
 
             GoogleSheetSync updated = new GoogleSheetSync(
                     sync.id(), sync.coupleId(), sync.sheetUrl(),
@@ -232,11 +243,10 @@ public class GoogleSheetSyncService {
     }
 
     /**
-     * Parses CSV rows and upserts guests by (name, email).
-     * Returns the number of rows successfully processed.
+     * Upserts guests by (name, email) from pre-parsed rows.
+     * Row[0] is the header row. Returns the number of data rows successfully processed.
      */
-    private int upsertGuests(UUID coupleId, String csv) throws Exception {
-        List<String[]> rows = parseCsv(csv);
+    private int upsertGuestsFromRows(UUID coupleId, List<String[]> rows) throws Exception {
         if (rows.isEmpty()) return 0;
 
         String[] headers = rows.get(0);

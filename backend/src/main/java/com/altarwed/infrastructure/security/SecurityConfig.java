@@ -70,6 +70,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/wedding-websites/*/hotels").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/wedding-websites/search").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/blog/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/integrations/google-sheets/callback").permitAll()
                         // OpenAPI / Swagger — dev convenience
                         .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         // Actuator health

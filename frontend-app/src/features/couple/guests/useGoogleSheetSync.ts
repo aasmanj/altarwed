@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 
+export interface GoogleOAuthStatus {
+  connected: boolean
+  googleEmail: string | null
+}
+
 export interface GoogleSheetSyncStatus {
   id: string
   coupleId: string
@@ -58,6 +63,22 @@ export function useTriggerGoogleSheetSync(coupleId: string) {
       qc.invalidateQueries({ queryKey: ['googleSheetSync', coupleId] })
       qc.invalidateQueries({ queryKey: ['guests', coupleId] })
     },
+  })
+}
+
+export function useGoogleOAuthStatus(coupleId: string) {
+  return useQuery<GoogleOAuthStatus>({
+    queryKey: ['google-oauth-status', coupleId],
+    queryFn: () => apiClient.get('/api/v1/integrations/google-sheets/status').then(r => r.data),
+    enabled: !!coupleId,
+  })
+}
+
+export function useGoogleDisconnect(coupleId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => apiClient.delete('/api/v1/integrations/google-sheets'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['google-oauth-status', coupleId] }),
   })
 }
 

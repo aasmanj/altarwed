@@ -12,8 +12,9 @@ import TipCallout from '@/components/TipCallout'
 import { TIPS } from '@/lib/tips'
 import {
   useGoogleSheetSync, useSetGoogleSheetSync, useDeleteGoogleSheetSync,
-  useTriggerGoogleSheetSync, relativeTime,
+  useTriggerGoogleSheetSync, useGoogleOAuthStatus, useGoogleDisconnect, relativeTime,
 } from './useGoogleSheetSync'
+import { apiClient } from '@/core/api/client'
 
 const STATUS_LABEL: Record<RsvpStatus, string> = {
   PENDING: 'Remind me', ATTENDING: 'Attending', DECLINING: 'Declining',
@@ -43,9 +44,19 @@ export default function GuestListPage() {
   const setSheetSync            = useSetGoogleSheetSync(coupleId)
   const deleteSheetSync         = useDeleteGoogleSheetSync(coupleId)
   const triggerSheetSync        = useTriggerGoogleSheetSync(coupleId)
+  const { data: oauthStatus }   = useGoogleOAuthStatus(coupleId)
+  const googleDisconnect        = useGoogleDisconnect(coupleId)
 
   const [showSheetSync, setShowSheetSync] = useState(false)
   const [sheetUrlInput, setSheetUrlInput] = useState('')
+  const [googleJustConnected] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('google_connected') === 'true') {
+      window.history.replaceState({}, '', window.location.pathname)
+      return true
+    }
+    return false
+  })
 
   const [showAdd, setShowAdd]         = useState(false)
   const [showParty, setShowParty]     = useState(false)
@@ -89,33 +100,37 @@ export default function GuestListPage() {
 
   function exportCsv() {
     const rows = guests.map(g => ({
-      Name:                g.name,
-      Email:               g.email ?? '',
-      Phone:               g.phone ?? '',
-      'RSVP Status':       g.rsvpStatus,
-      Side:                g.side ?? '',
-      'Plus One Allowed':  g.plusOneAllowed ? 'Yes' : 'No',
-      'Plus One Name':     g.plusOneName ?? '',
-      'Meal Preference':   g.mealPreference ?? '',
-      'Dietary Restrictions': g.dietaryRestrictions ?? '',
-      'Song Request':      g.songRequest ?? '',
-      'Table Number':      g.tableNumber ?? '',
-      'Address Line 1':    g.mailLine1 ?? '',
-      'City':              g.mailCity ?? '',
-      'State':             g.mailState ?? '',
-      'ZIP':               g.mailZip ?? '',
-      'Party Name':        g.partyName ?? '',
-      'Invite Sent':       g.inviteSentAt ? new Date(g.inviteSentAt).toLocaleDateString() : '',
-      'Responded At':      g.respondedAt ? new Date(g.respondedAt).toLocaleDateString() : '',
+      Name:                    g.name,
+      Email:                   g.email ?? '',
+      Phone:                   g.phone ?? '',
+      'RSVP Status':           g.rsvpStatus,
+      Side:                    g.side ?? '',
+      'Plus One Allowed':      g.plusOneAllowed ? 'Yes' : 'No',
+      'Plus One Name':         g.plusOneName ?? '',
+      'Meal Preference':       g.mealPreference ?? '',
+      'Dietary Restrictions':  g.dietaryRestrictions ?? '',
+      'Song Request':          g.songRequest ?? '',
+      'Table Number':          g.tableNumber ?? '',
+      'Address Line 1':        g.mailLine1 ?? '',
+      'City':                  g.mailCity ?? '',
+      'State':                 g.mailState ?? '',
+      'ZIP':                   g.mailZip ?? '',
+      'Party Name':            g.partyName ?? '',
+      'Invite Sent':           g.inviteSentAt ? new Date(g.inviteSentAt).toLocaleDateString() : '',
+      'Responded At':          g.respondedAt ? new Date(g.respondedAt).toLocaleDateString() : '',
     }))
-    const csv = Papa.unparse(rows)
+    // BOM prefix so Excel opens the file with correct UTF-8 encoding
+    const csv = '﻿' + Papa.unparse(rows)
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url  = URL.createObjectURL(blob)
+    const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
-    link.href     = url
-    link.download = `guest-list-${new Date().toISOString().slice(0, 10)}.csv`
+    link.setAttribute('href', url)
+    link.setAttribute('download', `guest-list-${new Date().toISOString().slice(0, 10)}.csv`)
+    document.body.appendChild(link)
     link.click()
-    URL.revokeObjectURL(url)
+    document.body.removeChild(link)
+    // Delay revoke so the download has time to start before the object URL is released
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
   // Analytics data
@@ -189,17 +204,62 @@ export default function GuestListPage() {
               <div>
                 <p className="font-semibold text-brown">Google Sheets live sync</p>
                 <p className="text-xs text-brown-light mt-0.5">
-                  Paste the URL of a Google Sheet published as CSV. We'll sync every 15 minutes.
+                  Connect your Google account or paste a published CSV URL. We sync every 15 minutes.
                 </p>
               </div>
-              <button onClick={() => setShowSheetSync(false)} className="text-brown-light hover:text-brown text-xl">✕</button>
+              <button onClick={() => setShowSheetSync(false)} className="text-brown-light hover:text-brown text-xl">x</button>
             </div>
 
+            {/* OAuth connection status */}
+            {oauthStatus?.connected ? (
+              <div className="mb-3 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800 flex items-center justify-between gap-4">
+                <div>
+                  <span className="font-medium">Google account connected</span>
+                  {oauthStatus.googleEmail && (
+                    <span className="ml-1 text-blue-600">({oauthStatus.googleEmail})</span>
+                  )}
+                  <p className="text-xs text-blue-600 mt-0.5">
+                    Paste any Google Sheet URL below. No need to publish it publicly.
+                  </p>
+                </div>
+                <button
+                  onClick={() => googleDisconnect.mutate()}
+                  disabled={googleDisconnect.isPending}
+                  className="shrink-0 text-xs text-blue-600 hover:text-blue-800 underline"
+                >
+                  Disconnect
+                </button>
+              </div>
+            ) : (
+              <div className="mb-3 rounded-lg bg-ivory border border-gold-light px-4 py-3">
+                <p className="text-sm font-medium text-brown mb-1">Connect your Google account</p>
+                <p className="text-xs text-brown-light mb-3">
+                  Connect once, then paste any Google Sheet URL below. Your sheet stays private.
+                </p>
+                <button
+                  onClick={async () => {
+                    const resp = await apiClient.get('/api/v1/integrations/google-sheets/auth-url')
+                    window.location.href = resp.data.authUrl
+                  }}
+                  className="rounded-lg bg-brown px-4 py-2 text-sm font-semibold text-white hover:bg-brown/90 transition"
+                >
+                  Connect Google Account
+                </button>
+              </div>
+            )}
+
+            {googleJustConnected && (
+              <div className="mb-3 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">
+                Google account connected! Paste your sheet URL below and click Save.
+              </div>
+            )}
+
+            {/* Existing sync status */}
             {sheetSync && (
               <div className="mb-3 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 flex items-center justify-between gap-4">
                 <div>
                   <span className="font-medium">Sync active</span>
-                  {' — '}Last synced: {relativeTime(sheetSync.lastSynced)}
+                  {' '}Last synced: {relativeTime(sheetSync.lastSynced)}
                   {sheetSync.rowCount != null && ` · ${sheetSync.rowCount} rows`}
                   {sheetSync.lastError && (
                     <p className="mt-1 text-red-600 text-xs">Error: {sheetSync.lastError}</p>
@@ -210,7 +270,7 @@ export default function GuestListPage() {
                   disabled={triggerSheetSync.isPending}
                   className="shrink-0 rounded-lg bg-green-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-800 disabled:opacity-50 transition"
                 >
-                  {triggerSheetSync.isPending ? 'Syncing…' : 'Sync now'}
+                  {triggerSheetSync.isPending ? 'Syncing...' : 'Sync now'}
                 </button>
               </div>
             )}
@@ -220,7 +280,9 @@ export default function GuestListPage() {
                 type="url"
                 value={sheetUrlInput}
                 onChange={e => setSheetUrlInput(e.target.value)}
-                placeholder="https://docs.google.com/spreadsheets/d/…"
+                placeholder={oauthStatus?.connected
+                  ? 'https://docs.google.com/spreadsheets/d/...'
+                  : 'Publish URL: https://docs.google.com/spreadsheets/d/.../pub?output=csv'}
                 className="flex-1 rounded-lg border border-gold-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40"
               />
               <button
@@ -232,7 +294,7 @@ export default function GuestListPage() {
                 disabled={setSheetSync.isPending || !sheetUrlInput.trim()}
                 className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-50 transition"
               >
-                {setSheetSync.isPending ? 'Saving…' : 'Save'}
+                {setSheetSync.isPending ? 'Saving...' : 'Save'}
               </button>
               {sheetSync && (
                 <button
@@ -249,7 +311,9 @@ export default function GuestListPage() {
             </div>
 
             <p className="mt-2 text-xs text-brown-light">
-              In your sheet: File &rarr; Share &rarr; Publish to web &rarr; CSV. Columns: Name, Email, Plus One Name, Meal Preference, Dietary Restrictions, Song Request.
+              {oauthStatus?.connected
+                ? 'Paste the URL from your browser address bar while viewing the sheet. Columns: Name, Email, Plus One Name, Meal Preference, Dietary Restrictions, Song Request.'
+                : 'Or connect your Google account above to sync private sheets without publishing them.'}
             </p>
           </div>
         )}
