@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import Papa from 'papaparse'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { useAuth } from '@/core/auth/AuthContext'
@@ -53,6 +53,18 @@ export default function GuestListPage() {
     }
     return false
   })
+
+  const [copiedHeaders, setCopiedHeaders] = useState(false)
+  const SHEET_TEMPLATE_COLUMNS =
+    'Side\tNames of all guests in Party\tPhone Number\tEmail Address\t' +
+    'Street Address\tCity\tState\tZip Code\tAllowed Plus One?\tPlus One Name\t' +
+    'RSVP Status\tTable #\tDietary Restriction\tNotes'
+  const copyHeaders = useCallback(() => {
+    navigator.clipboard.writeText(SHEET_TEMPLATE_COLUMNS).then(() => {
+      setCopiedHeaders(true)
+      setTimeout(() => setCopiedHeaders(false), 2000)
+    })
+  }, [SHEET_TEMPLATE_COLUMNS])
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [showAdd, setShowAdd]           = useState(false)
@@ -271,11 +283,33 @@ export default function GuestListPage() {
               )}
             </div>
 
-            <p className="mt-2 text-xs text-brown-light">
-              {oauthStatus?.connected
-                ? 'Paste the URL from your browser address bar while viewing the sheet. Columns: Side, Names of all guests in Party, Phone Number, Email Address, Street Address, City, State, Zip Code, Allowed Plus One?, Plus One Name, RSVP Status, Table #, Dietary Restriction, Notes'
-                : 'Or connect your Google account above to sync private sheets without publishing them.'}
-            </p>
+            {/* Column template tip */}
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-stone-700">
+              <p className="font-semibold text-stone-800 mb-1">Column template</p>
+              <p className="mb-2 text-stone-600">
+                Starting a new sheet? Copy these headers into row 1 and AltarWed will map all your data automatically.
+              </p>
+              <div className="flex flex-wrap gap-1 mb-2">
+                {['Side', 'Names of all guests in Party', 'Phone Number', 'Email Address',
+                  'Street Address', 'City', 'State', 'Zip Code', 'Allowed Plus One?',
+                  'Plus One Name', 'RSVP Status', 'Table #', 'Dietary Restriction', 'Notes'].map(col => (
+                  <span key={col} className="rounded bg-amber-100 border border-amber-200 px-1.5 py-0.5 text-[10px] font-mono text-amber-900">
+                    {col}
+                  </span>
+                ))}
+              </div>
+              <button
+                onClick={copyHeaders}
+                className="rounded-md bg-amber-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-amber-700 transition"
+              >
+                {copiedHeaders ? 'Copied!' : 'Copy headers'}
+              </button>
+              {oauthStatus?.connected && (
+                <p className="mt-2 text-stone-500">
+                  Paste your sheet URL from the browser address bar above.
+                </p>
+              )}
+            </div>
           </div>
         )}
 
