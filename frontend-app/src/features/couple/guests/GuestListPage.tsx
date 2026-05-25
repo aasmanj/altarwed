@@ -56,7 +56,7 @@ export default function GuestListPage() {
 
   const [copiedHeaders, setCopiedHeaders] = useState(false)
   const SHEET_TEMPLATE_COLUMNS =
-    'Side\tNames of all guests in Party\tPhone Number\tEmail Address\t' +
+    'Side\tNames of all guests in Party (separated by , if multiple)\tPhone Number\tEmail Address\t' +
     'Street Address\tCity\tState\tZip Code\tAllowed Plus One?\tPlus One Name\t' +
     'RSVP Status\tTable #\tDietary Restriction\tNotes'
   const copyHeaders = useCallback(() => {
@@ -290,7 +290,7 @@ export default function GuestListPage() {
                 Starting a new sheet? Copy these headers into row 1 and AltarWed will map all your data automatically.
               </p>
               <div className="flex flex-wrap gap-1 mb-2">
-                {['Side', 'Names of all guests in Party', 'Phone Number', 'Email Address',
+                {['Side', 'Names of all guests in Party (separated by , if multiple)', 'Phone Number', 'Email Address',
                   'Street Address', 'City', 'State', 'Zip Code', 'Allowed Plus One?',
                   'Plus One Name', 'RSVP Status', 'Table #', 'Dietary Restriction', 'Notes'].map(col => (
                   <span key={col} className="rounded bg-amber-100 border border-amber-200 px-1.5 py-0.5 text-[10px] font-mono text-amber-900">
