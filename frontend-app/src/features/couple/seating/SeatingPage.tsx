@@ -14,7 +14,7 @@ import {
   useDraggable,
 } from '@dnd-kit/core'
 import { Lock, Unlock, Users } from 'lucide-react'
-import { useGuests, useUpdateGuest, type Guest } from '@/features/couple/guests/useGuests'
+import { useGuests, useAssignGuestTable, type Guest } from '@/features/couple/guests/useGuests'
 import {
   useSeatingTables,
   useCreateSeatingTable,
@@ -357,7 +357,7 @@ export default function SeatingPage() {
   const coupleId = user?.id ?? ''
   const { data: guests = [], isLoading: guestsLoading } = useGuests(coupleId)
   const { data: tables = [], isLoading: tablesLoading } = useSeatingTables(coupleId)
-  const updateGuest = useUpdateGuest(coupleId)
+  const assignTable = useAssignGuestTable(coupleId)
 
   const [activeGuest, setActiveGuest] = useState<Guest | null>(null)
   const [editingTable, setEditingTable] = useState<SeatingTable | 'new' | null>(null)
@@ -406,7 +406,7 @@ export default function SeatingPage() {
       : null
 
     if (guest.tableNumber === newTableNumber) return
-    updateGuest.mutate({ guestId: guest.id, payload: { tableNumber: newTableNumber ?? undefined } })
+    assignTable.mutate({ guestId: guest.id, tableNumber: newTableNumber })
   }
 
   function handleMobileAssign(tableId: string) {
@@ -416,13 +416,13 @@ export default function SeatingPage() {
     if (!guest) return
     const targetTable = tables.find(t => t.id === tableId)
     const newTableNumber = targetTable ? tables.indexOf(targetTable) + 1 : null
-    updateGuest.mutate({ guestId: guest.id, payload: { tableNumber: newTableNumber ?? undefined } })
+    assignTable.mutate({ guestId: guest.id, tableNumber: newTableNumber })
     setSelectedGuestId(null)
   }
 
   function handleMobileUnassign(guestId: string) {
     if (locked) return
-    updateGuest.mutate({ guestId, payload: { tableNumber: undefined } })
+    assignTable.mutate({ guestId, tableNumber: null })
     setSelectedGuestId(null)
   }
 
@@ -590,7 +590,7 @@ export default function SeatingPage() {
                     table={t}
                     guests={guestsForTable(t)}
                     onEdit={locked ? undefined : setEditingTable}
-                    onUnassign={locked ? undefined : (guestId) => updateGuest.mutate({ guestId, payload: { tableNumber: undefined } })}
+                    onUnassign={locked ? undefined : (guestId) => assignTable.mutate({ guestId, tableNumber: null })}
                     locked={locked}
                   />
                 ))}

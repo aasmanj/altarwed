@@ -113,6 +113,35 @@ export function useUpdateGuest(coupleId: string) {
   })
 }
 
+// Dedicated hook for seating assignment. Uses PUT (not PATCH) so null
+// unambiguously means "remove from table" — the general PATCH endpoint
+// uses null-means-not-provided merge semantics and can't clear tableNumber.
+export function useAssignGuestTable(coupleId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ guestId, tableNumber }: { guestId: string; tableNumber: number | null }) =>
+      apiClient
+        .put(`/api/v1/guests/couple/${coupleId}/${guestId}/table`, { tableNumber })
+        .then(r => r.data as Guest),
+    // Optimistic update so the chip moves instantly in the UI.
+    onMutate: async ({ guestId, tableNumber }) => {
+      await qc.cancelQueries({ queryKey: key(coupleId) })
+      const previous = qc.getQueryData<Guest[]>(key(coupleId))
+      qc.setQueryData<Guest[]>(key(coupleId), old =>
+        old?.map(g => g.id === guestId ? { ...g, tableNumber } : g) ?? []
+      )
+      return { previous }
+    },
+    onSuccess: (updated: Guest) =>
+      qc.setQueryData<Guest[]>(key(coupleId), old =>
+        old?.map(g => g.id === updated.id ? updated : g) ?? []
+      ),
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(key(coupleId), ctx.previous)
+    },
+  })
+}
+
 export function useRemoveGuest(coupleId: string) {
   const qc = useQueryClient()
   return useMutation({

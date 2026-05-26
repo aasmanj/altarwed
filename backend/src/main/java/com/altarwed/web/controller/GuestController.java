@@ -56,6 +56,19 @@ public class GuestController {
         return ResponseEntity.noContent().build();
     }
 
+    // Dedicated endpoint for seating assignment. Uses PUT (idempotent set) rather
+    // than the general PATCH so null can unambiguously mean "remove from table" —
+    // the general PATCH merge pattern treats null as "not provided" and can't clear
+    // a field back to null.
+    @PutMapping("/couple/{coupleId}/{guestId}/table")
+    public ResponseEntity<GuestResponse> assignTable(
+            @PathVariable UUID coupleId,
+            @PathVariable UUID guestId,
+            @Valid @RequestBody AssignTableRequest request
+    ) {
+        return ResponseEntity.ok(mapper.toResponse(guestService.assignTable(coupleId, guestId, request.tableNumber())));
+    }
+
     @PostMapping("/couple/{coupleId}/{guestId}/invite")
     public ResponseEntity<GuestResponse> sendInvite(
             @PathVariable UUID coupleId,

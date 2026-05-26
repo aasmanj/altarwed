@@ -233,6 +233,29 @@ public class GuestService {
     }
 
     // Public — called from the Next.js RSVP page with no auth
+    // Dedicated seating assignment — always sets tableNumber to the given value,
+    // including null (unassign). The general updateGuest method cannot do this
+    // because its null-means-not-provided merge pattern cannot clear a field.
+    @Transactional
+    public Guest assignTable(UUID coupleId, UUID guestId, Integer tableNumber) {
+        Guest existing = getGuest(coupleId, guestId);
+        log.info("table assignment updated, guestId={}, coupleId={}, tableNumber={}", guestId, coupleId, tableNumber);
+        Guest updated = new Guest(
+                existing.id(), existing.coupleId(), existing.name(), existing.email(), existing.phone(),
+                existing.rsvpStatus(), existing.plusOneAllowed(), existing.plusOneName(),
+                existing.dietaryRestrictions(), existing.songRequest(),
+                tableNumber,                    // always set — null means unassign
+                existing.side(), existing.notes(),
+                existing.mailLine1(), existing.mailCity(), existing.mailState(), existing.mailZip(),
+                existing.noteForCouple(), existing.inviteSendCount(),
+                existing.inviteSentAt(), existing.respondedAt(), existing.remindAt(),
+                existing.createdAt(), LocalDateTime.now(),
+                existing.partyId(), existing.partyName(), existing.partyContact(),
+                existing.sheetSyncId()
+        );
+        return guestRepository.save(updated);
+    }
+
     @Transactional(readOnly = true)
     public RsvpPageDataResponse getRsvpPageData(String rawToken) {
         RsvpInviteToken token = resolveToken(rawToken);

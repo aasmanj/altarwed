@@ -618,6 +618,23 @@ function GuestRow({ guest, onEdit, onRemove, onInvite, sendInvitePending }: {
           </div>
         </td>
       </tr>
+      {/* RSVP detail row — dietary restrictions and song request filled in by guest */}
+      {(guest.dietaryRestrictions || guest.songRequest) && (
+        <tr className="border-b border-gold-light/50 bg-stone-50/60">
+          <td colSpan={6} className="px-4 py-1.5 text-xs text-brown-light">
+            {guest.dietaryRestrictions && (
+              <span className="mr-4">
+                <span className="font-medium text-brown">Dietary:</span> {guest.dietaryRestrictions}
+              </span>
+            )}
+            {guest.songRequest && (
+              <span>
+                <span className="font-medium text-brown">Song:</span> {guest.songRequest}
+              </span>
+            )}
+          </td>
+        </tr>
+      )}
       {guest.noteForCouple && (
         <tr className="border-b border-gold-light/50 last:border-0 bg-gold/5">
           <td colSpan={6} className="px-4 py-2 text-xs text-brown italic">
