@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import WeddingNav from './WeddingNav'
+import { parseTabCustomisation } from './data'
 import FloatingEditButton from '@/components/FloatingEditButton'
 import { getWedding } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
@@ -59,6 +60,12 @@ export default async function WeddingLayout({
   const hasDetails  = !!(wedding.venueName || wedding.ceremonyTime || wedding.dressCode)
   const hasRegistry = !!(wedding.registryUrl1 || wedding.registryUrl2 || wedding.registryUrl3)
   const hasTravel   = !!(wedding.hotelName)
+
+  // Parse the couple's tab customisations (hidden tabs + relabeled tabs).
+  // Done on every layout render so changes from the editor show up after the
+  // 60s revalidate window without a manual refresh. The parser is cheap (one
+  // JSON.parse + one CSV split, both bounded by tiny inputs).
+  const tabCustom = parseTabCustomisation(wedding)
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
@@ -137,6 +144,8 @@ export default async function WeddingLayout({
         hasParty={true}
         hasRegistry={hasRegistry}
         hasTravel={hasTravel}
+        hiddenTabs={tabCustom.hidden}
+        customLabels={tabCustom.labels}
       />
 
       {/* ── Tab content ── */}

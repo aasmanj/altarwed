@@ -48,6 +48,15 @@ public record WeddingWebsite(
         // BudgetItem actualCost sums in the budget tracker. Optional.
         BigDecimal goalBudget,
 
+        // V34: tab visibility + custom labels for the public wedding page.
+        // Stored as opaque strings end-to-end (backend never inspects them):
+        //   hiddenTabs       - CSV of BlockTab enum names, e.g. "REGISTRY,TRAVEL"
+        //   customTabLabels  - JSON map, e.g. {"TRAVEL":"Hotels & flights"}
+        // The frontend parses both. Treating them as opaque avoids dragging Jackson
+        // into the persistence path and keeps the schema migrations simple.
+        String hiddenTabs,
+        String customTabLabels,
+
         boolean isDeleted,
         LocalDateTime deletedAt,
 
@@ -62,7 +71,9 @@ public record WeddingWebsite(
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
-                rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget, isDeleted, deletedAt, createdAt, LocalDateTime.now());
+                rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget,
+                hiddenTabs, customTabLabels,
+                isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
     public WeddingWebsite unpublished() {
@@ -73,7 +84,9 @@ public record WeddingWebsite(
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
-                rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget, isDeleted, deletedAt, createdAt, LocalDateTime.now());
+                rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget,
+                hiddenTabs, customTabLabels,
+                isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
     public WeddingWebsite deleted() {
@@ -84,6 +97,8 @@ public record WeddingWebsite(
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
-                rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget, true, LocalDateTime.now(), createdAt, LocalDateTime.now());
+                rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget,
+                hiddenTabs, customTabLabels,
+                true, LocalDateTime.now(), createdAt, LocalDateTime.now());
     }
 }

@@ -56,6 +56,7 @@ public class WeddingWebsiteService {
                 null,                                      // rsvpDeadline
                 null, null,                                // vows
                 null,                                      // goalBudget
+                null, null,                                // hiddenTabs, customTabLabels (V34)
                 false, null,
                 LocalDateTime.now(), LocalDateTime.now()
         );
@@ -135,6 +136,9 @@ public class WeddingWebsiteService {
 
                 req.goalBudget()        != null ? req.goalBudget()        : existing.goalBudget(),
 
+                req.hiddenTabs()        != null ? req.hiddenTabs()        : existing.hiddenTabs(),
+                req.customTabLabels()   != null ? req.customTabLabels()   : existing.customTabLabels(),
+
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(),
                 LocalDateTime.now()
@@ -163,6 +167,7 @@ public class WeddingWebsiteService {
                 existing.rsvpDeadline(),
                 existing.partnerOneVows(), existing.partnerTwoVows(),
                 existing.goalBudget(),
+                existing.hiddenTabs(), existing.customTabLabels(),
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );

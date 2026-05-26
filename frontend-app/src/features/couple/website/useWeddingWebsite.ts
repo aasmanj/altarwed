@@ -33,6 +33,12 @@ export interface WeddingWebsite {
   partnerOneVows: string | null
   partnerTwoVows: string | null
   goalBudget: number | null
+  // V34: per-couple tab visibility + custom labels. Both opaque strings the
+  // backend never inspects — frontend parses on read, serializes on write.
+  //   hiddenTabs       = CSV of BlockTab enum names ("REGISTRY,TRAVEL")
+  //   customTabLabels  = JSON map ({"TRAVEL":"Hotels & flights"})
+  hiddenTabs: string | null
+  customTabLabels: string | null
 }
 
 export interface CreateWebsitePayload {

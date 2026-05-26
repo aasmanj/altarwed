@@ -22,6 +22,7 @@ public class WeddingWebsiteMapper {
                 w.rsvpDeadline(),
                 w.partnerOneVows(), w.partnerTwoVows(),
                 w.goalBudget(),
+                w.hiddenTabs(), w.customTabLabels(),
                 w.createdAt(), w.updatedAt()
         );
     }

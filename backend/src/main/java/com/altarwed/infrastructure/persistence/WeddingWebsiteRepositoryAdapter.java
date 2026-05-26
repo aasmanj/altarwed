@@ -77,6 +77,7 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 e.getRsvpDeadline(),
                 e.getPartnerOneVows(), e.getPartnerTwoVows(),
                 e.getGoalBudget(),
+                e.getHiddenTabs(), e.getCustomTabLabels(),
                 e.isDeleted(), e.getDeletedAt(),
                 e.getCreatedAt(), e.getUpdatedAt()
         );
@@ -115,6 +116,8 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 .partnerOneVows(w.partnerOneVows())
                 .partnerTwoVows(w.partnerTwoVows())
                 .goalBudget(w.goalBudget())
+                .hiddenTabs(w.hiddenTabs())
+                .customTabLabels(w.customTabLabels())
                 .isDeleted(w.isDeleted())
                 .deletedAt(w.deletedAt())
                 .createdAt(w.createdAt())

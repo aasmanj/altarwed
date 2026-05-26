@@ -46,6 +46,12 @@ public record WeddingWebsiteResponse(
 
         BigDecimal goalBudget,
 
+        // V34: tab visibility + custom labels. Both opaque strings; frontend parses.
+        // hiddenTabs       = CSV of BlockTab enum names (e.g. "REGISTRY,TRAVEL")
+        // customTabLabels  = JSON map (e.g. {"TRAVEL":"Hotels & flights"})
+        String hiddenTabs,
+        String customTabLabels,
+
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {}

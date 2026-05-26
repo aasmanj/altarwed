@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -19,9 +19,13 @@ interface Props {
   onReorder: (orderedIds: string[]) => void
   onUpdate: (blockId: string, contentJson: string) => void
   onDelete: (blockId: string) => void
+  // If provided, the row with this id renders expanded on first mount so the
+  // couple can start editing the just-added block immediately. Pattern: caller
+  // sets this to the new block id after a successful create.
+  defaultExpandedId?: string | null
 }
 
-export default function SortableBlockList({ blocks, onReorder, onUpdate, onDelete }: Props) {
+export default function SortableBlockList({ blocks, onReorder, onUpdate, onDelete, defaultExpandedId }: Props) {
   // PointerSensor with activation distance prevents misfiring drag when the user
   // means to click the expand chevron. TouchSensor with delay handles mobile.
   const sensors = useSensors(
@@ -55,6 +59,7 @@ export default function SortableBlockList({ blocks, onReorder, onUpdate, onDelet
             <SortableRow
               key={block.id}
               block={block}
+              initiallyExpanded={defaultExpandedId === block.id}
               onUpdate={contentJson => onUpdate(block.id, contentJson)}
               onDelete={() => onDelete(block.id)}
             />
@@ -69,15 +74,25 @@ function SortableRow({
   block,
   onUpdate,
   onDelete,
+  initiallyExpanded = false,
 }: {
   block: WeddingPageBlock
   onUpdate: (contentJson: string) => void
   onDelete: () => void
+  initiallyExpanded?: boolean
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: block.id,
   })
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(initiallyExpanded)
+
+  // If the parent later flags this row as initially-expanded (e.g. because the
+  // couple just added a new block), open it. Only fires on transition false→true;
+  // doesn't fight the user toggling it closed.
+  useEffect(() => {
+    if (initiallyExpanded) setOpen(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initiallyExpanded])
 
   const style = {
     transform: CSS.Transform.toString(transform),

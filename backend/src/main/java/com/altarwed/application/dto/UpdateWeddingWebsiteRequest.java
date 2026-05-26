@@ -41,5 +41,10 @@ public record UpdateWeddingWebsiteRequest(
         String partnerOneVows,
         String partnerTwoVows,
 
-        BigDecimal goalBudget
+        BigDecimal goalBudget,
+
+        // V34: opaque CSV / JSON. Frontend builds them; backend never inspects.
+        // Length caps generous enough for all 8 tabs + custom labels.
+        @Size(max = 500)   String hiddenTabs,
+        @Size(max = 4000)  String customTabLabels
 ) {}

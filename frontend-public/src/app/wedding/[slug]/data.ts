@@ -28,6 +28,41 @@ export interface WeddingWebsite {
   rsvpDeadline: string | null
   partnerOneVows: string | null
   partnerTwoVows: string | null
+  // V34: opaque strings the couple set via the editor.
+  //   hiddenTabs       = CSV of BlockTab enum names ("REGISTRY,TRAVEL")
+  //   customTabLabels  = JSON map ({"TRAVEL":"Hotels & flights"})
+  hiddenTabs: string | null
+  customTabLabels: string | null
+}
+
+// Parsed view of the per-couple tab customisations. The raw fields above are
+// opaque to the API; this helper turns them into typed structures the nav can use.
+export interface TabCustomisation {
+  hidden: Set<BlockTab>
+  labels: Partial<Record<BlockTab, string>>
+}
+
+export function parseTabCustomisation(wedding: Pick<WeddingWebsite, 'hiddenTabs' | 'customTabLabels'>): TabCustomisation {
+  const hidden = new Set<BlockTab>()
+  if (wedding.hiddenTabs) {
+    for (const raw of wedding.hiddenTabs.split(',')) {
+      const v = raw.trim() as BlockTab
+      if (v) hidden.add(v)
+    }
+  }
+  const labels: Partial<Record<BlockTab, string>> = {}
+  if (wedding.customTabLabels) {
+    try {
+      const parsed = JSON.parse(wedding.customTabLabels) as Record<string, string>
+      for (const [k, v] of Object.entries(parsed)) {
+        if (typeof v === 'string' && v.trim()) labels[k as BlockTab] = v.trim()
+      }
+    } catch {
+      // Malformed JSON from a corrupted save - fall back to defaults silently
+      // rather than crash the public page render.
+    }
+  }
+  return { hidden, labels }
 }
 
 export async function getWedding(slug: string): Promise<WeddingWebsite | null> {

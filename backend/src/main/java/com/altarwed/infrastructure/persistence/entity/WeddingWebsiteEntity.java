@@ -112,6 +112,14 @@ public class WeddingWebsiteEntity {
     @Column(name = "goal_budget", precision = 10, scale = 2)
     private BigDecimal goalBudget;
 
+    // V34: opaque CSV of BlockTab enum names ("REGISTRY,TRAVEL") - parsed by frontend
+    @Column(name = "hidden_tabs", length = 500)
+    private String hiddenTabs;
+
+    // V34: opaque JSON map of tab → custom label - parsed by frontend
+    @Column(name = "custom_tab_labels", columnDefinition = "NVARCHAR(MAX)")
+    private String customTabLabels;
+
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted;
 

@@ -48,7 +48,7 @@ export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   TEXT: 'Text paragraph',
   HEADING: 'Heading',
   IMAGE: 'Image',
-  STORY_ENTRY: 'Story moment (text + photo)',
+  STORY_ENTRY: 'Story moment',
   SCRIPTURE: 'Scripture verse',
   DIVIDER: 'Divider',
   VENUE_CARD: 'Venue card',
@@ -59,6 +59,26 @@ export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   WEDDING_PARTY_GRID: 'Wedding party grid',
   PHOTO_ALBUM_GRID: 'Photo album',
   VOWS_PREVIEW: 'Vows preview',
+}
+
+// One-sentence descriptions for the block picker. Couples (especially older
+// guests doing a walkthrough) don't know what "VENUE_CARD" means — these
+// disambiguate. Kept under ~90 chars each so they wrap to one line in the picker.
+export const BLOCK_TYPE_DESCRIPTIONS: Record<BlockType, string> = {
+  TEXT:               'A paragraph of plain text. Use for greetings, notes, or anything narrative.',
+  HEADING:            'A bold section title (large, medium, or small).',
+  IMAGE:              'A standalone photo with optional caption.',
+  STORY_ENTRY:        'A milestone in your story: date, body, and optional photo placed left or right.',
+  SCRIPTURE:          'A verse with reference and translation. Browse and pin from the Scripture page.',
+  DIVIDER:            'A decorative gold line to separate sections.',
+  VENUE_CARD:         'Ceremony venue with address, time, and dress code. Edit details on the Details tab.',
+  HOTEL_CARD:         'Hotel block(s) for out-of-town guests. Add hotels on the Travel tab.',
+  REGISTRY_CARD:      'A single registry button (Amazon, Target, etc). Manage URLs in the classic editor.',
+  COUNTDOWN:          'Live countdown to your wedding date.',
+  RSVP_CTA:           'A "Will you join us?" callout with a button linking to the RSVP page.',
+  WEDDING_PARTY_GRID: 'Photo grid of wedding party members for one side (bride or groom).',
+  PHOTO_ALBUM_GRID:   'All photos uploaded to the Photos page in a flowing gallery.',
+  VOWS_PREVIEW:       'Side-by-side preview of both partners’ vows (visible to guests after publishing).',
 }
 
 // Which block types each tab is allowed to add. Keeps the editor coherent —

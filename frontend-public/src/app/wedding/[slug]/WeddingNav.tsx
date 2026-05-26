@@ -11,9 +11,19 @@ interface Props {
   hasParty: boolean
   hasRegistry: boolean
   hasTravel: boolean
+  // V34: tabs the couple opted to hide entirely from public navigation.
+  // Set elements are BlockTab enum names; we map nav entries to those names
+  // and filter against this set. Empty set / undefined = honour content gates only.
+  hiddenTabs?: Set<string>
+  // V34: per-tab custom label overrides (e.g. TRAVEL → "Hotels & flights").
+  // Missing keys fall back to the default label.
+  customLabels?: Partial<Record<string, string>>
 }
 
-export default function WeddingNav({ slug, hasStory, hasDetails, hasParty, hasRegistry, hasTravel }: Props) {
+export default function WeddingNav({
+  slug, hasStory, hasDetails, hasParty, hasRegistry, hasTravel,
+  hiddenTabs, customLabels,
+}: Props) {
   const pathname = usePathname()
   const [scrolled, setScrolled] = useState(false)
 
@@ -24,16 +34,23 @@ export default function WeddingNav({ slug, hasStory, hasDetails, hasParty, hasRe
   }, [])
 
   const base = `/wedding/${slug}`
+  const label = (tab: string, fallback: string) => customLabels?.[tab] || fallback
+  const visible = (tab: string) => !hiddenTabs?.has(tab)
 
+  // Each entry pairs a BlockTab enum name with its nav metadata. `show` combines
+  // the data-gate (does the couple have content for this tab?) AND the per-couple
+  // visibility override (did they explicitly hide it?). Hidden wins — couples
+  // intentionally opting out of a tab is a stronger signal than the default
+  // content-gate heuristic.
   const tabs = [
-    { label: 'Home',          href: base,                    show: true },
-    { label: 'Our Story',     href: `${base}/story`,         show: hasStory },
-    { label: 'The Wedding',   href: `${base}/details`,       show: hasDetails },
-    { label: 'Wedding Party', href: `${base}/wedding-party`, show: hasParty },
-    { label: 'Travel',        href: `${base}/travel`,        show: hasTravel },
-    { label: 'Registry',      href: `${base}/registry`,      show: hasRegistry },
-    { label: 'Photos',        href: `${base}/photos`,        show: true },
-    { label: 'RSVP',          href: `${base}/rsvp`,          show: true },
+    { tab: 'HOME',          label: label('HOME',          'Home'),          href: base,                    show: visible('HOME') },
+    { tab: 'OUR_STORY',     label: label('OUR_STORY',     'Our Story'),     href: `${base}/story`,         show: hasStory       && visible('OUR_STORY') },
+    { tab: 'DETAILS',       label: label('DETAILS',       'The Wedding'),   href: `${base}/details`,       show: hasDetails     && visible('DETAILS') },
+    { tab: 'WEDDING_PARTY', label: label('WEDDING_PARTY', 'Wedding Party'), href: `${base}/wedding-party`, show: hasParty       && visible('WEDDING_PARTY') },
+    { tab: 'TRAVEL',        label: label('TRAVEL',        'Travel'),        href: `${base}/travel`,        show: hasTravel      && visible('TRAVEL') },
+    { tab: 'REGISTRY',      label: label('REGISTRY',      'Registry'),      href: `${base}/registry`,      show: hasRegistry    && visible('REGISTRY') },
+    { tab: 'PHOTOS',        label: label('PHOTOS',        'Photos'),        href: `${base}/photos`,        show: visible('PHOTOS') },
+    { tab: 'RSVP',          label: label('RSVP',          'RSVP'),          href: `${base}/rsvp`,          show: visible('RSVP') },
   ].filter(t => t.show)
 
   function isActive(href: string) {

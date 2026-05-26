@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
-import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2, ImagePlus } from 'lucide-react'
+import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2, ImagePlus, Smartphone, Monitor, Settings2 } from 'lucide-react'
 import { apiClient } from '@/core/api/client'
-import { useWeddingWebsite, usePublishWeddingWebsite, useUpdateWeddingWebsite } from '../useWeddingWebsite'
+import { useWeddingWebsite, usePublishWeddingWebsite, useUpdateWeddingWebsite, type WeddingWebsite } from '../useWeddingWebsite'
 import {
   useBackfillBlocks,
   useCreateBlock,
@@ -18,6 +18,7 @@ import {
   BLOCK_TABS,
   BLOCK_TAB_LABELS,
   BLOCK_TYPE_LABELS,
+  BLOCK_TYPE_DESCRIPTIONS,
   type BlockTab,
   type BlockType,
   defaultContentJson,
@@ -57,6 +58,21 @@ export default function SideBySideEditor() {
   const [previewLoading, setPreviewLoading] = useState(true)
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
   const [heroUploading, setHeroUploading] = useState(false)
+  // Persisted preview viewport mode. Couples need to know what guests see on
+  // phones (the majority of RSVPers) so we expose a one-click mobile toggle.
+  // localStorage so the choice survives page reloads.
+  const [previewViewport, setPreviewViewport] = useState<'desktop' | 'mobile'>(
+    () => (typeof window !== 'undefined' && window.localStorage.getItem('editor.previewViewport') === 'mobile')
+      ? 'mobile' : 'desktop',
+  )
+  useEffect(() => {
+    window.localStorage.setItem('editor.previewViewport', previewViewport)
+  }, [previewViewport])
+  // Last block id added — used to auto-expand the newly created block so the
+  // user can start editing immediately instead of hunting for it in the list.
+  const [lastAddedBlockId, setLastAddedBlockId] = useState<string | null>(null)
+  // Settings drawer (per-tab visibility + custom labels).
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const heroInputRef = useRef<HTMLInputElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
@@ -191,7 +207,15 @@ export default function SideBySideEditor() {
     setPicking(false)
     create.mutate(
       { tab: activeTab, type, contentJson: defaultContentJson(type) },
-      { onSuccess: bumpPreview },
+      {
+        onSuccess: (created) => {
+          // Auto-expand the newly created block in the list so the couple
+          // starts editing immediately. Pattern matches Notion/Linear: "add"
+          // implicitly means "add and start editing", not "add and find later".
+          setLastAddedBlockId(created.id)
+          bumpPreview()
+        },
+      },
     )
   }
   const handleUpdate = (blockId: string, contentJson: string) =>
@@ -291,25 +315,56 @@ export default function SideBySideEditor() {
           className="bg-stone-100 flex flex-col min-w-0"
           style={isLg ? { width: `${previewWidthPct}%` } : undefined}
         >
-          <div className="px-3 py-2 text-xs text-stone-600 border-b border-stone-200 flex items-center justify-between bg-white">
+          <div className="px-3 py-2 text-xs text-stone-600 border-b border-stone-200 flex items-center justify-between gap-2 bg-white">
             <div className="flex items-center gap-2 min-w-0">
               <Eye size={12} className="text-stone-400 flex-shrink-0" />
               <span className="truncate">{tabPreviewUrl}</span>
             </div>
-            <button
-              onClick={bumpPreview}
-              className="text-stone-500 hover:text-stone-900 inline-flex items-center gap-1 flex-shrink-0"
-              title="Reload preview"
-            >
-              <RefreshCw size={11} /> Refresh
-            </button>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {/* Viewport toggle: most guests RSVP on phones, so couples need to
+                  see what the mobile experience looks like. Desktop is the default
+                  because the iframe is wider than a phone. */}
+              <div className="inline-flex rounded border border-stone-200 overflow-hidden" role="group" aria-label="Preview viewport">
+                <button
+                  onClick={() => setPreviewViewport('desktop')}
+                  className={`px-1.5 py-1 transition ${previewViewport === 'desktop' ? 'bg-stone-200 text-brown' : 'text-stone-400 hover:text-stone-700'}`}
+                  title="Desktop preview"
+                  aria-pressed={previewViewport === 'desktop'}
+                >
+                  <Monitor size={11} />
+                </button>
+                <button
+                  onClick={() => setPreviewViewport('mobile')}
+                  className={`px-1.5 py-1 transition ${previewViewport === 'mobile' ? 'bg-stone-200 text-brown' : 'text-stone-400 hover:text-stone-700'}`}
+                  title="Mobile preview (375px)"
+                  aria-pressed={previewViewport === 'mobile'}
+                >
+                  <Smartphone size={11} />
+                </button>
+              </div>
+              <button
+                onClick={bumpPreview}
+                className="text-stone-500 hover:text-stone-900 inline-flex items-center gap-1 px-1.5"
+                title="Reload preview"
+              >
+                <RefreshCw size={11} /> Refresh
+              </button>
+            </div>
           </div>
-          <div className="flex-1 relative">
+          <div className="flex-1 relative overflow-auto bg-stone-100">
             {previewLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-10 pointer-events-none">
                 <Loader2 className="animate-spin text-brown-light" size={20} />
               </div>
             )}
+            {/* Mobile viewport: iframe is clamped to phone width and centred in
+                a soft-shadowed frame so it visually reads as a device. Desktop
+                falls back to fill-width. */}
+            <div
+              className={previewViewport === 'mobile'
+                ? 'mx-auto my-4 w-[375px] max-w-full h-[calc(100%-2rem)] rounded-2xl border-4 border-stone-800 overflow-hidden shadow-xl'
+                : 'w-full h-full'}
+            >
             <iframe
               ref={iframeRef}
               key={previewKey}
@@ -318,6 +373,7 @@ export default function SideBySideEditor() {
               className="w-full h-full bg-white"
               onLoad={() => setPreviewLoading(false)}
             />
+            </div>
           </div>
         </div>
 
@@ -338,12 +394,28 @@ export default function SideBySideEditor() {
           className="bg-white flex flex-col overflow-hidden min-w-0 flex-1"
           style={isLg ? { width: `${100 - previewWidthPct}%`, flex: 'none' } : undefined}
         >
-          {/* Hero section — photo + tagline, page-level settings above block tabs */}
+          {/* Hero section — photo + tagline + names, page-level settings above block tabs */}
           <HeroSettings
             website={website}
             websiteId={websiteId ?? ''}
             heroUploading={heroUploading}
             onHeroUploadClick={() => heroInputRef.current?.click()}
+            onHeroDrop={async (file) => {
+              if (!websiteId) return
+              const form = new FormData()
+              form.append('file', file)
+              setHeroUploading(true)
+              try {
+                const res = await apiClient.post<{ url: string }>(
+                  `/api/v1/uploads/wedding-websites/${websiteId}/hero`, form,
+                  { headers: { 'Content-Type': 'multipart/form-data' } },
+                )
+                if (res.data?.url) sendPreviewUpdate('heroPhotoUrl', res.data.url)
+                bumpPreview()
+              } finally {
+                setHeroUploading(false)
+              }
+            }}
             onTaglineSave={(tagline) => {
               // Save to DB; the live preview already reflects the new value
               // via postMessage so we do NOT bumpPreview (which would cause an
@@ -351,7 +423,12 @@ export default function SideBySideEditor() {
               updateWebsite.mutate({ heroTagline: tagline })
             }}
             onTaglineLive={(tagline) => sendPreviewUpdate('heroTagline', tagline)}
-            onDefaultPhotoSelect={(url) => updateWebsite.mutate({ heroPhotoUrl: url }, { onSuccess: bumpPreview })}
+            onNameSave={(field, value) => updateWebsite.mutate({ [field]: value })}
+            onNameLive={(field, value) => sendPreviewUpdate(field, value)}
+            onDefaultPhotoSelect={(url) => {
+              sendPreviewUpdate('heroPhotoUrl', url)
+              updateWebsite.mutate({ heroPhotoUrl: url }, { onSuccess: bumpPreview })
+            }}
           />
           <input
             ref={heroInputRef}
@@ -362,8 +439,8 @@ export default function SideBySideEditor() {
           />
 
           {/* Tab bar — shows block counts as a badge */}
-          <div className="border-b border-stone-200 overflow-x-auto flex-shrink-0">
-            <div className="flex">
+          <div className="border-b border-stone-200 flex items-stretch flex-shrink-0">
+            <div className="flex overflow-x-auto flex-1">
               {BLOCK_TABS.map(t => {
                 const count = blockCountByTab[t] ?? 0
                 const isActive = activeTab === t
@@ -393,10 +470,49 @@ export default function SideBySideEditor() {
                 )
               })}
             </div>
+            {/* Settings drawer toggle — exposes per-tab hide/rename controls.
+                Positioned on the right so it doesn't crowd the tabs themselves. */}
+            <button
+              onClick={() => setSettingsOpen(s => !s)}
+              className={`px-3 border-l border-stone-200 inline-flex items-center gap-1 text-xs transition ${
+                settingsOpen ? 'bg-stone-100 text-brown' : 'text-stone-500 hover:text-brown hover:bg-stone-50'
+              }`}
+              title="Hide or rename tabs"
+              aria-expanded={settingsOpen}
+            >
+              <Settings2 size={12} />
+              <span className="hidden sm:inline">Tabs</span>
+            </button>
           </div>
 
-          {/* Block list */}
-          <div className="flex-1 overflow-y-auto px-3 py-3">
+          {/* Settings drawer — per-tab visibility + custom labels.
+              Slides under the tab bar so it sits in context with the controls it edits. */}
+          {settingsOpen && (
+            <TabSettingsPanel
+              website={website}
+              onClose={() => setSettingsOpen(false)}
+              onSave={(payload) => updateWebsite.mutate(payload, { onSuccess: bumpPreview })}
+            />
+          )}
+
+          {/* Block list — also a drop target for picker drags. When a couple drags
+              a block type from the picker and releases over this container, we
+              decode the MIME and call create() with the matching type. */}
+          <div
+            className="flex-1 overflow-y-auto px-3 py-3"
+            onDragOver={e => {
+              if (e.dataTransfer.types.includes(PICKER_DRAG_TYPE)) {
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'copy'
+              }
+            }}
+            onDrop={e => {
+              const type = e.dataTransfer.getData(PICKER_DRAG_TYPE) as BlockType
+              if (!type) return
+              e.preventDefault()
+              handleAdd(type)
+            }}
+          >
             {blocksLoading || (backfill.isPending && blocks.length === 0) ? (
               <div className="flex items-center gap-2 text-sm text-stone-500 py-8 justify-center">
                 <Loader2 className="animate-spin" size={14} />
@@ -424,6 +540,7 @@ export default function SideBySideEditor() {
                 onReorder={handleReorder}
                 onUpdate={handleUpdate}
                 onDelete={handleDelete}
+                defaultExpandedId={lastAddedBlockId}
               />
             )}
 
@@ -488,6 +605,10 @@ function EmptyTabState({ tab, onAdd }: { tab: BlockTab; onAdd: () => void }) {
   )
 }
 
+// Custom MIME used to tag picker drags so the list's drop handler can
+// distinguish "create from picker" from any other browser drag (text/file).
+const PICKER_DRAG_TYPE = 'application/x-altarwed-block-type'
+
 function BlockPicker({
   tab, onPick, onCancel,
 }: {
@@ -498,7 +619,10 @@ function BlockPicker({
   return (
     <div className="rounded-lg border border-gold-light bg-amber-50 p-3">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-semibold text-brown">Pick a block to add</p>
+        <div>
+          <p className="text-xs font-semibold text-brown">Pick a block to add</p>
+          <p className="text-[10px] text-stone-500">Click to add, or drag onto the list to drop in place.</p>
+        </div>
         <button
           onClick={onCancel}
           className="text-xs text-stone-500 hover:text-stone-700"
@@ -506,14 +630,31 @@ function BlockPicker({
           Cancel
         </button>
       </div>
-      <div className="grid grid-cols-2 gap-1.5">
+      {/* Each item is both clickable AND draggable. The drag carries the block
+          TYPE in a custom MIME; the list's drop handler decodes it and calls
+          create. We use native HTML5 drag rather than @dnd-kit here because the
+          list already uses @dnd-kit for reorder — mixing two systems is fine,
+          but using HTML5 keeps the picker's contract narrow (one direction:
+          picker → list, no reorder semantics). */}
+      <div className="grid grid-cols-1 gap-1.5">
         {ALLOWED_TYPES_PER_TAB[tab].map(type => (
           <button
             key={type}
             onClick={() => onPick(type)}
-            className="text-left text-xs px-2.5 py-2 rounded bg-white border border-stone-200 hover:border-gold hover:bg-amber-100/40 transition"
+            draggable
+            onDragStart={e => {
+              e.dataTransfer.setData(PICKER_DRAG_TYPE, type)
+              e.dataTransfer.effectAllowed = 'copy'
+            }}
+            title={BLOCK_TYPE_DESCRIPTIONS[type]}
+            className="text-left px-3 py-2 rounded bg-white border border-stone-200 hover:border-gold hover:bg-amber-100/40 transition group cursor-grab active:cursor-grabbing"
           >
-            {BLOCK_TYPE_LABELS[type]}
+            <div className="text-xs font-semibold text-brown leading-tight">
+              {BLOCK_TYPE_LABELS[type]}
+            </div>
+            <div className="text-[11px] text-stone-500 leading-snug mt-0.5 group-hover:text-stone-700 transition">
+              {BLOCK_TYPE_DESCRIPTIONS[type]}
+            </div>
           </button>
         ))}
       </div>
@@ -547,47 +688,73 @@ const DEFAULT_HERO_PHOTOS = [
   { label: 'Chapel door',    url: 'https://images.unsplash.com/photo-1550005809-91ad75fb315f?w=1600&q=80' },
 ]
 
+// Debounced save hook: returns a `schedule(value)` callback that calls `persistedSave`
+// 500ms after the most recent call. Used for any text field that wants
+// type-to-save semantics without hammering the API on every keystroke.
+// Lives at module scope (not inside a component) per the React Rules of Hooks.
+function useDebouncedSave<T>(persistedSave: (value: T) => void) {
+  const timer = useRef<number | null>(null)
+  const schedule = useCallback((value: T) => {
+    if (timer.current) window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => persistedSave(value), 500)
+  }, [persistedSave])
+  useEffect(() => {
+    return () => { if (timer.current) window.clearTimeout(timer.current) }
+  }, [])
+  return schedule
+}
+
 // ── HeroSettings component ────────────────────────────────────────────────────
 function HeroSettings({
   website,
   heroUploading,
   onHeroUploadClick,
+  onHeroDrop,
   onTaglineSave,
   onTaglineLive,
+  onNameSave,
+  onNameLive,
   onDefaultPhotoSelect,
 }: {
-  website: { heroPhotoUrl?: string | null; heroTagline?: string | null }
+  website: { heroPhotoUrl?: string | null; heroTagline?: string | null; partnerOneName?: string; partnerTwoName?: string }
   websiteId: string
   heroUploading: boolean
   onHeroUploadClick: () => void
+  // Drop handler — couple drags a JPEG/PNG/WebP into the photo area. Same endpoint
+  // as the click-to-upload, just bypassing the file picker.
+  onHeroDrop: (file: File) => void | Promise<void>
   // Persisted save (debounced + on-blur). Empty string means "user cleared the
   // tagline" and is persisted as-is — the public page treats empty as "hide".
   onTaglineSave: (tagline: string) => void
   // Fires on every keystroke. Sends a postMessage to the preview iframe so the
   // hero updates instantly without waiting for a save round-trip + iframe reload.
   onTaglineLive: (tagline: string) => void
+  // Persisted save for partner names. Field is the DB column name; UI labels
+  // map partnerTwoName→Bride and partnerOneName→Groom per the bride-first convention.
+  onNameSave: (field: 'partnerOneName' | 'partnerTwoName', value: string) => void
+  // Fires on every keystroke. Updates the iframe preview live via postMessage.
+  onNameLive: (field: 'partnerOneName' | 'partnerTwoName', value: string) => void
   onDefaultPhotoSelect: (url: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [tagline, setTagline] = useState(website.heroTagline ?? '')
+  const [brideName, setBrideName] = useState(website.partnerTwoName ?? '')
+  const [groomName, setGroomName] = useState(website.partnerOneName ?? '')
   const [pickingPhoto, setPickingPhoto] = useState(false)
+  const [photoDragOver, setPhotoDragOver] = useState(false)
 
-  // Sync tagline field if website data refreshes
+  // Sync local state if the website record refreshes (e.g. another tab edited it)
   useEffect(() => { setTagline(website.heroTagline ?? '') }, [website.heroTagline])
+  useEffect(() => { setBrideName(website.partnerTwoName ?? '') }, [website.partnerTwoName])
+  useEffect(() => { setGroomName(website.partnerOneName ?? '') }, [website.partnerOneName])
 
-  // Debounced auto-save 500ms after typing stops. Avoids hammering the API on
-  // every keystroke while still feeling responsive. The live preview already
-  // reflects the new value via onTaglineLive — this just persists it.
-  const taglineSaveTimer = useRef<number | null>(null)
-  const scheduleTaglineSave = useCallback((value: string) => {
-    if (taglineSaveTimer.current) window.clearTimeout(taglineSaveTimer.current)
-    taglineSaveTimer.current = window.setTimeout(() => onTaglineSave(value), 500)
-  }, [onTaglineSave])
-  useEffect(() => {
-    return () => {
-      if (taglineSaveTimer.current) window.clearTimeout(taglineSaveTimer.current)
-    }
-  }, [])
+  // Debounced auto-save 500ms after typing stops. Each field has its own timer
+  // so editing the tagline doesn't reset a pending name save and vice versa.
+  // The hook itself lives at module scope (below) to comply with Rules of Hooks
+  // and avoid being redefined on every parent render.
+  const scheduleTaglineSave = useDebouncedSave(onTaglineSave)
+  const scheduleBrideSave   = useDebouncedSave((v: string) => onNameSave('partnerTwoName', v))
+  const scheduleGroomSave   = useDebouncedSave((v: string) => onNameSave('partnerOneName', v))
 
   return (
     <div className="border-b border-stone-200 flex-shrink-0 bg-stone-50">
@@ -660,24 +827,90 @@ function HeroSettings({
             </div>
           </div>
 
+          {/* Bride + Groom names — bride first per display convention */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-1">
+                Bride
+              </label>
+              <input
+                type="text"
+                value={brideName}
+                onChange={e => {
+                  const v = e.target.value
+                  setBrideName(v)
+                  onNameLive('partnerTwoName', v)
+                  scheduleBrideSave(v)
+                }}
+                onBlur={() => onNameSave('partnerTwoName', brideName)}
+                maxLength={100}
+                className="w-full rounded-md border border-stone-300 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-1">
+                Groom
+              </label>
+              <input
+                type="text"
+                value={groomName}
+                onChange={e => {
+                  const v = e.target.value
+                  setGroomName(v)
+                  onNameLive('partnerOneName', v)
+                  scheduleGroomSave(v)
+                }}
+                onBlur={() => onNameSave('partnerOneName', groomName)}
+                maxLength={100}
+                className="w-full rounded-md border border-stone-300 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+              />
+            </div>
+            <p className="col-span-2 text-[10px] text-stone-400 leading-snug -mt-1">
+              Updates live. Both names appear on every public page header.
+            </p>
+          </div>
+
           {/* Photo actions */}
           <div>
             <label className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-2">
               Hero photo
             </label>
+            {/* Drop zone wraps both the upload button and the default-photo grid so
+                a couple can drag a photo from their desktop straight onto the hero
+                area. Same endpoint as the click-to-upload flow. */}
+            <div
+              onDragOver={e => {
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'copy'
+                if (!photoDragOver) setPhotoDragOver(true)
+              }}
+              onDragLeave={() => setPhotoDragOver(false)}
+              onDrop={e => {
+                e.preventDefault()
+                setPhotoDragOver(false)
+                const file = e.dataTransfer.files?.[0]
+                if (file) onHeroDrop(file)
+              }}
+              className={`rounded transition ${photoDragOver ? 'ring-2 ring-amber-500 ring-offset-2 ring-offset-stone-50' : ''}`}
+            >
             <div className="flex gap-2 mb-2">
               <button
                 onClick={onHeroUploadClick}
                 disabled={heroUploading}
                 className="flex-1 text-xs px-2.5 py-1.5 rounded border border-stone-300 bg-white hover:border-gold hover:text-brown transition text-stone-600 disabled:opacity-50 flex items-center justify-center gap-1"
               >
-                {heroUploading ? <><Loader2 size={11} className="animate-spin" /> Uploading…</> : <><ImagePlus size={11} /> Upload my photo</>}
+                {heroUploading
+                  ? <><Loader2 size={11} className="animate-spin" /> Uploading…</>
+                  : photoDragOver
+                  ? <><ImagePlus size={11} /> Drop to upload</>
+                  : <><ImagePlus size={11} /> Upload or drop a photo</>
+                }
               </button>
               <button
                 onClick={() => setPickingPhoto(p => !p)}
                 className="flex-1 text-xs px-2.5 py-1.5 rounded border border-stone-300 bg-white hover:border-gold hover:text-brown transition text-stone-600 flex items-center justify-center gap-1"
               >
-                {pickingPhoto ? 'Cancel' : '🖼 Choose default'}
+                {pickingPhoto ? 'Cancel' : 'Choose default'}
               </button>
             </div>
 
@@ -702,9 +935,144 @@ function HeroSettings({
                 ))}
               </div>
             )}
+            </div>
+            <p className="mt-1.5 text-[10px] text-stone-400 leading-snug">
+              JPEG, PNG, or WebP. Up to 15 MB.
+            </p>
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── TabSettingsPanel ──────────────────────────────────────────────────────────
+// Per-tab visibility + custom-label overrides. Backed by two opaque strings on
+// the wedding website record (hiddenTabs CSV + customTabLabels JSON). Parses on
+// open, builds the same shape on save. Doesn't try to live-preview these because
+// the tab nav is rendered server-side; the iframe reloads after save and the
+// new labels/visibility apply on the next render.
+const DEFAULT_TAB_DISPLAY: Record<BlockTab, string> = {
+  HOME: 'Home',
+  OUR_STORY: 'Our Story',
+  DETAILS: 'The Wedding',
+  WEDDING_PARTY: 'Wedding Party',
+  REGISTRY: 'Registry',
+  TRAVEL: 'Travel',
+  PHOTOS: 'Photos',
+  RSVP: 'RSVP',
+}
+
+function TabSettingsPanel({
+  website,
+  onClose,
+  onSave,
+}: {
+  website: WeddingWebsite
+  onClose: () => void
+  onSave: (payload: { hiddenTabs: string; customTabLabels: string }) => void
+}) {
+  // Parse the opaque server fields on open. Re-derived from props rather than
+  // memoised because the panel is short-lived and re-parsing is trivially cheap.
+  const initialHidden = new Set<BlockTab>(
+    (website.hiddenTabs ?? '').split(',').map(s => s.trim()).filter(Boolean) as BlockTab[]
+  )
+  const initialLabels: Partial<Record<BlockTab, string>> = (() => {
+    try {
+      return website.customTabLabels ? JSON.parse(website.customTabLabels) : {}
+    } catch {
+      // Treat malformed saved JSON as empty so a future save overwrites it cleanly.
+      return {}
+    }
+  })()
+
+  const [hidden, setHidden] = useState<Set<BlockTab>>(initialHidden)
+  const [labels, setLabels] = useState<Partial<Record<BlockTab, string>>>(initialLabels)
+
+  const toggleHidden = (tab: BlockTab) => {
+    setHidden(prev => {
+      const next = new Set(prev)
+      if (next.has(tab)) next.delete(tab); else next.add(tab)
+      return next
+    })
+  }
+  const setLabel = (tab: BlockTab, value: string) => {
+    setLabels(prev => {
+      const next = { ...prev }
+      if (value.trim()) next[tab] = value
+      else delete next[tab]
+      return next
+    })
+  }
+
+  const handleSave = () => {
+    // Sort the hidden CSV deterministically so two equivalent saves produce
+    // identical strings (cleaner audit logs, predictable cache keys).
+    const hiddenCsv = Array.from(hidden).sort().join(',')
+    const labelsJson = Object.keys(labels).length === 0 ? '' : JSON.stringify(labels)
+    onSave({ hiddenTabs: hiddenCsv, customTabLabels: labelsJson })
+    onClose()
+  }
+
+  return (
+    <div className="border-b border-stone-200 bg-stone-50 px-4 py-3 max-h-64 overflow-y-auto">
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div>
+          <p className="text-xs font-semibold text-brown">Customise your tabs</p>
+          <p className="text-[11px] text-stone-500 leading-snug">
+            Hide tabs you don&apos;t need, or rename them. Home and RSVP are always visible to your guests.
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="text-stone-400 hover:text-stone-700 text-lg leading-none -mt-0.5"
+          aria-label="Close tabs panel"
+        >
+          ×
+        </button>
+      </div>
+      <ul className="space-y-1.5">
+        {BLOCK_TABS.map(tab => {
+          // HOME and RSVP are core navigation surfaces — couples can rename them
+          // but cannot hide them entirely (a guest landing on /wedding/[slug]
+          // without a Home tab would be confused, and RSVP is the whole point).
+          const isCore = tab === 'HOME' || tab === 'RSVP'
+          const isHidden = hidden.has(tab)
+          return (
+            <li key={tab} className={`flex items-center gap-2 rounded border bg-white px-2.5 py-1.5 ${isHidden ? 'border-stone-200 opacity-60' : 'border-stone-200'}`}>
+              <label className={`flex items-center gap-1.5 text-[11px] shrink-0 ${isCore ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}>
+                <input
+                  type="checkbox"
+                  checked={!isHidden}
+                  disabled={isCore}
+                  onChange={() => toggleHidden(tab)}
+                  className="accent-amber-600"
+                />
+                <span className="font-medium text-brown w-20">{DEFAULT_TAB_DISPLAY[tab]}</span>
+              </label>
+              <input
+                type="text"
+                value={labels[tab] ?? ''}
+                onChange={e => setLabel(tab, e.target.value)}
+                placeholder={`Default: ${DEFAULT_TAB_DISPLAY[tab]}`}
+                maxLength={40}
+                className="flex-1 rounded border border-stone-300 px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-amber-400"
+              />
+            </li>
+          )
+        })}
+      </ul>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <p className="text-[10px] text-stone-400 leading-snug">
+          Changes apply after Save. The preview will reload to reflect them.
+        </p>
+        <button
+          onClick={handleSave}
+          className="rounded bg-gold text-white text-xs font-medium px-3 py-1.5 hover:bg-gold-dark transition"
+        >
+          Save tabs
+        </button>
+      </div>
     </div>
   )
 }

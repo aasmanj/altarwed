@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ImagePlus, Loader2 } from 'lucide-react'
+import { ImagePlus, Loader2, RotateCcw } from 'lucide-react'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '../useWeddingWebsite'
 import { useAuth } from '@/core/auth/AuthContext'
-import type { BlockType, WeddingPageBlock } from './types'
+import { defaultContentJson, type BlockType, type WeddingPageBlock } from './types'
 
 // Debounced autosave: every time `contentJson` changes locally, schedule a save
 // 400ms later. New keystrokes reset the timer (classic debounce). On unmount
@@ -58,7 +58,35 @@ export default function BlockForm({ block, onSave }: Props) {
   const { data: website } = useWeddingWebsite(coupleId)
   const websiteId = website?.id ?? ''
 
-  return <FieldsFor type={block.type} content={parsed} onChange={updateField} websiteId={websiteId} onSaveNow={onSave} draft={draft} />
+  // Reset to type's default contentJson. Useful when a couple has experimented
+  // with custom text and wants to start over with the standard placeholder
+  // (e.g. "New heading"). Confirms first because typing in a long story is
+  // easy to wipe by accident.
+  const resetToDefault = () => {
+    const fresh = defaultContentJson(block.type)
+    if (draft === fresh) return
+    if (!window.confirm('Reset this block to its default content? Your current edits will be lost.')) return
+    if (timerRef.current) window.clearTimeout(timerRef.current)
+    pendingRef.current = null
+    setDraft(fresh)
+    onSave(fresh)
+  }
+
+  return (
+    <div>
+      <FieldsFor type={block.type} content={parsed} onChange={updateField} websiteId={websiteId} onSaveNow={onSave} draft={draft} />
+      <div className="mt-1 flex items-center justify-end">
+        <button
+          type="button"
+          onClick={resetToDefault}
+          className="text-[10px] text-stone-400 hover:text-amber-700 inline-flex items-center gap-1 transition"
+          title="Reset this block to its default contents"
+        >
+          <RotateCcw size={10} /> Reset to default
+        </button>
+      </div>
+    </div>
+  )
 }
 
 function safeParse(s: string): Record<string, unknown> {
