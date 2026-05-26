@@ -97,34 +97,90 @@ export default function SideBySideEditor() {
     return () => window.removeEventListener('resize', handler)
   }, [])
 
-  // Divider drag state: onMouseDown captures the current rect; mousemove
-  // computes the new percentage relative to it. Listeners attach to window
-  // (not the divider) so the drag continues even if the cursor leaves the bar.
+  // Divider drag. Three mechanics make this feel native instead of glitchy:
+  //
+  // 1. Pointer Events + setPointerCapture — one unified API for mouse, touch,
+  //    and pen. The capture means the divider keeps receiving pointermove
+  //    events even when the cursor leaves the element, so we don't need to
+  //    attach listeners to window.
+  //
+  // 2. requestAnimationFrame throttling — pointermove fires at ~120Hz on
+  //    high-refresh displays. Reacting on every event causes a re-render +
+  //    iframe reflow per frame, which stalls. Coalescing to rAF caps work at
+  //    the display refresh rate (the only rate that matters visually).
+  //
+  // 3. A transparent overlay above the iframe during drag (see JSX below).
+  //    Without it, the iframe's content document steals pointermove events as
+  //    soon as the cursor crosses it: the divider freezes mid-drag. This is
+  //    the same trick VS Code, react-resizable, and Monaco use.
   const splitContainerRef = useRef<HTMLDivElement>(null)
-  const draggingRef = useRef(false)
-  const startDividerDrag = useCallback((e: React.MouseEvent) => {
+  const dragRafRef = useRef<number | null>(null)
+  const dragPendingPctRef = useRef<number | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const flushDrag = useCallback(() => {
+    dragRafRef.current = null
+    const pct = dragPendingPctRef.current
+    if (pct != null) setPreviewWidthPct(pct)
+  }, [])
+
+  const startDividerDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // Only react to primary button / primary touch. Ignore right-click etc.
+    if (e.button !== 0) return
     e.preventDefault()
-    draggingRef.current = true
+    const target = e.currentTarget
     const container = splitContainerRef.current
     if (!container) return
-    document.body.style.cursor = 'col-resize'
+
+    target.setPointerCapture(e.pointerId)
+    setIsDragging(true)
     document.body.style.userSelect = 'none'
-    const onMove = (ev: MouseEvent) => {
-      if (!draggingRef.current || !container) return
+
+    const onMove = (ev: PointerEvent) => {
       const rect = container.getBoundingClientRect()
       const pct = ((ev.clientX - rect.left) / rect.width) * 100
-      const clamped = Math.min(75, Math.max(30, pct))
-      setPreviewWidthPct(clamped)
+      dragPendingPctRef.current = Math.min(75, Math.max(30, pct))
+      if (dragRafRef.current == null) {
+        dragRafRef.current = window.requestAnimationFrame(flushDrag)
+      }
     }
-    const onUp = () => {
-      draggingRef.current = false
-      document.body.style.cursor = ''
+    const stop = () => {
+      target.removeEventListener('pointermove', onMove)
+      target.removeEventListener('pointerup', stop)
+      target.removeEventListener('pointercancel', stop)
+      try { target.releasePointerCapture(e.pointerId) } catch { /* already released */ }
+      if (dragRafRef.current != null) {
+        window.cancelAnimationFrame(dragRafRef.current)
+        dragRafRef.current = null
+      }
+      // Flush any final pending value so the divider lands exactly where the
+      // cursor lifted, not one frame behind.
+      flushDrag()
       document.body.style.userSelect = ''
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
+      setIsDragging(false)
     }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
+    target.addEventListener('pointermove', onMove)
+    target.addEventListener('pointerup', stop)
+    target.addEventListener('pointercancel', stop)
+  }, [flushDrag])
+
+  // Keyboard accessibility: arrow keys nudge by 2%, Shift+arrow by 5%,
+  // Home/End jump to bounds. Standard ARIA separator behaviour.
+  const handleDividerKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = e.shiftKey ? 5 : 2
+    let next: number | null = null
+    if (e.key === 'ArrowLeft')  next = previewWidthPct - step
+    if (e.key === 'ArrowRight') next = previewWidthPct + step
+    if (e.key === 'Home')       next = 30
+    if (e.key === 'End')        next = 75
+    if (next == null) return
+    e.preventDefault()
+    setPreviewWidthPct(Math.min(75, Math.max(30, next)))
+  }, [previewWidthPct])
+
+  // Clean up any in-flight rAF if the component unmounts mid-drag.
+  useEffect(() => () => {
+    if (dragRafRef.current != null) window.cancelAnimationFrame(dragRafRef.current)
   }, [])
 
   // Send a live-preview message to the iframe. The preview page's HeroLive
@@ -310,8 +366,10 @@ export default function SideBySideEditor() {
 
       {/* ── Main split layout ───────────────────────────────────────────
           Flex with explicit percentages so the draggable divider can resize
-          the panes. On mobile we fall back to stacked (single column). */}
-      <div ref={splitContainerRef} className="flex flex-col lg:flex-row gap-0 flex-1 overflow-hidden">
+          the panes. On mobile we fall back to stacked (single column).
+          `relative` so the drag overlay (below) can be absolutely positioned
+          across the whole split area. */}
+      <div ref={splitContainerRef} className="relative flex flex-col lg:flex-row gap-0 flex-1 overflow-hidden">
 
         {/* Left: live preview iframe */}
         <div
@@ -380,17 +438,42 @@ export default function SideBySideEditor() {
           </div>
         </div>
 
-        {/* Draggable divider: only visible on lg screens. The bar itself is
-            1px wide; the hit area is 9px (the surrounding cursor-col-resize zone)
-            so it's easy to grab without dominating the layout visually. */}
+        {/* Draggable divider: only visible on lg screens. 8px hit area, 2px
+            visible bar centred inside. Pointer events (not mouse) cover touch
+            and pen too. role=separator + keyboard makes it accessible.
+            `touch-action: none` prevents the browser from scroll-hijacking the
+            drag on touch devices. */}
         <div
-          onMouseDown={startDividerDrag}
+          onPointerDown={startDividerDrag}
           onDoubleClick={() => setPreviewWidthPct(60)}
-          title="Drag to resize, double-click to reset"
-          className="hidden lg:flex group cursor-col-resize w-2 -mx-1 z-20 items-center justify-center hover:bg-gold/10 transition"
+          onKeyDown={handleDividerKeyDown}
+          role="separator"
+          aria-orientation="vertical"
+          aria-valuemin={30}
+          aria-valuemax={75}
+          aria-valuenow={Math.round(previewWidthPct)}
+          tabIndex={0}
+          title="Drag to resize, double-click to reset, or use arrow keys"
+          className={`hidden lg:flex group cursor-col-resize w-2 z-20 items-center justify-center touch-none select-none outline-none transition focus-visible:ring-2 focus-visible:ring-gold ${
+            isDragging ? 'bg-gold/20' : 'hover:bg-gold/10'
+          }`}
         >
-          <div className="h-12 w-0.5 rounded-full bg-stone-300 group-hover:bg-gold transition" />
+          <div className={`h-12 w-0.5 rounded-full transition ${
+            isDragging ? 'bg-gold' : 'bg-stone-300 group-hover:bg-gold'
+          }`} />
         </div>
+
+        {/* Drag overlay: only rendered while the pointer is down. Sits above
+            the iframe (z-30 vs the divider's z-20) and covers the full split
+            area so the iframe's content document cannot capture pointermove
+            events mid-drag. The overlay itself is transparent and inherits the
+            col-resize cursor so feedback stays consistent. */}
+        {isDragging && (
+          <div
+            aria-hidden="true"
+            className="hidden lg:block absolute inset-0 z-30 cursor-col-resize"
+          />
+        )}
 
         {/* Right: block editor */}
         <div
