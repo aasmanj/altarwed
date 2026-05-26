@@ -196,7 +196,7 @@ All entities below have Flyway migrations in production (V1–V15):
 - NEVER use spring.jpa.hibernate.ddl-auto=create or update in any environment
 - ALL schema changes go through Flyway migrations in db/migration/
 - Migration naming: V{number}__{description}.sql (e.g. V1__create_couples_table.sql)
-- Next migration number: V35
+- Next migration number: V41
 - UUID primary keys on all tables
 
 ## Security Rules
