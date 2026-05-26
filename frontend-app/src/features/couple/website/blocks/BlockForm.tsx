@@ -295,16 +295,24 @@ function FieldsFor({
 
     case 'WEDDING_PARTY_GRID':
       return (
-        <Field label="Side">
-          <select
-            value={str('side') || 'BRIDE'}
-            onChange={e => onChange('side', e.target.value)}
-            className={inputClass}
-          >
-            <option value="BRIDE">Bride's side</option>
-            <option value="GROOM">Groom's side</option>
-          </select>
-        </Field>
+        <>
+          <BlockHint>
+            Members come from your <EditorLink tab="weddingparty">Wedding Party tile</EditorLink>.
+            Add them once there and this block fills in automatically.
+          </BlockHint>
+          <div className="mt-3">
+            <Field label="Which side to show">
+              <select
+                value={str('side') || 'BRIDE'}
+                onChange={e => onChange('side', e.target.value)}
+                className={inputClass}
+              >
+                <option value="BRIDE">Bride&apos;s side</option>
+                <option value="GROOM">Groom&apos;s side</option>
+              </select>
+            </Field>
+          </div>
+        </>
       )
 
     case 'DIVIDER':
@@ -500,10 +508,11 @@ function BlockImageUpload({
 
 // Link to a specific tab in the classic wedding website editor.
 const TAB_PATHS: Record<string, string> = {
-  details: '/dashboard/website',
-  hotel:   '/dashboard/website',
-  photos:  '/dashboard/photos',
-  vows:    '/dashboard/vows',
+  details:      '/dashboard/website',
+  hotel:        '/dashboard/website',
+  photos:       '/dashboard/photos',
+  vows:         '/dashboard/vows',
+  weddingparty: '/dashboard/wedding-party',
 }
 
 function EditorLink({ tab, children }: { tab: string; children: React.ReactNode }) {

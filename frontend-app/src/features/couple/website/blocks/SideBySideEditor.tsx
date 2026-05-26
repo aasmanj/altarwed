@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
-import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2, ImagePlus, Smartphone, Monitor, Settings2 } from 'lucide-react'
+import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2, ImagePlus, Smartphone, Monitor, Settings2, Pencil } from 'lucide-react'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite, usePublishWeddingWebsite, useUpdateWeddingWebsite, type WeddingWebsite } from '../useWeddingWebsite'
 import {
@@ -885,30 +885,40 @@ function HeroSettings({
   const scheduleGroomSave   = useDebouncedSave((v: string) => onNameSave('partnerOneName', v))
 
   return (
-    <div className="border-b border-stone-200 flex-shrink-0 bg-stone-50">
+    <div className="border-b-2 border-gold-light flex-shrink-0 bg-gradient-to-r from-ivory via-white to-ivory">
       {/* Collapsed summary row: whole row is one button so the thumb, label,
-          and chevron share a single click target with keyboard + focus support. */}
+          and chevron share a single click target with keyboard + focus support.
+          Styled prominently because the hero is the first thing guests see and
+          couples need to spot the editing affordance immediately. */}
       <button
         type="button"
         onClick={() => setExpanded(e => !e)}
         aria-expanded={expanded}
-        className="w-full px-3 py-2.5 flex items-center gap-3 text-left hover:bg-stone-100 focus-visible:ring-2 focus-visible:ring-gold focus:outline-none"
+        className="w-full px-3 py-3 flex items-center gap-3 text-left hover:bg-gold-light/20 focus-visible:ring-2 focus-visible:ring-gold focus:outline-none transition-colors group"
       >
-        <span className="w-12 h-8 rounded overflow-hidden border border-stone-200 flex-shrink-0 bg-stone-200 flex items-center justify-center">
+        <span className="w-16 h-12 rounded-md overflow-hidden border border-gold-light flex-shrink-0 bg-stone-200 flex items-center justify-center shadow-sm">
           {website.heroPhotoUrl
             ? <img src={website.heroPhotoUrl} alt="" className="w-full h-full object-cover" />
-            : <ImagePlus size={14} className="text-stone-400" />
+            : <ImagePlus size={18} className="text-stone-400" />
           }
         </span>
         <span className="flex-1 min-w-0">
-          <span className="block text-xs font-medium text-stone-700 leading-none mb-0.5">Hero photo &amp; tagline</span>
-          <span className="block text-[10px] text-stone-400 leading-none truncate">
+          <span className="flex items-center gap-1.5 text-sm font-semibold text-brown leading-tight mb-0.5">
+            <Pencil size={12} className="text-gold flex-shrink-0" />
+            Hero photo &amp; tagline
+            {!expanded && (
+              <span className="text-[10px] font-normal text-gold uppercase tracking-wider ml-1 group-hover:underline">
+                Click to edit
+              </span>
+            )}
+          </span>
+          <span className="block text-xs text-brown-light leading-snug truncate">
             {website.heroTagline === ''
-              ? '(no tagline: hidden)'
-              : website.heroTagline || 'Together in covenant (default)'}
+              ? <span className="italic">(no tagline: hidden on the live site)</span>
+              : (website.heroTagline || <span className="italic">&ldquo;Together in covenant&rdquo; (default)</span>)}
           </span>
         </span>
-        <span className="text-xs text-stone-500 flex-shrink-0" aria-hidden="true">
+        <span className="text-xs text-brown-light flex-shrink-0" aria-hidden="true">
           {expanded ? '▲' : '▼'}
         </span>
       </button>
