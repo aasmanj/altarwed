@@ -1,6 +1,12 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import { useWeddingWebsite, type WeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
+
+// Emails allowed to see the founder-metrics link in the dashboard header.
+// Authorization is enforced server-side via ADMIN_EMAILS env var; this list
+// is purely a UX gate so non-admins don't see a link that 403s. Keep in sync
+// with the backend list when adding new founders.
+const ADMIN_EMAILS = ['aasmanj@gmail.com']
 import OnboardingWizard from '@/features/couple/onboarding/OnboardingWizard'
 import TipCallout from '@/components/TipCallout'
 import { TIPS } from '@/lib/tips'
@@ -23,6 +29,18 @@ export default function CoupleDashboard() {
         <span className="font-serif text-xl font-bold text-brown shrink-0">AltarWed</span>
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           <span className="text-sm text-brown-light truncate hidden sm:block">{user?.partnerOneName ?? user?.email}</span>
+          {/* Founder-only link to the metrics dashboard. The backend enforces
+              authorization via ADMIN_EMAILS env var; this client-side gate just
+              hides the link from regular couples so it doesn't clutter their UI. */}
+          {user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()) && (
+            <Link
+              to="/admin/metrics"
+              className="shrink-0 text-xs font-medium text-gold hover:text-brown transition py-2 px-2 rounded-lg hover:bg-ivory"
+              title="Platform-wide founder metrics"
+            >
+              Metrics
+            </Link>
+          )}
           <button
             onClick={logout}
             className="shrink-0 text-sm font-medium text-brown-light hover:text-brown transition py-2 px-3 rounded-lg hover:bg-ivory"

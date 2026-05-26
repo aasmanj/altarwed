@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'sonner'
 import { AuthProvider } from '@/core/auth/AuthContext'
 import { ProtectedRoute } from '@/core/auth/ProtectedRoute'
 import LoginPage from '@/features/auth/LoginPage'
@@ -29,6 +30,19 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        {/* Toast notifications — sonner. Top-right placement is consistent with
+            Vercel/Linear/Cal.com; bottom-right reads as a chat notification. */}
+        <Toaster
+          position="top-right"
+          richColors
+          closeButton
+          toastOptions={{
+            classNames: {
+              toast: 'font-sans',
+              title: 'font-medium',
+            },
+          }}
+        />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />

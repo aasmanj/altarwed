@@ -171,7 +171,7 @@ export default function SideBySideEditor() {
               to="/dashboard"
               className="text-sm text-brown-light hover:text-brown transition flex items-center gap-1 flex-shrink-0"
             >
-              ← Dashboard
+              ← Back to dashboard
             </Link>
             <span className="text-gold-light">|</span>
             <div className="min-w-0">

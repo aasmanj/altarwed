@@ -2,6 +2,7 @@ package com.altarwed.web.controller;
 
 import com.altarwed.application.dto.GoogleSheetSyncResponse;
 import com.altarwed.application.dto.SetGoogleSheetSyncRequest;
+import com.altarwed.application.dto.TriggerSyncResponse;
 import com.altarwed.application.service.GoogleSheetSyncService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -57,11 +58,13 @@ public class GoogleSheetSyncController {
         return ResponseEntity.noContent().build();
     }
 
+    // Returns the persisted sync state plus per-run counts (added/updated) so the
+    // dashboard can show a toast like "Synced: 3 added, 7 updated."
     @PostMapping("/couple/{coupleId}/trigger")
-    public ResponseEntity<GoogleSheetSyncResponse> triggerSync(
+    public ResponseEntity<TriggerSyncResponse> triggerSync(
             @PathVariable UUID coupleId,
             @AuthenticationPrincipal UserDetails principal
     ) {
-        return ResponseEntity.ok(syncService.triggerSync(coupleId));
+        return ResponseEntity.ok(syncService.triggerSyncWithCounts(coupleId));
     }
 }

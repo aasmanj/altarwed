@@ -54,9 +54,17 @@ export function useDeleteGoogleSheetSync(coupleId: string) {
   })
 }
 
+// Backend now returns { sync, added, updated } so the dashboard can
+// display "Synced: X added, Y updated" in a toast.
+export interface TriggerSyncResult {
+  sync: GoogleSheetSyncStatus
+  added: number | null
+  updated: number | null
+}
+
 export function useTriggerGoogleSheetSync(coupleId: string) {
   const qc = useQueryClient()
-  return useMutation({
+  return useMutation<TriggerSyncResult>({
     mutationFn: () =>
       apiClient.post(`/api/v1/google-sheet-sync/couple/${coupleId}/trigger`).then(r => r.data),
     onSuccess: () => {

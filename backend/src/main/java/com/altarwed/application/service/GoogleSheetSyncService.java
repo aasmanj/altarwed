@@ -128,8 +128,24 @@ public class GoogleSheetSyncService {
     public GoogleSheetSyncResponse triggerSync(UUID coupleId) {
         GoogleSheetSync sync = syncRepository.findByCoupleId(coupleId)
                 .orElseThrow(() -> new IllegalStateException("No Google Sheet sync configured for this couple."));
-        return toResponse(runSync(sync));
+        return toResponse(runSync(sync).updatedSync());
     }
+
+    // Same as triggerSync but exposes the per-run added/updated counts so the
+    // dashboard can show a meaningful toast describing what happened.
+    @Transactional
+    public com.altarwed.application.dto.TriggerSyncResponse triggerSyncWithCounts(UUID coupleId) {
+        GoogleSheetSync sync = syncRepository.findByCoupleId(coupleId)
+                .orElseThrow(() -> new IllegalStateException("No Google Sheet sync configured for this couple."));
+        SyncResult result = runSync(sync);
+        return new com.altarwed.application.dto.TriggerSyncResponse(
+                toResponse(result.updatedSync()), result.added(), result.updated()
+        );
+    }
+
+    // Transient per-run sync outcome — not persisted, used to surface counts to the UI.
+    // `added` and `updated` are null on failure (the persisted sync still gets the error message).
+    private record SyncResult(GoogleSheetSync updatedSync, Integer added, Integer updated) {}
 
     /**
      * Called by the scheduler; processes all active configs.
@@ -159,10 +175,10 @@ public class GoogleSheetSyncService {
     // Core sync logic
     // -----------------------------------------------------------------------
 
-    private GoogleSheetSync runSync(GoogleSheetSync sync) {
+    private SyncResult runSync(GoogleSheetSync sync) {
         log.info("google sheet sync started, coupleId={}", sync.coupleId());
         try {
-            int rowsProcessed;
+            UpsertCounts counts;
             if (googleOAuthService.hasOAuthTokens(sync.coupleId())) {
                 // OAuth path: read via Sheets API + UUID write-back for stable row identity
                 log.info("google sheet sync using oauth with uuid write-back, coupleId={}", sync.coupleId());
@@ -172,25 +188,26 @@ public class GoogleSheetSyncService {
                             "Could not extract spreadsheet ID from URL. " +
                             "Paste the URL from your browser address bar while the sheet is open.");
                 }
-                rowsProcessed = upsertGuestsWithWriteBack(sync.coupleId(), spreadsheetId, sync.sheetUrl());
+                counts = upsertGuestsWithWriteBack(sync.coupleId(), spreadsheetId, sync.sheetUrl());
             } else {
                 // No-OAuth fallback: read public CSV, upsert by name
                 log.info("google sheet sync using public csv url, coupleId={}", sync.coupleId());
                 String csvUrl = toCsvUrl(sync.sheetUrl());
                 String csv = fetchCsv(csvUrl);
                 List<String[]> rows = parseCsv(csv);
-                rowsProcessed = upsertGuestsByName(sync.coupleId(), rows);
+                counts = upsertGuestsByName(sync.coupleId(), rows);
             }
 
+            int rowsProcessed = counts.added() + counts.updated();
             GoogleSheetSync updated = new GoogleSheetSync(
                     sync.id(), sync.coupleId(), sync.sheetUrl(),
                     LocalDateTime.now(), null, rowsProcessed,
                     true, sync.createdAt(), null
             );
             GoogleSheetSync saved = syncRepository.save(updated);
-            log.info("google sheet sync succeeded, coupleId={}, rowsProcessed={}",
-                     sync.coupleId(), rowsProcessed);
-            return saved;
+            log.info("google sheet sync succeeded, coupleId={}, added={}, updated={}, rowsProcessed={}",
+                     sync.coupleId(), counts.added(), counts.updated(), rowsProcessed);
+            return new SyncResult(saved, counts.added(), counts.updated());
         } catch (Exception e) {
             String errorMsg = e.getMessage() != null
                     ? e.getMessage().substring(0, Math.min(e.getMessage().length(), 990))
@@ -201,9 +218,13 @@ public class GoogleSheetSyncService {
                     sync.lastSynced(), errorMsg, sync.rowCount(),
                     true, sync.createdAt(), null
             );
-            return syncRepository.save(errored);
+            return new SyncResult(syncRepository.save(errored), null, null);
         }
     }
+
+    // Per-run upsert breakdown — keeps "new guest" vs "updated existing" distinct so
+    // the dashboard toast can say "3 new guests added, 7 updated."
+    private record UpsertCounts(int added, int updated) {}
 
     /**
      * Converts any Google Sheets URL to a CSV export URL.
@@ -266,9 +287,9 @@ public class GoogleSheetSyncService {
      * scope the write call returns 403. We catch that, log a warning, and continue
      * syncing read-only. The couple just needs to disconnect + re-authorize once.
      */
-    private int upsertGuestsWithWriteBack(UUID coupleId, String spreadsheetId, String sheetUrl) throws Exception {
+    private UpsertCounts upsertGuestsWithWriteBack(UUID coupleId, String spreadsheetId, String sheetUrl) throws Exception {
         List<String[]> rows = googleOAuthService.readSheet(coupleId, sheetUrl);
-        if (rows.isEmpty()) return 0;
+        if (rows.isEmpty()) return new UpsertCounts(0, 0);
 
         String[] headers = rows.get(0);
         Map<String, Integer> colIndex = buildColumnIndex(headers);
@@ -312,7 +333,8 @@ public class GoogleSheetSyncService {
         }
 
         List<Guest> toSave = new ArrayList<>();
-        int processed = 0;
+        int added = 0;
+        int updated = 0;
 
         for (int i = 1; i < rows.size(); i++) {
             int sheetRowNumber = i + 1; // sheet row 1 = header, data starts at row 2
@@ -386,6 +408,7 @@ public class GoogleSheetSyncService {
                         null, null, null,  // partyId, partyName, partyContact
                         syncId
                 ));
+                added++;
             } else {
                 // Non-destructive merge: sheet value wins if non-null, else keep manual edits
                 toSave.add(new Guest(
@@ -412,8 +435,8 @@ public class GoogleSheetSyncService {
                 ));
                 // Consume from name map so a second row with the same name creates a new guest
                 byNameFallback.remove(name.toLowerCase().trim());
+                updated++;
             }
-            processed++;
         }
 
         guestRepository.saveAll(toSave);
@@ -429,7 +452,7 @@ public class GoogleSheetSyncService {
             }
         }
 
-        return processed;
+        return new UpsertCounts(added, updated);
     }
 
     /**
@@ -437,8 +460,8 @@ public class GoogleSheetSyncService {
      * Upserts by lowercased name — stable enough for public sheets where write-back
      * is not possible. Name changes will create a new guest; the old one is not deleted.
      */
-    private int upsertGuestsByName(UUID coupleId, List<String[]> rows) throws Exception {
-        if (rows.isEmpty()) return 0;
+    private UpsertCounts upsertGuestsByName(UUID coupleId, List<String[]> rows) throws Exception {
+        if (rows.isEmpty()) return new UpsertCounts(0, 0);
 
         String[] headers = rows.get(0);
         Map<String, Integer> colIndex = buildColumnIndex(headers);
@@ -452,7 +475,8 @@ public class GoogleSheetSyncService {
                         (a, b) -> a));
 
         List<Guest> toSave = new ArrayList<>();
-        int processed = 0;
+        int added = 0;
+        int updated = 0;
 
         for (int i = 1; i < rows.size(); i++) {
             String[] cols = rows.get(i);
@@ -500,6 +524,7 @@ public class GoogleSheetSyncService {
                         null, null, null,
                         null  // sheetSyncId — CSV path cannot write-back
                 ));
+                added++;
             } else {
                 toSave.add(new Guest(
                         g.id(), g.coupleId(), name,
@@ -523,12 +548,12 @@ public class GoogleSheetSyncService {
                         g.partyId(), g.partyName(), g.partyContact(),
                         g.sheetSyncId()  // preserve any UUID already stamped
                 ));
+                updated++;
             }
-            processed++;
         }
 
         guestRepository.saveAll(toSave);
-        return processed;
+        return new UpsertCounts(added, updated);
     }
 
     // -----------------------------------------------------------------------

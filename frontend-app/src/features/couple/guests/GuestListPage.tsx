@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { toast } from 'sonner'
 import confetti from 'canvas-confetti'
 import Papa from 'papaparse'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
@@ -66,6 +67,70 @@ export default function GuestListPage() {
       setTimeout(() => setCopiedHeaders(false), 2000)
     })
   }, [SHEET_TEMPLATE_COLUMNS])
+
+  // Wrapper around triggerSheetSync that shows a toast summarising what the sync
+  // actually did. The backend returns { added, updated } so we can say "3 new,
+  // 7 updated" rather than the meaningless previous behaviour of silently flipping
+  // a timestamp.
+  const handleSyncNow = useCallback(async () => {
+    const promise = triggerSheetSync.mutateAsync()
+    toast.promise(promise, {
+      loading: 'Syncing your Google Sheet…',
+      success: (result) => {
+        const added = result.added ?? 0
+        const updated = result.updated ?? 0
+        if (added === 0 && updated === 0) {
+          return 'Already up to date. No changes from your sheet.'
+        }
+        const parts: string[] = []
+        if (added > 0) parts.push(`${added} new guest${added === 1 ? '' : 's'}`)
+        if (updated > 0) parts.push(`${updated} updated`)
+        return `Synced: ${parts.join(', ')}`
+      },
+      error: (err) => {
+        const msg = err?.response?.data?.message ?? err?.message
+        return msg
+          ? `Sync failed: ${msg}`
+          : 'Sync failed. Check that your sheet is shared correctly.'
+      },
+    })
+  }, [triggerSheetSync])
+
+  // Save the sheet URL with progress feedback. Closes the panel only on success;
+  // keeps it open on error so the couple can fix the URL without re-opening anything.
+  const handleSaveSheetUrl = useCallback(async () => {
+    const url = sheetUrlInput.trim()
+    if (!url) return
+    const promise = setSheetSync.mutateAsync(url)
+    toast.promise(promise, {
+      loading: 'Connecting your sheet…',
+      success: 'Sheet connected. We will sync every 15 minutes.',
+      error: 'Could not connect that sheet. Check the URL and try again.',
+    })
+    try {
+      await promise
+      setShowSheetSync(false)
+      setSheetUrlInput('')
+    } catch {
+      // toast already announced the failure; leave the panel open for retry
+    }
+  }, [sheetUrlInput, setSheetSync])
+
+  const handleRemoveSheet = useCallback(async () => {
+    if (!confirm('Remove the Google Sheet connection? Your existing guests stay; only the live sync stops.')) return
+    const promise = deleteSheetSync.mutateAsync()
+    toast.promise(promise, {
+      loading: 'Disconnecting sheet…',
+      success: 'Sheet disconnected. Your guests are still here.',
+      error: 'Could not disconnect. Try again in a moment.',
+    })
+    try {
+      await promise
+      setShowSheetSync(false)
+    } catch {
+      // toast already announced
+    }
+  }, [deleteSheetSync])
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [showAdd, setShowAdd]           = useState(false)
@@ -218,11 +283,11 @@ export default function GuestListPage() {
               {' · '}Last synced: {relativeTime(sheetSync.lastSynced)}
             </span>
             <button
-              onClick={() => triggerSheetSync.mutate()}
+              onClick={handleSyncNow}
               disabled={triggerSheetSync.isPending}
               className="shrink-0 rounded-lg bg-green-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-800 disabled:opacity-50 transition"
             >
-              {triggerSheetSync.isPending ? 'Syncing...' : 'Sync Now'}
+              {triggerSheetSync.isPending ? 'Syncing…' : 'Sync now'}
             </button>
           </div>
         )}
@@ -303,11 +368,11 @@ export default function GuestListPage() {
                   )}
                 </div>
                 <button
-                  onClick={() => triggerSheetSync.mutate()}
+                  onClick={handleSyncNow}
                   disabled={triggerSheetSync.isPending}
                   className="shrink-0 rounded-lg bg-green-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-800 disabled:opacity-50 transition"
                 >
-                  {triggerSheetSync.isPending ? 'Syncing...' : 'Sync now'}
+                  {triggerSheetSync.isPending ? 'Syncing…' : 'Sync now'}
                 </button>
               </div>
             )}
@@ -323,26 +388,19 @@ export default function GuestListPage() {
                 className="flex-1 rounded-lg border border-gold-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40"
               />
               <button
-                onClick={async () => {
-                  if (!sheetUrlInput.trim()) return
-                  await setSheetSync.mutateAsync(sheetUrlInput.trim())
-                  setShowSheetSync(false)
-                }}
+                onClick={handleSaveSheetUrl}
                 disabled={setSheetSync.isPending || !sheetUrlInput.trim()}
                 className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-50 transition"
               >
-                {setSheetSync.isPending ? 'Saving...' : 'Save'}
+                {setSheetSync.isPending ? 'Saving…' : 'Save'}
               </button>
               {sheetSync && (
                 <button
-                  onClick={async () => {
-                    await deleteSheetSync.mutateAsync()
-                    setShowSheetSync(false)
-                  }}
+                  onClick={handleRemoveSheet}
                   disabled={deleteSheetSync.isPending}
                   className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 transition"
                 >
-                  Remove
+                  {deleteSheetSync.isPending ? 'Removing…' : 'Remove'}
                 </button>
               )}
             </div>
