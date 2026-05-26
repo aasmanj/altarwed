@@ -132,11 +132,12 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
       {/* Tab content */}
       <div className="space-y-6">
         {activeTab === 'story' && <>
-          <Row label="Groom's name">
-            <Input value={form.partnerOneName} onChange={set('partnerOneName')} />
-          </Row>
+          {/* Bride field above Groom per the bride-first display convention. */}
           <Row label="Bride's name">
             <Input value={form.partnerTwoName} onChange={set('partnerTwoName')} />
+          </Row>
+          <Row label="Groom's name">
+            <Input value={form.partnerOneName} onChange={set('partnerOneName')} />
           </Row>
           <Row label="Wedding date">
             <Input type="date" value={form.weddingDate} onChange={set('weddingDate')} />

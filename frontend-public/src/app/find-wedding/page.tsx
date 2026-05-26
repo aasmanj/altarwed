@@ -121,7 +121,7 @@ export default async function FindWeddingPage({
                           className="block rounded-xl border border-[#e8dcc8] bg-white px-6 py-5 hover:border-[#d4af6a] hover:shadow-sm transition group"
                         >
                           <p className="font-serif text-xl font-bold text-[#3b2f2f] group-hover:text-[#d4af6a] transition">
-                            {r.partnerOneName} &amp; {r.partnerTwoName}
+                            {r.partnerTwoName} &amp; {r.partnerOneName}
                           </p>
                           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[#a08060]">
                             {r.weddingDate && <span>{formatDate(r.weddingDate)}</span>}

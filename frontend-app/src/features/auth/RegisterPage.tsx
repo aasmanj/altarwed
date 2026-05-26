@@ -87,21 +87,7 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <fieldset className="mb-5">
-            <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-brown-light">Groom</legend>
-            <div className="grid grid-cols-2 gap-4">
-              <input
-                type="text" required placeholder="First name" autoComplete="off"
-                value={form.groomFirstName} onChange={set('groomFirstName')}
-                className="w-full rounded-lg border border-gold-light px-4 py-2.5 text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
-              />
-              <input
-                type="text" required placeholder="Last name" autoComplete="off"
-                value={form.groomLastName} onChange={set('groomLastName')}
-                className="w-full rounded-lg border border-gold-light px-4 py-2.5 text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
-              />
-            </div>
-          </fieldset>
+          {/* Bride fieldset rendered above Groom to match the display convention. */}
           <fieldset className="mb-5">
             <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-brown-light">Bride</legend>
             <div className="grid grid-cols-2 gap-4">
@@ -113,6 +99,21 @@ export default function RegisterPage() {
               <input
                 type="text" required placeholder="Last name" autoComplete="off"
                 value={form.brideLastName} onChange={set('brideLastName')}
+                className="w-full rounded-lg border border-gold-light px-4 py-2.5 text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+              />
+            </div>
+          </fieldset>
+          <fieldset className="mb-5">
+            <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-brown-light">Groom</legend>
+            <div className="grid grid-cols-2 gap-4">
+              <input
+                type="text" required placeholder="First name" autoComplete="off"
+                value={form.groomFirstName} onChange={set('groomFirstName')}
+                className="w-full rounded-lg border border-gold-light px-4 py-2.5 text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+              />
+              <input
+                type="text" required placeholder="Last name" autoComplete="off"
+                value={form.groomLastName} onChange={set('groomLastName')}
                 className="w-full rounded-lg border border-gold-light px-4 py-2.5 text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
               />
             </div>

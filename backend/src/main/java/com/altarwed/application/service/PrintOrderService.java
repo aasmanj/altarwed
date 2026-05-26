@@ -72,7 +72,9 @@ public class PrintOrderService {
                 .orElseThrow(() -> new IllegalArgumentException("Couple not found"));
         Optional<WeddingWebsite> websiteOpt = websiteRepository.findByCoupleId(coupleId);
 
-        String coupleNames = couple.partnerOneName() + " & " + couple.partnerTwoName();
+        // Display convention: bride (partnerTwoName) first per Jordan's preference.
+        // Postcards print "Bride & Groom" rather than "Groom & Bride".
+        String coupleNames = couple.partnerTwoName() + " & " + couple.partnerOneName();
         String weddingDate = websiteOpt.map(WeddingWebsite::weddingDate)
                 .map(d -> d.format(DateTimeFormatter.ofPattern("MMMM d, yyyy")))
                 .orElse("TBD");

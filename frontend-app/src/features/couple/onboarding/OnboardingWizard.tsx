@@ -25,7 +25,8 @@ export default function OnboardingWizard() {
   // Auto-generate slug from partner names
   const suggestSlug = () => {
     if (partnerOneName && partnerTwoName) {
-      const raw = `${partnerOneName}-and-${partnerTwoName}`
+      // Bride-first slug to match the display convention (eden-faith-and-jordan).
+      const raw = `${partnerTwoName}-and-${partnerOneName}`
         .toLowerCase()
         .replace(/[^a-z0-9-]/g, '-')
         .replace(/-+/g, '-')
@@ -83,15 +84,17 @@ export default function OnboardingWizard() {
                 <h1 className="font-serif text-2xl font-bold text-[#3b2f2f] mb-1">Welcome to AltarWed</h1>
                 <p className="text-sm text-[#a08060]">Let&apos;s build your wedding website. First, whose names should be on it?</p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-[#3b2f2f] mb-1">Groom</label>
-                <input value={partnerOneName} onChange={e => setPartnerOneName(e.target.value)}
-                  className={inputCls} placeholder="Jordan" />
-              </div>
+              {/* Bride field renders above Groom per display convention. partnerTwoName
+                  still maps to Bride in the DB; only the visual order swaps. */}
               <div>
                 <label className="block text-sm font-medium text-[#3b2f2f] mb-1">Bride</label>
                 <input value={partnerTwoName} onChange={e => setPartnerTwoName(e.target.value)}
                   className={inputCls} placeholder="Eden-Faith" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#3b2f2f] mb-1">Groom</label>
+                <input value={partnerOneName} onChange={e => setPartnerOneName(e.target.value)}
+                  className={inputCls} placeholder="Jordan" />
               </div>
               <button
                 onClick={() => { suggestSlug(); setStep(2) }}
@@ -163,7 +166,7 @@ export default function OnboardingWizard() {
               </div>
 
               <div className="rounded-xl bg-[#fdfaf6] border border-[#e8dcc8] p-5 space-y-3">
-                <Row label="Couple" value={`${partnerOneName} & ${partnerTwoName}`} />
+                <Row label="Couple" value={`${partnerTwoName} & ${partnerOneName}`} />
                 <Row label="URL" value={`altarwed.com/wedding/${slug}`} />
                 {weddingDate && <Row label="Date" value={formatShortDate(weddingDate)} />}
               </div>

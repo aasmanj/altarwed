@@ -291,7 +291,7 @@ function RsvpCtaBlock({ slug, partnerOneName, partnerTwoName, heading, buttonLab
   heading?: string
   buttonLabel?: string
 }) {
-  const displayHeading = heading || `Will you join ${partnerOneName} & ${partnerTwoName}?`
+  const displayHeading = heading || `Will you join ${partnerTwoName} & ${partnerOneName}?`
   const displayButton  = buttonLabel || 'RSVP now'
   return (
     <div className="rounded-2xl bg-[#fdf3e3] border border-[#e8dcc8] px-8 py-10 text-center">
@@ -367,7 +367,7 @@ function PhotoAlbumGridBlock({ photos, wedding }: { photos: WeddingPhoto[]; wedd
   if (photos.length === 0) {
     return (
       <p className="text-center text-[#a08060] text-sm py-6 italic">
-        Photos will appear here once {wedding.partnerOneName} &amp; {wedding.partnerTwoName} share them.
+        Photos will appear here once {wedding.partnerTwoName} &amp; {wedding.partnerOneName} share them.
       </p>
     )
   }
@@ -378,7 +378,7 @@ function PhotoAlbumGridBlock({ photos, wedding }: { photos: WeddingPhoto[]; wedd
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={photo.url}
-            alt={photo.caption ?? `${wedding.partnerOneName} and ${wedding.partnerTwoName}`}
+            alt={photo.caption ?? `${wedding.partnerTwoName} and ${wedding.partnerOneName}`}
             className="w-full object-cover"
           />
           {photo.caption && (
@@ -405,13 +405,14 @@ function VowsPreviewBlock({ partnerOneName, partnerTwoName, partnerOneVows, part
       </p>
     )
   }
+  // Bride-first display order: partnerTwoName (Bride) renders left, partnerOneName (Groom) renders right.
   return (
     <div className="grid sm:grid-cols-2 gap-6">
-      {partnerOneVows && (
-        <VowCard name={partnerOneName} vows={partnerOneVows} />
-      )}
       {partnerTwoVows && (
         <VowCard name={partnerTwoName} vows={partnerTwoVows} />
+      )}
+      {partnerOneVows && (
+        <VowCard name={partnerOneName} vows={partnerOneVows} />
       )}
     </div>
   )

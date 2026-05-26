@@ -164,7 +164,7 @@ public class GuestService {
         var website = websiteRepository.findByCoupleId(coupleId).orElse(null);
         var couple  = coupleRepository.findById(coupleId).orElse(null);
         String coupleNames = couple != null
-                ? couple.partnerOneName() + " & " + couple.partnerTwoName()
+                ? couple.partnerTwoName() + " & " + couple.partnerOneName()
                 : "The Couple";
         String weddingDate = (website != null && website.weddingDate() != null)
                 ? website.weddingDate().format(java.time.format.DateTimeFormatter.ofPattern("MMMM d, yyyy"))
@@ -266,7 +266,7 @@ public class GuestService {
         var couple  = coupleRepository.findById(guest.coupleId()).orElse(null);
 
         String coupleNames = couple != null
-                ? couple.partnerOneName() + " & " + couple.partnerTwoName()
+                ? couple.partnerTwoName() + " & " + couple.partnerOneName()
                 : "The Couple";
         String weddingDate = (website != null && website.weddingDate() != null)
                 ? website.weddingDate().format(DateTimeFormatter.ofPattern("MMMM d, yyyy"))
@@ -373,7 +373,7 @@ public class GuestService {
             // Notify the couple asynchronously. We never let an email failure break the RSVP
             // submission -- the @Async executor absorbs any Resend API errors silently.
             coupleRepository.findById(responded.coupleId()).ifPresent(couple -> {
-                String coupleNames = couple.partnerOneName() + " & " + couple.partnerTwoName();
+                String coupleNames = couple.partnerTwoName() + " & " + couple.partnerOneName();
                 String dashboardUrl = "https://app.altarwed.com/dashboard/guests";
                 emailPort.sendRsvpNotificationToCouple(
                         couple.email(),
@@ -428,7 +428,7 @@ public class GuestService {
         var couple  = coupleRepository.findById(coupleId).orElse(null);
 
         String coupleNames = couple != null
-                ? couple.partnerOneName() + " & " + couple.partnerTwoName()
+                ? couple.partnerTwoName() + " & " + couple.partnerOneName()
                 : "The Couple";
         String weddingDate = (website != null && website.weddingDate() != null)
                 ? website.weddingDate().format(DateTimeFormatter.ofPattern("MMMM d, yyyy"))

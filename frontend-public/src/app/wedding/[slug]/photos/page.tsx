@@ -43,7 +43,7 @@ export default async function PhotosPage(
           <Camera className="w-12 h-12 text-stone-300 mx-auto mb-4" strokeWidth={1.5} />
           <p className="font-serif text-2xl text-[#a08060] mb-2">Photos coming soon</p>
           <p className="text-sm text-[#a08060]">
-            {wedding.partnerOneName} & {wedding.partnerTwoName} will share photos here.
+            {wedding.partnerTwoName} & {wedding.partnerOneName} will share photos here.
           </p>
         </div>
       ) : (
@@ -53,7 +53,7 @@ export default async function PhotosPage(
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={photo.url}
-                alt={photo.caption ?? `${wedding.partnerOneName} and ${wedding.partnerTwoName}`}
+                alt={photo.caption ?? `${wedding.partnerTwoName} and ${wedding.partnerOneName}`}
                 className="w-full object-cover"
               />
               {photo.caption && (

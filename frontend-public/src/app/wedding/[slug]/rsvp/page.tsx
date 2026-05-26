@@ -47,7 +47,7 @@ export default async function RsvpTabPage(
         {/* Fallback note */}
         <p className="text-center text-xs text-[#a08060]">
           You can also check your email for your personal invitation link sent by{' '}
-          {wedding.partnerOneName} &amp; {wedding.partnerTwoName}.
+          {wedding.partnerTwoName} &amp; {wedding.partnerOneName}.
         </p>
       </div>
     </div>

@@ -42,7 +42,7 @@ export default function CommunicationsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [returnName, setReturnName] = useState(
     user?.partnerOneName && user?.partnerTwoName
-      ? `${user.partnerOneName} & ${user.partnerTwoName}`
+      ? `${user.partnerTwoName} & ${user.partnerOneName}`
       : ''
   )
   const [returnAddressLine1, setReturnAddressLine1] = useState('')

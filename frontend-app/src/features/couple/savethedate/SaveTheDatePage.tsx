@@ -36,7 +36,7 @@ export default function SaveTheDatePage() {
   })
 
   const coupleNames = user?.partnerOneName && user?.partnerTwoName
-    ? `${user.partnerOneName} & ${user.partnerTwoName}`
+    ? `${user.partnerTwoName} & ${user.partnerOneName}`
     : 'The Couple'
   const weddingDate = website?.weddingDate
     ? new Date(website.weddingDate + 'T12:00:00').toLocaleDateString('en-US', {

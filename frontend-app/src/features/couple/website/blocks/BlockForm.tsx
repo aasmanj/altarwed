@@ -380,10 +380,22 @@ function BlockImageUpload({
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [dragOver, setDragOver] = useState(false)
 
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  // Shared upload logic so both the file picker and drag-and-drop go through
+  // the same validation + endpoint. Uses the upload-immediately pattern: the
+  // moment we have a File the POST fires; the caller's onUploaded writes the
+  // returned URL into contentJson and the autosave fires from there.
+  const uploadFile = async (file: File | undefined) => {
     if (!file || !websiteId) return
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+      setError('Only JPEG, PNG, or WebP images are supported.')
+      return
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      setError('Image must be under 15 MB.')
+      return
+    }
     setError(null)
     setUploading(true)
     try {
@@ -396,12 +408,14 @@ function BlockImageUpload({
       )
       onUploaded(res.data.url)
     } catch {
-      setError('Upload failed — try again.')
+      setError('Upload failed. Try again.')
     } finally {
       setUploading(false)
       if (inputRef.current) inputRef.current.value = ''
     }
   }
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => uploadFile(e.target.files?.[0])
 
   return (
     <div className="space-y-2">
@@ -409,15 +423,35 @@ function BlockImageUpload({
         // eslint-disable-next-line @next/next/no-img-element
         <img src={currentUrl} alt="Current" className="w-full max-h-36 object-cover rounded-lg border border-stone-200" />
       )}
+      {/* Drop zone doubles as the click-to-upload button. The visual highlights
+          on drag-enter so the user gets confirmation the drop will be accepted. */}
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
+        onDragOver={e => {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'copy'
+          if (!dragOver) setDragOver(true)
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={e => {
+          e.preventDefault()
+          setDragOver(false)
+          const file = e.dataTransfer.files?.[0]
+          if (file) uploadFile(file)
+        }}
         disabled={uploading || !websiteId}
-        className="w-full flex items-center justify-center gap-2 py-2 rounded-md border border-dashed border-stone-300 text-xs text-stone-500 hover:border-amber-400 hover:text-amber-700 transition disabled:opacity-50"
+        className={`w-full flex items-center justify-center gap-2 py-3 rounded-md border-2 border-dashed text-xs transition disabled:opacity-50 ${
+          dragOver
+            ? 'border-amber-500 bg-amber-50 text-amber-800'
+            : 'border-stone-300 text-stone-500 hover:border-amber-400 hover:text-amber-700'
+        }`}
       >
         {uploading
           ? <><Loader2 size={12} className="animate-spin" /> Uploading…</>
-          : <><ImagePlus size={12} /> {currentUrl ? 'Replace photo' : 'Upload photo from computer'}</>
+          : dragOver
+          ? <><ImagePlus size={14} /> Drop to upload</>
+          : <><ImagePlus size={12} /> {currentUrl ? 'Replace photo' : 'Drop a photo here, or click to choose'}</>
         }
       </button>
       {error && <p className="text-xs text-red-500">{error}</p>}

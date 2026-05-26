@@ -14,6 +14,7 @@ import { notFound } from 'next/navigation'
 import BlockRenderer, { WeddingPartyMember, WeddingPhoto } from '@/components/blocks/BlockRenderer'
 import { getWedding, getBlocks, type BlockTab } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
+import HeroLive from './HeroLive'
 
 export const metadata: Metadata = { robots: { index: false, follow: false } }
 
@@ -93,18 +94,19 @@ export default async function PreviewPage({
       <section className="relative h-[40vh] min-h-[260px] flex items-end justify-center overflow-hidden">
         <Image
           src={heroImage}
-          alt={`${wedding.partnerOneName} and ${wedding.partnerTwoName}`}
+          alt={`${wedding.partnerTwoName} and ${wedding.partnerOneName}`}
           fill className="object-cover" priority
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/10" />
 
-        <div className="relative z-10 text-center pb-8 px-6 w-full">
-          <p className="mb-2 text-[10px] uppercase tracking-[0.3em] text-white/70 font-light">
-            Together in covenant
-          </p>
-          <h1 className="font-serif text-3xl sm:text-5xl font-bold text-white leading-none">
-            {wedding.partnerOneName} &amp; {wedding.partnerTwoName}
-          </h1>
+        {/* Client component that listens for postMessage from the editor and updates
+            tagline/names without a server round-trip. The editor sends an event on
+            every keystroke; this component patches the DOM directly. */}
+        <HeroLive
+          initialTagline={wedding.heroTagline}
+          partnerOneName={wedding.partnerOneName}
+          partnerTwoName={wedding.partnerTwoName}
+        >
           {wedding.weddingDate && (
             <p className="mt-3 text-sm text-white/85 tracking-wide">
               {formatWeddingDate(wedding.weddingDate)}
@@ -115,7 +117,7 @@ export default async function PreviewPage({
               {countdown} days away
             </p>
           )}
-        </div>
+        </HeroLive>
       </section>
 
       {/* Scripture banner — same as the public site */}

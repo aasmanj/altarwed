@@ -55,9 +55,12 @@ public class WeddingPageBlockService {
 
     @Transactional
     public WeddingPageBlock create(UUID websiteId, CreateWeddingPageBlockRequest req) {
-        // Append: nextSortOrder = (count + 1) * step so manual reorders never collide.
-        long count = blockRepository.countByWebsiteIdAndTab(websiteId, req.tab());
-        int sortOrder = (int) (count + 1) * SORT_ORDER_STEP;
+        // Append at MAX(sortOrder) + STEP. Count-based math would collide after a
+        // middle-of-list deletion (3 blocks at 10/20/30, delete middle → count=2 →
+        // (2+1)*10 = 30, which already exists). MAX is collision-free even if the
+        // sort_order column ever gets a unique constraint.
+        int maxSortOrder = blockRepository.findMaxSortOrderByWebsiteIdAndTab(websiteId, req.tab());
+        int sortOrder = maxSortOrder + SORT_ORDER_STEP;
 
         WeddingPageBlock block = new WeddingPageBlock(
                 null, websiteId, req.tab(), req.type(),

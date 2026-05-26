@@ -28,7 +28,8 @@ export default function VowsPage() {
   const [partnerOneVows, setPartnerOneVows] = useState(website?.partnerOneVows ?? '')
   const [partnerTwoVows, setPartnerTwoVows] = useState(website?.partnerTwoVows ?? '')
   const [saved, setSaved] = useState(false)
-  const [activePartner, setActivePartner] = useState<1 | 2>(1)
+  // Default to partner 2 (Bride) per the bride-first display convention.
+  const [activePartner, setActivePartner] = useState<1 | 2>(2)
 
   const partnerOneName = website?.partnerOneName ?? user?.partnerOneName ?? 'Groom'
   const partnerTwoName = website?.partnerTwoName ?? 'Bride'
@@ -71,9 +72,9 @@ export default function VowsPage() {
 
       <main className="mx-auto max-w-4xl px-4 sm:px-6 py-8 space-y-8">
 
-        {/* Partner tabs */}
+        {/* Partner tabs — bride first (2 before 1) to match display convention */}
         <div className="flex rounded-xl border border-gold-light bg-white overflow-hidden">
-          {([1, 2] as const).map(p => {
+          {([2, 1] as const).map(p => {
             const name = p === 1 ? partnerOneName : partnerTwoName
             const vows = p === 1 ? partnerOneVows : partnerTwoVows
             return (

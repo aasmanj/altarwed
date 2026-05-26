@@ -52,6 +52,11 @@ public class WeddingPageBlockRepositoryAdapter implements WeddingPageBlockReposi
     }
 
     @Override
+    public int findMaxSortOrderByWebsiteIdAndTab(UUID websiteId, BlockTab tab) {
+        return jpa.findMaxSortOrderByWeddingWebsiteIdAndTab(websiteId, tab);
+    }
+
+    @Override
     public void deleteById(UUID id) {
         jpa.deleteById(id);
     }

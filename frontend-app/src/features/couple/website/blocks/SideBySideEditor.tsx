@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2, ImagePlus } from 'lucide-react'
@@ -58,6 +58,68 @@ export default function SideBySideEditor() {
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
   const [heroUploading, setHeroUploading] = useState(false)
   const heroInputRef = useRef<HTMLInputElement>(null)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+
+  // Width of the preview pane (left side) as a percentage of total width.
+  // Persisted in localStorage so couples don't have to re-adjust every visit.
+  // Bounded to [30, 75] so neither pane becomes unusable.
+  const [previewWidthPct, setPreviewWidthPct] = useState<number>(() => {
+    if (typeof window === 'undefined') return 60
+    const v = parseFloat(window.localStorage.getItem('editor.previewWidthPct') ?? '60')
+    return isFinite(v) && v >= 30 && v <= 75 ? v : 60
+  })
+  useEffect(() => {
+    window.localStorage.setItem('editor.previewWidthPct', String(previewWidthPct))
+  }, [previewWidthPct])
+
+  // Track whether we're in lg layout (side-by-side) vs mobile (stacked).
+  // The dynamic width only applies on lg; on mobile both panes are full-width.
+  const [isLg, setIsLg] = useState(() => window.innerWidth >= 1024)
+  useEffect(() => {
+    const handler = () => setIsLg(window.innerWidth >= 1024)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+
+  // Divider drag state — onMouseDown captures the current rect; mousemove
+  // computes the new percentage relative to it. Listeners attach to window
+  // (not the divider) so the drag continues even if the cursor leaves the bar.
+  const splitContainerRef = useRef<HTMLDivElement>(null)
+  const draggingRef = useRef(false)
+  const startDividerDrag = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    draggingRef.current = true
+    const container = splitContainerRef.current
+    if (!container) return
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    const onMove = (ev: MouseEvent) => {
+      if (!draggingRef.current || !container) return
+      const rect = container.getBoundingClientRect()
+      const pct = ((ev.clientX - rect.left) / rect.width) * 100
+      const clamped = Math.min(75, Math.max(30, pct))
+      setPreviewWidthPct(clamped)
+    }
+    const onUp = () => {
+      draggingRef.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
+
+  // Send a live-preview message to the iframe. The preview page's HeroLive
+  // listens for these and patches the DOM without a server round-trip — used
+  // for tagline + name fields so typing feels instant.
+  const sendPreviewUpdate = useCallback((field: string, value: unknown) => {
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: 'preview-update', field, value },
+      PREVIEW_ORIGIN,
+    )
+  }, [])
 
   // Block counts per tab — used to badge tabs that already have content so
   // couples can see at a glance which sections they've configured.
@@ -219,11 +281,16 @@ export default function SideBySideEditor() {
         </div>
       </header>
 
-      {/* ── Main split layout ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-0 flex-1 overflow-hidden">
+      {/* ── Main split layout ───────────────────────────────────────────
+          Flex with explicit percentages so the draggable divider can resize
+          the panes. On mobile we fall back to stacked (single column). */}
+      <div ref={splitContainerRef} className="flex flex-col lg:flex-row gap-0 flex-1 overflow-hidden">
 
         {/* Left: live preview iframe */}
-        <div className="bg-stone-100 flex flex-col border-r border-gold-light">
+        <div
+          className="bg-stone-100 flex flex-col min-w-0"
+          style={isLg ? { width: `${previewWidthPct}%` } : undefined}
+        >
           <div className="px-3 py-2 text-xs text-stone-600 border-b border-stone-200 flex items-center justify-between bg-white">
             <div className="flex items-center gap-2 min-w-0">
               <Eye size={12} className="text-stone-400 flex-shrink-0" />
@@ -244,6 +311,7 @@ export default function SideBySideEditor() {
               </div>
             )}
             <iframe
+              ref={iframeRef}
               key={previewKey}
               src={tabPreviewUrl}
               title={`Wedding website preview — ${BLOCK_TAB_LABELS[activeTab]} tab`}
@@ -253,15 +321,36 @@ export default function SideBySideEditor() {
           </div>
         </div>
 
+        {/* Draggable divider — only visible on lg screens. The bar itself is
+            1px wide; the hit area is 9px (the surrounding cursor-col-resize zone)
+            so it's easy to grab without dominating the layout visually. */}
+        <div
+          onMouseDown={startDividerDrag}
+          onDoubleClick={() => setPreviewWidthPct(60)}
+          title="Drag to resize, double-click to reset"
+          className="hidden lg:flex group cursor-col-resize w-2 -mx-1 z-20 items-center justify-center hover:bg-gold/10 transition"
+        >
+          <div className="h-12 w-0.5 rounded-full bg-stone-300 group-hover:bg-gold transition" />
+        </div>
+
         {/* Right: block editor */}
-        <div className="bg-white flex flex-col overflow-hidden">
+        <div
+          className="bg-white flex flex-col overflow-hidden min-w-0 flex-1"
+          style={isLg ? { width: `${100 - previewWidthPct}%`, flex: 'none' } : undefined}
+        >
           {/* Hero section — photo + tagline, page-level settings above block tabs */}
           <HeroSettings
             website={website}
             websiteId={websiteId ?? ''}
             heroUploading={heroUploading}
             onHeroUploadClick={() => heroInputRef.current?.click()}
-            onTaglineSave={(tagline) => updateWebsite.mutate({ heroTagline: tagline }, { onSuccess: bumpPreview })}
+            onTaglineSave={(tagline) => {
+              // Save to DB; the live preview already reflects the new value
+              // via postMessage so we do NOT bumpPreview (which would cause an
+              // iframe reload and a brief flash).
+              updateWebsite.mutate({ heroTagline: tagline })
+            }}
+            onTaglineLive={(tagline) => sendPreviewUpdate('heroTagline', tagline)}
             onDefaultPhotoSelect={(url) => updateWebsite.mutate({ heroPhotoUrl: url }, { onSuccess: bumpPreview })}
           />
           <input
@@ -464,13 +553,19 @@ function HeroSettings({
   heroUploading,
   onHeroUploadClick,
   onTaglineSave,
+  onTaglineLive,
   onDefaultPhotoSelect,
 }: {
   website: { heroPhotoUrl?: string | null; heroTagline?: string | null }
   websiteId: string
   heroUploading: boolean
   onHeroUploadClick: () => void
+  // Persisted save (debounced + on-blur). Empty string means "user cleared the
+  // tagline" and is persisted as-is — the public page treats empty as "hide".
   onTaglineSave: (tagline: string) => void
+  // Fires on every keystroke. Sends a postMessage to the preview iframe so the
+  // hero updates instantly without waiting for a save round-trip + iframe reload.
+  onTaglineLive: (tagline: string) => void
   onDefaultPhotoSelect: (url: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -479,6 +574,20 @@ function HeroSettings({
 
   // Sync tagline field if website data refreshes
   useEffect(() => { setTagline(website.heroTagline ?? '') }, [website.heroTagline])
+
+  // Debounced auto-save 500ms after typing stops. Avoids hammering the API on
+  // every keystroke while still feeling responsive. The live preview already
+  // reflects the new value via onTaglineLive — this just persists it.
+  const taglineSaveTimer = useRef<number | null>(null)
+  const scheduleTaglineSave = useCallback((value: string) => {
+    if (taglineSaveTimer.current) window.clearTimeout(taglineSaveTimer.current)
+    taglineSaveTimer.current = window.setTimeout(() => onTaglineSave(value), 500)
+  }, [onTaglineSave])
+  useEffect(() => {
+    return () => {
+      if (taglineSaveTimer.current) window.clearTimeout(taglineSaveTimer.current)
+    }
+  }, [])
 
   return (
     <div className="border-b border-stone-200 flex-shrink-0 bg-stone-50">
@@ -497,7 +606,9 @@ function HeroSettings({
         <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpanded(e => !e)}>
           <p className="text-xs font-medium text-stone-700 leading-none mb-0.5">Hero photo &amp; tagline</p>
           <p className="text-[10px] text-stone-400 leading-none truncate">
-            {website.heroTagline || 'Together in covenant (default)'}
+            {website.heroTagline === ''
+              ? '(no tagline — hidden)'
+              : website.heroTagline || 'Together in covenant (default)'}
           </p>
         </div>
         <button
@@ -516,25 +627,37 @@ function HeroSettings({
             <label className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-1">
               Tagline (shown over the photo)
             </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={tagline}
-                onChange={e => setTagline(e.target.value)}
-                onBlur={() => onTaglineSave(tagline)}
-                onKeyDown={e => e.key === 'Enter' && onTaglineSave(tagline)}
-                maxLength={200}
-                placeholder="Together in covenant"
-                className="flex-1 rounded-md border border-stone-300 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
-              />
+            <input
+              type="text"
+              value={tagline}
+              onChange={e => {
+                const v = e.target.value
+                setTagline(v)
+                onTaglineLive(v)       // live preview update via postMessage
+                scheduleTaglineSave(v) // debounced persisted save
+              }}
+              onBlur={() => onTaglineSave(tagline)}
+              maxLength={200}
+              placeholder="Together in covenant"
+              className="w-full rounded-md border border-stone-300 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+            />
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <p className="text-[10px] text-stone-400 leading-snug">
+                Updates live. Leave blank to hide the tagline entirely.
+              </p>
               <button
-                onClick={() => onTaglineSave(tagline)}
-                className="text-xs px-2.5 py-1.5 rounded bg-gold text-white hover:bg-gold-dark transition flex-shrink-0"
+                type="button"
+                onClick={() => {
+                  setTagline('')
+                  onTaglineLive('')
+                  onTaglineSave('')
+                }}
+                className="text-[10px] text-amber-700 hover:text-amber-900 underline shrink-0"
+                title="Clear the tagline so nothing shows above your names"
               >
-                Save
+                Clear
               </button>
             </div>
-            <p className="text-[10px] text-stone-400 mt-1">The small line above your names. Leave blank for the default.</p>
           </div>
 
           {/* Photo actions */}

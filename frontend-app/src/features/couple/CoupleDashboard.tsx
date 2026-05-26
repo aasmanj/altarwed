@@ -62,7 +62,7 @@ export default function CoupleDashboard() {
       <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-10">
         <h2 className="font-serif text-2xl font-bold text-brown mb-2">
           Welcome back, {user?.partnerOneName && user?.partnerTwoName
-            ? `${user.partnerOneName} & ${user.partnerTwoName}`
+            ? `${user.partnerTwoName} & ${user.partnerOneName}`
             : user?.partnerOneName ?? user?.email}
         </h2>
         <p className="text-brown-light mb-6">Your wedding planning dashboard</p>
