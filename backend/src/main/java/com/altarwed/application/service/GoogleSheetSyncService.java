@@ -198,15 +198,14 @@ public class GoogleSheetSyncService {
                 counts = upsertGuestsByName(sync.coupleId(), rows);
             }
 
-            int rowsProcessed = counts.added() + counts.updated();
             GoogleSheetSync updated = new GoogleSheetSync(
                     sync.id(), sync.coupleId(), sync.sheetUrl(),
-                    LocalDateTime.now(), null, rowsProcessed,
+                    LocalDateTime.now(), null, counts.seen(),
                     true, sync.createdAt(), null
             );
             GoogleSheetSync saved = syncRepository.save(updated);
-            log.info("google sheet sync succeeded, coupleId={}, added={}, updated={}, rowsProcessed={}",
-                     sync.coupleId(), counts.added(), counts.updated(), rowsProcessed);
+            log.info("google sheet sync succeeded, coupleId={}, added={}, updated={}, seen={}",
+                     sync.coupleId(), counts.added(), counts.updated(), counts.seen());
             return new SyncResult(saved, counts.added(), counts.updated());
         } catch (Exception e) {
             String errorMsg = e.getMessage() != null
@@ -222,9 +221,13 @@ public class GoogleSheetSyncService {
         }
     }
 
-    // Per-run upsert breakdown — keeps "new guest" vs "updated existing" distinct so
-    // the dashboard toast can say "3 new guests added, 7 updated."
-    private record UpsertCounts(int added, int updated) {}
+    // Per-run upsert breakdown.
+    // `added`   = brand-new guests created
+    // `updated` = existing guests whose merged state actually differs from the DB row
+    //             (NOT a count of every existing row seen — that would always report
+    //             "updated" on a no-op sync and erode trust in the toast)
+    // `seen`    = every non-blank row in the sheet, persisted as the GoogleSheetSync.rowCount
+    private record UpsertCounts(int added, int updated, int seen) {}
 
     /**
      * Converts any Google Sheets URL to a CSV export URL.
@@ -289,7 +292,7 @@ public class GoogleSheetSyncService {
      */
     private UpsertCounts upsertGuestsWithWriteBack(UUID coupleId, String spreadsheetId, String sheetUrl) throws Exception {
         List<String[]> rows = googleOAuthService.readSheet(coupleId, sheetUrl);
-        if (rows.isEmpty()) return new UpsertCounts(0, 0);
+        if (rows.isEmpty()) return new UpsertCounts(0, 0, 0);
 
         String[] headers = rows.get(0);
         Map<String, Integer> colIndex = buildColumnIndex(headers);
@@ -335,6 +338,7 @@ public class GoogleSheetSyncService {
         List<Guest> toSave = new ArrayList<>();
         int added = 0;
         int updated = 0;
+        int seen = 0;
 
         for (int i = 1; i < rows.size(); i++) {
             int sheetRowNumber = i + 1; // sheet row 1 = header, data starts at row 2
@@ -345,6 +349,7 @@ public class GoogleSheetSyncService {
                     "names of all guests in party (separated by , if multiple)",
                     "name");
             if (name == null || name.isBlank()) continue;
+            seen++;
 
             // Read the UUID that was stamped on a previous sync (if any)
             String existingUuid = null;
@@ -410,8 +415,10 @@ public class GoogleSheetSyncService {
                 ));
                 added++;
             } else {
-                // Non-destructive merge: sheet value wins if non-null, else keep manual edits
-                toSave.add(new Guest(
+                // Non-destructive merge: sheet value wins if non-null, else keep manual edits.
+                // We then equals-check against the existing DB row so unchanged rows are NOT
+                // counted as "updated" in the toast (and not re-saved either — small DB win).
+                Guest merged = new Guest(
                         g.id(), g.coupleId(), name,
                         emailVal    != null ? emailVal    : g.email(),
                         phone       != null ? phone       : g.phone(),
@@ -432,16 +439,22 @@ public class GoogleSheetSyncService {
                         g.createdAt(), g.updatedAt(),
                         g.partyId(), g.partyName(), g.partyContact(),
                         syncId  // stamp UUID even when resolved via name fallback
-                ));
-                // Consume from name map so a second row with the same name creates a new guest
+                );
+                // Consume from name map so a second row with the same name creates a new guest.
                 byNameFallback.remove(name.toLowerCase().trim());
-                updated++;
+                if (!merged.equals(g)) {
+                    toSave.add(merged);
+                    updated++;
+                }
+                // else: nothing changed in the sheet for this guest — skip the write entirely
             }
         }
 
         guestRepository.saveAll(toSave);
 
-        // Write UUIDs back to the sheet — best-effort, non-fatal
+        // Write UUIDs back to the sheet — best-effort, non-fatal.
+        // Runs even when no guests changed, because newly-generated UUIDs for previously
+        // unstamped rows still need to be written into the spreadsheet for future syncs.
         if (!writeBackCells.isEmpty()) {
             try {
                 googleOAuthService.writeSheetCells(coupleId, spreadsheetId, writeBackCells);
@@ -452,7 +465,7 @@ public class GoogleSheetSyncService {
             }
         }
 
-        return new UpsertCounts(added, updated);
+        return new UpsertCounts(added, updated, seen);
     }
 
     /**
@@ -461,7 +474,7 @@ public class GoogleSheetSyncService {
      * is not possible. Name changes will create a new guest; the old one is not deleted.
      */
     private UpsertCounts upsertGuestsByName(UUID coupleId, List<String[]> rows) throws Exception {
-        if (rows.isEmpty()) return new UpsertCounts(0, 0);
+        if (rows.isEmpty()) return new UpsertCounts(0, 0, 0);
 
         String[] headers = rows.get(0);
         Map<String, Integer> colIndex = buildColumnIndex(headers);
@@ -477,6 +490,7 @@ public class GoogleSheetSyncService {
         List<Guest> toSave = new ArrayList<>();
         int added = 0;
         int updated = 0;
+        int seen = 0;
 
         for (int i = 1; i < rows.size(); i++) {
             String[] cols = rows.get(i);
@@ -485,6 +499,7 @@ public class GoogleSheetSyncService {
                     "names of all guests in party (separated by , if multiple)",
                     "name");
             if (name == null || name.isBlank()) continue;
+            seen++;
 
             Guest g = byName.get(name.toLowerCase().trim());
 
@@ -526,7 +541,9 @@ public class GoogleSheetSyncService {
                 ));
                 added++;
             } else {
-                toSave.add(new Guest(
+                // Build the would-be merged Guest, then equals-check against existing.
+                // Only save + count as "updated" if something actually changed.
+                Guest merged = new Guest(
                         g.id(), g.coupleId(), name,
                         emailVal    != null ? emailVal    : g.email(),
                         phone       != null ? phone       : g.phone(),
@@ -547,13 +564,17 @@ public class GoogleSheetSyncService {
                         g.createdAt(), g.updatedAt(),
                         g.partyId(), g.partyName(), g.partyContact(),
                         g.sheetSyncId()  // preserve any UUID already stamped
-                ));
-                updated++;
+                );
+                if (!merged.equals(g)) {
+                    toSave.add(merged);
+                    updated++;
+                }
+                // else: unchanged, skip the write
             }
         }
 
         guestRepository.saveAll(toSave);
-        return new UpsertCounts(added, updated);
+        return new UpsertCounts(added, updated, seen);
     }
 
     // -----------------------------------------------------------------------
