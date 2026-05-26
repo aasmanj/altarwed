@@ -211,6 +211,19 @@ export default function SideBySideEditor() {
     [blocks, activeTab],
   )
 
+  // Push the current tab's blocks to the preview iframe whenever they change.
+  // React Query's optimistic updates fire on mutation start, so the preview
+  // updates before the backend round-trip completes — typing feels instant.
+  // Same pattern as HeroLive, just for the full block list. Must live above
+  // the early-return guards so the hook order stays stable across renders.
+  useEffect(() => {
+    if (!iframeRef.current) return
+    iframeRef.current.contentWindow?.postMessage(
+      { type: 'blocks-update', blocks: blocksForTab },
+      PREVIEW_ORIGIN,
+    )
+  }, [blocksForTab])
+
   // ── Auto-backfill on first entry ─────────────────────────────────────────
   // If the couple has scalar fields (story, venue, hotel, etc.) but zero
   // blocks, seed defaults so they don't land on an empty editor. Idempotent
@@ -258,11 +271,19 @@ export default function SideBySideEditor() {
   const liveUrl = `${PREVIEW_ORIGIN}/wedding/${website.slug}`
   const tabPreviewUrl = previewUrl(website.slug, activeTab)
 
+  // Full iframe reload. Used only for changes the live-preview channel can't
+  // express: hero photo upload (server-rendered Image), publish toggle (toggles
+  // the draft watermark), manual refresh button.
   const bumpPreview = () => {
     setPreviewLoading(true)
     setPreviewKey(k => k + 1)
     setLastSavedAt(Date.now())
   }
+
+  // Lightweight save acknowledgement that does NOT reload the iframe. Block
+  // mutations push updates to the preview via postMessage (see effect above),
+  // so the iframe never needs to refetch for content edits.
+  const markSaved = () => setLastSavedAt(Date.now())
 
   const handleAdd = (type: BlockType) => {
     setPicking(false)
@@ -277,17 +298,17 @@ export default function SideBySideEditor() {
           // true, but a later tab-switch + return does not re-open it.
           setLastAddedBlockId(created.id)
           window.setTimeout(() => setLastAddedBlockId(null), 0)
-          bumpPreview()
+          markSaved()
         },
       },
     )
   }
   const handleUpdate = (blockId: string, contentJson: string) =>
-    update.mutate({ blockId, contentJson }, { onSuccess: bumpPreview })
+    update.mutate({ blockId, contentJson }, { onSuccess: markSaved })
   const handleDelete = (blockId: string) =>
-    remove.mutate(blockId, { onSuccess: bumpPreview })
+    remove.mutate(blockId, { onSuccess: markSaved })
   const handleReorder = (orderedBlockIds: string[]) => {
-    reorder.mutate({ tab: activeTab, orderedBlockIds }, { onSuccess: bumpPreview })
+    reorder.mutate({ tab: activeTab, orderedBlockIds }, { onSuccess: markSaved })
   }
   const togglePublish = () => publish.mutate(!website.isPublished, { onSuccess: bumpPreview })
 
@@ -435,7 +456,17 @@ export default function SideBySideEditor() {
               src={tabPreviewUrl}
               title={`Wedding website preview: ${BLOCK_TAB_LABELS[activeTab]} tab`}
               className="w-full h-full bg-white"
-              onLoad={() => setPreviewLoading(false)}
+              onLoad={() => {
+                setPreviewLoading(false)
+                // Sync current blocks to the freshly loaded preview. Handles the
+                // race where the couple edits a block before the iframe finishes
+                // loading: the postMessage effect fires before BlockListLive is
+                // listening, so we resend the latest state on load.
+                iframeRef.current?.contentWindow?.postMessage(
+                  { type: 'blocks-update', blocks: blocksForTab },
+                  PREVIEW_ORIGIN,
+                )
+              }}
             />
             </div>
           </div>

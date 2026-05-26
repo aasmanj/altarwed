@@ -116,7 +116,6 @@ function SortableRow({
         >
           {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           {BLOCK_TYPE_LABELS[block.type]}
-          <span className="text-xs text-stone-400 ml-auto">#{block.sortOrder}</span>
         </button>
         <button
           onClick={() => {

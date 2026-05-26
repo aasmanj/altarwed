@@ -7,8 +7,13 @@ import { useAuth } from '@/core/auth/AuthContext'
 import { defaultContentJson, type BlockType, type WeddingPageBlock } from './types'
 
 // Debounced autosave: every time `contentJson` changes locally, schedule a save
-// 400ms later. New keystrokes reset the timer (classic debounce). On unmount
+// 150ms later. New keystrokes reset the timer (classic debounce). On unmount
 // (e.g. tab switch) the pending save is flushed so we never lose data.
+// The 150ms cadence is tuned for the live-preview pipeline: the optimistic
+// React Query cache update in onMutate fires the postMessage that drives the
+// iframe, so the lower the debounce, the snappier the preview feels. We don't
+// go below ~100ms because each save = one backend PATCH + one DB write.
+const AUTOSAVE_DEBOUNCE_MS = 150
 interface Props {
   block: WeddingPageBlock
   onSave: (contentJson: string) => void
@@ -33,7 +38,7 @@ export default function BlockForm({ block, onSave }: Props) {
         onSave(pendingRef.current)
         pendingRef.current = null
       }
-    }, 400)
+    }, AUTOSAVE_DEBOUNCE_MS)
   }
 
   // Flush on unmount.

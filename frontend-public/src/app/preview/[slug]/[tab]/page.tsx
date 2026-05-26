@@ -11,10 +11,11 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
-import BlockRenderer, { WeddingPartyMember, WeddingPhoto } from '@/components/blocks/BlockRenderer'
+import { type WeddingPartyMember, type WeddingPhoto } from '@/components/blocks/BlockRenderer'
 import { getWedding, getBlocks, type BlockTab } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
 import HeroLive from './HeroLive'
+import BlockListLive from './BlockListLive'
 
 export const metadata: Metadata = { robots: { index: false, follow: false } }
 
@@ -64,12 +65,13 @@ export default async function PreviewPage({
   // The route is noindex'd; the slug is unguessable.
   if (!wedding) notFound()
 
-  const needsParty  = blocks.some(b => b.type === 'WEDDING_PARTY_GRID')
-  const needsPhotos = blocks.some(b => b.type === 'PHOTO_ALBUM_GRID')
-
+  // Fetch party + photos unconditionally on the preview route. The block list
+  // is now live-updated over postMessage, so adding a WEDDING_PARTY_GRID block
+  // after the iframe loaded would otherwise render with empty data until the
+  // next full reload. Cost is two cheap API calls per iframe hydration.
   const [partyMembers, photos] = await Promise.all([
-    needsParty  ? getPartyMembers(wedding.id) : Promise.resolve([] as WeddingPartyMember[]),
-    needsPhotos ? getPhotos(slug)             : Promise.resolve([] as WeddingPhoto[]),
+    getPartyMembers(wedding.id),
+    getPhotos(slug),
   ])
 
   const heroImage = wedding.heroPhotoUrl
@@ -138,26 +140,18 @@ export default async function PreviewPage({
         </section>
       )}
 
-      {/* Tab content — blocks render here */}
+      {/* Tab content — blocks render here.
+          BlockListLive is a client component that takes the SSR-hydrated blocks
+          list as initial state, then swaps it out in response to postMessage
+          events from the editor. Lets text edits, add/delete/reorder, and image
+          uploads all reflect in the preview without an iframe reload. */}
       <main className="max-w-3xl mx-auto px-6 py-10 space-y-8">
-        {blocks.length === 0 ? (
-          <div className="text-center text-[#a08060] text-sm py-16 italic border-2 border-dashed border-[#e8dcc8] rounded-xl">
-            <p>This tab is empty.</p>
-            <p className="mt-1 text-xs">Add blocks on the right to see them appear here.</p>
-          </div>
-        ) : (
-          blocks
-            .sort((a, b) => a.sortOrder - b.sortOrder)
-            .map(block => (
-              <BlockRenderer
-                key={block.id}
-                block={block}
-                wedding={wedding}
-                partyMembers={partyMembers}
-                photos={photos}
-              />
-            ))
-        )}
+        <BlockListLive
+          initialBlocks={blocks}
+          wedding={wedding}
+          partyMembers={partyMembers}
+          photos={photos}
+        />
       </main>
 
       {/* Footer — matches public site for visual consistency */}
