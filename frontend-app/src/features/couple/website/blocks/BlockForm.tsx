@@ -448,7 +448,6 @@ function BlockImageUpload({
   return (
     <div className="space-y-2">
       {currentUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
         <img src={currentUrl} alt="Current" className="w-full max-h-36 object-cover rounded-lg border border-stone-200" />
       )}
       {/* Drop zone doubles as the click-to-upload button. The visual highlights

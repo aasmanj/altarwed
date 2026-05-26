@@ -183,6 +183,11 @@ export default function SideBySideEditor() {
     if (dragRafRef.current != null) window.cancelAnimationFrame(dragRafRef.current)
   }, [])
 
+  // Hooks must run on every render in the same order, so this stays above the
+  // early returns below. The hook itself returns null when lastSavedAt is null,
+  // so calling it before we have data is safe.
+  const savedAgo = useFriendlyAgo(lastSavedAt)
+
   // Send a live-preview message to the iframe. The preview page's HeroLive
   // listens for these and patches the DOM without a server round-trip: used
   // for tagline + name fields so typing feels instant.
@@ -303,8 +308,6 @@ export default function SideBySideEditor() {
       if (heroInputRef.current) heroInputRef.current.value = ''
     }
   }
-
-  const savedAgo = useFriendlyAgo(lastSavedAt)
 
   return (
     <div className="flex flex-col h-screen">
@@ -442,7 +445,11 @@ export default function SideBySideEditor() {
             visible bar centred inside. Pointer events (not mouse) cover touch
             and pen too. role=separator + keyboard makes it accessible.
             `touch-action: none` prevents the browser from scroll-hijacking the
-            drag on touch devices. */}
+            drag on touch devices.
+            eslint-disable below: role="separator" with aria-valuenow IS an
+            interactive widget per the ARIA spec (a focusable splitter), but
+            jsx-a11y's heuristics treat <div role=separator> as non-interactive. */}
+        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
         <div
           onPointerDown={startDividerDrag}
           onDoubleClick={() => setPreviewWidthPct(60)}
@@ -452,6 +459,7 @@ export default function SideBySideEditor() {
           aria-valuemin={30}
           aria-valuemax={75}
           aria-valuenow={Math.round(previewWidthPct)}
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- focusable splitter, see comment above
           tabIndex={0}
           title="Drag to resize, double-click to reset, or use arrow keys"
           className={`hidden lg:flex group cursor-col-resize w-2 z-20 items-center justify-center touch-none select-none outline-none transition focus-visible:ring-2 focus-visible:ring-gold ${
@@ -847,33 +855,32 @@ function HeroSettings({
 
   return (
     <div className="border-b border-stone-200 flex-shrink-0 bg-stone-50">
-      {/* Collapsed summary row */}
-      <div className="px-3 py-2.5 flex items-center gap-3">
-        <div
-          className="w-12 h-8 rounded overflow-hidden border border-stone-200 flex-shrink-0 bg-stone-200 flex items-center justify-center cursor-pointer"
-          onClick={() => setExpanded(e => !e)}
-          title="Hero photo"
-        >
+      {/* Collapsed summary row: whole row is one button so the thumb, label,
+          and chevron share a single click target with keyboard + focus support. */}
+      <button
+        type="button"
+        onClick={() => setExpanded(e => !e)}
+        aria-expanded={expanded}
+        className="w-full px-3 py-2.5 flex items-center gap-3 text-left hover:bg-stone-100 focus-visible:ring-2 focus-visible:ring-gold focus:outline-none"
+      >
+        <span className="w-12 h-8 rounded overflow-hidden border border-stone-200 flex-shrink-0 bg-stone-200 flex items-center justify-center">
           {website.heroPhotoUrl
-            ? <img src={website.heroPhotoUrl} alt="Hero" className="w-full h-full object-cover" />
+            ? <img src={website.heroPhotoUrl} alt="" className="w-full h-full object-cover" />
             : <ImagePlus size={14} className="text-stone-400" />
           }
-        </div>
-        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpanded(e => !e)}>
-          <p className="text-xs font-medium text-stone-700 leading-none mb-0.5">Hero photo &amp; tagline</p>
-          <p className="text-[10px] text-stone-400 leading-none truncate">
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-xs font-medium text-stone-700 leading-none mb-0.5">Hero photo &amp; tagline</span>
+          <span className="block text-[10px] text-stone-400 leading-none truncate">
             {website.heroTagline === ''
               ? '(no tagline: hidden)'
               : website.heroTagline || 'Together in covenant (default)'}
-          </p>
-        </div>
-        <button
-          onClick={() => setExpanded(e => !e)}
-          className="text-xs text-stone-500 hover:text-stone-800 flex-shrink-0"
-        >
+          </span>
+        </span>
+        <span className="text-xs text-stone-500 flex-shrink-0" aria-hidden="true">
           {expanded ? '▲' : '▼'}
-        </button>
-      </div>
+        </span>
+      </button>
 
       {/* Expanded editor */}
       {expanded && (

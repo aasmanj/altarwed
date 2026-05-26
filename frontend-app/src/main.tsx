@@ -1,9 +1,17 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
+import React, { StrictMode } from 'react'
+import ReactDOM, { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import App from './App'
 import './index.css'
+
+// Dev-only: log a11y violations to the console as the UI mounts/updates.
+// Zero prod overhead — Vite tree-shakes the import out of the prod bundle.
+if (import.meta.env.DEV) {
+  import('@axe-core/react').then(axe => {
+    axe.default(React, ReactDOM, 1000)
+  })
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {

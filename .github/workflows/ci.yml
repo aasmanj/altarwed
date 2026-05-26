@@ -100,11 +100,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install frontend-public deps
+        working-directory: ./frontend-public
+        run: npm install
+      - name: Lint frontend-public (a11y via jsx-a11y rules)
+        working-directory: ./frontend-public
+        run: npm run lint
       - name: Build frontend-public
         working-directory: ./frontend-public
-        run: |
-          npm install
-          npm run build
+        run: npm run build
 
   frontend-app-build:
     runs-on: ubuntu-latest
@@ -114,8 +118,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install frontend-app deps
+        working-directory: ./frontend-app
+        run: npm install
+      # Ratcheted: 45 existing label-has-associated-control warnings are
+      # known false positives + a separate cleanup pass. The cap stops new
+      # warnings from sneaking in while we work the pile down.
+      - name: Lint frontend-app (a11y via jsx-a11y rules)
+        working-directory: ./frontend-app
+        run: npm run lint -- --max-warnings=45
       - name: Build frontend-app
         working-directory: ./frontend-app
-        run: |
-          npm install
-          npm run build
+        run: npm run build

@@ -306,6 +306,7 @@ function TableModal({
               onChange={e => setName(e.target.value)}
               placeholder="e.g. Head Table, Family, Table 1"
               className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- intentional: first field of a modal the user just opened
               autoFocus
             />
           </div>
