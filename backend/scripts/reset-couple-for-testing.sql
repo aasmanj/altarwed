@@ -45,7 +45,7 @@ UNION ALL SELECT 'seating_tables',            COUNT(*) FROM seating_tables      
 UNION ALL SELECT 'ceremony_sections',         COUNT(*) FROM ceremony_sections     WHERE couple_id = @couple_id
 UNION ALL SELECT 'google_sheet_syncs',        COUNT(*) FROM google_sheet_syncs    WHERE couple_id = @couple_id
 UNION ALL SELECT 'google_oauth_tokens',       COUNT(*) FROM google_oauth_tokens   WHERE couple_id = @couple_id
-UNION ALL SELECT 'password_reset_tokens',     COUNT(*) FROM password_reset_tokens WHERE couple_id = @couple_id
+UNION ALL SELECT 'password_reset_tokens',     COUNT(*) FROM password_reset_tokens WHERE email     = @target_email
 UNION ALL SELECT 'print_orders',              COUNT(*) FROM print_orders          WHERE couple_id = @couple_id;
 
 /* ── DELETE block. Uncomment the BEGIN/COMMIT pair below when ready. ──
@@ -69,7 +69,7 @@ BEGIN TRAN;
     DELETE FROM ceremony_sections       WHERE couple_id = @couple_id;
     DELETE FROM google_sheet_syncs      WHERE couple_id = @couple_id;
     DELETE FROM google_oauth_tokens     WHERE couple_id = @couple_id;
-    DELETE FROM password_reset_tokens   WHERE couple_id = @couple_id;
+    DELETE FROM password_reset_tokens   WHERE email     = @target_email;
 
     -- wedding_websites has CASCADE on blocks / party / photos / hotels,
     -- so the children clean themselves when we drop the parent row.
