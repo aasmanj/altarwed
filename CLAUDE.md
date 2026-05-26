@@ -29,6 +29,7 @@ These are contextual prompts you should surface unprompted when the moment is ri
 | Jordan finishes a feature branch with more than ~5 files changed and is ready to merge | "This is a good candidate for `/ultrareview` before merging — it runs multiple agents in parallel and catches things I miss in single-pass review. Type `/ultrareview` to launch it." |
 | Jordan asks about next steps, what to build, or monitoring | "Phase 7 is already live. This is the right time to set up scheduled monitoring agents via `/schedule`. I'd suggest: (1) nightly sitemap.xml validity check, (2) weekly check that /wedding/[jordan-slug] loads and is indexed. Want to do that now?" |
 | Jordan asks about monitoring, uptime, or "what happens when something breaks in prod" | "The right answer here is a scheduled Claude agent via `/schedule` — it runs on cron, checks your endpoints, and can notify you. Want to set one up now?" |
+| Jordan ships a new public-facing page (in `frontend-public/`) | "Before pushing — run `npm run lint` in `frontend-public/` to catch accessibility violations (jsx-a11y rules ship with Next), then Tab through the page in the browser. The CLAUDE.md Accessibility Rules section is the checklist." |
 
 ## What We Are Building
 AltarWed is a faith-first Christian wedding planning platform — a two-sided marketplace
@@ -353,6 +354,104 @@ Current output is a console pattern with `%X{requestId}` interpolated. App Insig
 - Dynamic sitemap generated from DB at /sitemap.xml
 - URLs are lowercase, hyphenated, keyword-rich
 - ISR (revalidate) values: wedding pages = 60s, vendor pages = 15s (new vendors appear quickly), prayers = 30s
+
+## Accessibility Rules (WCAG 2.1 AA baseline — lawsuit prevention)
+
+The ADA doesn't (yet) have website-specific regulations, but US courts apply
+Title III by analogy and plaintiffs' law firms cite WCAG 2.1 AA as the de
+facto standard. Drive-by ADA lawsuits target sites with **obvious** failures:
+no alt text, no form labels, no keyboard nav, no contrast. The rules below
+keep AltarWed well clear of that target zone. They are not a claim of full
+compliance — that requires periodic manual audits with a screen reader.
+
+These rules apply to BOTH frontends but matter most on `frontend-public/`
+(homepage, wedding pages, vendor directory, blog) — the public surfaces a
+plaintiff's scanner would actually hit.
+
+### 1. Images
+- Every `<img>` and `<Image>` needs an `alt`. Descriptive for content images
+  (`alt="Bride and groom exchanging rings at the altar"`), empty string for
+  decorative ones (`alt=""`) — never just omit the attribute.
+- Couple-uploaded photos (hero, wedding party, album): use the field they
+  provide (caption, member name) or a sensible fallback ("Wedding photo").
+  Never `alt="image"` or `alt="photo"` — that's worse than nothing.
+
+### 2. Forms
+- Every `<input>`, `<textarea>`, `<select>` needs a programmatic label.
+  Either wrap it in `<label>`, use `htmlFor`/`id`, or use `aria-label` /
+  `aria-labelledby` when a visual label isn't possible. Placeholders are
+  NOT labels.
+- Required fields use the `required` attribute, not just an asterisk in the
+  label text.
+- Error messages must be associated with the input via `aria-describedby`
+  and announced (use `role="alert"` on the error container so screen readers
+  pick it up when it appears).
+
+### 3. Color contrast
+- Body text against its background must hit WCAG AA: 4.5:1 for normal text,
+  3:1 for large text (18pt+ or 14pt+ bold). The brown-light / cream palette
+  is borderline — check new color combinations at webaim.org/resources/contrastchecker
+  before shipping.
+- Never use color as the ONLY way to convey information (e.g. red text for
+  "error" — pair it with an icon and/or text like "Error:").
+
+### 4. Keyboard navigation
+- Every interactive element must be reachable by Tab and operable by
+  Enter/Space. If you're tempted to put `onClick` on a `<div>`, use a
+  `<button>` instead — it gets keyboard, focus, and screen reader for free.
+- Visible focus indicator on every focusable element. Tailwind's default
+  `focus:outline-none` is the most common offender — pair it with
+  `focus-visible:ring-2 focus-visible:ring-gold` or equivalent.
+- Modals must trap focus, return focus to the trigger on close, and close on
+  Escape.
+- Custom widgets (the divider in SideBySideEditor is a good example) need
+  proper ARIA: `role`, `aria-*` state, and keyboard handlers — see
+  `SideBySideEditor.tsx` for the pattern.
+
+### 5. Semantic HTML and headings
+- One `<h1>` per page. Headings step down without skipping levels
+  (h1 → h2 → h3, never h1 → h3).
+- Use `<nav>`, `<main>`, `<header>`, `<footer>`, `<article>`, `<section>`
+  for landmarks. Don't wrap everything in `<div>`.
+- Lists are `<ul>`/`<ol>`/`<li>`, not styled `<div>`s.
+- Links go somewhere (`<a href>`); buttons do something (`<button onClick>`).
+  Swapping these is the #1 accessibility mistake.
+
+### 6. Dynamic content and ARIA
+- Toast notifications, validation errors, and other auto-appearing content
+  go in a live region (`role="status"` for non-urgent, `role="alert"` for
+  urgent) so screen readers announce them.
+- Don't sprinkle ARIA "to be safe." Wrong ARIA is worse than no ARIA. If a
+  native element does the job, use it; ARIA is only for cases native HTML
+  can't express (the SideBySideEditor divider needed `role="separator"`
+  because no native HTML element fits).
+- Loading states need `aria-busy="true"` on the container, not just a
+  spinner.
+
+### 7. Media
+- Any future video content (testimonials, walkthroughs) needs captions.
+  Audio-only content needs a transcript.
+- Avoid autoplay. If unavoidable, provide a pause control AND don't play
+  audio.
+
+### 8. Anti-patterns the reviewer should flag
+- `<div onClick={...}>` without role + tabIndex + keyboard handler
+- `<img>` without `alt`
+- Form input without a label
+- `focus:outline-none` without a replacement focus indicator
+- Placeholder used as the only label
+- `<a>` used as a button (or vice versa)
+- Color-only error/success indication
+- Modal without focus trap or Escape-to-close
+
+### Tooling status
+- `frontend-public/`: `next lint` runs `eslint-plugin-jsx-a11y` rules
+  automatically. Run before pushing public-page changes.
+- `frontend-app/`: no eslint config yet — relies on manual review. Lower
+  legal risk (behind auth) but UX still matters.
+- Manual smoke test before any major public-page launch: Tab through the
+  page top-to-bottom, then run it through https://wave.webaim.org/ and
+  fix anything red.
 
 ## What NOT to Do — Ever
 - Never put @Entity on a domain model Record
