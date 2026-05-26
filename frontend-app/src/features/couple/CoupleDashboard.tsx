@@ -1,16 +1,16 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import { useWeddingWebsite, type WeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
+import OnboardingWizard from '@/features/couple/onboarding/OnboardingWizard'
+import TipCallout from '@/components/TipCallout'
+import { TIPS } from '@/lib/tips'
+import AtAGlanceCard from '@/features/couple/AtAGlanceCard'
 
 // Emails allowed to see the founder-metrics link in the dashboard header.
 // Authorization is enforced server-side via ADMIN_EMAILS env var; this list
 // is purely a UX gate so non-admins don't see a link that 403s. Keep in sync
 // with the backend list when adding new founders.
 const ADMIN_EMAILS = ['aasmanj@gmail.com']
-import OnboardingWizard from '@/features/couple/onboarding/OnboardingWizard'
-import TipCallout from '@/components/TipCallout'
-import { TIPS } from '@/lib/tips'
-import AtAGlanceCard from '@/features/couple/AtAGlanceCard'
 
 export default function CoupleDashboard() {
   const { user, logout } = useAuth()
@@ -73,24 +73,75 @@ export default function CoupleDashboard() {
           <TipCallout tip={TIPS.dashboardWelcome} />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {/* Tiles are grouped into a phased journey instead of a flat 14-card grid.
+            Numbered headings imply order without forcing a wizard; couples scan
+            top-to-bottom and naturally land on the right section. The unnumbered
+            "Explore" group is for ambient features (vendor directory) that aren't
+            on the critical path. */}
+        <PhaseSection number={1} title="Build the basics" description="Get the foundation in place so guests have something to RSVP to.">
           <DashboardCard title="My Wedding Website" description="Build and share your public wedding page" href="/dashboard/website/editor" live />
-          <DashboardCard title="Guest List" description="Manage guests and track RSVPs" href="/dashboard/guests" live />
           <DashboardCard title="Wedding Checklist" description="Faith-first planning, step by step" href="/dashboard/checklist" live />
+          <DashboardCard title="Guest List" description="Manage guests and track RSVPs" href="/dashboard/guests" live />
           <DashboardCard title="Wedding Party" description="Add your party members and officiant" href="/dashboard/wedding-party" live />
-          <DashboardCard title="Find Vendors" description="Browse faith-aligned vendors near you" href="https://www.altarwed.com/vendors" external live />
-          <DashboardCard title="Budget Tracker" description="Plan and track wedding spending" href="/dashboard/budget" live />
           <RegistryCard website={website} />
-          <DashboardCard title="Save the Dates" description="Design and send save-the-date emails" href="/dashboard/save-the-date" live />
-          <DashboardCard title="Communications" description="Send printed save-the-dates and invitations via Lob" href="/dashboard/communications" live />
+        </PhaseSection>
+
+        <PhaseSection number={2} title="Tell your guests" description="Send save-the-dates and invitations. Digital is free; printed postcards go out via Lob.">
+          <DashboardCard title="Communications" description="Save-the-dates, RSVP invitations, and printed postcards in one place" href="/dashboard/communications" live />
+        </PhaseSection>
+
+        <PhaseSection number={3} title="Plan the day" description="The logistics that come together as the date approaches.">
+          <DashboardCard title="Budget Tracker" description="Plan and track wedding spending" href="/dashboard/budget" live />
+          <DashboardCard title="Seating Chart" description="Drag and drop guest table assignments" href="/dashboard/seating" live />
           <DashboardCard title="Wedding Photos" description="Upload and share photos with guests" href="/dashboard/photos" live />
-          <DashboardCard title="Seating Chart" description="Drag-and-drop guest table assignments" href="/dashboard/seating" live />
-          <DashboardCard title="Scripture Builder" description="Browse wedding verses and pin one to your site" href="/dashboard/scripture" live />
-          <DashboardCard title="Vow Builder" description="Write and save your wedding vows — just for the two of you" href="/dashboard/vows" live />
+        </PhaseSection>
+
+        <PhaseSection
+          number={4}
+          title="Plan the ceremony"
+          description="Make this part of the day feel personal. Pick verses, write your vows, and shape the order of service."
+        >
           <DashboardCard title="Ceremony Builder" description="Plan your order of service with scripture, vows, and music" href="/dashboard/ceremony" live />
-        </div>
+          <DashboardCard title="Scripture Builder" description="Browse wedding verses and pin one to your site" href="/dashboard/scripture" live />
+          <DashboardCard title="Vow Builder" description="Write and save your vows, just for the two of you" href="/dashboard/vows" live />
+          <DashboardCard title="Ceremony Program" description="Print a one-page program for guests" href="/dashboard/ceremony/program" live />
+        </PhaseSection>
+
+        <PhaseSection title="Explore" description="Optional, browse anytime.">
+          <DashboardCard title="Find Vendors" description="Browse faith-aligned vendors near you" href="https://www.altarwed.com/vendors" external live />
+        </PhaseSection>
       </main>
     </div>
+  )
+}
+
+// Groups a set of tiles under a numbered, captioned heading. Numbering implies
+// order (build basics first, then announce, then plan, then ceremony) without
+// hard-gating couples to a wizard. The number chip is gold-on-cream so it reads
+// as a marker, not a "step you have not completed yet" warning.
+function PhaseSection({ number, title, description, children }: {
+  number?: number
+  title: string
+  description: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="mb-8 last:mb-0">
+      <div className="mb-3 flex items-center gap-3">
+        {number != null && (
+          <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gold/15 text-gold font-serif text-sm font-semibold shrink-0">
+            {number}
+          </span>
+        )}
+        <div className="min-w-0">
+          <h3 className="font-serif text-xl font-bold text-brown leading-tight">{title}</h3>
+          <p className="text-sm text-brown-light leading-snug">{description}</p>
+        </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {children}
+      </div>
+    </section>
   )
 }
 
