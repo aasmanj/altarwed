@@ -9,12 +9,26 @@ on:
   workflow_dispatch:
 
 jobs:
+  # ── Job 0 ─────────────────────────────────────────────────────────────────
+  # Sub-second filename sanity: duplicate Flyway versions, gaps, malformed
+  # names. Runs before the SQL Server container spins up so a busted rename
+  # fails in seconds with a precise message instead of a generic boot error.
+  # ──────────────────────────────────────────────────────────────────────────
+  migration-filenames:
+    runs-on: ubuntu-latest
+    name: Validate Flyway migration filenames
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash backend/scripts/check-migrations.sh
+
   # ── Job 1 ─────────────────────────────────────────────────────────────────
   # Build the JAR, run Flyway migrations against a real SQL Server container,
   # then let Hibernate validate every entity column. A type mismatch between a
   # migration and a JPA entity fails here — nothing reaches Azure.
   # ──────────────────────────────────────────────────────────────────────────
   build-and-validate:
+    needs: migration-filenames
     runs-on: ubuntu-latest
     name: Build JAR and validate DB schema
     timeout-minutes: 15

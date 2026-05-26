@@ -7,6 +7,19 @@ on:
     branches: [main]
 
 jobs:
+  # ── Flyway filename sanity (sub-second, fails fast) ────────────────────────
+  # Catches duplicate version numbers (two V33__*.sql), gaps, and malformed
+  # names before any job spins up a SQL Server container. The boot-time error
+  # for a duplicate version is generic and slow; this gives a precise message
+  # in seconds.
+  migration-filenames:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Flyway migration filenames
+        run: bash backend/scripts/check-migrations.sh
+
   # ── Unit tests (no DB required) ────────────────────────────────────────────
   # excludeTags("schema-validation") is set in build.gradle.kts, so
   # SchemaValidationTest (which requires SQL Server) is excluded here.
@@ -32,6 +45,7 @@ jobs:
   # validates every entity column. Catches migration-to-entity type mismatches
   # on PRs, not just at deploy time.
   schema-validate:
+    needs: migration-filenames
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
