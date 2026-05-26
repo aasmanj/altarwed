@@ -87,11 +87,10 @@ function SortableRow({
   const [open, setOpen] = useState(initiallyExpanded)
 
   // If the parent later flags this row as initially-expanded (e.g. because the
-  // couple just added a new block), open it. Only fires on transition false→true;
+  // couple just added a new block), open it. Only fires on transition false:to-true;
   // doesn't fight the user toggling it closed.
   useEffect(() => {
     if (initiallyExpanded) setOpen(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initiallyExpanded])
 
   const style = {

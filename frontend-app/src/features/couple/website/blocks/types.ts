@@ -62,7 +62,7 @@ export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
 }
 
 // One-sentence descriptions for the block picker. Couples (especially older
-// guests doing a walkthrough) don't know what "VENUE_CARD" means — these
+// guests doing a walkthrough) don't know what "VENUE_CARD" means: these
 // disambiguate. Kept under ~90 chars each so they wrap to one line in the picker.
 export const BLOCK_TYPE_DESCRIPTIONS: Record<BlockType, string> = {
   TEXT:               'A paragraph of plain text. Use for greetings, notes, or anything narrative.',
@@ -81,7 +81,7 @@ export const BLOCK_TYPE_DESCRIPTIONS: Record<BlockType, string> = {
   VOWS_PREVIEW:       'Side-by-side preview of both partners’ vows (visible to guests after publishing).',
 }
 
-// Which block types each tab is allowed to add. Keeps the editor coherent —
+// Which block types each tab is allowed to add. Keeps the editor coherent  
 // e.g. you can't drop a HOTEL_CARD on the RSVP tab.
 export const ALLOWED_TYPES_PER_TAB: Record<BlockTab, BlockType[]> = {
   HOME: ['HEADING', 'TEXT', 'IMAGE', 'SCRIPTURE', 'DIVIDER', 'COUNTDOWN', 'RSVP_CTA'],
@@ -105,7 +105,7 @@ export interface WeddingPageBlock {
   updatedAt: string
 }
 
-// Default contentJson string for each block type — used when adding a new block.
+// Default contentJson string for each block type: used when adding a new block.
 export function defaultContentJson(type: BlockType): string {
   switch (type) {
     case 'TEXT':
@@ -124,7 +124,7 @@ export function defaultContentJson(type: BlockType): string {
       return JSON.stringify({ side: 'BRIDE' })
     default:
       // DIVIDER, VENUE_CARD, HOTEL_CARD, COUNTDOWN, RSVP_CTA, PHOTO_ALBUM_GRID,
-      // VOWS_PREVIEW — payload pulled from the website's scalar fields at render time.
+      // VOWS_PREVIEW: payload pulled from the website's scalar fields at render time.
       return '{}'
   }
 }

@@ -35,11 +35,17 @@ export default function WeddingNav({
 
   const base = `/wedding/${slug}`
   const label = (tab: string, fallback: string) => customLabels?.[tab] || fallback
-  const visible = (tab: string) => !hiddenTabs?.has(tab)
+  // HOME and RSVP are load-bearing navigation anchors that the rest of the site
+  // links to. Even if a malformed hiddenTabs value or a future API call manages
+  // to include one of them, this guard ensures guests can still navigate Home
+  // and submit an RSVP. The editor TabSettingsPanel also disables these
+  // checkboxes UI-side; this is defence in depth.
+  const HARD_VISIBLE: ReadonlySet<string> = new Set(['HOME', 'RSVP'])
+  const visible = (tab: string) => HARD_VISIBLE.has(tab) || !hiddenTabs?.has(tab)
 
   // Each entry pairs a BlockTab enum name with its nav metadata. `show` combines
   // the data-gate (does the couple have content for this tab?) AND the per-couple
-  // visibility override (did they explicitly hide it?). Hidden wins — couples
+  // visibility override (did they explicitly hide it?). Hidden wins: couples
   // intentionally opting out of a tab is a stronger signal than the default
   // content-gate heuristic.
   const tabs = [

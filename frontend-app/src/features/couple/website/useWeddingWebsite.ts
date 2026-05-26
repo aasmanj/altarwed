@@ -34,7 +34,7 @@ export interface WeddingWebsite {
   partnerTwoVows: string | null
   goalBudget: number | null
   // V34: per-couple tab visibility + custom labels. Both opaque strings the
-  // backend never inspects — frontend parses on read, serializes on write.
+  // backend never inspects: frontend parses on read, serializes on write.
   //   hiddenTabs       = CSV of BlockTab enum names ("REGISTRY,TRAVEL")
   //   customTabLabels  = JSON map ({"TRAVEL":"Hotels & flights"})
   hiddenTabs: string | null
@@ -58,7 +58,7 @@ export function useWeddingWebsite(coupleId: string) {
       return res.data
     },
     retry: (count, err: unknown) => {
-      // Don't retry 404 — website just hasn't been created yet
+      // Don't retry 404: website just hasn't been created yet
       const status = (err as { response?: { status?: number } })?.response?.status
       return status !== 404 && count < 2
     },
@@ -91,7 +91,7 @@ export function useUpdateWeddingWebsite(coupleId: string) {
       return { previous }
     },
 
-    // Server response wins — replace optimistic data with the real saved record.
+    // Server response wins: replace optimistic data with the real saved record.
     onSuccess: (data) => qc.setQueryData(['wedding-website', coupleId], data),
 
     // If the PATCH fails, roll back to what was in the cache before the mutation.

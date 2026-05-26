@@ -194,7 +194,7 @@ function FieldsFor({
               className={inputClass}
               placeholder="e.g. January 22, 2026 · The day we met"
             />
-            <p className="text-xs text-stone-400 mt-1">Free text — write a date, a place, anything.</p>
+            <p className="text-xs text-stone-400 mt-1">Free text: write a date, a place, anything.</p>
           </Field>
           <Field label="Story text">
             <textarea
@@ -395,7 +395,7 @@ function BlockHint({ children }: { children: React.ReactNode }) {
 // ── BlockImageUpload ─────────────────────────────────────────────────────────
 // Upload-from-computer widget used by IMAGE and STORY_ENTRY blocks.
 // Calls POST /api/v1/uploads/wedding-websites/{websiteId}/block-image and hands
-// back the returned URL — caller writes it into contentJson via onChange.
+// back the returned URL: caller writes it into contentJson via onChange.
 function BlockImageUpload({
   currentUrl,
   websiteId,

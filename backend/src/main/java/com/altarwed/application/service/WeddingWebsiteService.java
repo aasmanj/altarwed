@@ -15,13 +15,36 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class WeddingWebsiteService {
 
     private static final Logger log = LoggerFactory.getLogger(WeddingWebsiteService.class);
+
+    // Core tabs that cannot be hidden: HOME is the landing page, RSVP is the
+    // whole point of the platform. The frontend disables these checkboxes in
+    // the settings panel, but we strip them here too so that any direct API
+    // call (or future bug) cannot leave a guest unable to RSVP.
+    private static final Set<String> HARD_VISIBLE_TABS = Set.of("HOME", "RSVP");
+
+    // Removes HOME/RSVP from a hiddenTabs CSV. Returns the sanitised string or
+    // null if the input is null/blank.
+    private static String sanitiseHiddenTabs(String csv) {
+        if (csv == null) return null;
+        String cleaned = Arrays.stream(csv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .filter(s -> !HARD_VISIBLE_TABS.contains(s))
+                .distinct()
+                .sorted()
+                .collect(Collectors.joining(","));
+        return cleaned;
+    }
 
     private final WeddingWebsiteRepository websiteRepository;
     private final RevalidationPort revalidationPort;
@@ -136,7 +159,10 @@ public class WeddingWebsiteService {
 
                 req.goalBudget()        != null ? req.goalBudget()        : existing.goalBudget(),
 
-                req.hiddenTabs()        != null ? req.hiddenTabs()        : existing.hiddenTabs(),
+                // Strip HOME/RSVP from the hiddenTabs CSV before persisting so a
+                // direct API call cannot hide them. The frontend already disables
+                // those checkboxes; this is defence at the boundary.
+                req.hiddenTabs()        != null ? sanitiseHiddenTabs(req.hiddenTabs()) : existing.hiddenTabs(),
                 req.customTabLabels()   != null ? req.customTabLabels()   : existing.customTabLabels(),
 
                 existing.isDeleted(), existing.deletedAt(),

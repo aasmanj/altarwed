@@ -68,7 +68,7 @@ export default function SideBySideEditor() {
   useEffect(() => {
     window.localStorage.setItem('editor.previewViewport', previewViewport)
   }, [previewViewport])
-  // Last block id added — used to auto-expand the newly created block so the
+  // Last block id added: used to auto-expand the newly created block so the
   // user can start editing immediately instead of hunting for it in the list.
   const [lastAddedBlockId, setLastAddedBlockId] = useState<string | null>(null)
   // Settings drawer (per-tab visibility + custom labels).
@@ -97,7 +97,7 @@ export default function SideBySideEditor() {
     return () => window.removeEventListener('resize', handler)
   }, [])
 
-  // Divider drag state — onMouseDown captures the current rect; mousemove
+  // Divider drag state: onMouseDown captures the current rect; mousemove
   // computes the new percentage relative to it. Listeners attach to window
   // (not the divider) so the drag continues even if the cursor leaves the bar.
   const splitContainerRef = useRef<HTMLDivElement>(null)
@@ -128,7 +128,7 @@ export default function SideBySideEditor() {
   }, [])
 
   // Send a live-preview message to the iframe. The preview page's HeroLive
-  // listens for these and patches the DOM without a server round-trip — used
+  // listens for these and patches the DOM without a server round-trip: used
   // for tagline + name fields so typing feels instant.
   const sendPreviewUpdate = useCallback((field: string, value: unknown) => {
     iframeRef.current?.contentWindow?.postMessage(
@@ -137,7 +137,7 @@ export default function SideBySideEditor() {
     )
   }, [])
 
-  // Block counts per tab — used to badge tabs that already have content so
+  // Block counts per tab: used to badge tabs that already have content so
   // couples can see at a glance which sections they've configured.
   const blockCountByTab = useMemo(() => {
     const counts: Partial<Record<BlockTab, number>> = {}
@@ -212,7 +212,10 @@ export default function SideBySideEditor() {
           // Auto-expand the newly created block in the list so the couple
           // starts editing immediately. Pattern matches Notion/Linear: "add"
           // implicitly means "add and start editing", not "add and find later".
+          // Clear on the next macrotask so the row mounts with initiallyExpanded
+          // true, but a later tab-switch + return does not re-open it.
           setLastAddedBlockId(created.id)
+          window.setTimeout(() => setLastAddedBlockId(null), 0)
           bumpPreview()
         },
       },
@@ -267,7 +270,7 @@ export default function SideBySideEditor() {
               <p className="text-xs text-brown-light truncate">
                 {website.isPublished
                   ? <>Live at <a href={liveUrl} target="_blank" rel="noopener noreferrer" className="text-gold hover:underline">{website.slug}</a></>
-                  : <>Draft — only you can see this preview</>
+                  : <>Draft: only you can see this preview</>
                 }
               </p>
             </div>
@@ -369,7 +372,7 @@ export default function SideBySideEditor() {
               ref={iframeRef}
               key={previewKey}
               src={tabPreviewUrl}
-              title={`Wedding website preview — ${BLOCK_TAB_LABELS[activeTab]} tab`}
+              title={`Wedding website preview: ${BLOCK_TAB_LABELS[activeTab]} tab`}
               className="w-full h-full bg-white"
               onLoad={() => setPreviewLoading(false)}
             />
@@ -377,7 +380,7 @@ export default function SideBySideEditor() {
           </div>
         </div>
 
-        {/* Draggable divider — only visible on lg screens. The bar itself is
+        {/* Draggable divider: only visible on lg screens. The bar itself is
             1px wide; the hit area is 9px (the surrounding cursor-col-resize zone)
             so it's easy to grab without dominating the layout visually. */}
         <div
@@ -394,7 +397,7 @@ export default function SideBySideEditor() {
           className="bg-white flex flex-col overflow-hidden min-w-0 flex-1"
           style={isLg ? { width: `${100 - previewWidthPct}%`, flex: 'none' } : undefined}
         >
-          {/* Hero section — photo + tagline + names, page-level settings above block tabs */}
+          {/* Hero section: photo + tagline + names, page-level settings above block tabs */}
           <HeroSettings
             website={website}
             websiteId={websiteId ?? ''}
@@ -426,7 +429,10 @@ export default function SideBySideEditor() {
             onNameSave={(field, value) => updateWebsite.mutate({ [field]: value })}
             onNameLive={(field, value) => sendPreviewUpdate(field, value)}
             onDefaultPhotoSelect={(url) => {
-              sendPreviewUpdate('heroPhotoUrl', url)
+              // bumpPreview is required here: HeroLive only patches tagline +
+              // names client-side, not the hero <Image>, so the iframe reload
+              // is what actually shows the new photo. The postMessage is a
+              // forward-looking no-op until HeroLive grows photo handling.
               updateWebsite.mutate({ heroPhotoUrl: url }, { onSuccess: bumpPreview })
             }}
           />
@@ -438,7 +444,7 @@ export default function SideBySideEditor() {
             onChange={handleHeroUpload}
           />
 
-          {/* Tab bar — shows block counts as a badge */}
+          {/* Tab bar: shows block counts as a badge */}
           <div className="border-b border-stone-200 flex items-stretch flex-shrink-0">
             <div className="flex overflow-x-auto flex-1">
               {BLOCK_TABS.map(t => {
@@ -470,7 +476,7 @@ export default function SideBySideEditor() {
                 )
               })}
             </div>
-            {/* Settings drawer toggle — exposes per-tab hide/rename controls.
+            {/* Settings drawer toggle: exposes per-tab hide/rename controls.
                 Positioned on the right so it doesn't crowd the tabs themselves. */}
             <button
               onClick={() => setSettingsOpen(s => !s)}
@@ -485,7 +491,7 @@ export default function SideBySideEditor() {
             </button>
           </div>
 
-          {/* Settings drawer — per-tab visibility + custom labels.
+          {/* Settings drawer: per-tab visibility + custom labels.
               Slides under the tab bar so it sits in context with the controls it edits. */}
           {settingsOpen && (
             <TabSettingsPanel
@@ -495,7 +501,7 @@ export default function SideBySideEditor() {
             />
           )}
 
-          {/* Block list — also a drop target for picker drags. When a couple drags
+          {/* Block list: also a drop target for picker drags. When a couple drags
               a block type from the picker and releases over this container, we
               decode the MIME and call create() with the matching type. */}
           <div
@@ -521,7 +527,7 @@ export default function SideBySideEditor() {
             ) : blocksForTab.length === 0 ? (
               // Empty tab: show picker if the user already clicked "Add your first block",
               // otherwise show the empty-state prompt. The BlockPicker CANNOT live in the
-              // "has blocks" branch below — it would never render when the tab is empty.
+              // "has blocks" branch below: it would never render when the tab is empty.
               picking ? (
                 <BlockPicker
                   tab={activeTab}
@@ -544,7 +550,7 @@ export default function SideBySideEditor() {
               />
             )}
 
-            {/* Add-block UI — only shown when the tab already has blocks */}
+            {/* Add-block UI: only shown when the tab already has blocks */}
             {!blocksLoading && blocksForTab.length > 0 && (
               <div className="mt-3">
                 {picking ? (
@@ -565,7 +571,7 @@ export default function SideBySideEditor() {
             )}
           </div>
 
-          {/* Footer hint about backfill — kept subtle */}
+          {/* Footer hint about backfill: kept subtle */}
           <div className="border-t border-stone-200 px-3 py-2 text-[11px] text-stone-500 bg-stone-50 flex items-center justify-between flex-shrink-0">
             <span>Edits save automatically.</span>
             <button
@@ -633,7 +639,7 @@ function BlockPicker({
       {/* Each item is both clickable AND draggable. The drag carries the block
           TYPE in a custom MIME; the list's drop handler decodes it and calls
           create. We use native HTML5 drag rather than @dnd-kit here because the
-          list already uses @dnd-kit for reorder — mixing two systems is fine,
+          list already uses @dnd-kit for reorder: mixing two systems is fine,
           but using HTML5 keeps the picker's contract narrow (one direction:
           picker → list, no reorder semantics). */}
       <div className="grid grid-cols-1 gap-1.5">
@@ -663,12 +669,12 @@ function BlockPicker({
 }
 
 // Friendly per-tab hint shown in the empty state. Couples without context
-// often don't know what each tab is supposed to contain — these one-liners
+// often don't know what each tab is supposed to contain: these one-liners
 // reduce that friction.
 const TAB_HINTS: Record<BlockTab, string> = {
   HOME: 'This is the landing page. Add a heading, your favorite scripture, or a countdown to your wedding day.',
   OUR_STORY: 'Tell your guests how you met, when you knew, and what God has done in your relationship.',
-  DETAILS: 'Ceremony time, venue, dress code, what to expect — all the practical info your guests need.',
+  DETAILS: 'Ceremony time, venue, dress code, what to expect: all the practical info your guests need.',
   WEDDING_PARTY: 'Add a grid for your bridesmaids and groomsmen. Pulls from the Wedding Party tab of the dashboard.',
   REGISTRY: 'Link to your registries. Configure URLs in the classic Wedding Website editor, then show them here.',
   TRAVEL: 'Hotels, airports, and travel guidance for out-of-town guests.',
@@ -720,11 +726,11 @@ function HeroSettings({
   websiteId: string
   heroUploading: boolean
   onHeroUploadClick: () => void
-  // Drop handler — couple drags a JPEG/PNG/WebP into the photo area. Same endpoint
+  // Drop handler: couple drags a JPEG/PNG/WebP into the photo area. Same endpoint
   // as the click-to-upload, just bypassing the file picker.
   onHeroDrop: (file: File) => void | Promise<void>
   // Persisted save (debounced + on-blur). Empty string means "user cleared the
-  // tagline" and is persisted as-is — the public page treats empty as "hide".
+  // tagline" and is persisted as-is: the public page treats empty as "hide".
   onTaglineSave: (tagline: string) => void
   // Fires on every keystroke. Sends a postMessage to the preview iframe so the
   // hero updates instantly without waiting for a save round-trip + iframe reload.
@@ -774,7 +780,7 @@ function HeroSettings({
           <p className="text-xs font-medium text-stone-700 leading-none mb-0.5">Hero photo &amp; tagline</p>
           <p className="text-[10px] text-stone-400 leading-none truncate">
             {website.heroTagline === ''
-              ? '(no tagline — hidden)'
+              ? '(no tagline: hidden)'
               : website.heroTagline || 'Together in covenant (default)'}
           </p>
         </div>
@@ -827,7 +833,7 @@ function HeroSettings({
             </div>
           </div>
 
-          {/* Bride + Groom names — bride first per display convention */}
+          {/* Bride + Groom names: bride first per display convention */}
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-1">
@@ -972,6 +978,7 @@ function TabSettingsPanel({
   onClose: () => void
   onSave: (payload: { hiddenTabs: string; customTabLabels: string }) => void
 }) {
+  const [saving, setSaving] = useState(false)
   // Parse the opaque server fields on open. Re-derived from props rather than
   // memoised because the panel is short-lived and re-parsing is trivially cheap.
   const initialHidden = new Set<BlockTab>(
@@ -1006,6 +1013,8 @@ function TabSettingsPanel({
   }
 
   const handleSave = () => {
+    if (saving) return // guard against rapid double-click firing two mutations
+    setSaving(true)
     // Sort the hidden CSV deterministically so two equivalent saves produce
     // identical strings (cleaner audit logs, predictable cache keys).
     const hiddenCsv = Array.from(hidden).sort().join(',')
@@ -1033,7 +1042,7 @@ function TabSettingsPanel({
       </div>
       <ul className="space-y-1.5">
         {BLOCK_TABS.map(tab => {
-          // HOME and RSVP are core navigation surfaces — couples can rename them
+          // HOME and RSVP are core navigation surfaces: couples can rename them
           // but cannot hide them entirely (a guest landing on /wedding/[slug]
           // without a Home tab would be confused, and RSVP is the whole point).
           const isCore = tab === 'HOME' || tab === 'RSVP'
@@ -1068,9 +1077,10 @@ function TabSettingsPanel({
         </p>
         <button
           onClick={handleSave}
-          className="rounded bg-gold text-white text-xs font-medium px-3 py-1.5 hover:bg-gold-dark transition"
+          disabled={saving}
+          className="rounded bg-gold text-white text-xs font-medium px-3 py-1.5 hover:bg-gold-dark disabled:opacity-50 transition"
         >
-          Save tabs
+          {saving ? 'Saving…' : 'Save tabs'}
         </button>
       </div>
     </div>

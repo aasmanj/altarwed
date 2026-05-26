@@ -42,12 +42,25 @@ export interface TabCustomisation {
   labels: Partial<Record<BlockTab, string>>
 }
 
+// Whitelist of valid BlockTab values. Used to reject garbage from the opaque
+// hidden_tabs / custom_tab_labels columns: a future migration or hand-edit
+// could leave stray strings, but the public nav should only ever recognise
+// the eight known tabs.
+const VALID_TABS: ReadonlySet<BlockTab> = new Set<BlockTab>([
+  'HOME', 'OUR_STORY', 'DETAILS', 'WEDDING_PARTY',
+  'REGISTRY', 'TRAVEL', 'PHOTOS', 'RSVP',
+])
+
+function isValidTab(v: string): v is BlockTab {
+  return VALID_TABS.has(v as BlockTab)
+}
+
 export function parseTabCustomisation(wedding: Pick<WeddingWebsite, 'hiddenTabs' | 'customTabLabels'>): TabCustomisation {
   const hidden = new Set<BlockTab>()
   if (wedding.hiddenTabs) {
     for (const raw of wedding.hiddenTabs.split(',')) {
-      const v = raw.trim() as BlockTab
-      if (v) hidden.add(v)
+      const v = raw.trim()
+      if (isValidTab(v)) hidden.add(v)
     }
   }
   const labels: Partial<Record<BlockTab, string>> = {}
@@ -55,10 +68,12 @@ export function parseTabCustomisation(wedding: Pick<WeddingWebsite, 'hiddenTabs'
     try {
       const parsed = JSON.parse(wedding.customTabLabels) as Record<string, string>
       for (const [k, v] of Object.entries(parsed)) {
-        if (typeof v === 'string' && v.trim()) labels[k as BlockTab] = v.trim()
+        if (isValidTab(k) && typeof v === 'string' && v.trim()) {
+          labels[k] = v.trim()
+        }
       }
     } catch {
-      // Malformed JSON from a corrupted save - fall back to defaults silently
+      // Malformed JSON from a corrupted save: fall back to defaults silently
       // rather than crash the public page render.
     }
   }
