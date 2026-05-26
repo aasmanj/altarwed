@@ -109,6 +109,8 @@ export default function CoupleDashboard() {
 
         <PhaseSection title="Explore" description="Optional, browse anytime.">
           <DashboardCard title="Find Vendors" description="Browse faith-aligned vendors near you" href="https://www.altarwed.com/vendors" external live />
+          <DashboardCard title="Resources" description="Christian marriage books and registry partners we recommend" href="https://www.altarwed.com/resources" external live />
+          <DashboardCard title="Blog" description="Wedding scripture, vows, ceremony guides, and planning tips" href="https://www.altarwed.com/blog" external live />
         </PhaseSection>
       </main>
     </div>
