@@ -476,147 +476,56 @@ plaintiff's scanner would actually hit.
 
 ## Build Phases — Current Status
 
-### ✅ Phase 1 — COMPLETE
-Backend API (auth, couples, vendors, denominations), marketing homepage, waitlist, CI/CD, Azure infrastructure, JWT auth, Flyway schema.
+Schema state is captured in the Domain Entities list above. Anything that shipped
+is recoverable from `git log` + the live DB. Only load-bearing facts and active
+work are listed here.
 
-### ✅ Phase 2 — COMPLETE
-Couple wedding website live at altarwed.com/wedding/[slug]. WeddingWebsite entity (V7+V8), full CRUD + soft delete, duplicate slug protection. Next.js SSR public page. Dashboard at app.altarwed.com (Azure Static Web Apps, custom domain). Auth end-to-end. Rate limiting (Bucket4j), Swagger disabled in prod, global exception handler.
+### Shipped (Phases 1 through 7b) — couples can fully self-serve
 
-### ✅ Phase 3 — COMPLETE
-(a) Password reset — V9 migration, Resend email, time-limited token.
-(b) Guest list + RSVP — V10 (guests) + V11 (rsvp tokens). Custom RSVP fields: meal preference, dietary restrictions, song request, shuttle. RSVP emails from "Jordan & Eden-Faith" via Resend. Public RSVP page at altarwed.com/rsvp/[token].
-(c) Email deliverability — SPF + DKIM + DMARC. 10/10 mail-tester.com score.
+Live in prod: auth (JWT + refresh), couple signup + onboarding wizard, wedding
+website (altarwed.com/wedding/[slug]) with side-by-side block editor (14 block
+types incl. STORY_ENTRY/IMAGE/HERO), guest list + RSVP flow (custom fields,
+remind-me, party grouping, invite cap), seating chart (drag-drop), budget,
+checklist, wedding party, photo album, vow builder, ceremony builder, scripture
+browser, Google Sheets guest sync (15-min poll), multiple hotel blocks (V30),
+save-the-date emails (async, Resend), vendor portal + public directory, blog
+(4 posts seeded, Article JSON-LD), legal pages, resources/affiliate page,
+sitemap.xml, RSVP reminders (hourly poll).
 
-### ✅ Phase 3b — COMPLETE
-(a) Wedding planning checklist — V13 migration. PlanningTask entity. 27 faith-first seeded tasks (lazy-seeded on first GET). Dashboard checklist UI with progress bar, category grouping, category filters, custom task support.
-(b) Custom RSVP fields — meal, dietary, song request, shuttle. Frontend wired.
-(c) Prayer wall — V14 migration. WeddingPrayer entity. Public submit + list on wedding page. PrayerWallSection client component with optimistic update.
-(d) Wedding party — V15 migration. WeddingPartyMember entity. Side: BRIDE/GROOM/NEUTRAL (officiant, readers, musicians). Photo upload via Azure Blob (15 MB limit, JPEG/PNG/WebP). Dashboard add/edit/delete/photo. Public wedding page: photo grid grouped by side, NEUTRAL shown first as "Ceremony".
+### Active conventions established by earlier phases (still load-bearing)
 
-### ✅ Phase 4 — COMPLETE
-(a) Vendor portal — GET/PATCH /api/v1/vendors/me. Vendor registration at app.altarwed.com/register/vendor. Vendor listing editor at /vendor/listing. VendorDashboard links live.
-(b) Open couple signup — 3-step onboarding wizard (names → URL slug + date → confirm). Auto-generates slug from partner names. Shows for new users with no website.
-(c) Registry links — already in WeddingWebsite entity. Editor tab live. Displayed on public wedding page.
-(d) Accommodations — hotel block fields already in WeddingWebsite entity. Editor "Hotel" tab live. Displayed on public wedding page.
-(e) Public vendor directory — altarwed.com/vendors (SSR, category filter chips, city search). altarwed.com/vendors/[id] detail page with Open Graph metadata.
-(f) Public wedding page redesign — sticky tab nav (Our Story/Details/Wedding Party/Registry/Travel/Prayer Wall), gradient hero, gold ornament section headings, RSVP callout card, partner names used as section labels.
-(g) Site-wide navigation — shared SiteHeader (sticky, all public pages) + SiteFooter (4-column). Homepage nav updated. Wedding pages show discreet "Created with AltarWed" bar for viral discovery.
+- **Partner mapping:** `partnerOneName` = Groom, `partnerTwoName` = Bride.
+  DTO columns intentionally unchanged to avoid a rename migration.
+- **Local-noon date parsing:** `formatWeddingDate` / `daysUntilDate` helpers in
+  `frontend-public/src/lib/date.ts` and `frontend-app/src/lib/date.ts` parse
+  `YYYY-MM-DD` as local noon to dodge timezone off-by-one. Use these helpers,
+  don't `new Date(dateString)` directly.
+- **Invite cap:** backend `MAX_INVITE_SENDS = 3`, frontend shows "Max sent"
+  after 3. Per-guest counter on `guests.invite_send_count`.
+- **Photo uploads:** all media goes to Azure Blob via the upload controllers
+  (hero, wedding-party, album, block-image). 15 MB limit, JPEG/PNG/WebP only.
+- **Block editor preview:** iframe loads `frontend-public/preview/[slug]/[tab]`
+  (no site chrome). Tab param is lowercased in URL, uppercased server-side.
+- **Async email:** Spring `@Async` on `emailExecutor` (4–10 threads, queue 200).
+  Any new email send goes through `AsyncEmailService`.
+- **Scripture verse is locked from manual edit** in the editor — couples must
+  pick via the "Browse wedding verses" modal or autofill.
+- **Scripture / testimony / covenant fields:** scripture stayed (load-bearing).
+  Testimony, covenant statement, and PIN privacy were removed in V25 after the
+  Katelyn+Luke walkthrough (didn't survive real usage).
 
-### ✅ Phase 5 — COMPLETE
-(a) Budget tracker — V16 migration. BudgetItem entity. Dashboard UI: category grouping, estimated vs actual, paid toggle, running totals.
-(b) Seating chart — V19 migration. SeatingTable entity (named tables, per-table capacity). Drag-and-drop with @dnd-kit/core. Over-capacity indicator. Guests linked by tableNumber (1-based index into sorted tables array). Full create/edit/delete modal.
-(c) Digital save-the-dates — Faith-themed HTML email (Colossians 3:14 footer, gold/cream palette). SendTheDateController: POST /api/v1/save-the-dates/couple/{coupleId}/send. Dashboard preview + send UI.
-(d) Wedding website PIN protection — V18 migration (website_pin column). Opt-in toggle in Privacy tab. PinGate client component (sessionStorage-backed). Hero/names visible; tabs gated. PIN never returned in API response (only isPinProtected boolean). Public verify-pin endpoint whitelisted.
-(e) Guest photo sharing / album — V17 migration. WeddingPhoto entity. Azure Blob upload at POST /api/v1/uploads/wedding-websites/{websiteId}/photos. Dashboard grid UI with caption edit + delete.
-- Async email — AsyncConfig (ThreadPoolTaskExecutor, 4–10 threads, queue 200, CallerRunsPolicy). AsyncEmailService wraps all sends with @Async. GuestService + PasswordResetService updated.
-- @/ path alias enforced — .eslintrc.json no-restricted-imports bans relative parent imports across frontend-public.
-- Next Flyway migration: V23
+### Next up
 
-### ✅ Phase 6a — Scripture builder (COMPLETE — EXPERIMENTAL)
-Scripture browser at /dashboard/scripture. GET /api/v1/scripture/featured (15 curated verses). GET /api/v1/scripture/search?q= (proxies bible-api.com). "Pin to my website" calls existing PATCH endpoint. WeddingWebsiteEditor gains "Browse verses" inline modal.
-⚠️ EXPERIMENTAL — validate with real couples before keeping. Same applies to the testimony and covenantStatement fields on the website editor.
+- **Phase 2 (editor polish) — RSVP "find your invitation"** — public endpoint
+  `GET /api/v1/guests/rsvp/find?slug={slug}&name={name}` returning masked guest
+  name + token. No auth, Bucket4j rate-limited. UI on the public RSVP tab.
+- **Phase 8 — Stripe billing** — VendorSubscription wired to Stripe (BASIC $29 /
+  FEATURED $79 / PREMIUM $149 / couple Covenant $9). Webhook handler, portal UI.
+  Gated until vendor + couple usage is established (see Monetization Context).
 
-### ✅ Phase 6b — Couple search + UI polish (COMPLETE)
-- GET /api/v1/wedding-websites/search?name=&year= — public endpoint, searches published sites by partner name (LIKE) and optional wedding year
-- /find-wedding SSR page on altarwed.com — search form + results with name, date, and location
-- "Find a Wedding" added to SiteHeader nav
-- Wedding party public page: bride/groom sides now displayed side-by-side (2-column grid on md+)
-- Tab nav scrollbar hidden on both editor (frontend-app) and public wedding page (frontend-public)
+### Known minor issues
 
-### ✅ Phase 6c — Affiliate links / resources page (COMPLETE)
-Static page at altarwed.com/resources. Faith-based book recommendations with Amazon affiliate links: "The Meaning of Marriage" (Timothy Keller), "The Five Love Languages" (Gary Chapman). Registry affiliate links: Amazon, Target, Zola, The Knot. Affiliate disclosure included. Added to SiteHeader and SiteFooter.
-
-### ✅ Phase 6d — In-app help / contact (COMPLETE)
-Help banner at top of CoupleDashboard: "Questions or found a bug? Email hello@altarwed.com — Jordan responds personally."
-
-### ✅ Phase 6e — Legal pages (COMPLETE)
-Privacy policy at altarwed.com/privacy and Terms of Service at altarwed.com/terms. Both statically rendered. Added to SiteFooter. Covers: data collection, GDPR/CCPA, affiliate disclosure, cookies.
-
-### ✅ Phase 6f — Mobile optimization (COMPLETE)
-Responsive pass: CoupleDashboard header (truncate email, bigger touch targets), SeatingPage mobile tip banner + scrollable modal, BudgetPage + PhotosPage scrollable modals (max-h-[90vh]).
-
-### ✅ Phase 6g — Celebration UX / confetti effects (COMPLETE)
-canvas-confetti fires on: website first published (Draft→Published), checklist 100% complete (useRef guard prevents repeat). WeddingWebsiteEditor and ChecklistPage updated.
-
-### ✅ Phase 6h — Vow builder (COMPLETE)
-V20 migration adds partner_one_vows / partner_two_vows to wedding_websites. Partner-tabbed textarea with word count. Sidebar: opening line starters, writing prompts, scripture shortcut. Private side-by-side preview. Dashboard card + route at /dashboard/vows.
-
-### ✅ Phase 6i — Ceremony builder (COMPLETE)
-V21 migration adds ceremony_sections table. 12 section types (processional, prayer, scripture reading, vows, ring exchange, recessional, etc.). One-click classic Christian template seeds 9 sections. Full CRUD with sortOrder. Hexagonal: CeremonySection domain model → CeremonySectionRepository port → JPA repo → adapter → service → controller. Dashboard card + route at /dashboard/ceremony.
-
-### ✅ Guest mailing address (COMPLETE)
-V22 migration adds mail_address (NVARCHAR 500, nullable) to guests table. Freeform single field. Captured in Add Guest and Edit Guest forms. Positioned for future Lob.com print-mail integration (see Scale-Up section below).
-
-### ✅ Phase 0 (post-walkthrough cleanup) — COMPLETE (2026-05-20)
-After a real walkthrough with Jordan's sister Katelyn + her fiancé Luke (engaged, theknot.com users), shipped a focused cleanup pass before starting Phase 1 (side-by-side block editor).
-- **V25 migration** drops `testimony`, `covenant_statement`, `website_pin` columns; drops `wedding_prayers` table; adds `note_for_couple` + `invite_send_count` to guests; adds `goal_budget` to wedding_websites; adds `notes` + `assignee` to planning_tasks; adds `price_tier` to vendors (with CHECK constraint).
-- **Removals** wired end-to-end (backend + both frontends): testimony, covenant statement, PIN privacy, prayer wall page. Verify-pin endpoint deleted from controller + SecurityConfig whitelist.
-- **Date off-by-one bug fixed** via shared `formatWeddingDate` / `daysUntilDate` helpers parsing YYYY-MM-DD as LOCAL noon (`+ 'T12:00:00'`) in both `frontend-public/src/lib/date.ts` and `frontend-app/src/lib/date.ts`.
-- **Onboarding wizard re-asking date fixed**: AuthResponse now includes weddingDate end-to-end; OnboardingWizard pre-fills + locks step 2 when present.
-- **Copy/tone**: "Partner 1 / Partner 2" replaced with "Bride / Groom" across signup, onboarding, editor, vows. Sign-up form split per partner into first+last name fields (concat on submit; DB columns unchanged).
-- **Guest "note for couple"** replaces public prayer wall. Captured on RSVP form (private), surfaced in dashboard guest row, never returned publicly.
-- **Hotel→Travel rename**: dashboard tab + public section heading now consistent. Public page got dedicated `/wedding/[slug]/rsvp` tab — RSVP callout removed from home/hero.
-- **Scripture verse**: locked from manual edit (use "Browse wedding verses" modal or autofill); public banner enlarged to text-3xl with gradient.
-- **Wedding party**: color-coded sides (blush for bride, sky for groom) with bg-tinted card.
-- **Vendor**: added `ALTERATIONS` to `VendorCategory` enum.
-- **Checklist**: seeded tasks can now be deleted (removed `!task.isSeeded` guard).
-- **Invite cap**: backend `MAX_INVITE_SENDS = 3`; frontend shows "Max sent" after 3.
-- **Send-invite confirm popup** with email-content preview now wraps the invite/resend button on `GuestListPage`.
-- **"Now go check out the registry"** link on RSVP confirmation when attending.
-- Per CLAUDE.md mapping: `partnerOneName` = Groom, `partnerTwoName` = Bride. DTO columns unchanged in this phase to avoid a rename migration.
-
-### ✅ Phase 0b — Walkthrough followups — COMPLETE (2026-05-21)
-All items shipped. V25 columns were already in place; work was purely wiring + UI.
-- **Seating fixed-order toggle** — Lock/Unlock button; locked state disables drag, sorts guests by name, persisted in localStorage.
-- **Budget goal field** — goal input (blur/Enter to save via PATCH), "Goal vs Spent" amber/rose progress bar on BudgetPage.
-- **Wedding party photo crop on add form** — `cropToSquare` helper in MemberForm; auto-crops to square on file select, uploads cropped blob.
-- **Checklist notes + assignee** — expand-row UI; notes textarea + assignee field; Save/Reset; assignee shown in collapsed row summary.
-- **Vendor price-tier filter chips** — $, $$, $$$ chips on `/vendors` page; tier filter applied server-side via URL param.
-- **RSVP "Remind me in X days"** — V27 adds `remind_at` to guests; RsvpReminderService polls hourly; token NOT marked used so link stays valid; RsvpForm replaces MAYBE with 1/3/7 day buttons.
-- **Preview-before-publish warning** — SideBySideEditor shows draft state + "Publish first" message when `isPublished=false`.
-- **TipCallout component + nudge copy** — `TipCallout.tsx` + `tips.ts`; used on BudgetPage and ChecklistPage.
-
-### ✅ Phase 1 — Side-by-side block editor — COMPLETE (2026-05-21, extended 2026-05-23)
-- **V26 migration** creates `wedding_page_blocks` table (websiteId, tab, type, sortOrder, contentJson).
-- **14 block types**: HEADING, TEXT, IMAGE, DIVIDER, SCRIPTURE, VENUE_CARD, HOTEL_CARD, REGISTRY_CARD, COUNTDOWN, RSVP_CTA, WEDDING_PARTY_GRID, PHOTO_ALBUM_GRID, VOWS_PREVIEW, **STORY_ENTRY**.
-- **BlockBackfillService** seeds default blocks from existing website scalar fields on first backfill call. Idempotent (skips tabs that already have blocks). Scripture block only seeded on HOME tab (not DETAILS).
-- **WeddingPageBlockController** — full CRUD + reorder + backfill endpoints.
-- **SideBySideEditor** (`frontend-app`) — left iframe preview, right rail block list; add/edit/delete/reorder blocks per tab. Hero photo + tagline panel above block tabs.
-- **`/preview/[slug]/[tab]`** (`frontend-public`) — SSR preview route consumed by the iframe; tab param is lowercased in URL, uppercased server-side. No site chrome.
-- **BlockRenderer** — dispatches all 14 block types to styled React components.
-- **STORY_ENTRY block** — free-form "Our Story" moment: optional date/label badge (any text, no forced date picker), body textarea, optional photo upload with left/right position toggle. Photo + text render side-by-side on the public page.
-- **IMAGE block** — upload from computer via `POST /api/v1/uploads/wedding-websites/{websiteId}/block-image`. Returns `{ url }` only (no DB record; URL lives in contentJson). Thumbnail preview in editor.
-- **Hero customization** — `hero_tagline` field (V32 migration). Tagline input + 6 default Unsplash photos in editor. Public page uses tagline with "Together in covenant" fallback.
-- **Dashboard tile** links directly to `/dashboard/website/editor` (skips classic editor landing).
-- **FloatingEditButton** on every public wedding page — links to `app.altarwed.com/dashboard/website/editor`. Always visible (cross-domain auth not possible).
-- **Wedding page footer** — "Created on AltarWed" + CTA + legal links.
-
-### ✅ Phase 7 — Homepage launch + SEO content (COMPLETE)
-(a) Real marketing homepage live at altarwed.com — waitlist replaced with direct signup CTAs.
-(b) Blog infra live: BlogPost entity (V23), SSR at /blog and /blog/[slug]. ISR revalidate 3600s.
-(c) 4 posts seeded and live targeting high-volume keywords:
-  - bible-verses-for-weddings (~40K/mo)
-  - christian-wedding-vows (~18K/mo)
-  - christian-wedding-ceremony-order (~12K/mo)
-  - christian-wedding-planning-checklist (~8K/mo)
-
-**Verified complete:**
-- Article JSON-LD schema: PASS — `Article` type with headline, author, publisher, dates injected on every blog post page.
-- sitemap.xml: PASS — dynamic, fetches all blog posts + published wedding pages from API, graceful fallback if API is down.
-- Open Graph metadata: PASS — title, description, og:type=article, publishedTime, modifiedTime, authors all present.
-
-**Known minor issue:** blog post `revalidate = 60s` (should be 3600s per CLAUDE.md). Not urgent.
-
-### ✅ Phase 7b — Additional features shipped (V29-V31)
-- **V29** — Guest parties: groups guests under a shared `party_id`/`party_name`. One guest per party is `party_contact` and receives the invite email. Enables "The Smith Family" style grouping.
-- **V30** — Multiple hotel blocks: normalized `wedding_hotels` table replaces scalar hotel fields on `wedding_websites`. Couples can list multiple hotels with address, booking URL, block rate, distance from venue, and sort order. Old scalar fields retained for data safety; new UI writes to this table.
-- **V31** — Google Sheets sync: couples paste a public Google Sheet URL; a scheduled job polls every 15 minutes and upserts guests by name+email. One sheet per couple. `last_synced`, `last_error`, `row_count` tracked per sync run.
-
-### 🔜 Phase 2 (editor polish) — Next up
-- **RSVP "find your invitation" search** — guests visit the RSVP tab on the public wedding page and type their name to find their invitation (like The Knot). Searches guests by name, surfaces their RSVP token link so they can RSVP inline without needing the email. Needs a new public endpoint: `GET /api/v1/guests/rsvp/find?slug={slug}&name={name}` returning masked guest name + token. No auth — public but rate-limited (Bucket4j).
-
-### 🔜 Phase 8 — Stripe billing
-Vendor subscriptions ($29/$79/$149), couple Covenant Plan ($9/mo). Wire VendorSubscription entity to Stripe. Add subscription management UI. Webhook handler for payment events.
+- Blog post `revalidate = 60s` (should be 3600s per SEO rules above). Not urgent.
 
 ## Wedding Website Feature — Live Details
 - URL pattern: altarwed.com/wedding/[slug]
