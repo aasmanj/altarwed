@@ -1,5 +1,6 @@
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { ImagePlus, Loader2, MapPin, Hotel as HotelIcon, Sparkles, BookOpen, Gift, Check } from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
@@ -57,6 +58,8 @@ export default function OnboardingWizard() {
   const updateWebsite = useUpdateWeddingWebsite(coupleId)
 
   const [step, setStep] = useState<Step>(1)
+  const directionRef = useRef(1)
+  const shouldReduce = useReducedMotion()
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -128,8 +131,8 @@ export default function OnboardingWizard() {
   }
 
   const goto = (n: Step) => { setError(''); setStep(n) }
-  const next = () => goto(Math.min(step + 1, TOTAL_STEPS) as Step)
-  const back = () => goto(Math.max(step - 1, 1) as Step)
+  const next = () => { directionRef.current = 1; goto(Math.min(step + 1, TOTAL_STEPS) as Step) }
+  const back = () => { directionRef.current = -1; goto(Math.max(step - 1, 1) as Step) }
 
   const handleFinish = async () => {
     if (!slug.trim()) { setError('URL slug is required.'); goto(2); return }
@@ -211,97 +214,113 @@ export default function OnboardingWizard() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-[#e8dcc8] p-8 shadow-sm">
-
-          {step === 1 && (
-            <Step1Names
-              partnerOneName={partnerOneName}
-              partnerTwoName={partnerTwoName}
-              onPartnerOne={setPartnerOneName}
-              onPartnerTwo={setPartnerTwoName}
-              onNext={() => { suggestSlug(); next() }}
-            />
-          )}
-
-          {step === 2 && (
-            <Step2UrlDate
-              slug={slug}
-              onSlug={setSlug}
-              weddingDate={weddingDate}
-              onWeddingDate={setWeddingDate}
-              dateLocked={dateLocked}
-              onBack={back}
-              onNext={next}
-            />
-          )}
-
-          {step === 3 && (
-            <Step3Venue
-              venueName={venueName} onVenueName={setVenueName}
-              venueAddress={venueAddress} onVenueAddress={setVenueAddress}
-              venueCity={venueCity} onVenueCity={setVenueCity}
-              venueState={venueState} onVenueState={setVenueState}
-              ceremonyTime={ceremonyTime} onCeremonyTime={setCeremonyTime}
-              onBack={back} onNext={next}
-            />
-          )}
-
-          {step === 4 && (
-            <Step4Hotel
-              hotelName={hotelName} onHotelName={setHotelName}
-              hotelUrl={hotelUrl} onHotelUrl={setHotelUrl}
-              hotelDetails={hotelDetails} onHotelDetails={setHotelDetails}
-              onBack={back} onNext={next}
-            />
-          )}
-
-          {step === 5 && (
-            <Step5Hero
-              heroPhotoUrl={heroPhotoUrl}
-              onPickDefault={url => { setHeroPhotoUrl(url); setHeroFile(null); setHeroFilePreview(null) }}
-              heroFilePreview={heroFilePreview}
-              onPickFile={handleHeroFile}
-              onBack={back} onNext={next}
-            />
-          )}
-
-          {step === 6 && (
-            <Step6Scripture
-              featured={featured.data?.references ?? []}
-              isLoadingFeatured={featured.isLoading}
-              selectedReference={scriptureReference}
-              selectedText={scriptureText}
-              isFetching={fetchVerse.isPending}
-              onPick={pickFeaturedVerse}
-              onBack={back} onNext={next}
-            />
-          )}
-
-          {step === 7 && (
-            <Step7Registry
-              registryUrl={registryUrl1} onRegistryUrl={setRegistryUrl1}
-              registryLabel={registryLabel1} onRegistryLabel={setRegistryLabel1}
-              onBack={back} onNext={next}
-            />
-          )}
-
-          {step === 8 && (
-            <Step8Confirm
-              bride={partnerTwoName} groom={partnerOneName}
-              slug={slug} weddingDate={weddingDate}
-              filledChecklist={{
-                venue:     !!venueName,
-                hotel:     !!hotelName,
-                hero:      !!(heroPhotoUrl || heroFile),
-                scripture: !!scriptureReference,
-                registry:  !!registryUrl1,
+        <div className="bg-white rounded-2xl border border-[#e8dcc8] shadow-sm overflow-hidden">
+          <AnimatePresence mode="wait" initial={false} custom={directionRef.current}>
+            <motion.div
+              key={step}
+              custom={directionRef.current}
+              variants={{
+                enter: (d: number) => ({ x: d * 40, opacity: 0 }),
+                center: { x: 0, opacity: 1 },
+                exit: (d: number) => ({ x: d * -40, opacity: 0 }),
               }}
-              error={error}
-              submitting={submitting}
-              onBack={back}
-              onFinish={handleFinish}
-            />
-          )}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={shouldReduce ? { duration: 0 } : { type: 'spring', stiffness: 300, damping: 30 }}
+              className="p-8"
+            >
+              {step === 1 && (
+                <Step1Names
+                  partnerOneName={partnerOneName}
+                  partnerTwoName={partnerTwoName}
+                  onPartnerOne={setPartnerOneName}
+                  onPartnerTwo={setPartnerTwoName}
+                  onNext={() => { suggestSlug(); next() }}
+                />
+              )}
+
+              {step === 2 && (
+                <Step2UrlDate
+                  slug={slug}
+                  onSlug={setSlug}
+                  weddingDate={weddingDate}
+                  onWeddingDate={setWeddingDate}
+                  dateLocked={dateLocked}
+                  onBack={back}
+                  onNext={next}
+                />
+              )}
+
+              {step === 3 && (
+                <Step3Venue
+                  venueName={venueName} onVenueName={setVenueName}
+                  venueAddress={venueAddress} onVenueAddress={setVenueAddress}
+                  venueCity={venueCity} onVenueCity={setVenueCity}
+                  venueState={venueState} onVenueState={setVenueState}
+                  ceremonyTime={ceremonyTime} onCeremonyTime={setCeremonyTime}
+                  onBack={back} onNext={next}
+                />
+              )}
+
+              {step === 4 && (
+                <Step4Hotel
+                  hotelName={hotelName} onHotelName={setHotelName}
+                  hotelUrl={hotelUrl} onHotelUrl={setHotelUrl}
+                  hotelDetails={hotelDetails} onHotelDetails={setHotelDetails}
+                  onBack={back} onNext={next}
+                />
+              )}
+
+              {step === 5 && (
+                <Step5Hero
+                  heroPhotoUrl={heroPhotoUrl}
+                  onPickDefault={url => { setHeroPhotoUrl(url); setHeroFile(null); setHeroFilePreview(null) }}
+                  heroFilePreview={heroFilePreview}
+                  onPickFile={handleHeroFile}
+                  onBack={back} onNext={next}
+                />
+              )}
+
+              {step === 6 && (
+                <Step6Scripture
+                  featured={featured.data?.references ?? []}
+                  isLoadingFeatured={featured.isLoading}
+                  selectedReference={scriptureReference}
+                  selectedText={scriptureText}
+                  isFetching={fetchVerse.isPending}
+                  onPick={pickFeaturedVerse}
+                  onBack={back} onNext={next}
+                />
+              )}
+
+              {step === 7 && (
+                <Step7Registry
+                  registryUrl={registryUrl1} onRegistryUrl={setRegistryUrl1}
+                  registryLabel={registryLabel1} onRegistryLabel={setRegistryLabel1}
+                  onBack={back} onNext={next}
+                />
+              )}
+
+              {step === 8 && (
+                <Step8Confirm
+                  bride={partnerTwoName} groom={partnerOneName}
+                  slug={slug} weddingDate={weddingDate}
+                  filledChecklist={{
+                    venue:     !!venueName,
+                    hotel:     !!hotelName,
+                    hero:      !!(heroPhotoUrl || heroFile),
+                    scripture: !!scriptureReference,
+                    registry:  !!registryUrl1,
+                  }}
+                  error={error}
+                  submitting={submitting}
+                  onBack={back}
+                  onFinish={handleFinish}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         {/* Bottom hint */}

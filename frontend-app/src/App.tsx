@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'sonner'
+import { AnimatePresence, motion, MotionConfig } from 'framer-motion'
 import { AuthProvider } from '@/core/auth/AuthContext'
 import { ProtectedRoute } from '@/core/auth/ProtectedRoute'
 import LoginPage from '@/features/auth/LoginPage'
@@ -26,24 +27,18 @@ import CeremonyProgramPage from '@/features/couple/ceremony/CeremonyProgramPage'
 import CommunicationsPage from '@/features/couple/communications/CommunicationsPage'
 import AdminMetricsPage from '@/features/admin/AdminMetricsPage'
 
-export default function App() {
+function AnimatedRoutes() {
+  const location = useLocation()
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        {/* Toast notifications — sonner. Top-right placement is consistent with
-            Vercel/Linear/Cal.com; bottom-right reads as a chat notification. */}
-        <Toaster
-          position="top-right"
-          richColors
-          closeButton
-          toastOptions={{
-            classNames: {
-              toast: 'font-sans',
-              title: 'font-medium',
-            },
-          }}
-        />
-        <Routes>
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={location.pathname}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.12, ease: 'easeInOut' }}
+      >
+        <Routes location={location}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -205,7 +200,32 @@ export default function App() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+      </motion.div>
+    </AnimatePresence>
+  )
+}
+
+export default function App() {
+  return (
+    <MotionConfig reducedMotion="user">
+      <BrowserRouter>
+        <AuthProvider>
+          {/* Toast notifications — sonner. Top-right placement is consistent with
+              Vercel/Linear/Cal.com; bottom-right reads as a chat notification. */}
+          <Toaster
+            position="top-right"
+            richColors
+            closeButton
+            toastOptions={{
+              classNames: {
+                toast: 'font-sans',
+                title: 'font-medium',
+              },
+            }}
+          />
+          <AnimatedRoutes />
+        </AuthProvider>
+      </BrowserRouter>
+    </MotionConfig>
   )
 }

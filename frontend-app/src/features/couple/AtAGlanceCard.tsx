@@ -1,8 +1,32 @@
+import { useEffect, useRef, useState } from 'react'
+import { useReducedMotion } from 'framer-motion'
 import { useGuests } from '@/features/couple/guests/useGuests'
 import { useBudget } from '@/features/couple/budget/useBudget'
 import { usePlanningTasks } from '@/features/couple/checklist/usePlanningTasks'
 import type { WeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { daysUntilDate, formatShortDate } from '@/lib/date'
+
+function useCountUp(target: number, duration: number): number {
+  const [value, setValue] = useState(0)
+  const rafRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+    if (duration === 0 || target === 0) { setValue(target); return }
+    const start = performance.now()
+    const tick = (now: number) => {
+      const elapsed = now - start
+      const progress = Math.min(elapsed / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setValue(Math.round(eased * target))
+      if (progress < 1) rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current) }
+  }, [target, duration])
+
+  return value
+}
 
 interface Props {
   coupleId: string
@@ -10,6 +34,9 @@ interface Props {
 }
 
 export default function AtAGlanceCard({ coupleId, website }: Props) {
+  const shouldReduce = useReducedMotion()
+  const countDuration = shouldReduce ? 0 : 800
+
   const { data: guests } = useGuests(coupleId)
   const { data: budget } = useBudget(coupleId)
   const { data: tasks } = usePlanningTasks(coupleId)
@@ -32,19 +59,23 @@ export default function AtAGlanceCard({ coupleId, website }: Props) {
   const doneTasks = tasks?.filter(t => t.isCompleted).length ?? 0
   const checklistPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0
 
+  const animDays = useCountUp(Math.abs(days ?? 0), countDuration)
+  const animAttending = useCountUp(attending, countDuration)
+  const animGuests = useCountUp(totalGuests, countDuration)
+
   return (
     <div className="mb-8 rounded-2xl border border-gold-light bg-gradient-to-br from-white to-ivory p-6 shadow-sm">
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <Metric
           label="Wedding day"
-          primary={days === null ? '—' : days > 0 ? `${days}` : days === 0 ? 'Today!' : `${Math.abs(days)}`}
+          primary={days === null ? '—' : days > 0 ? `${animDays}` : days === 0 ? 'Today!' : `${animDays}`}
           suffix={days === null ? '' : days > 0 ? 'days to go' : days === 0 ? '' : 'days ago'}
           sub={dateLabel}
         />
         <Metric
           label="RSVPs"
-          primary={`${attending}`}
-          suffix={`of ${totalGuests} attending`}
+          primary={`${animAttending}`}
+          suffix={`of ${animGuests} attending`}
           sub={`${declining} declined · ${pending} pending · ${respondedPct}% responded`}
         />
         <Metric
