@@ -33,6 +33,10 @@ export default function FindInvitationWidget({ slug }: Props) {
     try {
       const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/guests/rsvp/find?slug=${encodeURIComponent(slug)}&name=${encodeURIComponent(trimmed)}`
       const res = await fetch(url)
+      if (res.status === 429) {
+        setError('Too many searches from your network. Please wait a minute and try again.')
+        return
+      }
       if (!res.ok) throw new Error('Search failed')
       const data: RsvpFindResult[] = await res.json()
       setResults(data)

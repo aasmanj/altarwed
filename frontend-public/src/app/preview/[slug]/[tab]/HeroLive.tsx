@@ -53,16 +53,29 @@ export default function HeroLive({ initialTagline, partnerOneName, partnerTwoNam
     return () => window.removeEventListener('message', handler)
   }, [])
 
+  // Structure mirrors the production hero in frontend-public/src/app/wedding/
+  // [slug]/layout.tsx (stacked names with a gold ampersand rule). Font sizes
+  // are intentionally one step smaller because the preview renders inside a
+  // smaller iframe viewport. If you change one hero, update the other so the
+  // WYSIWYG promise of the editor stays intact.
   return (
-    <div className="relative z-10 text-center pb-8 px-6 w-full">
+    <div className="relative z-10 text-center pb-8 px-6 w-full max-w-3xl mx-auto">
       {tagline !== '' && (
         <p className="mb-2 text-[10px] uppercase tracking-[0.3em] text-white/70 font-light">
           {tagline ?? 'Together in covenant'}
         </p>
       )}
-      <h1 className="font-serif text-3xl sm:text-5xl font-bold text-white leading-none">
-        {names.two} &amp; {names.one}
+      <h1 className="font-serif text-3xl sm:text-5xl md:text-6xl font-bold text-white leading-tight break-words text-balance">
+        {names.two}
       </h1>
+      <div className="my-3 flex items-center justify-center gap-3">
+        <div className="h-px w-12 bg-[#d4af6a]/60" />
+        <span className="font-serif text-xl text-[#d4af6a]" aria-hidden="true">&amp;</span>
+        <div className="h-px w-12 bg-[#d4af6a]/60" />
+      </div>
+      <p className="font-serif text-3xl sm:text-5xl md:text-6xl font-bold text-white leading-tight break-words text-balance">
+        {names.one}
+      </p>
       {children}
     </div>
   )

@@ -44,7 +44,7 @@ export default function InquiryForm({ vendorId, vendorBusinessName }: Props) {
         }),
       })
 
-      if (res.status === 202) {
+      if (res.ok) {
         setState({ kind: 'success' })
         return
       }

@@ -33,14 +33,15 @@ public class VendorInquiryService {
     public VendorInquiryService(
             VendorService vendorService,
             AsyncEmailService emails,
-            @Value("${altarwed.app.base-url}") String appBaseUrl
+            @Value("${altarwed.nextjs.base-url}") String publicSiteUrl
     ) {
         this.vendorService = vendorService;
         this.emails = emails;
-        // app.altarwed.com is the authenticated dashboard; the vendor profile
-        // is hosted on www.altarwed.com. Swap the subdomain so the email link
-        // resolves to the public profile a vendor can share.
-        this.publicSiteUrl = appBaseUrl.replace("app.", "www.");
+        // The Next.js base URL is the canonical public site. Do NOT derive it
+        // from altarwed.app.base-url via string mutation — that pattern breaks
+        // for local dev (localhost:5173 != localhost:3000) and any future
+        // subdomain rename.
+        this.publicSiteUrl = publicSiteUrl;
     }
 
     public void send(SendInquiryRequest req) {

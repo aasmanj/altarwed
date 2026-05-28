@@ -48,7 +48,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         boolean rateLimited =
                 uri.startsWith("/api/v1/auth/") ||
                 uri.startsWith("/api/v1/guests/rsvp/find") ||
-                uri.equals("/api/v1/inquiries");
+                uri.startsWith("/api/v1/inquiries");
         return !rateLimited;
     }
 

@@ -104,7 +104,17 @@ export default async function WeddingLayout({
       {eventJsonLd && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(eventJsonLd) }}
+          // JSON.stringify does NOT escape "</" — a couple-controlled name
+          // containing "</script>" would otherwise break out of this inline
+          // <script> block and execute arbitrary JS. Replace forward-slashes
+          // in close-tags with the unicode escape; valid JSON parsers accept
+          // / as "/", browsers do not treat < as <.
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(eventJsonLd)
+              .replace(/</g, '\\u003c')
+              .replace(/>/g, '\\u003e')
+              .replace(/&/g, '\\u0026'),
+          }}
         />
       )}
 
