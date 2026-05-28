@@ -54,6 +54,8 @@ export default async function PhotosPage(
               <img
                 src={photo.url}
                 alt={photo.caption ?? `${wedding.partnerTwoName} and ${wedding.partnerOneName}`}
+                loading="lazy"
+                decoding="async"
                 className="w-full object-cover"
               />
               {photo.caption && (

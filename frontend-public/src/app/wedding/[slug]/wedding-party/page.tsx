@@ -105,6 +105,10 @@ function PartyGroup({ label, members, accent }: {
               <img
                 src={member.photoUrl}
                 alt={member.name}
+                loading="lazy"
+                decoding="async"
+                width={112}
+                height={112}
                 className={`h-28 w-28 rounded-full object-cover mx-auto mb-4 border-2 ${a.border} shadow-sm`}
               />
             ) : (

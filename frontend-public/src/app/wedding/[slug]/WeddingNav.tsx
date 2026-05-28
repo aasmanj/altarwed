@@ -64,24 +64,35 @@ export default function WeddingNav({
     return pathname.startsWith(href)
   }
 
+  // Below 640px (Tailwind `sm`) the nav becomes horizontally scrollable so
+  // couples with many tabs and/or long custom labels do not lose tabs to
+  // text-ellipsis. At sm+ we keep the equal-width flex layout because the
+  // viewport has room for all 8 tabs at standard widths.
   return (
     <div className={`sticky top-0 z-40 bg-[#fdfaf6] border-b border-[#e8dcc8] transition-shadow duration-200 ${
       scrolled ? 'shadow-sm' : ''
     }`}>
-      <nav className="max-w-3xl mx-auto flex">
-        {tabs.map(tab => (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            className={`flex-1 text-center px-1 py-4 text-xs font-medium border-b-2 transition-colors whitespace-nowrap overflow-hidden text-ellipsis ${
-              isActive(tab.href)
-                ? 'border-[#d4af6a] text-[#3b2f2f]'
-                : 'border-transparent text-[#a08060] hover:text-[#3b2f2f]'
-            }`}
-          >
-            {tab.label}
-          </Link>
-        ))}
+      <nav
+        aria-label="Wedding sections"
+        className="max-w-3xl mx-auto flex overflow-x-auto sm:overflow-visible scrollbar-none"
+      >
+        {tabs.map(tab => {
+          const active = isActive(tab.href)
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              aria-current={active ? 'page' : undefined}
+              className={`shrink-0 sm:flex-1 text-center px-4 sm:px-1 py-4 text-xs font-medium border-b-2 transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af6a] focus-visible:ring-inset ${
+                active
+                  ? 'border-[#d4af6a] text-[#3b2f2f]'
+                  : 'border-transparent text-[#a08060] hover:text-[#3b2f2f]'
+              }`}
+            >
+              {tab.label}
+            </Link>
+          )
+        })}
       </nav>
     </div>
   )

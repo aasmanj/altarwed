@@ -67,19 +67,57 @@ export default async function WeddingLayout({
   // JSON.parse + one CSV split, both bounded by tiny inputs).
   const tabCustom = parseTabCustomisation(wedding)
 
+  // schema.org Event structured data. Google uses this for rich snippets
+  // (event date pill, location, calendar integration). startDate must be ISO
+  // 8601; ceremonyTime is free-form ("4:00 PM") so we only include the date
+  // portion to avoid emitting malformed datetimes that Google's validator
+  // rejects.
+  const eventJsonLd = wedding.weddingDate ? {
+    '@context': 'https://schema.org',
+    '@type': 'Event',
+    name: `${wedding.partnerTwoName} & ${wedding.partnerOneName}'s Wedding`,
+    startDate: wedding.weddingDate,
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    eventStatus: 'https://schema.org/EventScheduled',
+    image: [heroImage],
+    description: wedding.ourStory
+      ? wedding.ourStory.slice(0, 300)
+      : `${wedding.partnerTwoName} and ${wedding.partnerOneName} are getting married.`,
+    ...(wedding.venueName && {
+      location: {
+        '@type': 'Place',
+        name: wedding.venueName,
+        address: [wedding.venueAddress, wedding.venueCity, wedding.venueState]
+          .filter(Boolean).join(', ') || undefined,
+      },
+    }),
+    organizer: {
+      '@type': 'Organization',
+      name: 'AltarWed',
+      url: 'https://www.altarwed.com',
+    },
+  } : null
+
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
+
+      {eventJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(eventJsonLd) }}
+        />
+      )}
 
       {/* ── Hero ── */}
       <section className="relative h-[85vh] min-h-[520px] flex items-end justify-center overflow-hidden">
         <Image
           src={heroImage}
           alt={`${wedding.partnerTwoName} and ${wedding.partnerOneName}`}
-          fill className="object-cover" priority
+          fill sizes="100vw" className="object-cover" priority
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/10" />
 
-        <div className="relative z-10 text-center pb-14 px-6 w-full">
+        <div className="relative z-10 text-center pb-14 px-6 w-full max-w-4xl mx-auto">
           {/* Tagline supports three states: empty string (user cleared, render nothing),
               null/undefined (never set, show default), or any text (use as-is).
               `||` would treat empty-string as falsy and force the default; we want
@@ -89,24 +127,27 @@ export default async function WeddingLayout({
               {wedding.heroTagline ?? 'Together in covenant'}
             </p>
           )}
-          <h1 className="font-serif text-5xl sm:text-7xl font-bold text-white leading-none">
+          <h1 className="font-serif text-4xl sm:text-6xl md:text-7xl font-bold text-white leading-tight break-words text-balance">
             {wedding.partnerTwoName}
           </h1>
           <div className="my-4 flex items-center justify-center gap-4">
             <div className="h-px w-16 bg-[#d4af6a]/60" />
-            <span className="font-serif text-2xl text-[#d4af6a]">&amp;</span>
+            <span className="font-serif text-2xl text-[#d4af6a]" aria-hidden="true">&amp;</span>
             <div className="h-px w-16 bg-[#d4af6a]/60" />
           </div>
-          <h1 className="font-serif text-5xl sm:text-7xl font-bold text-white leading-none">
+          <p className="font-serif text-4xl sm:text-6xl md:text-7xl font-bold text-white leading-tight break-words text-balance">
             {wedding.partnerOneName}
-          </h1>
+          </p>
           {wedding.weddingDate && (
             <p className="mt-6 text-base sm:text-lg text-white/85 tracking-wide">
               {formatWeddingDate(wedding.weddingDate)}
             </p>
           )}
           {countdown !== null && countdown > 0 && (
-            <p className="mt-2 text-[#d4af6a] text-sm tracking-widest uppercase">
+            <p
+              className="mt-2 text-[#d4af6a] text-sm tracking-widest uppercase"
+              aria-label={`${countdown} days until the wedding`}
+            >
               {countdown} days away
             </p>
           )}
@@ -149,9 +190,9 @@ export default async function WeddingLayout({
       />
 
       {/* ── Tab content ── */}
-      <div className="max-w-3xl mx-auto px-6 py-14">
+      <main id="main" className="max-w-3xl mx-auto px-6 py-14">
         {children}
-      </div>
+      </main>
 
       {/* Footer */}
       <footer className="border-t border-[#e8dcc8] py-12 text-center text-sm text-[#a08060] space-y-4">

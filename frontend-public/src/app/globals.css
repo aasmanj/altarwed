@@ -20,6 +20,17 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Hide the native scrollbar on horizontally-scrollable nav while keeping
+     keyboard-driven scroll and touch swipe. Used by the wedding-page tab nav
+     on narrow viewports so 8 tabs do not visually wrap or ellipsize. */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @keyframes scroll {
