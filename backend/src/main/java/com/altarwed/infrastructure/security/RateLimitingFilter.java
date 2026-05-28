@@ -18,9 +18,10 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-// Protects auth endpoints against brute force attacks.
-// Token bucket per IP: 5 requests/minute with a 10-request burst ceiling.
-// ConcurrentHashMap is safe here because Bucket4j's consume() is thread-safe.
+// Protects abuse-sensitive public endpoints (auth, RSVP find-by-name, vendor
+// inquiry) against brute force and spam. Token bucket per IP: 5 requests/minute
+// with a 10-request burst ceiling. ConcurrentHashMap is safe here because
+// Bucket4j's consume() is thread-safe.
 @Component
 public class RateLimitingFilter extends OncePerRequestFilter {
 
@@ -37,10 +38,18 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         return Bucket.builder().addLimit(limit).build();
     }
 
+    // Paths that are unauthenticated AND have abuse potential (credential
+    // stuffing, name-enumeration on RSVP find, spam on vendor inquiry).
+    // Everything else either requires JWT (already protected) or is read-only
+    // GET on cached public data.
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        // Only rate-limit auth endpoints — everything else is unaffected
-        return !request.getRequestURI().startsWith("/api/v1/auth/");
+        String uri = request.getRequestURI();
+        boolean rateLimited =
+                uri.startsWith("/api/v1/auth/") ||
+                uri.startsWith("/api/v1/guests/rsvp/find") ||
+                uri.equals("/api/v1/inquiries");
+        return !rateLimited;
     }
 
     @Override

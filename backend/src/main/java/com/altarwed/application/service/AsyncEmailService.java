@@ -44,4 +44,20 @@ public class AsyncEmailService {
         emailPort.sendRsvpNotificationToCouple(coupleEmail, coupleNames, guestName,
                 rsvpStatus, noteForCouple, dashboardUrl);
     }
+
+    @Async("emailExecutor")
+    public void sendVendorInquiryEmail(String vendorEmail, String vendorBusinessName,
+                                        String coupleName, String coupleEmail,
+                                        String weddingDate, String message,
+                                        String vendorProfileUrl) {
+        emailPort.sendVendorInquiryEmail(vendorEmail, vendorBusinessName,
+                coupleName, coupleEmail, weddingDate, message, vendorProfileUrl);
+    }
+
+    @Async("emailExecutor")
+    public void sendVendorInquiryConfirmation(String coupleEmail, String coupleName,
+                                               String vendorBusinessName, String vendorProfileUrl) {
+        emailPort.sendVendorInquiryConfirmation(coupleEmail, coupleName,
+                vendorBusinessName, vendorProfileUrl);
+    }
 }

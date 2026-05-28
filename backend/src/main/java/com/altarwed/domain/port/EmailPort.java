@@ -8,4 +8,15 @@ public interface EmailPort {
                                       String guestName, String rsvpStatus,
                                       String noteForCouple,
                                       String dashboardUrl);
+
+    // Vendor inquiry: the couple sends a question/booking inquiry to a vendor.
+    // The vendor receives a formatted email with the couple's contact info and
+    // can hit reply to respond (reply-to is set to coupleEmail). The couple
+    // receives a confirmation copy.
+    void sendVendorInquiryEmail(String vendorEmail, String vendorBusinessName,
+                                String coupleName, String coupleEmail,
+                                String weddingDate, String message,
+                                String vendorProfileUrl);
+    void sendVendorInquiryConfirmation(String coupleEmail, String coupleName,
+                                       String vendorBusinessName, String vendorProfileUrl);
 }

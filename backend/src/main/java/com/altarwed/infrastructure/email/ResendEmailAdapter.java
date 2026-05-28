@@ -212,6 +212,158 @@ public class ResendEmailAdapter implements EmailPort {
     }
 
     @Override
+    public void sendVendorInquiryEmail(String vendorEmail, String vendorBusinessName,
+                                        String coupleName, String coupleEmail,
+                                        String weddingDate, String message,
+                                        String vendorProfileUrl) {
+        // HTML message body is sanitized by escaping the couple-supplied text fields.
+        // We do not interpolate untrusted input into href/src attributes.
+        String safeCoupleName = escapeHtml(coupleName);
+        String safeMessage    = escapeHtml(message).replace("\n", "<br>");
+        String safeWeddingDateRow = (weddingDate != null && !weddingDate.isBlank())
+                ? """
+                  <tr>
+                    <td style="color:#6b5344;padding:4px 0;width:120px;">Wedding date</td>
+                    <td style="padding:4px 0;color:#3b2f2f;font-weight:600;">%s</td>
+                  </tr>
+                  """.formatted(escapeHtml(weddingDate))
+                : "";
+
+        String html = """
+                <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfaf6;padding:40px;border-radius:8px;">
+                  <p style="text-align:center;color:#a08060;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">AltarWed Vendor Inquiry</p>
+                  <h2 style="text-align:center;color:#3b2f2f;margin:0 0 8px;">New inquiry for %s</h2>
+                  <p style="text-align:center;color:#6b5344;margin:0 0 32px;font-size:15px;">
+                    A couple has reached out about your services through AltarWed.
+                  </p>
+                  <table style="width:100%%;border-collapse:collapse;margin-bottom:20px;font-size:15px;">
+                    <tr>
+                      <td style="color:#6b5344;padding:4px 0;width:120px;">From</td>
+                      <td style="padding:4px 0;color:#3b2f2f;font-weight:600;">%s</td>
+                    </tr>
+                    <tr>
+                      <td style="color:#6b5344;padding:4px 0;">Reply to</td>
+                      <td style="padding:4px 0;color:#3b2f2f;"><a href="mailto:%s" style="color:#3b2f2f;text-decoration:underline;">%s</a></td>
+                    </tr>
+                    %s
+                  </table>
+                  <div style="background:#fff;border-left:3px solid #d4af6a;padding:14px 18px;border-radius:4px;color:#3b2f2f;line-height:1.6;margin-bottom:28px;">
+                    %s
+                  </div>
+                  <p style="color:#6b5344;font-size:13px;margin:0 0 24px;">
+                    To respond, just hit reply on this email. Your reply will go straight to the couple's inbox.
+                  </p>
+                  <div style="text-align:center;">
+                    <a href="%s"
+                       style="display:inline-block;padding:12px 28px;background:#3b2f2f;color:#d4af6a;text-decoration:none;border-radius:4px;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">
+                      View your listing
+                    </a>
+                  </div>
+                  <p style="text-align:center;color:#a08060;font-size:11px;margin-top:32px;">
+                    Sent via AltarWed, the faith-first wedding marketplace.
+                  </p>
+                </div>
+                """.formatted(escapeHtml(vendorBusinessName), safeCoupleName, escapeHtml(coupleEmail), escapeHtml(coupleEmail), safeWeddingDateRow, safeMessage, vendorProfileUrl);
+
+        String text = """
+                New AltarWed inquiry for %s
+
+                From: %s
+                Reply to: %s
+                %s
+
+                Message:
+                %s
+
+                To respond, reply directly to this email. Your reply will go to the couple's inbox.
+
+                View your listing: %s
+                """.formatted(
+                vendorBusinessName,
+                coupleName,
+                coupleEmail,
+                weddingDate != null && !weddingDate.isBlank() ? "Wedding date: " + weddingDate : "",
+                message,
+                vendorProfileUrl
+        );
+
+        // Reply-To routes vendor replies back to the couple. From-address must
+        // remain on our verified Resend domain (altarwed.com); we cannot spoof
+        // the couple's email in From without breaking SPF/DKIM.
+        Map<String, Object> body = Map.of(
+                "from", "AltarWed Inquiries <" + fromEmail + ">",
+                "to", List.of(vendorEmail),
+                "reply_to", coupleEmail,
+                "subject", "New inquiry from " + coupleName + " for " + vendorBusinessName,
+                "html", html,
+                "text", text
+        );
+
+        postEmail("vendor-inquiry", vendorEmail, body);
+    }
+
+    @Override
+    public void sendVendorInquiryConfirmation(String coupleEmail, String coupleName,
+                                               String vendorBusinessName, String vendorProfileUrl) {
+        String html = """
+                <div style="font-family:Georgia,serif;max-width:520px;margin:0 auto;background:#fdfaf6;padding:40px;border-radius:8px;">
+                  <p style="text-align:center;color:#a08060;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">AltarWed</p>
+                  <h2 style="text-align:center;color:#3b2f2f;margin:0 0 16px;">Inquiry sent</h2>
+                  <p style="color:#3b2f2f;font-size:15px;line-height:1.6;">
+                    Hi %s,
+                  </p>
+                  <p style="color:#3b2f2f;font-size:15px;line-height:1.6;">
+                    We just delivered your inquiry to <strong>%s</strong>. They will reply to you directly at the email you provided. Typical response time is 1 to 3 business days; if you have not heard back in a week, feel free to send a follow-up.
+                  </p>
+                  <p style="color:#3b2f2f;font-size:15px;line-height:1.6;">
+                    In the meantime, you can continue browsing other vendors that fit your wedding vision.
+                  </p>
+                  <div style="text-align:center;margin:28px 0 16px;">
+                    <a href="%s"
+                       style="display:inline-block;padding:12px 28px;background:#3b2f2f;color:#d4af6a;text-decoration:none;border-radius:4px;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">
+                      View vendor profile
+                    </a>
+                  </div>
+                  <p style="text-align:center;color:#a08060;font-size:11px;margin-top:24px;">
+                    "Plans fail for lack of counsel, but with many advisers they succeed." Proverbs 15:22
+                  </p>
+                </div>
+                """.formatted(escapeHtml(coupleName), escapeHtml(vendorBusinessName), vendorProfileUrl);
+
+        String text = """
+                Inquiry sent
+
+                Hi %s,
+
+                We just delivered your inquiry to %s. They will reply to you directly at the email you provided. Typical response time is 1 to 3 business days.
+
+                View vendor profile: %s
+                """.formatted(coupleName, vendorBusinessName, vendorProfileUrl);
+
+        Map<String, Object> body = Map.of(
+                "from", "AltarWed <" + fromEmail + ">",
+                "to", List.of(coupleEmail),
+                "subject", "Your inquiry to " + vendorBusinessName + " has been sent",
+                "html", html,
+                "text", text
+        );
+
+        postEmail("vendor-inquiry-confirmation", coupleEmail, body);
+    }
+
+    // Minimal HTML escape for fields we interpolate into email markup. We do
+    // NOT interpolate untrusted input into href/src attributes or into <script>
+    // contexts; only into text content and innerHTML-equivalent positions.
+    private static String escapeHtml(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+
+    @Override
     public void sendPasswordResetEmail(String toEmail, String resetToken) {
         String resetUrl = appBaseUrl + "/reset-password?token=" + resetToken;
 
