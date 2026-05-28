@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
+import InquiryForm from './InquiryForm'
 
 interface Vendor {
   id: string
@@ -108,18 +109,10 @@ export default async function VendorDetailPage(
           </div>
         </div>
 
-        {/* Contact CTA */}
-        <div className="rounded-2xl border border-[#e8dcc8] bg-white p-6 mb-8">
-          <p className="font-serif text-lg font-semibold text-[#3b2f2f] mb-1">Interested in this vendor?</p>
-          <p className="text-sm text-[#6b5344] mb-4">
-            Create a free AltarWed account to send an inquiry and manage your wedding in one place.
-          </p>
-          <a
-            href="https://app.altarwed.com/register"
-            className="inline-block rounded-xl bg-[#3b2f2f] px-6 py-2.5 font-semibold text-white hover:bg-[#5c4033] transition text-sm"
-          >
-            Start planning for free →
-          </a>
+        {/* Inquiry form — couples can contact vendors without an account.
+            Persistence is deferred (Phase 8); email handles the round-trip. */}
+        <div className="mb-8">
+          <InquiryForm vendorId={vendor.id} vendorBusinessName={vendor.businessName} />
         </div>
 
         {/* Details card */}
