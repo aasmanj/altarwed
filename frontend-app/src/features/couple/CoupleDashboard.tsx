@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom'
-import { motion, useReducedMotion } from 'framer-motion'
 import { useAuth } from '@/core/auth/AuthContext'
 import { useWeddingWebsite, type WeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import OnboardingWizard from '@/features/couple/onboarding/OnboardingWizard'
@@ -13,19 +12,8 @@ import AtAGlanceCard from '@/features/couple/AtAGlanceCard'
 // with the backend list when adding new founders.
 const ADMIN_EMAILS = ['aasmanj@gmail.com']
 
-const containerVariants = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.06 } },
-}
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.4, 0, 0.2, 1] as const } },
-}
-
 export default function CoupleDashboard() {
   const { user, logout } = useAuth()
-  const shouldReduce = useReducedMotion()
   const coupleId = user?.id ?? ''
   const { data: website, isLoading: siteLoading, error: siteError } = useWeddingWebsite(coupleId)
   const isNotFound = (siteError as { response?: { status?: number } } | null)?.response?.status === 404
@@ -71,79 +59,60 @@ export default function CoupleDashboard() {
 
       </div>
 
-      <motion.main
-        className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-10"
-        variants={containerVariants}
-        initial={shouldReduce ? false : 'hidden'}
-        animate="show"
-      >
-        <motion.div variants={itemVariants}>
-          <h2 className="font-serif text-2xl font-bold text-brown mb-2">
-            Welcome back, {user?.partnerOneName && user?.partnerTwoName
-              ? `${user.partnerTwoName} & ${user.partnerOneName}`
-              : user?.partnerOneName ?? user?.email}
-          </h2>
-          <p className="text-brown-light mb-6">Your wedding planning dashboard</p>
-        </motion.div>
+      <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-10">
+        <h2 className="font-serif text-2xl font-bold text-brown mb-2">
+          Welcome back, {user?.partnerOneName && user?.partnerTwoName
+            ? `${user.partnerTwoName} & ${user.partnerOneName}`
+            : user?.partnerOneName ?? user?.email}
+        </h2>
+        <p className="text-brown-light mb-6">Your wedding planning dashboard</p>
 
-        <motion.div variants={itemVariants}>
-          <AtAGlanceCard coupleId={coupleId} website={website} />
-        </motion.div>
+        <AtAGlanceCard coupleId={coupleId} website={website} />
 
-        <motion.div variants={itemVariants} className="mb-6">
+        <div className="mb-6">
           <TipCallout tip={TIPS.dashboardWelcome} />
-        </motion.div>
+        </div>
 
         {/* Tiles are grouped into a phased journey instead of a flat 14-card grid.
             Numbered headings imply order without forcing a wizard; couples scan
             top-to-bottom and naturally land on the right section. The unnumbered
             "Explore" group is for ambient features (vendor directory) that aren't
             on the critical path. */}
-        <motion.div variants={itemVariants}>
-          <PhaseSection number={1} title="Build the basics" description="Get the foundation in place so guests have something to RSVP to.">
-            <DashboardCard title="My Wedding Website" description="Build and share your public wedding page" href="/dashboard/website/editor" live />
-            <DashboardCard title="Wedding Checklist" description="Faith-first planning, step by step" href="/dashboard/checklist" live />
-            <DashboardCard title="Guest List" description="Manage guests and track RSVPs" href="/dashboard/guests" live />
-            <DashboardCard title="Wedding Party" description="Add your party members and officiant" href="/dashboard/wedding-party" live />
-            <RegistryCard website={website} />
-          </PhaseSection>
-        </motion.div>
+        <PhaseSection number={1} title="Build the basics" description="Get the foundation in place so guests have something to RSVP to.">
+          <DashboardCard title="My Wedding Website" description="Build and share your public wedding page" href="/dashboard/website/editor" live />
+          <DashboardCard title="Wedding Checklist" description="Faith-first planning, step by step" href="/dashboard/checklist" live />
+          <DashboardCard title="Guest List" description="Manage guests and track RSVPs" href="/dashboard/guests" live />
+          <DashboardCard title="Wedding Party" description="Add your party members and officiant" href="/dashboard/wedding-party" live />
+          <RegistryCard website={website} />
+        </PhaseSection>
 
-        <motion.div variants={itemVariants}>
-          <PhaseSection number={2} title="Tell your guests" description="Send save-the-dates and invitations. Digital is free; printed postcards go out via Lob.">
-            <DashboardCard title="Communications" description="Save-the-dates, RSVP invitations, and printed postcards in one place" href="/dashboard/communications" live />
-          </PhaseSection>
-        </motion.div>
+        <PhaseSection number={2} title="Tell your guests" description="Send save-the-dates and invitations. Digital is free; printed postcards go out via Lob.">
+          <DashboardCard title="Communications" description="Save-the-dates, RSVP invitations, and printed postcards in one place" href="/dashboard/communications" live />
+        </PhaseSection>
 
-        <motion.div variants={itemVariants}>
-          <PhaseSection number={3} title="Plan the day" description="The logistics that come together as the date approaches.">
-            <DashboardCard title="Budget Tracker" description="Plan and track wedding spending" href="/dashboard/budget" live />
-            <DashboardCard title="Seating Chart" description="Drag and drop guest table assignments" href="/dashboard/seating" live />
-            <DashboardCard title="Wedding Photos" description="Upload and share photos with guests" href="/dashboard/photos" live />
-          </PhaseSection>
-        </motion.div>
+        <PhaseSection number={3} title="Plan the day" description="The logistics that come together as the date approaches.">
+          <DashboardCard title="Budget Tracker" description="Plan and track wedding spending" href="/dashboard/budget" live />
+          <DashboardCard title="Seating Chart" description="Drag and drop guest table assignments" href="/dashboard/seating" live />
+          <DashboardCard title="Wedding Photos" description="Upload and share photos with guests" href="/dashboard/photos" live />
+        </PhaseSection>
 
-        <motion.div variants={itemVariants}>
-          <PhaseSection
-            number={4}
-            title="Plan the ceremony"
-            description="Make this part of the day feel personal. Pick verses, write your vows, and shape the order of service."
-          >
-            <DashboardCard title="Ceremony Builder" description="Plan your order of service with scripture, vows, and music" href="/dashboard/ceremony" live />
-            <DashboardCard title="Scripture Builder" description="Browse wedding verses and pin one to your site" href="/dashboard/scripture" live />
-            <DashboardCard title="Vow Builder" description="Write and save your vows, just for the two of you" href="/dashboard/vows" live />
-            <DashboardCard title="Ceremony Program" description="Print a one-page program for guests" href="/dashboard/ceremony/program" live />
-          </PhaseSection>
-        </motion.div>
+        <PhaseSection
+          number={4}
+          title="Plan the ceremony"
+          description="Make this part of the day feel personal. Pick verses, write your vows, and shape the order of service."
+        >
+          <DashboardCard title="Ceremony Builder" description="Plan your order of service with scripture, vows, and music" href="/dashboard/ceremony" live />
+          <DashboardCard title="Scripture Builder" description="Browse wedding verses and pin one to your site" href="/dashboard/scripture" live />
+          <DashboardCard title="Vow Builder" description="Write and save your vows, just for the two of you" href="/dashboard/vows" live />
+          <DashboardCard title="Ceremony Program" description="Print a one-page program for guests" href="/dashboard/ceremony/program" live />
+        </PhaseSection>
 
-        <motion.div variants={itemVariants}>
-          <PhaseSection title="Explore" description="Optional, browse anytime.">
-            <DashboardCard title="Find Vendors" description="Browse faith-aligned vendors near you" href="https://www.altarwed.com/vendors" external live />
-            <DashboardCard title="Resources" description="Christian marriage books and registry partners we recommend" href="https://www.altarwed.com/resources" external live />
-            <DashboardCard title="Blog" description="Wedding scripture, vows, ceremony guides, and planning tips" href="https://www.altarwed.com/blog" external live />
-          </PhaseSection>
-        </motion.div>
-      </motion.main>
+        <PhaseSection title="Explore" description="Optional, browse anytime.">
+          <DashboardCard title="Find Vendors" description="Browse faith-aligned vendors near you" href="https://www.altarwed.com/vendors" external live />
+          <DashboardCard title="Resources" description="Christian marriage books and registry partners we recommend" href="https://www.altarwed.com/resources" external live />
+          <DashboardCard title="Blog" description="Wedding scripture, vows, ceremony guides, and planning tips" href="https://www.altarwed.com/blog" external live />
+        </PhaseSection>
+      </main>
     </div>
   )
 }
