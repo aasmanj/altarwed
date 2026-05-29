@@ -91,24 +91,6 @@ const features = [
   },
 ]
 
-const steps = [
-  {
-    number: '01',
-    title: 'Create your free account',
-    description: 'Sign up in under a minute. No credit card, no commitments. Just your names and wedding date.',
-  },
-  {
-    number: '02',
-    title: 'Build your wedding website',
-    description: 'Add your story, upload photos, pin scripture, and share the link with your guests. It\'s live immediately.',
-  },
-  {
-    number: '03',
-    title: 'Plan every detail in one place',
-    description: 'Guest list, RSVP, ceremony order, vows, budget, seating. Every tool your covenant day needs.',
-  },
-]
-
 const verses = [
   { text: 'Two are better than one, because they have a good return for their labor.', ref: 'Ecclesiastes 4:9' },
   { text: 'Love is patient, love is kind. It does not envy, it does not boast, it is not proud.', ref: '1 Corinthians 13:4' },
@@ -285,37 +267,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── How it works ──────────────────────────────────────────────── */}
-        <section className="max-w-5xl mx-auto px-6 py-24" aria-labelledby="how-heading">
-          <div className="text-center mb-16">
-            <h2 id="how-heading" className="font-serif text-3xl sm:text-4xl font-bold text-[#3b2f2f] mb-4">
-              Up and running in minutes
-            </h2>
-            <p className="text-[#6b5344] text-lg max-w-xl mx-auto">
-              No setup fees, no contracts, no waiting. Your wedding dashboard is ready the moment you sign up.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-10">
-            {steps.map((s) => (
-              <div key={s.number} className="text-center">
-                <div className="font-serif text-5xl font-bold text-[#d4af6a]/25 mb-4">{s.number}</div>
-                <h3 className="font-serif text-xl font-semibold text-[#3b2f2f] mb-3">{s.title}</h3>
-                <p className="text-[#6b5344] text-sm leading-relaxed">{s.description}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="text-center mt-14">
-            <a
-              href="https://app.altarwed.com/register"
-              className="inline-flex items-center px-8 py-4 rounded-xl bg-[#d4af6a] text-white font-semibold hover:bg-[#b8943a] transition shadow-md"
-            >
-              Create your free account →
-            </a>
-          </div>
-        </section>
-
         {/* ── Testimonial ──────────────────────────────────────────────── */}
         <section className="bg-[#fdfaf6] py-16 border-y border-[#e8dcc8]">
           <div className="max-w-3xl mx-auto px-6 text-center">
@@ -365,11 +316,14 @@ export default function HomePage() {
 
             {/* Vendor card mockup */}
             <div className="bg-white rounded-2xl border border-[#e8dcc8] shadow-md overflow-hidden">
-              <div className="bg-[#f5ede0] h-32 flex items-center justify-center">
-                <svg className="w-10 h-10 text-[#d4af6a]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
-                </svg>
+              <div className="relative h-36">
+                <Image
+                  src="https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=800&q=80"
+                  alt="A Christian wedding photographer capturing a couple at sunset"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  className="object-cover"
+                />
               </div>
               <div className="p-6">
                 <div className="flex items-start justify-between mb-2">
@@ -432,18 +386,24 @@ export default function HomePage() {
                 tag: 'Scripture',
                 title: '40 Bible Verses for Your Wedding Ceremony',
                 excerpt: 'The most meaningful scripture for Christian weddings, organized by theme: covenant, love, unity, and blessing.',
+                image: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=800&q=80',
+                alt: 'An open Bible resting on a wooden church pew',
               },
               {
                 href: '/blog/christian-wedding-vows',
                 tag: 'Vows',
                 title: 'Christian Wedding Vow Examples & Templates',
                 excerpt: 'Traditional and modern vow templates rooted in scripture. Customize them for your denomination and your story.',
+                image: 'https://images.unsplash.com/photo-1537633552985-df8429e8048b?w=800&q=80',
+                alt: 'A bride and groom exchanging rings during their wedding ceremony',
               },
               {
                 href: '/blog/christian-wedding-ceremony-order',
                 tag: 'Ceremony',
                 title: 'A Classic Christian Wedding Ceremony Order',
                 excerpt: 'A complete processional-to-recessional guide for a Christ-centered ceremony, with variations by denomination.',
+                image: 'https://images.unsplash.com/photo-1465495976277-4387d4b0e4a6?w=800&q=80',
+                alt: 'A couple exchanging vows at an outdoor garden ceremony',
               },
             ].map((post) => (
               <Link
@@ -451,8 +411,15 @@ export default function HomePage() {
                 href={post.href}
                 className="group block bg-white rounded-2xl border border-[#e8dcc8] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all overflow-hidden"
               >
-                <div className="bg-[#f5ede0] px-6 py-8">
-                  <span className="text-xs font-semibold uppercase tracking-widest text-[#a07840]">{post.tag}</span>
+                <div className="relative h-44">
+                  <Image
+                    src={post.image}
+                    alt={post.alt}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                    className="object-cover"
+                  />
+                  <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-white/90 text-xs font-semibold uppercase tracking-widest text-[#a07840] backdrop-blur-sm">{post.tag}</span>
                 </div>
                 <div className="p-6">
                   <h3 className="font-serif text-lg font-semibold text-[#3b2f2f] mb-2 group-hover:text-[#d4af6a] transition-colors">
