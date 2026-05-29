@@ -173,14 +173,20 @@ export default function HomePage() {
         </section>
 
         {/* ── Scripture Banner ─────────────────────────────────────────── */}
-        <section className="bg-[#3b2f2f] py-10 overflow-hidden">
-          <div className="flex animate-[scroll_40s_linear_infinite] whitespace-nowrap">
-            {[...verses, ...verses].map((v, i) => (
-              <span key={i} className="inline-flex items-center gap-6 px-8 text-[#e8dcc8]/60 text-sm font-serif italic">
-                <span className="text-[#d4af6a]">✦</span>
-                &ldquo;{v.text}&rdquo;
-                <span className="not-italic font-sans text-xs text-[#e8dcc8]/30 uppercase tracking-widest">{v.ref}</span>
-              </span>
+        {/* Static band, not an auto-scrolling marquee. Infinite motion >5s with
+            no pause control fails WCAG 2.2.2 and ignores prefers-reduced-motion;
+            a static grid is the simplest fully-compliant version. Text opacity
+            kept high enough for AA contrast on the dark brown background. */}
+        <section className="bg-[#3b2f2f] py-14" aria-label="Scripture for Christian weddings">
+          <div className="max-w-5xl mx-auto px-6 grid sm:grid-cols-2 gap-x-12 gap-y-8">
+            {verses.map((v) => (
+              <blockquote key={v.ref} className="flex items-start gap-4 text-[#e8dcc8]/90 text-sm font-serif italic leading-relaxed">
+                <span className="text-[#d4af6a] not-italic shrink-0" aria-hidden="true">✦</span>
+                <span>
+                  &ldquo;{v.text}&rdquo;
+                  <cite className="block mt-1 not-italic font-sans text-xs text-[#e8dcc8]/60 uppercase tracking-widest">{v.ref}</cite>
+                </span>
+              </blockquote>
             ))}
           </div>
         </section>
