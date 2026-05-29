@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import Image from 'next/image'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 
@@ -135,20 +136,34 @@ export default function HomePage() {
 
       <main>
         {/* ── Hero ────────────────────────────────────────────────────── */}
-        <section className="relative overflow-hidden bg-[#fdfaf6]">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(212,175,106,0.08)_0%,_transparent_70%)] pointer-events-none" />
-          <div className="relative max-w-4xl mx-auto px-6 pt-20 pb-24 text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f5ede0] border border-[#d4af6a]/30 text-[#a07840] text-xs font-semibold uppercase tracking-widest mb-8">
+        <section className="relative overflow-hidden">
+          {/* Full-bleed real-couple photo. priority = preload (it's the LCP
+              element); sizes=100vw lets next/image serve the right AVIF/WebP
+              width and avoid shipping a 1920px file to a phone. */}
+          <div className="absolute inset-0">
+            <Image
+              src="https://images.unsplash.com/photo-1519741497674-611481863552?w=1920&q=80"
+              alt="A bride and groom holding hands at the altar during their Christian wedding ceremony"
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/45 to-black/65" />
+          </div>
+
+          <div className="relative max-w-4xl mx-auto px-6 pt-24 pb-28 sm:pt-32 sm:pb-36 text-center">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/25 text-[#f0dcb4] text-xs font-semibold uppercase tracking-widest mb-8 backdrop-blur-sm">
               <span>✦</span> Now Live: Free for Couples <span>✦</span>
             </div>
 
-            <h1 className="text-balance font-serif text-5xl sm:text-6xl lg:text-7xl font-bold text-[#3b2f2f] leading-tight mb-6">
+            <h1 className="text-balance font-serif text-5xl sm:text-6xl lg:text-7xl font-bold text-white leading-tight mb-6 drop-shadow-sm">
               Your Christian wedding
               <br />
-              <span className="text-[#d4af6a]">starts here</span>
+              <span className="text-[#e9c87f]">starts here</span>
             </h1>
 
-            <p className="text-lg sm:text-xl text-[#6b5344] max-w-2xl mx-auto leading-relaxed mb-10 text-balance">
+            <p className="text-lg sm:text-xl text-white/90 max-w-2xl mx-auto leading-relaxed mb-10 text-balance">
               AltarWed gives every Christian couple a free wedding website, guest management,
               ceremony builder, vow writer, and faith-aligned vendor directory. Your
               wedding day is a covenant, not just an event.
@@ -157,19 +172,19 @@ export default function HomePage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a
                 href="https://app.altarwed.com/register"
-                className="inline-flex items-center justify-center px-8 py-4 rounded-xl bg-[#3b2f2f] text-white text-base font-semibold hover:bg-[#5c4033] transition shadow-md"
+                className="inline-flex items-center justify-center px-8 py-4 rounded-xl bg-[#d4af6a] text-[#3b2f2f] text-base font-bold hover:bg-[#e9c87f] transition shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
               >
                 Start planning for free
               </a>
               <Link
                 href="/vendors"
-                className="inline-flex items-center justify-center px-8 py-4 rounded-xl border border-[#d4af6a] text-[#3b2f2f] text-base font-semibold hover:bg-[#d4af6a]/10 transition"
+                className="inline-flex items-center justify-center px-8 py-4 rounded-xl border border-white/60 text-white text-base font-semibold hover:bg-white/10 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
               >
                 Browse Christian vendors
               </Link>
             </div>
 
-            <p className="mt-6 text-sm text-[#a08060]">
+            <p className="mt-6 text-sm text-white/80">
               Free forever for couples &middot; No credit card required
             </p>
           </div>
