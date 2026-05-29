@@ -159,7 +159,7 @@ All entities below have Flyway migrations in production (V1–V15):
 - **WeddingPhoto** (V17), weddingWebsiteId, blobUrl, caption, sortOrder, uploadedAt
 - **WeddingWebsite** (V18 patch, dropped in V25), websitePin column removed; PIN privacy feature deprecated per walkthrough.
 - **SeatingTable** (V19), coupleId, name, capacity, sortOrder; guests linked by tableNumber (1-based index)
-- **BlogPost** (V23), slug, title, excerpt, content, author, publishedAt, seoTitle, seoDescription, tags. 4 posts seeded (V24, V28): christian-wedding-ceremony-order, bible-verses-for-weddings, christian-wedding-vows, christian-wedding-planning-checklist.
+- **BlogPost** (V23), slug, title, excerpt, content, author, publishedAt, seoTitle, seoDescription, tags. 6 posts seeded (V24, V28, V41): christian-wedding-ceremony-order, bible-verses-for-weddings, christian-wedding-vows, christian-wedding-planning-checklist, christian-wedding-songs, christian-unity-ceremony-ideas. V41 also strips em dashes from live blog content and adds an FAQ block to bible-verses-for-weddings.
 - **WeddingHotel** (V30), normalized hotel block table (name, address, booking_url, block_rate, distance_from_venue, sort_order). Multiple rows per website. Replaces scalar hotel fields on WeddingWebsite for new UI; old fields retained.
 - **GoogleSheetSync** (V31), one row per couple; sheet_url, last_synced, last_error, row_count, is_active. Scheduled job polls every 15 min and upserts guests.
 - **Guest party fields** (V29), guests gain party_id (UUID grouping), party_name (display label), party_contact (bool, which guest in the party gets the invite email).
@@ -199,7 +199,7 @@ All entities below have Flyway migrations in production (V1–V15):
 - NEVER use spring.jpa.hibernate.ddl-auto=create or update in any environment
 - ALL schema changes go through Flyway migrations in db/migration/
 - Migration naming: V{number}__{description}.sql (e.g. V1__create_couples_table.sql)
-- Next migration number: V41
+- Next migration number: V42
 - UUID primary keys on all tables
 
 ## Security Rules

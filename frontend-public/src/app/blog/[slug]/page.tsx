@@ -27,7 +27,10 @@ async function getPost(slug: string): Promise<Post | null> {
   if (!apiUrl) return null
   try {
     const res = await fetch(`${apiUrl}/api/v1/blog/posts/${slug}`, {
-      next: { revalidate: 60 },
+      // Match the SEO rule's 1h cache for blog content. Was 60s, which churned
+      // the data cache and the rendered HTML far more often than blog posts
+      // actually change.
+      next: { revalidate: 3600 },
       signal: AbortSignal.timeout(10000),
     })
     if (res.status === 404) return null
@@ -36,6 +39,37 @@ async function getPost(slug: string): Promise<Post | null> {
   } catch {
     return null
   }
+}
+
+// Other published posts for the "Related articles" block. Internal links between
+// topically-related posts are one of the strongest on-site SEO signals: they
+// spread crawl depth and link equity and tell Google these pages form a cluster
+// around "christian wedding planning".
+async function getRelatedPosts(currentSlug: string): Promise<Post[]> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+  if (!apiUrl) return []
+  try {
+    const res = await fetch(`${apiUrl}/api/v1/blog/posts`, {
+      next: { revalidate: 3600 },
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!res.ok) return []
+    const posts: Post[] = await res.json()
+    return posts.filter((p) => p.slug !== currentSlug).slice(0, 3)
+  } catch {
+    return []
+  }
+}
+
+// JSON-LD is injected via dangerouslySetInnerHTML. JSON.stringify does not escape
+// "<", so a field containing "</script>" could break out of the inline script.
+// Posts are admin-authored today, but escaping at the boundary is cheap defense
+// in depth and matches the wedding-page layout.
+function safeJsonLd(data: unknown): string {
+  return JSON.stringify(data)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -70,26 +104,48 @@ function formatDate(iso: string) {
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const post = await getPost(slug)
+  const [post, related] = await Promise.all([getPost(slug), getRelatedPosts(slug)])
   if (!post) notFound()
 
-  const jsonLd = {
+  const articleUrl = `https://www.altarwed.com/blog/${post.slug}`
+
+  const articleJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Article',
     headline: post.title,
     description: post.excerpt,
-    author: { '@type': 'Person', name: post.author },
-    publisher: { '@type': 'Organization', name: 'AltarWed', url: 'https://www.altarwed.com' },
+    image: post.coverImage ? [post.coverImage] : undefined,
+    inLanguage: 'en-US',
+    author: { '@type': 'Organization', name: post.author, url: 'https://www.altarwed.com' },
+    publisher: {
+      '@type': 'Organization',
+      name: 'AltarWed',
+      url: 'https://www.altarwed.com',
+      logo: { '@type': 'ImageObject', url: 'https://www.altarwed.com/icon.png' },
+    },
     datePublished: post.publishedAt,
     dateModified: post.updatedAt,
-    url: `https://www.altarwed.com/blog/${post.slug}`,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': articleUrl },
+    url: articleUrl,
+  }
+
+  // Breadcrumb structured data renders a Home > Blog > Post trail in the Google
+  // result, which both looks more trustworthy and reinforces site structure.
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://www.altarwed.com' },
+      { '@type': 'ListItem', position: 2, name: 'Blog', item: 'https://www.altarwed.com/blog' },
+      { '@type': 'ListItem', position: 3, name: post.title, item: articleUrl },
+    ],
   }
 
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd([articleJsonLd, breadcrumbJsonLd]) }}
       />
       <SiteHeader />
       <main>
@@ -143,6 +199,47 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             dangerouslySetInnerHTML={{ __html: post.content }}
           />
         </article>
+
+        {/* Related articles, internal linking for topical clustering */}
+        {related.length > 0 && (
+          <section className="max-w-5xl mx-auto px-6 pb-16" aria-labelledby="related-heading">
+            <h2 id="related-heading" className="font-serif text-2xl font-bold text-[#3b2f2f] mb-6">
+              Keep reading
+            </h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {related.map((r) => (
+                <Link
+                  key={r.slug}
+                  href={`/blog/${r.slug}`}
+                  className="group block bg-white rounded-2xl border border-[#e8dcc8] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all overflow-hidden"
+                >
+                  <div className="relative h-40 bg-[#f5ede0]">
+                    {r.coverImage && (
+                      <Image
+                        src={r.coverImage}
+                        alt={r.title}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                        className="object-cover"
+                      />
+                    )}
+                    {r.tags && (
+                      <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-white/90 text-xs font-semibold uppercase tracking-widest text-[#a07840] backdrop-blur-sm">
+                        {r.tags.split(',')[0].trim()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="p-5">
+                    <h3 className="font-serif text-lg font-semibold text-[#3b2f2f] mb-1 group-hover:text-[#d4af6a] transition-colors">
+                      {r.title}
+                    </h3>
+                    <p className="text-[#6b5344] text-sm leading-relaxed line-clamp-2">{r.excerpt}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* CTA */}
         <section className="bg-[#f5ede0] py-14">
