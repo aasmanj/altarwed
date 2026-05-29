@@ -42,21 +42,17 @@ export const metadata: Metadata = {
     title: 'AltarWed — Christian Wedding Planning Platform',
     description:
       'A faith-based wedding planning platform for Christian couples. Build your wedding website, manage guests, and find vendors who share your faith.',
-    images: [
-      {
-        url: '/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'AltarWed — Christian Wedding Planning',
-      },
-    ],
+    // og:image is supplied by the file-based opengraph-image.tsx convention.
+    // Do not also declare images here — it would emit a duplicate og:image
+    // pointing at the non-existent /og-image.png.
   },
   twitter: {
     card: 'summary_large_image',
     title: 'AltarWed — Christian Wedding Planning Platform',
     description:
       'A faith-based platform for Christian couples and vendors.',
-    images: ['/og-image.png'],
+    // No twitter:image — Twitter/X falls back to og:image (the generated card)
+    // when twitter:image is absent, so this stays DRY.
   },
   icons: {
     icon: '/icon.png',
