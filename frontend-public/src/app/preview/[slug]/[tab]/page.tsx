@@ -61,7 +61,7 @@ export default async function PreviewPage({
     getBlocks(slug, tab as BlockTab),
   ])
 
-  // Preview must render drafts — that is the whole point of WYSIWYG.
+  // Preview must render drafts, that is the whole point of WYSIWYG.
   // The route is noindex'd; the slug is unguessable.
   if (!wedding) notFound()
 
@@ -81,7 +81,7 @@ export default async function PreviewPage({
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
 
-      {/* Draft watermark — only visible on unpublished sites so couples know
+      {/* Draft watermark, only visible on unpublished sites so couples know
           this preview is private. Sticky so it stays in view during scroll. */}
       {!wedding.isPublished && (
         <div className="sticky top-0 z-40 bg-amber-100 border-b border-amber-300 px-4 py-1.5 text-center">
@@ -91,7 +91,7 @@ export default async function PreviewPage({
         </div>
       )}
 
-      {/* Hero — compact for the editor iframe (smaller than the public site's
+      {/* Hero, compact for the editor iframe (smaller than the public site's
           85vh hero so the editor can see content blocks without scrolling) */}
       <section className="relative h-[40vh] min-h-[260px] flex items-end justify-center overflow-hidden">
         <Image
@@ -122,7 +122,7 @@ export default async function PreviewPage({
         </HeroLive>
       </section>
 
-      {/* Scripture banner — same as the public site */}
+      {/* Scripture banner, same as the public site */}
       {(wedding.scriptureText || wedding.scriptureReference) && (
         <section className="bg-gradient-to-b from-[#3b2f2f] to-[#4a1942] py-10 px-6 text-center relative">
           <div className="absolute inset-x-0 top-0 h-px bg-[#d4af6a]/40" />
@@ -140,7 +140,7 @@ export default async function PreviewPage({
         </section>
       )}
 
-      {/* Tab content — blocks render here.
+      {/* Tab content, blocks render here.
           BlockListLive is a client component that takes the SSR-hydrated blocks
           list as initial state, then swaps it out in response to postMessage
           events from the editor. Lets text edits, add/delete/reorder, and image
@@ -154,7 +154,7 @@ export default async function PreviewPage({
         />
       </main>
 
-      {/* Footer — matches public site for visual consistency */}
+      {/* Footer, matches public site for visual consistency */}
       <footer className="border-t border-[#e8dcc8] py-8 text-center text-xs text-[#a08060]">
         <span className="font-serif text-[#3b2f2f] font-semibold">AltarWed</span>
         <span className="mx-2">·</span>

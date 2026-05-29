@@ -139,7 +139,7 @@ public class AuthService {
         persistRefreshToken(newRawRefresh, userId, role);
         log.info("token refresh succeeded, userId={}, role={}", userId, role);
 
-        // Load couple to return partner names — needed so the frontend can display them after a token refresh
+        // Load couple to return partner names, needed so the frontend can display them after a token refresh
         Couple couple = coupleRepository.findByEmail(email).orElse(null);
         String partnerOneName = couple != null ? couple.partnerOneName() : null;
         String partnerTwoName = couple != null ? couple.partnerTwoName() : null;

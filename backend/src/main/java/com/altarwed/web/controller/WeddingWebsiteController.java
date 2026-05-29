@@ -27,13 +27,13 @@ public class WeddingWebsiteController {
         this.mapper = mapper;
     }
 
-    // Public — fetched by the Next.js SSR page at /wedding/[slug]
+    // Public, fetched by the Next.js SSR page at /wedding/[slug]
     @GetMapping("/slug/{slug}")
     public ResponseEntity<WeddingWebsiteResponse> getBySlug(@PathVariable String slug) {
         return ResponseEntity.ok(mapper.toResponse(websiteService.getBySlug(slug)));
     }
 
-    // Public — search published websites by partner name and/or wedding year
+    // Public, search published websites by partner name and/or wedding year
     @GetMapping("/search")
     public ResponseEntity<List<WeddingWebsiteSearchResultResponse>> search(
             @RequestParam(required = false) String name,
@@ -42,7 +42,7 @@ public class WeddingWebsiteController {
         return ResponseEntity.ok(websiteService.search(name, year));
     }
 
-    // Public — fetched by sitemap.ts to build /sitemap.xml (slug + updatedAt only, no PII)
+    // Public, fetched by sitemap.ts to build /sitemap.xml (slug + updatedAt only, no PII)
     @GetMapping("/published")
     public ResponseEntity<List<WeddingWebsiteSitemapEntry>> getAllPublished() {
         List<WeddingWebsiteSitemapEntry> entries = websiteService.getAllPublished()
@@ -52,7 +52,7 @@ public class WeddingWebsiteController {
         return ResponseEntity.ok(entries);
     }
 
-    // Authenticated — couple managing their own website
+    // Authenticated, couple managing their own website
     @PostMapping("/couple/{coupleId}")
     public ResponseEntity<WeddingWebsiteResponse> create(
             @PathVariable UUID coupleId,

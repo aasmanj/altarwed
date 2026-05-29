@@ -58,7 +58,7 @@ public class GuestService {
                 null, null, null, LocalDateTime.now(), LocalDateTime.now(),
                 req.partyId(), req.partyName(),
                 req.partyContact() != null ? req.partyContact() : false,
-                null  // sheetSyncId — manually added guest
+                null  // sheetSyncId, manually added guest
         )).toList();
         return guestRepository.saveAll(guests);
     }
@@ -75,7 +75,7 @@ public class GuestService {
                 null, null, null, LocalDateTime.now(), LocalDateTime.now(),
                 req.partyId(), req.partyName(),
                 req.partyContact() != null ? req.partyContact() : false,
-                null  // sheetSyncId — manually added guest
+                null  // sheetSyncId, manually added guest
         );
         return guestRepository.save(guest);
     }
@@ -102,7 +102,7 @@ public class GuestService {
                     null, 0,
                     null, null, null, LocalDateTime.now(), LocalDateTime.now(),
                     partyId, req.partyName(), isContact,
-                    null  // sheetSyncId — manually added guest
+                    null  // sheetSyncId, manually added guest
             ));
         }
         return guestRepository.saveAll(members);
@@ -139,7 +139,7 @@ public class GuestService {
                 req.partyId()    != null ? req.partyId()    : existing.partyId(),
                 req.partyName()  != null ? req.partyName()  : existing.partyName(),
                 req.partyContact()!= null ? req.partyContact(): existing.partyContact(),
-                existing.sheetSyncId()  // always preserve — managed by sync, not the couple
+                existing.sheetSyncId()  // always preserve, managed by sync, not the couple
         );
         return guestRepository.save(updated);
     }
@@ -232,8 +232,8 @@ public class GuestService {
                 .toList();
     }
 
-    // Public — called from the Next.js RSVP page with no auth
-    // Dedicated seating assignment — always sets tableNumber to the given value,
+    // Public, called from the Next.js RSVP page with no auth
+    // Dedicated seating assignment, always sets tableNumber to the given value,
     // including null (unassign). The general updateGuest method cannot do this
     // because its null-means-not-provided merge pattern cannot clear a field.
     @Transactional
@@ -244,7 +244,7 @@ public class GuestService {
                 existing.id(), existing.coupleId(), existing.name(), existing.email(), existing.phone(),
                 existing.rsvpStatus(), existing.plusOneAllowed(), existing.plusOneName(),
                 existing.dietaryRestrictions(), existing.songRequest(),
-                tableNumber,                    // always set — null means unassign
+                tableNumber,                    // always set, null means unassign
                 existing.side(), existing.notes(),
                 existing.mailLine1(), existing.mailCity(), existing.mailState(), existing.mailZip(),
                 existing.noteForCouple(), existing.inviteSendCount(),
@@ -306,7 +306,7 @@ public class GuestService {
         );
     }
 
-    // Public — guest submits their RSVP from the Next.js page
+    // Public, guest submits their RSVP from the Next.js page
     @Transactional
     public void submitRsvp(SubmitRsvpRequest req) {
         RsvpInviteToken token = resolveToken(req.token());
@@ -446,7 +446,7 @@ public class GuestService {
                 guest.mailLine1(), guest.mailCity(), guest.mailState(), guest.mailZip(),
                 guest.noteForCouple(), currentSends + 1,
                 LocalDateTime.now(), guest.respondedAt(),
-                null, // clear remindAt — the reminder was just fulfilled
+                null, // clear remindAt, the reminder was just fulfilled
                 guest.createdAt(), LocalDateTime.now(),
                 guest.partyId(), guest.partyName(), guest.partyContact(),
                 guest.sheetSyncId()

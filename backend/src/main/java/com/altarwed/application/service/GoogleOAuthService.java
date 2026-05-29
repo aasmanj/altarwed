@@ -254,7 +254,7 @@ public class GoogleOAuthService {
      * is the string to write. Used by GoogleSheetSyncService for UUID write-back.
      *
      * Callers should catch HttpClientErrorException.Forbidden and treat it as a
-     * non-fatal warning — it means the stored token has the old spreadsheets.readonly
+     * non-fatal warning, it means the stored token has the old spreadsheets.readonly
      * scope and the couple needs to disconnect and re-authorize.
      */
     @Transactional

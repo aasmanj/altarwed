@@ -19,7 +19,7 @@ export default function WeddingWebsitePage() {
     )
   }
 
-  // No website yet — show the creation wizard
+  // No website yet, show the creation wizard
   if (isNotFound || !website) {
     if (error && !isNotFound) {
       return (

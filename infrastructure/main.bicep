@@ -1,4 +1,4 @@
-// AltarWed — Core Azure Infrastructure
+// AltarWed, Core Azure Infrastructure
 // Deploy: az deployment group create --resource-group altarwed-rg --template-file main.bicep --parameters @parameters.json
 
 @description('Environment name (prod, staging)')

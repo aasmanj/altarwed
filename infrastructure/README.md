@@ -32,10 +32,10 @@ az deployment group create \
 ```
 
 ### Subsequent deploys (idempotent)
-Same command — Bicep is declarative, re-running updates only what changed.
+Same command, Bicep is declarative, re-running updates only what changed.
 
 ## Secrets flow
-App Service uses Key Vault references in app settings — secrets are never stored in the app config directly. The App Service managed identity is granted `Key Vault Secrets User` role automatically.
+App Service uses Key Vault references in app settings, secrets are never stored in the app config directly. The App Service managed identity is granted `Key Vault Secrets User` role automatically.
 
 ## Scale up
 When traffic grows, change the App Service Plan SKU in `modules/app-service-plan.bicep`:

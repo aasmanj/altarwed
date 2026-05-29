@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.UUID;
 
 // NOTE: per the existing project pattern (see WeddingPartyMemberService), this service
-// trusts the path-level websiteId for authenticated couple endpoints — JWT-vs-website
+// trusts the path-level websiteId for authenticated couple endpoints, JWT-vs-website
 // ownership verification is not enforced per-request. When tightening security in a future
 // pass, inject CoupleRepository + WeddingWebsiteRepository and validate the JWT-derived
 // userId matches website.coupleId() at the top of each write method.
@@ -102,7 +102,7 @@ public class WeddingPageBlockService {
         List<WeddingPageBlock> toSave = new java.util.ArrayList<>();
         for (UUID id : req.orderedBlockIds()) {
             WeddingPageBlock existing = byId.get(id);
-            // Silently skip ids that don't belong to this tab — defensive against stale clients.
+            // Silently skip ids that don't belong to this tab, defensive against stale clients.
             if (existing == null) continue;
             toSave.add(existing.withSortOrder(sortOrder));
             sortOrder += SORT_ORDER_STEP;

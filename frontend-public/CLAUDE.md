@@ -1,5 +1,5 @@
 
-# Frontend Public — AltarWed (Next.js SSR)
+# Frontend Public, AltarWed (Next.js SSR)
 
 ## Purpose
 Public-facing SEO site. Every page server-side rendered.

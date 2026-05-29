@@ -25,13 +25,13 @@ public class WeddingPhotoController {
         this.mapper = mapper;
     }
 
-    // Public — fetched by Next.js /wedding/[slug]/photos page
+    // Public, fetched by Next.js /wedding/[slug]/photos page
     @GetMapping("/website/slug/{slug}")
     public ResponseEntity<List<WeddingPhotoResponse>> listBySlug(@PathVariable String slug) {
         return ResponseEntity.ok(service.listPhotosBySlug(slug).stream().map(mapper::toResponse).toList());
     }
 
-    // Authenticated — couple dashboard manages photos
+    // Authenticated, couple dashboard manages photos
     @GetMapping("/website/{websiteId}")
     public ResponseEntity<List<WeddingPhotoResponse>> list(@PathVariable UUID websiteId) {
         return ResponseEntity.ok(service.listPhotos(websiteId).stream().map(mapper::toResponse).toList());

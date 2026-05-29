@@ -1,6 +1,6 @@
 User-agent: *
 
-# Block Next.js build artifacts — font files, chunked JS, image optimizer cache.
+# Block Next.js build artifacts, font files, chunked JS, image optimizer cache.
 # These are implementation details, not content. Crawling them wastes crawl budget
 # and creates noise in Search Console.
 Disallow: /_next/static/

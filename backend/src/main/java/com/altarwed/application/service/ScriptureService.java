@@ -24,7 +24,7 @@ public class ScriptureService {
     // bible-api URL path and we log it.
     private static final Pattern SAFE_QUERY = Pattern.compile("^[A-Za-z0-9 :\\-]{1,80}$");
 
-    // 15 curated covenant/wedding verses — references only; text fetched on demand
+    // 15 curated covenant/wedding verses, references only; text fetched on demand
     private static final List<String> FEATURED_REFERENCES = List.of(
             "Genesis 2:24",
             "Ruth 1:16-17",

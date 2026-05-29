@@ -27,7 +27,7 @@ import java.util.UUID;
 // (plus WeddingPartyMember + WeddingPhoto rows) so that couples who created their site
 // before Phase 1 see a populated block editor on first entry. Idempotent per (website, tab):
 // any tab that already has blocks is skipped, never duplicated. Designed to be called
-// lazily from the editor on first load — no CommandLineRunner / one-shot ops job required.
+// lazily from the editor on first load, no CommandLineRunner / one-shot ops job required.
 @Service
 public class BlockBackfillService {
 
@@ -133,7 +133,7 @@ public class BlockBackfillService {
         out.add(block(w.id(), BlockTab.DETAILS, BlockType.VENUE_CARD, nextOrder(out), "{}"));
         // Scripture belongs on HOME, not DETAILS. Putting it in both tabs caused
         // couples to see a duplicate after the default backfill. DETAILS is for
-        // logistics (venue, time, dress code) — not worship content.
+        // logistics (venue, time, dress code), not worship content.
         return out;
     }
 

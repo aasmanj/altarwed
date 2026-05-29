@@ -48,7 +48,7 @@ import java.util.stream.Collectors;
  *
  * Sync strategy: upsert by name (case-insensitive). If a guest with that name already
  * exists we update their fields (including email if newly added); otherwise we create
- * a new guest. Name is the stable identifier — email and other columns are enriched
+ * a new guest. Name is the stable identifier, email and other columns are enriched
  * on subsequent syncs. We never delete guests automatically (the couple may have
  * manually added notes).
  */
@@ -143,7 +143,7 @@ public class GoogleSheetSyncService {
         );
     }
 
-    // Transient per-run sync outcome — not persisted, used to surface counts to the UI.
+    // Transient per-run sync outcome, not persisted, used to surface counts to the UI.
     // `added` and `updated` are null on failure (the persisted sync still gets the error message).
     private record SyncResult(GoogleSheetSync updatedSync, Integer added, Integer updated) {}
 
@@ -224,7 +224,7 @@ public class GoogleSheetSyncService {
     // Per-run upsert breakdown.
     // `added`   = brand-new guests created
     // `updated` = existing guests whose merged state actually differs from the DB row
-    //             (NOT a count of every existing row seen — that would always report
+    //             (NOT a count of every existing row seen, that would always report
     //             "updated" on a no-op sync and erode trust in the toast)
     // `seen`    = every non-blank row in the sheet, persisted as the GoogleSheetSync.rowCount
     private record UpsertCounts(int added, int updated, int seen) {}
@@ -283,7 +283,7 @@ public class GoogleSheetSyncService {
     /**
      * OAuth sync path: reads via Sheets API, stamps a UUID into the "AltarWed ID"
      * column for each new row, and uses that UUID as the stable row key on all
-     * future syncs. This survives name changes, email additions, reordering — any
+     * future syncs. This survives name changes, email additions, reordering, any
      * mutation other than deleting the UUID cell itself.
      *
      * Write-back is best-effort: if the stored token has the old spreadsheets.readonly
@@ -417,7 +417,7 @@ public class GoogleSheetSyncService {
             } else {
                 // Non-destructive merge: sheet value wins if non-null, else keep manual edits.
                 // We then equals-check against the existing DB row so unchanged rows are NOT
-                // counted as "updated" in the toast (and not re-saved either — small DB win).
+                // counted as "updated" in the toast (and not re-saved either, small DB win).
                 Guest merged = new Guest(
                         g.id(), g.coupleId(), name,
                         emailVal    != null ? emailVal    : g.email(),
@@ -446,13 +446,13 @@ public class GoogleSheetSyncService {
                     toSave.add(merged);
                     updated++;
                 }
-                // else: nothing changed in the sheet for this guest — skip the write entirely
+                // else: nothing changed in the sheet for this guest, skip the write entirely
             }
         }
 
         guestRepository.saveAll(toSave);
 
-        // Write UUIDs back to the sheet — best-effort, non-fatal.
+        // Write UUIDs back to the sheet, best-effort, non-fatal.
         // Runs even when no guests changed, because newly-generated UUIDs for previously
         // unstamped rows still need to be written into the spreadsheet for future syncs.
         if (!writeBackCells.isEmpty()) {
@@ -470,7 +470,7 @@ public class GoogleSheetSyncService {
 
     /**
      * CSV fallback path for couples without OAuth.
-     * Upserts by lowercased name — stable enough for public sheets where write-back
+     * Upserts by lowercased name, stable enough for public sheets where write-back
      * is not possible. Name changes will create a new guest; the old one is not deleted.
      */
     private UpsertCounts upsertGuestsByName(UUID coupleId, List<String[]> rows) throws Exception {
@@ -537,7 +537,7 @@ public class GoogleSheetSyncService {
                         null, 0,
                         null, null, null, null, null,
                         null, null, null,
-                        null  // sheetSyncId — CSV path cannot write-back
+                        null  // sheetSyncId, CSV path cannot write-back
                 ));
                 added++;
             } else {
@@ -646,7 +646,7 @@ public class GoogleSheetSyncService {
     // CSV parsing helpers
     // -----------------------------------------------------------------------
 
-    /** Minimal RFC-4180 CSV parser — handles quoted fields with commas. */
+    /** Minimal RFC-4180 CSV parser, handles quoted fields with commas. */
     private List<String[]> parseCsv(String csv) throws Exception {
         List<String[]> result = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new StringReader(csv))) {

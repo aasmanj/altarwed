@@ -192,7 +192,7 @@ export default function CeremonyPage() {
             </li>
             <li>
               • When you're ready, hit <span className="font-medium text-brown">Print Program</span>{' '}
-              up top — generates a letter-sized order of service guests can hold during the ceremony.
+              up top, generates a letter-sized order of service guests can hold during the ceremony.
             </li>
           </ul>
         </div>

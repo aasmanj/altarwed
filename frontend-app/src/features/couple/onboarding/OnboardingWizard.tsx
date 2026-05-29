@@ -70,7 +70,7 @@ export default function OnboardingWizard() {
   const [weddingDate, setWeddingDate] = useState(user?.weddingDate ?? '')
   const dateLocked = !!user?.weddingDate
 
-  // Optional (steps 3-7) — all skippable
+  // Optional (steps 3-7), all skippable
   const [venueName, setVenueName] = useState('')
   const [venueAddress, setVenueAddress] = useState('')
   const [venueCity, setVenueCity] = useState('')
@@ -126,7 +126,7 @@ export default function OnboardingWizard() {
       setScriptureReference(verse.reference)
       setScriptureText(verse.text)
     } catch {
-      // Silent on wizard — couple can pin later from /dashboard/scripture
+      // Silent on wizard, couple can pin later from /dashboard/scripture
     }
   }
 
@@ -173,7 +173,7 @@ export default function OnboardingWizard() {
 
       // 3. Hero file upload. Has to happen AFTER website creation because
       //    the endpoint is keyed by websiteId. If it fails, the couple still
-      //    gets the rest of the wizard's data — we don't roll back.
+      //    gets the rest of the wizard's data, we don't roll back.
       if (heroFile) {
         try {
           const form = new FormData()
@@ -431,7 +431,7 @@ function Step3Venue({
         value={ceremonyTime}
         onChange={onCeremonyTime}
         placeholder="4:00 PM"
-        hint="Free-form — whatever you'd write on the invitation."
+        hint="Free-form, whatever you'd write on the invitation."
       />
       <Nav onBack={onBack} onNext={onNext} nextLabel={venueName ? 'Continue →' : 'Skip for now →'} />
     </div>
@@ -557,7 +557,7 @@ function Step6Scripture({
       {selectedText && (
         <div className="rounded-xl bg-[#fdfaf6] border border-[#d4af6a] px-4 py-3">
           <p className="font-serif italic text-[#3b2f2f] text-sm leading-relaxed">&ldquo;{selectedText}&rdquo;</p>
-          <p className="mt-2 text-xs text-[#a08060] uppercase tracking-wider">— {selectedReference}</p>
+          <p className="mt-2 text-xs text-[#a08060] uppercase tracking-wider">, {selectedReference}</p>
         </div>
       )}
 

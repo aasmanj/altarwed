@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-// PENDING is the "remind me" path — status stays PENDING, remindInDays is sent.
+// PENDING is the "remind me" path, status stays PENDING, remindInDays is sent.
 type Status = 'ATTENDING' | 'DECLINING' | 'PENDING'
 
 interface PartyMemberInfo {
@@ -177,7 +177,7 @@ export default function RsvpForm({
         </div>
       </div>
 
-      {/* +1 name — only show if attending and plusOneAllowed */}
+      {/* +1 name, only show if attending and plusOneAllowed */}
       {status === 'ATTENDING' && plusOneAllowed && (
         <div>
           <label className="block text-sm font-medium text-[#3b2f2f] mb-1.5">
@@ -223,11 +223,11 @@ export default function RsvpForm({
         </>
       )}
 
-      {/* Note to couple — available regardless of status so declining guests can leave a blessing */}
+      {/* Note to couple, available regardless of status so declining guests can leave a blessing */}
       {(status === 'ATTENDING' || status === 'DECLINING') && (
         <div>
           <label className="block text-sm font-medium text-[#3b2f2f] mb-1.5">
-            Leave a note for the couple <span className="text-[#a08060] font-normal">(private — only they will see it)</span>
+            Leave a note for the couple <span className="text-[#a08060] font-normal">(private, only they will see it)</span>
           </label>
           <textarea
             value={noteForCouple}
@@ -240,7 +240,7 @@ export default function RsvpForm({
         </div>
       )}
 
-      {/* Party members — show individual toggles when guest is a party contact */}
+      {/* Party members, show individual toggles when guest is a party contact */}
       {partyMembers && partyMembers.length > 0 && (status === 'ATTENDING' || status === 'DECLINING') && (
         <div className="border border-[#e8dcc8] rounded-xl p-4 space-y-3">
           <p className="text-sm font-medium text-[#3b2f2f]">Other members in your party</p>

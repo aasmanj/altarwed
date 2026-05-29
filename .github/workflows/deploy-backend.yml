@@ -25,7 +25,7 @@ jobs:
   # ── Job 1 ─────────────────────────────────────────────────────────────────
   # Build the JAR, run Flyway migrations against a real SQL Server container,
   # then let Hibernate validate every entity column. A type mismatch between a
-  # migration and a JPA entity fails here — nothing reaches Azure.
+  # migration and a JPA entity fails here, nothing reaches Azure.
   # ──────────────────────────────────────────────────────────────────────────
   build-and-validate:
     needs: migration-filenames
@@ -42,7 +42,7 @@ jobs:
         ports:
           - 1433:1433
         # --name gives the container a stable handle so docker exec is unambiguous.
-        # Health check uses sqlcmd that ships inside the image — no host install needed.
+        # Health check uses sqlcmd that ships inside the image, no host install needed.
         options: >-
           --name mssql-ci
           --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P AltarWedCI@2024 -Q 'SELECT 1' -No"
@@ -68,7 +68,7 @@ jobs:
         run: ./gradlew build -x test
 
       # The SQL Server image ships sqlcmd at /opt/mssql-tools18/bin/sqlcmd.
-      # docker exec reaches it directly — no host-side mssql-tools installation,
+      # docker exec reaches it directly, no host-side mssql-tools installation,
       # no GPG key juggling, no apt-get. 30-60 seconds saved per run.
       # The service health check already guarantees SQL Server is ready before
       # step 1 runs, so no wait loop is needed here.
@@ -97,7 +97,7 @@ jobs:
           retention-days: 1
 
   # ── Job 2 ─────────────────────────────────────────────────────────────────
-  # Deploy the pre-validated JAR. Only runs when build-and-validate passes —
+  # Deploy the pre-validated JAR. Only runs when build-and-validate passes
   # schema mismatches block here and never reach Azure.
   # ──────────────────────────────────────────────────────────────────────────
   deploy:
@@ -133,7 +133,7 @@ jobs:
   # env var, OOM.
   #
   # Step 2: Probe one endpoint per controller family without a token and
-  # assert HTTP 401 — NOT 404, NOT 500. 401 proves the controller is
+  # assert HTTP 401, NOT 404, NOT 500. 401 proves the controller is
   # registered and Security is running; 404 means the JAR name mismatch
   # returned (old app.jar still in use); 500 means the controller mapped
   # but a bean wiring blew up at request time.
@@ -144,7 +144,7 @@ jobs:
   smoke-test:
     needs: deploy
     runs-on: ubuntu-latest
-    name: Smoke test — verify Azure is healthy after deploy
+    name: Smoke test, verify Azure is healthy after deploy
     timeout-minutes: 10
 
     steps:
@@ -156,7 +156,7 @@ jobs:
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
             echo "Attempt $i/24: HTTP $STATUS"
             if [ "$STATUS" = "200" ]; then
-              echo "App is healthy — deployment succeeded."
+              echo "App is healthy, deployment succeeded."
               exit 0
             fi
             sleep 15
@@ -167,7 +167,7 @@ jobs:
 
       - name: Verify controller registration (expect 4xx, not 404/500)
         # Calls each secured endpoint without a token and asserts the response
-        # is a 4xx in the range 400-403 — NOT 404 (unmapped) or 5xx (wiring
+        # is a 4xx in the range 400-403, NOT 404 (unmapped) or 5xx (wiring
         # failure). Spring Security 6+ returns 401 or 403 depending on whether
         # the anonymous principal is treated as unauthenticated vs. unauthorised;
         # both are acceptable and both prove the controller is registered.
@@ -184,10 +184,10 @@ jobs:
             if [ "$STATUS" = "401" ] || [ "$STATUS" = "403" ]; then
               echo "PASS $label → HTTP $STATUS (controller registered, security active)"
             elif [ "$STATUS" = "404" ]; then
-              echo "FAIL $label → HTTP 404 (endpoint not mapped — wrong app.jar?)"
+              echo "FAIL $label → HTTP 404 (endpoint not mapped, wrong app.jar?)"
               FAIL=1
             else
-              echo "FAIL $label → HTTP $STATUS (unexpected — check container logs)"
+              echo "FAIL $label → HTTP $STATUS (unexpected, check container logs)"
               FAIL=1
             fi
           }

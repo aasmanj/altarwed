@@ -1,7 +1,7 @@
 // Parse a YYYY-MM-DD string as LOCAL noon so toLocaleDateString() can never
 // roll back a day in negative-UTC-offset timezones. `new Date('2026-08-15')`
 // is parsed as UTC midnight per ISO 8601, which becomes Aug 14 in any
-// negative UTC offset — the source of the "date off by one" bug.
+// negative UTC offset, the source of the "date off by one" bug.
 function parseLocal(iso: string): Date {
   // If the string already has a time component, trust it.
   if (iso.includes('T')) return new Date(iso)

@@ -10,7 +10,7 @@ spring:
       max-file-size: 15MB
       max-request-size: 16MB
 
-  # Virtual threads — uses Java 21 carrier threads for Tomcat and async tasks
+  # Virtual threads, uses Java 21 carrier threads for Tomcat and async tasks
   threads:
     virtual:
       enabled: true
@@ -31,7 +31,7 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.SQLServerDialect
     hibernate:
-      # NEVER use create or update — Flyway owns the schema
+      # NEVER use create or update, Flyway owns the schema
       ddl-auto: validate
     show-sql: false
     properties:
@@ -50,7 +50,7 @@ spring:
     validate-on-migrate: true
     out-of-order: false
 
-# JWT — secret and expiry pulled from environment / Azure Key Vault
+# JWT, secret and expiry pulled from environment / Azure Key Vault
 altarwed:
   jwt:
     secret: ${JWT_SECRET}
@@ -95,7 +95,7 @@ springdoc:
     path: /swagger-ui.html
     operations-sorter: alpha
 
-# Actuator — expose health and info; restrict others
+# Actuator, expose health and info; restrict others
 management:
   endpoints:
     web:
@@ -106,7 +106,7 @@ management:
       show-details: when-authorized
 
 ---
-# Local development profile — override with: -Dspring.profiles.active=local
+# Local development profile, override with: -Dspring.profiles.active=local
 # Create application-local.yml (gitignored) with real local values
 spring:
   config:
@@ -124,7 +124,7 @@ springdoc:
     enabled: true
 
 ---
-# Production profile — activated by SPRING_PROFILES_ACTIVE=prod on Azure App Service
+# Production profile, activated by SPRING_PROFILES_ACTIVE=prod on Azure App Service
 spring:
   config:
     activate:

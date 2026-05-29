@@ -1,4 +1,4 @@
-# CI profile — activated by -Dspring.profiles.active=ci in GitHub Actions.
+# CI profile, activated by -Dspring.profiles.active=ci in GitHub Actions.
 # Overrides every required env-var placeholder from application.yml so the
 # Spring context boots cleanly against the SQL Server service container
 # spun up by the workflow. No real credentials; throwaway container only.
@@ -27,7 +27,7 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-    # Do NOT baseline in CI — start fresh and run every migration from V1.
+    # Do NOT baseline in CI, start fresh and run every migration from V1.
     # Production uses baseline-on-migrate=true/version=6 because the schema
     # predated Flyway; the CI container is always empty so we run everything.
     baseline-on-migrate: false
@@ -62,7 +62,7 @@ altarwed:
 
   azure:
     storage:
-      # Azurite's well-known public dev key — safe for CI because the container
+      # Azurite's well-known public dev key, safe for CI because the container
       # never connects to real Azure; blob operations are never called in a
       # context-load test.
       connection-string: "DefaultEndpointsProtocol=https;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;EndpointSuffix=core.windows.net"

@@ -119,7 +119,7 @@ export default function WeddingPartyPage() {
           <div className="text-center py-16">
             <p className="text-brown font-medium mb-1">No members yet</p>
             <p className="text-sm text-brown-light">Add your officiant, wedding party, and family.</p>
-            <p className="text-xs text-brown-light mt-2">Tip: add your pastor or officiant first — it's front and center on your wedding website.</p>
+            <p className="text-xs text-brown-light mt-2">Tip: add your pastor or officiant first, it's front and center on your wedding website.</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -314,7 +314,7 @@ function MemberForm({ initial, onSubmit, onCancel, isPending, allowPhoto = false
           ) : (
             <div className="flex gap-2">
               <select value={role} onChange={e => setRole(e.target.value)} className={inputCls} required>
-                <option value="">— Select role —</option>
+                <option value="">, Select role, </option>
                 {SUGGESTED_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
               <button type="button" onClick={() => { setCustomRole(true); setRole('') }}

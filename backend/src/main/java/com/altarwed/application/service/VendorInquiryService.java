@@ -38,7 +38,7 @@ public class VendorInquiryService {
         this.vendorService = vendorService;
         this.emails = emails;
         // The Next.js base URL is the canonical public site. Do NOT derive it
-        // from altarwed.app.base-url via string mutation — that pattern breaks
+        // from altarwed.app.base-url via string mutation, that pattern breaks
         // for local dev (localhost:5173 != localhost:3000) and any future
         // subdomain rename.
         this.publicSiteUrl = publicSiteUrl;
@@ -57,7 +57,7 @@ public class VendorInquiryService {
         String profileUrl = publicSiteUrl + "/vendors/" + vendor.id();
 
         // INFO at boundary entry per CLAUDE.md rule 1. Couple email is NOT
-        // logged (PII per rule 8) — vendorId is the join key if support needs
+        // logged (PII per rule 8), vendorId is the join key if support needs
         // to trace an individual inquiry.
         log.info("vendor inquiry received, vendorId={}", req.vendorId());
 

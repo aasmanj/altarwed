@@ -77,7 +77,7 @@ function AnimatedRoutes() {
               </ProtectedRoute>
             }
           />
-          {/* Legacy path — keep alive in case any old links reference /builder. */}
+          {/* Legacy path, keep alive in case any old links reference /builder. */}
           <Route
             path="/dashboard/website/builder"
             element={<Navigate to="/dashboard/website/editor" replace />}
@@ -210,7 +210,7 @@ export default function App() {
     <MotionConfig reducedMotion="user">
       <BrowserRouter>
         <AuthProvider>
-          {/* Toast notifications — sonner. Top-right placement is consistent with
+          {/* Toast notifications, sonner. Top-right placement is consistent with
               Vercel/Linear/Cal.com; bottom-right reads as a chat notification. */}
           <Toaster
             position="top-right"

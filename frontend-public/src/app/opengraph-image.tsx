@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og'
 
 // File-based OpenGraph image convention. Because this lives at the app root, it
-// becomes the og:image for every route that does not define its own — so every
+// becomes the og:image for every route that does not define its own, so every
 // shared link (homepage, blog, vendor pages) renders a branded preview instead
 // of the 404 that /og-image.png was. Generated with next/og (built in, no dep),
 // so it is self-hosted and stays in sync with the brand. No custom font is

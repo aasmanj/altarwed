@@ -99,12 +99,12 @@ export default function SideBySideEditor() {
 
   // Divider drag. Three mechanics make this feel native instead of glitchy:
   //
-  // 1. Pointer Events + setPointerCapture — one unified API for mouse, touch,
+  // 1. Pointer Events + setPointerCapture, one unified API for mouse, touch,
   //    and pen. The capture means the divider keeps receiving pointermove
   //    events even when the cursor leaves the element, so we don't need to
   //    attach listeners to window.
   //
-  // 2. requestAnimationFrame throttling — pointermove fires at ~120Hz on
+  // 2. requestAnimationFrame throttling, pointermove fires at ~120Hz on
   //    high-refresh displays. Reacting on every event causes a re-render +
   //    iframe reflow per frame, which stalls. Coalescing to rAF caps work at
   //    the display refresh rate (the only rate that matters visually).
@@ -213,7 +213,7 @@ export default function SideBySideEditor() {
 
   // Push the current tab's blocks to the preview iframe whenever they change.
   // React Query's optimistic updates fire on mutation start, so the preview
-  // updates before the backend round-trip completes — typing feels instant.
+  // updates before the backend round-trip completes, typing feels instant.
   // Same pattern as HeroLive, just for the full block list. Must live above
   // the early-return guards so the hook order stays stable across renders.
   useEffect(() => {

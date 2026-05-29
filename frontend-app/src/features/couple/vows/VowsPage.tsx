@@ -72,7 +72,7 @@ export default function VowsPage() {
 
       <main className="mx-auto max-w-4xl px-4 sm:px-6 py-8 space-y-8">
 
-        {/* Partner tabs — bride first (2 before 1) to match display convention */}
+        {/* Partner tabs, bride first (2 before 1) to match display convention */}
         <div className="flex rounded-xl border border-gold-light bg-white overflow-hidden">
           {([2, 1] as const).map(p => {
             const name = p === 1 ? partnerOneName : partnerTwoName

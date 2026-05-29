@@ -25,13 +25,13 @@ public class WeddingPartyMemberController {
         this.mapper = mapper;
     }
 
-    // Public — Next.js wedding page
+    // Public, Next.js wedding page
     @GetMapping("/website/{websiteId}")
     public ResponseEntity<List<WeddingPartyMemberResponse>> list(@PathVariable UUID websiteId) {
         return ResponseEntity.ok(service.listMembers(websiteId).stream().map(mapper::toResponse).toList());
     }
 
-    // Authenticated — couple dashboard
+    // Authenticated, couple dashboard
     @PostMapping("/website/{websiteId}")
     public ResponseEntity<WeddingPartyMemberResponse> add(
             @PathVariable UUID websiteId,

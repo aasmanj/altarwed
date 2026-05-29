@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Already logged in — redirect to appropriate dashboard
+  // Already logged in, redirect to appropriate dashboard
   if (user) {
     navigate(user.role === 'VENDOR' ? '/vendor' : '/dashboard', { replace: true })
     return null

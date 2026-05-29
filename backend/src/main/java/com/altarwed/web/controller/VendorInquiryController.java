@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
  * filter level (RateLimitingFilter applies to /api/v1/inquiries).
  *
  * 202 Accepted is used because the email send is queued on the async executor
- * — by the time the response returns, the message has not yet been delivered.
+ *, by the time the response returns, the message has not yet been delivered.
  * 204 would imply completion; 202 is the truthful status.
  */
 @RestController

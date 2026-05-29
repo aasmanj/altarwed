@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 
 // Origins allowed to send live-preview messages. The dashboard editor lives at
 // app.altarwed.com in prod and on localhost during dev. Any postMessage from a
-// different origin is ignored — important because postMessage is fundamentally
+// different origin is ignored, important because postMessage is fundamentally
 // cross-origin and we render this on a public domain.
 const EDITOR_ORIGINS = [
   'https://app.altarwed.com',

@@ -31,7 +31,7 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
     validTabs.includes(tabParam as Tab) ? (tabParam as Tab) : 'story'
   )
 
-  // Local form state — mirror of the website fields
+  // Local form state, mirror of the website fields
   const [form, setForm] = useState({
     partnerOneName:    website.partnerOneName,
     partnerTwoName:    website.partnerTwoName,
@@ -434,7 +434,7 @@ function ScriptureTab({
 }
 
 // ---------------------------------------------------------------------------
-// Hotel tab — multi-hotel management
+// Hotel tab, multi-hotel management
 // ---------------------------------------------------------------------------
 const hotelInputCls = 'w-full rounded-lg border border-gold-light px-3 py-2 text-brown text-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold'
 
@@ -561,7 +561,7 @@ function HotelForm({ initial, onSave, onCancel, isPending }: {
         </div>
         <div>
           <label className="block text-xs text-brown-light mb-1">Block rate / notes</label>
-          <input value={rate} onChange={e => setRate(e.target.value)} className={hotelInputCls} placeholder="$149/night — mention AltarWed" />
+          <input value={rate} onChange={e => setRate(e.target.value)} className={hotelInputCls} placeholder="$149/night, mention AltarWed" />
         </div>
         <div>
           <label className="block text-xs text-brown-light mb-1">Distance from venue</label>

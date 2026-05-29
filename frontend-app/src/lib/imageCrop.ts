@@ -3,8 +3,8 @@
 // We bake this client-side so the backend storage stays cheap and member
 // avatars are visually consistent on the public site.
 //
-// Why centered (vs interactive crop UI): for square portrait shots — which is
-// what couples submit ~95% of the time — a center crop is the same answer the
+// Why centered (vs interactive crop UI): for square portrait shots, which is
+// what couples submit ~95% of the time, a center crop is the same answer the
 // user would pick manually. Skipping the UI keeps the add-member form one tap
 // shorter and avoids pulling in react-image-crop.
 

@@ -21,7 +21,7 @@ public class PrintOrderRecipientEntity {
 
     // Read-only back-reference. The FK is written by the parent's @OneToMany
     // @JoinColumn(name="print_order_id", nullable=false). Keep insertable/updatable
-    // false here — without it Hibernate sees two writers for the same column and
+    // false here, without it Hibernate sees two writers for the same column and
     // throws MappingException at startup.
     @Column(name = "print_order_id", nullable = false, insertable = false, updatable = false)
     private UUID printOrderId;

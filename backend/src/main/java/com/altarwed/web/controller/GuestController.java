@@ -57,7 +57,7 @@ public class GuestController {
     }
 
     // Dedicated endpoint for seating assignment. Uses PUT (idempotent set) rather
-    // than the general PATCH so null can unambiguously mean "remove from table" —
+    // than the general PATCH so null can unambiguously mean "remove from table"
     // the general PATCH merge pattern treats null as "not provided" and can't clear
     // a field back to null.
     @PutMapping("/couple/{coupleId}/{guestId}/table")
@@ -101,7 +101,7 @@ public class GuestController {
         return ResponseEntity.ok(Map.of("invitesSent", count));
     }
 
-    // Public endpoints — no auth, used by the Next.js RSVP page
+    // Public endpoints, no auth, used by the Next.js RSVP page
 
     /**
      * Find-your-invitation search. Guests who don't have their email handy can type

@@ -20,7 +20,7 @@ public class PasswordResetController {
         this.passwordResetService = passwordResetService;
     }
 
-    // Always returns 200 regardless of whether the email exists — prevents account enumeration.
+    // Always returns 200 regardless of whether the email exists, prevents account enumeration.
     @PostMapping("/forgot-password")
     public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         passwordResetService.requestReset(request.email());

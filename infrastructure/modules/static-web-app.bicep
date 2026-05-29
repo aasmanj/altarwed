@@ -4,7 +4,7 @@ param name string
 @description('Azure region')
 param location string
 
-@description('SKU tier — Free for dev, Standard for custom domains + auth')
+@description('SKU tier, Free for dev, Standard for custom domains + auth')
 param sku string = 'Standard'
 
 resource swa 'Microsoft.Web/staticSites@2023-01-01' = {
@@ -16,7 +16,7 @@ resource swa 'Microsoft.Web/staticSites@2023-01-01' = {
   }
   properties: {
     // GitHub integration is wired via GitHub Actions using the deploy token,
-    // not the Bicep-native buildProperties — this keeps CI/CD portable.
+    // not the Bicep-native buildProperties, this keeps CI/CD portable.
     buildProperties: {
       skipGithubActionWorkflowGeneration: true
     }
@@ -25,5 +25,5 @@ resource swa 'Microsoft.Web/staticSites@2023-01-01' = {
 
 output id string = swa.id
 output defaultHostname string = swa.properties.defaultHostname
-@description('Deploy token — save this as a GitHub secret')
+@description('Deploy token, save this as a GitHub secret')
 output deployToken string = swa.listSecrets().properties.apiKey

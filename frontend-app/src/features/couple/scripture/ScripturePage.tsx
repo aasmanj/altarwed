@@ -148,7 +148,7 @@ export default function ScripturePage() {
         {/* Featured curated verses */}
         <section>
           <h2 className="font-serif text-lg font-semibold text-brown mb-1">Wedding verses</h2>
-          <p className="text-sm text-brown-light mb-4">Curated covenant scriptures — click any to preview the full text.</p>
+          <p className="text-sm text-brown-light mb-4">Curated covenant scriptures, click any to preview the full text.</p>
 
           {featured.isLoading && (
             <p className="text-sm text-brown-light">Loading…</p>

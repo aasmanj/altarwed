@@ -1,4 +1,4 @@
-// Targeted deployment — provisions ONLY the frontend-app Static Web App.
+// Targeted deployment, provisions ONLY the frontend-app Static Web App.
 // Run this once to create the resource and capture the deploy token.
 // All other infrastructure is already live; avoid re-running main.bicep
 // just to add one resource (it would re-validate all secret references).

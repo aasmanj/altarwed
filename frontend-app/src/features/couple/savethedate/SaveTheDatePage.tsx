@@ -24,7 +24,7 @@ export default function SaveTheDatePage() {
       apiClient.post(`/api/v1/save-the-dates/couple/${coupleId}/send`).then(r => r.data),
     onSuccess: () => {
       setSent(true)
-      // Celebrate the milestone — first save-the-date blast is the first time
+      // Celebrate the milestone, first save-the-date blast is the first time
       // a couple's announcement actually reaches their guests.
       confetti({
         particleCount: 180,
@@ -70,7 +70,7 @@ export default function SaveTheDatePage() {
               Visit Our Wedding Website
             </div>
             <p className="mt-6 text-[#a08060] text-xs italic">
-              "And over all these virtues put on love, which binds them all together in perfect unity." — Colossians 3:14
+              "And over all these virtues put on love, which binds them all together in perfect unity.", Colossians 3:14
             </p>
           </div>
         </div>

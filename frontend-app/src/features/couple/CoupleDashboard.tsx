@@ -18,7 +18,7 @@ export default function CoupleDashboard() {
   const { data: website, isLoading: siteLoading, error: siteError } = useWeddingWebsite(coupleId)
   const isNotFound = (siteError as { response?: { status?: number } } | null)?.response?.status === 404
 
-  // New user — no website yet. Show the onboarding wizard instead of the dashboard.
+  // New user, no website yet. Show the onboarding wizard instead of the dashboard.
   if (!siteLoading && (isNotFound || (!siteError && !website && !siteLoading))) {
     if (isNotFound) return <OnboardingWizard />
   }
@@ -148,7 +148,7 @@ function PhaseSection({ number, title, description, children }: {
 }
 
 // Dedicated registry card that shows how many of 3 registry slots have been filled.
-// Placed prominently so couples configure it before sending invitations — the RSVP
+// Placed prominently so couples configure it before sending invitations, the RSVP
 // confirmation page links to the registry, and an empty one creates a dead end.
 function RegistryCard({ website }: { website: WeddingWebsite | undefined | null }) {
   const filled = [website?.registryUrl1, website?.registryUrl2, website?.registryUrl3].filter(Boolean).length
@@ -175,7 +175,7 @@ function RegistryCard({ website }: { website: WeddingWebsite | undefined | null 
       <p className="text-sm text-brown-light">Link your Amazon, Target, or Zola registries</p>
       {isEmpty && (
         <p className="mt-2 text-xs text-amber-700 font-medium">
-          Set this up before sending invites — guests expect a registry link after RSVPing.
+          Set this up before sending invites, guests expect a registry link after RSVPing.
         </p>
       )}
     </Link>

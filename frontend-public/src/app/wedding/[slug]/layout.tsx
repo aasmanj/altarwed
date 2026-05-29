@@ -104,7 +104,7 @@ export default async function WeddingLayout({
       {eventJsonLd && (
         <script
           type="application/ld+json"
-          // JSON.stringify does NOT escape "</" — a couple-controlled name
+          // JSON.stringify does NOT escape "</", a couple-controlled name
           // containing "</script>" would otherwise break out of this inline
           // <script> block and execute arbitrary JS. Replace forward-slashes
           // in close-tags with the unicode escape; valid JSON parsers accept
@@ -167,7 +167,7 @@ export default async function WeddingLayout({
         </div>
       </section>
 
-      {/* ── Scripture banner — more prominent per couple feedback ── */}
+      {/* ── Scripture banner, more prominent per couple feedback ── */}
       {(wedding.scriptureText || wedding.scriptureReference) && (
         <section className="bg-gradient-to-b from-[#3b2f2f] to-[#4a1942] py-20 px-6 text-center relative">
           <div className="absolute inset-x-0 top-0 h-px bg-[#d4af6a]/40" />
@@ -229,7 +229,7 @@ export default async function WeddingLayout({
         </div>
       </footer>
 
-      {/* Floating edit button — always shown so the couple can jump into the editor */}
+      {/* Floating edit button, always shown so the couple can jump into the editor */}
       <FloatingEditButton />
     </div>
   )

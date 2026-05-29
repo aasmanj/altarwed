@@ -17,7 +17,7 @@ import { TIPS } from '@/lib/tips'
 const CATEGORIES = Object.keys(CATEGORY_LABELS) as BudgetCategory[]
 
 function fmt(n: number | null | undefined) {
-  if (n == null) return '—'
+  if (n == null) return ', '
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
 }
 
@@ -221,7 +221,7 @@ export default function BudgetPage() {
             <div className="text-5xl mb-4">💰</div>
             <h3 className="text-lg font-medium text-stone-800 mb-2">No budget items yet</h3>
             <p className="text-stone-500 text-sm mb-6">
-              Start tracking your wedding costs — from the venue to the tithe.
+              Start tracking your wedding costs, from the venue to the tithe.
             </p>
             <button
               onClick={openAddForm}

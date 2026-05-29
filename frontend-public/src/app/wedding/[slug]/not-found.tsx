@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-// Rendered when /wedding/[slug] calls notFound() — either the slug does not
+// Rendered when /wedding/[slug] calls notFound(), either the slug does not
 // exist OR the couple has not published yet. We don't distinguish the two
 // to avoid leaking which slugs are taken; the helpful nudge below covers
 // the most common case (couple opens their own URL before clicking

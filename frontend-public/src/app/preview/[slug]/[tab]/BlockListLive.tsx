@@ -1,6 +1,6 @@
 'use client'
 
-// BlockListLive — client wrapper around BlockRenderer that listens for
+// BlockListLive, client wrapper around BlockRenderer that listens for
 // `blocks-update` postMessage events from the SideBySideEditor.
 //
 // Why: every keystroke in the editor used to bump the iframe key, forcing a
@@ -8,7 +8,7 @@
 // paragraph", that's hundreds of reloads. The pattern used by The Knot,
 // Squarespace, Webflow and WordPress Gutenberg is to keep the preview frame
 // mounted and patch the rendered tree from a message channel. We do the same
-// here — the iframe hydrates once from server props, then takes block updates
+// here, the iframe hydrates once from server props, then takes block updates
 // over postMessage until the user changes tab or triggers a true reload (hero
 // photo upload, publish toggle).
 //
@@ -41,7 +41,7 @@ export default function BlockListLive({ initialBlocks, wedding, partyMembers, ph
   const [blocks, setBlocks] = useState(initialBlocks)
 
   // Re-hydrate from server props when they change (happens on tab switch,
-  // hero photo upload, or publish toggle — anything that re-mounts the iframe).
+  // hero photo upload, or publish toggle, anything that re-mounts the iframe).
   useEffect(() => {
     setBlocks(initialBlocks)
   }, [initialBlocks])

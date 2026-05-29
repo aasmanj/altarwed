@@ -16,7 +16,7 @@ public interface WeddingPageBlockRepository {
     long countByWebsiteIdAndTab(UUID websiteId, BlockTab tab);
     // Returns the highest sortOrder currently on (websiteId, tab), or 0 if none.
     // Used by the create-block path so the new block is appended after any existing
-    // ones — count-based math would collide after a middle deletion.
+    // ones, count-based math would collide after a middle deletion.
     int findMaxSortOrderByWebsiteIdAndTab(UUID websiteId, BlockTab tab);
     void deleteById(UUID id);
 }

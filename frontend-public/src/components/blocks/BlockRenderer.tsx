@@ -1,4 +1,4 @@
-// BlockRenderer — dispatches each WeddingPageBlock to its per-type component.
+// BlockRenderer, dispatches each WeddingPageBlock to its per-type component.
 // All card-type blocks (VENUE_CARD, HOTEL_CARD, REGISTRY_CARD, COUNTDOWN, RSVP_CTA,
 // WEDDING_PARTY_GRID, PHOTO_ALBUM_GRID, VOWS_PREVIEW) read their primary data from
 // the WeddingWebsite scalar fields rather than the block's contentJson, so the couple
@@ -429,7 +429,7 @@ function VowCard({ name, vows }: { name: string; vows: string }) {
 }
 
 // ── StoryEntryBlock ───────────────────────────────────────────────────────────
-// A free-form "moment" — optional date/label badge, body text, and an optional
+// A free-form "moment", optional date/label badge, body text, and an optional
 // photo that sits to the left or right of the text. No forced date picker;
 // the couple writes whatever they want in dateLabel (a date, a place, a caption).
 function StoryEntryBlock({
@@ -459,7 +459,7 @@ function StoryEntryBlock({
       {/* Body + image side by side when both present */}
       {hasImage ? (
         <div className={`flex gap-5 items-start ${imagePosition === 'left' ? 'flex-row' : 'flex-row-reverse'}`}>
-          {/* Photo — fixed width on md+, full width below */}
+          {/* Photo, fixed width on md+, full width below */}
           <div className="w-full sm:w-2/5 flex-shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

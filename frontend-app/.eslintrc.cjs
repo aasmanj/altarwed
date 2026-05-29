@@ -10,7 +10,7 @@
  * jsx-a11y/recommended is enabled at default severity (error) so new code
  * cannot regress. If an existing component trips a rule that genuinely
  * needs ARIA we don't yet understand, add a targeted // eslint-disable-next-line
- * with a comment explaining why — never silence the rule globally.
+ * with a comment explaining why, never silence the rule globally.
  */
 module.exports = {
   root: true,

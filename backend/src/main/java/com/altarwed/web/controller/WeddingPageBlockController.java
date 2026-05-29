@@ -91,7 +91,7 @@ public class WeddingPageBlockController {
     }
 
     // Seeds blocks from the couple's existing scalar fields (ourStory, scripture, venue,
-    // hotel, registry slots, party members, photos). Idempotent per-tab — running it
+    // hotel, registry slots, party members, photos). Idempotent per-tab, running it
     // twice never duplicates. Called by the editor on first entry to ensure pre-Phase-1
     // couples never see an empty block UI.
     @PostMapping("/website/{websiteId}/backfill")

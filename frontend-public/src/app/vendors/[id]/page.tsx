@@ -109,7 +109,7 @@ export default async function VendorDetailPage(
           </div>
         </div>
 
-        {/* Inquiry form — couples can contact vendors without an account.
+        {/* Inquiry form, couples can contact vendors without an account.
             Persistence is deferred (Phase 8); email handles the round-trip. */}
         <div className="mb-8">
           <InquiryForm vendorId={vendor.id} vendorBusinessName={vendor.businessName} />

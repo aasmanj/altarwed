@@ -2,7 +2,7 @@
 
 // Floating "Edit your website" button shown on every public wedding page.
 // Since auth lives on app.altarwed.com (separate domain, in-memory JWT),
-// we cannot detect login state here. Instead we always show the button —
+// we cannot detect login state here. Instead we always show the button
 // the couple recognises their own site. Guests ignore it; it's subtle.
 // Clicking sends them to the dashboard editor. If they're not logged in,
 // the app redirects to /login automatically.

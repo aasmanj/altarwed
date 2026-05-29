@@ -307,7 +307,7 @@ export default function HomePage() {
                 Find vendors who pray with their couples
               </h2>
               <p className="text-[#6b5344] text-lg leading-relaxed mb-8">
-                Every vendor on AltarWed is faith-profiled. Find photographers, venues, florists, officiants, and coordinators who understand that your wedding is a covenant before God, not just a party.
+                Every vendor on AltarWed is faith-profiled. Find photographers, venues, florists, officiants, and coordinators who understand that your wedding is a covenant before God.
               </p>
               <div className="flex flex-wrap gap-3">
                 {['Photographers', 'Venues', 'Officiants', 'Florists', 'Coordinators'].map((cat) => (

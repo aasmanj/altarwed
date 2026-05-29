@@ -1,5 +1,5 @@
 
-# Backend — AltarWed API
+# Backend, AltarWed API
 
 ## Quick Start
 - Run: ./gradlew bootRun
@@ -9,11 +9,11 @@
 
 ## Key Files
 - build.gradle.kts → all dependencies
-- application.yml → config (no secrets here — use env vars or Key Vault)
+- application.yml → config (no secrets here, use env vars or Key Vault)
 - AltarWedApplication.java → main entry point
 
 ## Current Entities (Phase 1)
-Couple, Vendor, Denomination — start here
+Couple, Vendor, Denomination, start here
 
 ## Auth Flow
 1. POST /api/v1/auth/register → creates Couple, returns 201

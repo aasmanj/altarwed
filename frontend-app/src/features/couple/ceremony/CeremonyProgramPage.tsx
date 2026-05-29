@@ -13,7 +13,7 @@ import { formatWeddingDate } from '@/lib/date'
 // service: ceremony order of service, wedding party (with NEUTRAL members
 // covering officiant, musicians, readers), and the wedding website (couple
 // names, date, venue). Designed for portrait letter/A4 with @media print styles
-// that strip browser chrome — couples click "Print" and use the browser's
+// that strip browser chrome, couples click "Print" and use the browser's
 // "Save as PDF" or send straight to a printer.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ export default function CeremonyProgramPage() {
         </div>
       </div>
 
-      {/* Program — letter-sized canvas */}
+      {/* Program, letter-sized canvas */}
       <article className="mx-auto my-6 print:my-0 bg-white text-stone-900 shadow-lg print:shadow-none w-[8.5in] max-w-full min-h-[11in] px-12 py-14 print:px-10 print:py-12 program-page">
 
         {/* Cover header */}
@@ -138,7 +138,7 @@ export default function CeremonyProgramPage() {
           </section>
         )}
 
-        {/* Wedding Party — two columns */}
+        {/* Wedding Party, two columns */}
         {(brideParty.length > 0 || groomParty.length > 0) && (
           <section className="mb-10 break-inside-avoid">
             <h2 className="text-center text-xs uppercase tracking-[0.3em] text-stone-500 mb-4 pb-2 border-b border-stone-300">

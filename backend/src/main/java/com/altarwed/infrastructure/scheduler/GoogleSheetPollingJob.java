@@ -15,7 +15,7 @@ import java.util.UUID;
  * round takes time, runs don't pile up. This is important for a single-instance
  * deployment where concurrent syncs could hit rate limits.
  *
- * Interview note: fixedDelay vs fixedRate — fixedRate fires on a wall-clock
+ * Interview note: fixedDelay vs fixedRate, fixedRate fires on a wall-clock
  * schedule regardless of how long each run takes (can stack up if slow);
  * fixedDelay waits N ms after the previous run finishes (safer for I/O-heavy jobs).
  */

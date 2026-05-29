@@ -453,7 +453,7 @@ export default function SeatingPage() {
         title="Seating Chart"
         subtitle={
           locked
-            ? 'Locked — guests sorted by name within each table. Unlock to make changes.'
+            ? 'Locked, guests sorted by name within each table. Unlock to make changes.'
             : isMobile
               ? 'Tap a guest, then tap a table to assign'
               : 'Drag guests between tables to assign seats'

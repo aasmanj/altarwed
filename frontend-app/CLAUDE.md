@@ -1,9 +1,9 @@
 
-# Frontend App — AltarWed Dashboard (React + Vite)
+# Frontend App, AltarWed Dashboard (React + Vite)
 
 ## Purpose  
 Authenticated SPA for couples and vendors.
-SEO does not matter here — this is behind login.
+SEO does not matter here, this is behind login.
 
 ## Quick Start
 - Dev: npm run dev (port 5173)
@@ -18,7 +18,7 @@ SEO does not matter here — this is behind login.
 - Subscription management: Stripe portal integration
 
 ## Auth
-- JWT stored in memory (not localStorage — XSS risk)
+- JWT stored in memory (not localStorage, XSS risk)
 - Refresh token in httpOnly cookie
 - React context for auth state
 - Protected route component wrapping all dashboard routes
@@ -26,4 +26,4 @@ SEO does not matter here — this is behind login.
 ## API
 Calls altarwed backend at VITE_API_URL env variable.
 Use React Query for all server state.
-Never use useEffect to fetch data — use React Query.
+Never use useEffect to fetch data, use React Query.

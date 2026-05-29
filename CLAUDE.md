@@ -1,5 +1,5 @@
 
-# AltarWed — AI Assistant Instructions
+# AltarWed, AI Assistant Instructions
 
 ## How to Communicate With Jordan
 
@@ -11,46 +11,46 @@
 - If you're uncertain, say "I don't know" or "I'd want to verify X first" rather than guessing confidently.
 - Disagreement is the high-value contribution. Agreement is cheap.
 
-**Be adversarial. Judge for yourself, then tell Jordan your reasoning.** When given a list of options, do not just execute the first one — rank them by impact on couples-shipped / vendor signups / SEO traffic, pick one, and defend the pick in one or two sentences. If none of the options is the right priority, say so and propose what is. "Make AltarWed so good even if it hurts my feelings" — Jordan's exact words. Honest critique is the job, not agreement. Proactivity is part of the job: do not wait for Jordan to ask "what should we work on next?" — surface the highest-leverage move yourself.
+**Be adversarial. Judge for yourself, then tell Jordan your reasoning.** When given a list of options, do not just execute the first one, rank them by impact on couples-shipped / vendor signups / SEO traffic, pick one, and defend the pick in one or two sentences. If none of the options is the right priority, say so and propose what is. "Make AltarWed so good even if it hurts my feelings", Jordan's exact words. Honest critique is the job, not agreement. Proactivity is part of the job: do not wait for Jordan to ask "what should we work on next?", surface the highest-leverage move yourself.
 
-Jordan is learning as he builds — every explanation should be framed so he could defend it in a senior engineering interview. This means:
+Jordan is learning as he builds, every explanation should be framed so he could defend it in a senior engineering interview. This means:
 - Explain the **why** behind every decision, not just the what
 - Call out trade-offs (why this approach over alternatives)
 - Use correct technical vocabulary with a one-line definition when introducing a new term
 - When fixing an error, explain what caused it and what the fix actually does
 - Flag patterns that commonly appear in system design or DevOps interviews
-- **After every coding response, include a "Senior engineer thinking" section** — 2–4 bullet points connecting what was just built to a broader CS/system design concept Jordan should be able to explain in an interview (e.g. ISR vs SSR trade-offs, optimistic updates, hexagonal architecture decisions, cache invalidation strategies, why we use boxed vs primitive types in DTOs, etc.)
+- **After every coding response, include a "Senior engineer thinking" section**, 2–4 bullet points connecting what was just built to a broader CS/system design concept Jordan should be able to explain in an interview (e.g. ISR vs SSR trade-offs, optimistic updates, hexagonal architecture decisions, cache invalidation strategies, why we use boxed vs primitive types in DTOs, etc.)
 
-## Claude Tool Triggers — When to Remind Jordan
+## Claude Tool Triggers, When to Remind Jordan
 
 These are contextual prompts you should surface unprompted when the moment is right. Do not mention them at random.
 
 | Trigger | What to say |
 |---|---|
-| Jordan is about to push changes that touch `frontend-public/` public pages, RSVP flow, or wedding page rendering | "Before you push — run `/verify` to confirm the actual page renders correctly in a browser. Type `/verify` now." |
-| Jordan finishes a feature branch with more than ~5 files changed and is ready to merge | "This is a good candidate for `/ultrareview` before merging — it runs multiple agents in parallel and catches things I miss in single-pass review. Type `/ultrareview` to launch it." |
+| Jordan is about to push changes that touch `frontend-public/` public pages, RSVP flow, or wedding page rendering | "Before you push, run `/verify` to confirm the actual page renders correctly in a browser. Type `/verify` now." |
+| Jordan finishes a feature branch with more than ~5 files changed and is ready to merge | "This is a good candidate for `/ultrareview` before merging, it runs multiple agents in parallel and catches things I miss in single-pass review. Type `/ultrareview` to launch it." |
 | Jordan asks about next steps, what to build, or monitoring | "Phase 7 is already live. This is the right time to set up scheduled monitoring agents via `/schedule`. I'd suggest: (1) nightly sitemap.xml validity check, (2) weekly check that /wedding/[jordan-slug] loads and is indexed. Want to do that now?" |
-| Jordan asks about monitoring, uptime, or "what happens when something breaks in prod" | "The right answer here is a scheduled Claude agent via `/schedule` — it runs on cron, checks your endpoints, and can notify you. Want to set one up now?" |
-| Jordan ships a new public-facing page (in `frontend-public/`) | "Before pushing — run `npm run lint` in `frontend-public/` to catch accessibility violations (jsx-a11y rules ship with Next), then Tab through the page in the browser. The CLAUDE.md Accessibility Rules section is the checklist." |
+| Jordan asks about monitoring, uptime, or "what happens when something breaks in prod" | "The right answer here is a scheduled Claude agent via `/schedule`, it runs on cron, checks your endpoints, and can notify you. Want to set one up now?" |
+| Jordan ships a new public-facing page (in `frontend-public/`) | "Before pushing, run `npm run lint` in `frontend-public/` to catch accessibility violations (jsx-a11y rules ship with Next), then Tab through the page in the browser. The CLAUDE.md Accessibility Rules section is the checklist." |
 
 ## What We Are Building
-AltarWed is a faith-first Christian wedding planning platform — a two-sided marketplace
+AltarWed is a faith-first Christian wedding planning platform, a two-sided marketplace
 connecting engaged Christian couples with faith-aligned wedding vendors. Think The Knot
 or Zola, but built for Christian couples with covenant, scripture, and denomination at
 the center.
 
 **Core differentiator:** Every couple gets a shareable public wedding website at
 `altarwed.com/wedding/[slug]` (e.g. `/wedding/jordan-and-eden-faith`). Custom domain support
-is a future paid feature. This is the primary viral/social sharing surface — every
+is a future paid feature. This is the primary viral/social sharing surface, every
 couple who creates a site drives organic traffic and brand awareness.
 
 **Go-to-market strategy:**
 - Jordan and his fiancée will be the first couple to create their wedding website
 - Their site will be used in Facebook ads, Pinterest campaigns, and organic social content
   to generate buzz and waitlist signups before the platform is fully open
-- Vendors are NOT the initial focus — couples come first. Vendor self-serve and Stripe
+- Vendors are NOT the initial focus, couples come first. Vendor self-serve and Stripe
   billing come after real couple usage is established (Phase 4+)
-- The marketing homepage is live at altarwed.com — waitlist replaced with direct signup CTAs
+- The marketing homepage is live at altarwed.com, waitlist replaced with direct signup CTAs
 - Business Pinterest and Facebook accounts are created and ready for content
 
 **Reliability goal:** Spare no expense within reason. Current: B2 App Service.
@@ -59,8 +59,8 @@ global failover), Azure SQL Business Critical tier. Do not over-provision premat
 
 ## Monorepo Structure
 - backend/          → Spring Boot 4 REST API (Java 21, Gradle Kotlin DSL)
-- frontend-public/  → Next.js (SSR for SEO — public pages, blog, vendor directory)
-- frontend-app/     → React + Vite (SPA — authenticated couple/vendor dashboards)
+- frontend-public/  → Next.js (SSR for SEO, public pages, blog, vendor directory)
+- frontend-app/     → React + Vite (SPA, authenticated couple/vendor dashboards)
 - infrastructure/   → Azure Bicep IaC files
 - .github/          → CI/CD GitHub Actions workflows
 
@@ -68,33 +68,33 @@ global failover), Azure SQL Business Critical tier. Do not over-provision premat
 - Java 21 (use virtual threads, Records for DTOs, pattern matching)
 - Spring Boot 4.0.6
 - Gradle Kotlin DSL (build.gradle.kts)
-- Spring Security 7 (SecurityFilterChain ONLY — never WebSecurityConfigurerAdapter)
+- Spring Security 7 (SecurityFilterChain ONLY, never WebSecurityConfigurerAdapter)
 - JWT auth: access tokens (15 min) + refresh tokens (7 days)
 - Spring Data JPA + Flyway migrations
 - Azure SQL Database (SQL Server dialect)
-- Azure Blob Storage (vendor photos, wedding media) — SDK wired, container: altarwed-media
+- Azure Blob Storage (vendor photos, wedding media), SDK wired, container: altarwed-media
 - SpringDoc OpenAPI (auto-generated API docs)
 
-## Spring Boot 4 — CRITICAL BREAKING CHANGES (burned us already, never repeat)
+## Spring Boot 4, CRITICAL BREAKING CHANGES (burned us already, never repeat)
 
 Spring Boot 4 split the old `spring-boot-autoconfigure` monolith into per-technology modules.
-**Always use these new packages — the old ones DO NOT EXIST in 4.x:**
+**Always use these new packages, the old ones DO NOT EXIST in 4.x:**
 
-| What | Old (SB3) package — WRONG | New (SB4) package — CORRECT |
+| What | Old (SB3) package, WRONG | New (SB4) package, CORRECT |
 |---|---|---|
 | Flyway autoconfigure | `org.springframework.boot.autoconfigure.flyway.*` | `org.springframework.boot.flyway.autoconfigure.*` |
 | JPA/Hibernate autoconfigure | `org.springframework.boot.autoconfigure.orm.jpa.*` | `org.springframework.boot.hibernate.autoconfigure.*` |
 | Security autoconfigure | `org.springframework.boot.autoconfigure.security.*` | `org.springframework.boot.security.autoconfigure.*` |
 | Web autoconfigure | `org.springframework.boot.autoconfigure.web.*` | check `spring-boot-web` module |
 
-**Test annotation changes (SB4 removed these — use Spring Framework 7 replacements):**
+**Test annotation changes (SB4 removed these, use Spring Framework 7 replacements):**
 - `@MockBean` (was `org.springframework.boot.test.mock.mockito`) → **REMOVED**. Use `@MockitoBean` from `org.springframework.test.context.bean.override.mockito`
 - `@DataJpaTest` (was `org.springframework.boot.test.autoconfigure.orm.jpa`) → **REMOVED** from SB4 autoconfigure jar. Avoid Spring test slices for now.
 - `@WebMvcTest` (was `org.springframework.boot.test.autoconfigure.web.servlet`) → **REMOVED** from SB4 autoconfigure jar. Avoid Spring test slices for now.
 
-**Beans that Spring Boot 3 auto-exposed but Spring Boot 4 does NOT — declare these explicitly:**
-- `ObjectMapper` — declare in `JacksonConfig.java` (already done). Inject via constructor in any service that needs JSON serialization.
-- `RestClient.Builder` — NOT a Spring bean in SB4. Never inject it as a constructor parameter. Call `RestClient.builder()` as a static factory method directly inside the constructor instead. All existing adapters (ResendEmailAdapter, NextjsRevalidationAdapter, ScriptureService) already follow this pattern.
+**Beans that Spring Boot 3 auto-exposed but Spring Boot 4 does NOT, declare these explicitly:**
+- `ObjectMapper`, declare in `JacksonConfig.java` (already done). Inject via constructor in any service that needs JSON serialization.
+- `RestClient.Builder`, NOT a Spring bean in SB4. Never inject it as a constructor parameter. Call `RestClient.builder()` as a static factory method directly inside the constructor instead. All existing adapters (ResendEmailAdapter, NextjsRevalidationAdapter, ScriptureService) already follow this pattern.
 - When adding any new `@Service` with non-obvious constructor deps, verify each dep resolves as a Spring bean before deploying.
 
 **If you get a compile error "package org.springframework.boot.autoconfigure.X does not exist":**
@@ -139,48 +139,48 @@ This is NON-NEGOTIABLE. Always follow this pattern:
 web → application → domain ← infrastructure
 
 domain has ZERO imports from: Spring, JPA, infrastructure, web.
-If you find yourself importing springframework.* in domain/ — STOP and restructure.
+If you find yourself importing springframework.* in domain/, STOP and restructure.
 
-## Domain Entities — Built and Live
+## Domain Entities, Built and Live
 All entities below have Flyway migrations in production (V1–V15):
-- **Couple** — partnerOneName, partnerTwoName, email, weddingDate, denominationId
-- **Vendor** — businessName, category, city, state, isChristianOwned, denominationIds, isActive, isVerified
-- **Denomination** — 10 seeded (Baptist, Catholic, Presbyterian, etc.)
-- **RefreshToken** — tokenHash, userId, userRole, expiresAt, revoked
-- **VendorSubscription** — vendorId, planTier, status, stripeCustomerId (Stripe not yet wired)
-- **WeddingWebsite** (V7+V8, V25 cleanup) — slug, heroPhotoUrl, ourStory, scripture, venue, hotel, registry (3 slots), rsvpDeadline, isPublished, soft-delete. `testimony`, `covenantStatement`, `websitePin` columns dropped in V25.
-- **PasswordResetToken** (V9) — tokenHash, coupleId, expiresAt, used
-- **Guest** (V10) — coupleId, name, email, rsvpStatus, plusOneName, mealPreference, dietaryRestrictions, songRequest, shuttleNeeded
-- **RsvpInviteToken** (V11) — guestId, tokenHash, expiresAt, used
-- **PlanningTask** (V13) — coupleId, title, category, dueDateMonthsBefore, isCompleted, isSeeded, sortOrder
-- **WeddingPrayer** (V14) — weddingWebsiteId, guestName, prayerText, createdAt
-- **WeddingPartyMember** (V15) — weddingWebsiteId, name, role, side (BRIDE/GROOM/NEUTRAL), bio, photoUrl, sortOrder
-- **BudgetItem** (V16) — coupleId, category, vendorName, estimatedCost, actualCost, isPaid, notes
-- **WeddingPhoto** (V17) — weddingWebsiteId, blobUrl, caption, sortOrder, uploadedAt
-- **WeddingWebsite** (V18 patch, dropped in V25) — websitePin column removed; PIN privacy feature deprecated per walkthrough.
-- **SeatingTable** (V19) — coupleId, name, capacity, sortOrder; guests linked by tableNumber (1-based index)
-- **BlogPost** (V23) — slug, title, excerpt, content, author, publishedAt, seoTitle, seoDescription, tags. 4 posts seeded (V24, V28): christian-wedding-ceremony-order, bible-verses-for-weddings, christian-wedding-vows, christian-wedding-planning-checklist.
-- **WeddingHotel** (V30) — normalized hotel block table (name, address, booking_url, block_rate, distance_from_venue, sort_order). Multiple rows per website. Replaces scalar hotel fields on WeddingWebsite for new UI; old fields retained.
-- **GoogleSheetSync** (V31) — one row per couple; sheet_url, last_synced, last_error, row_count, is_active. Scheduled job polls every 15 min and upserts guests.
-- **Guest party fields** (V29) — guests gain party_id (UUID grouping), party_name (display label), party_contact (bool — which guest in the party gets the invite email).
+- **Couple**, partnerOneName, partnerTwoName, email, weddingDate, denominationId
+- **Vendor**, businessName, category, city, state, isChristianOwned, denominationIds, isActive, isVerified
+- **Denomination**, 10 seeded (Baptist, Catholic, Presbyterian, etc.)
+- **RefreshToken**, tokenHash, userId, userRole, expiresAt, revoked
+- **VendorSubscription**, vendorId, planTier, status, stripeCustomerId (Stripe not yet wired)
+- **WeddingWebsite** (V7+V8, V25 cleanup), slug, heroPhotoUrl, ourStory, scripture, venue, hotel, registry (3 slots), rsvpDeadline, isPublished, soft-delete. `testimony`, `covenantStatement`, `websitePin` columns dropped in V25.
+- **PasswordResetToken** (V9), tokenHash, coupleId, expiresAt, used
+- **Guest** (V10), coupleId, name, email, rsvpStatus, plusOneName, mealPreference, dietaryRestrictions, songRequest, shuttleNeeded
+- **RsvpInviteToken** (V11), guestId, tokenHash, expiresAt, used
+- **PlanningTask** (V13), coupleId, title, category, dueDateMonthsBefore, isCompleted, isSeeded, sortOrder
+- **WeddingPrayer** (V14), weddingWebsiteId, guestName, prayerText, createdAt
+- **WeddingPartyMember** (V15), weddingWebsiteId, name, role, side (BRIDE/GROOM/NEUTRAL), bio, photoUrl, sortOrder
+- **BudgetItem** (V16), coupleId, category, vendorName, estimatedCost, actualCost, isPaid, notes
+- **WeddingPhoto** (V17), weddingWebsiteId, blobUrl, caption, sortOrder, uploadedAt
+- **WeddingWebsite** (V18 patch, dropped in V25), websitePin column removed; PIN privacy feature deprecated per walkthrough.
+- **SeatingTable** (V19), coupleId, name, capacity, sortOrder; guests linked by tableNumber (1-based index)
+- **BlogPost** (V23), slug, title, excerpt, content, author, publishedAt, seoTitle, seoDescription, tags. 4 posts seeded (V24, V28): christian-wedding-ceremony-order, bible-verses-for-weddings, christian-wedding-vows, christian-wedding-planning-checklist.
+- **WeddingHotel** (V30), normalized hotel block table (name, address, booking_url, block_rate, distance_from_venue, sort_order). Multiple rows per website. Replaces scalar hotel fields on WeddingWebsite for new UI; old fields retained.
+- **GoogleSheetSync** (V31), one row per couple; sheet_url, last_synced, last_error, row_count, is_active. Scheduled job polls every 15 min and upserts guests.
+- **Guest party fields** (V29), guests gain party_id (UUID grouping), party_name (display label), party_contact (bool, which guest in the party gets the invite email).
 
 ## User Roles
 - COUPLE → can manage their wedding, guests, ceremony, vendor messaging
 - VENDOR → can manage their listing, respond to inquiries, view analytics
 - ADMIN → platform management (future)
 
-## Code Standards — ALWAYS follow these
+## Code Standards, ALWAYS follow these
 
 ### Java:
 - DTOs MUST be Java Records (not classes)
 - Constructor injection ONLY (never @Autowired on fields)
 - @Transactional on service methods that write to DB
-- Domain models are Java Records — immutable
-- JPA entities are classes with @Entity — never Records
+- Domain models are Java Records, immutable
+- JPA entities are classes with @Entity, never Records
 - Always separate the JPA entity from the domain model
 - Write a mapper (toDomain / toEntity) in the adapter class
 - API versioning: all endpoints under /api/v1/
-- Use boxed types (Integer, Boolean) in DTOs — never primitives. Primitives can't represent "not provided" in JSON; Jackson fails rather than defaulting.
+- Use boxed types (Integer, Boolean) in DTOs, never primitives. Primitives can't represent "not provided" in JSON; Jackson fails rather than defaulting.
 
 ### Testing:
 - domain/ tests: pure JUnit 5, no Spring context
@@ -343,7 +343,7 @@ Current output is a console pattern with `%X{requestId}` interpolated. App Insig
 - App Service: backend Spring Boot JAR (B2 tier)
 - Static Web Apps: frontend-public (Next.js) and frontend-app (React)
 - Azure SQL: primary database
-- Azure Blob Storage: media files — connection string via AZURE_STORAGE_CONNECTION_STRING, container: altarwed-media. Set container public access to "Blob" for image URLs to be publicly readable.
+- Azure Blob Storage: media files, connection string via AZURE_STORAGE_CONNECTION_STRING, container: altarwed-media. Set container public access to "Blob" for image URLs to be publicly readable.
 - Azure Key Vault: all secrets (never hardcode secrets)
 - Azure CDN: static assets and media delivery
 - Azure Application Insights: observability
@@ -357,26 +357,26 @@ Current output is a console pattern with `%X{requestId}` interpolated. App Insig
 - URLs are lowercase, hyphenated, keyword-rich
 - ISR (revalidate) values: wedding pages = 60s, vendor pages = 15s (new vendors appear quickly), prayers = 30s
 
-## Accessibility Rules (WCAG 2.1 AA baseline — lawsuit prevention)
+## Accessibility Rules (WCAG 2.1 AA baseline, lawsuit prevention)
 
 The ADA doesn't (yet) have website-specific regulations, but US courts apply
 Title III by analogy and plaintiffs' law firms cite WCAG 2.1 AA as the de
 facto standard. Drive-by ADA lawsuits target sites with **obvious** failures:
 no alt text, no form labels, no keyboard nav, no contrast. The rules below
 keep AltarWed well clear of that target zone. They are not a claim of full
-compliance — that requires periodic manual audits with a screen reader.
+compliance, that requires periodic manual audits with a screen reader.
 
 These rules apply to BOTH frontends but matter most on `frontend-public/`
-(homepage, wedding pages, vendor directory, blog) — the public surfaces a
+(homepage, wedding pages, vendor directory, blog), the public surfaces a
 plaintiff's scanner would actually hit.
 
 ### 1. Images
 - Every `<img>` and `<Image>` needs an `alt`. Descriptive for content images
   (`alt="Bride and groom exchanging rings at the altar"`), empty string for
-  decorative ones (`alt=""`) — never just omit the attribute.
+  decorative ones (`alt=""`), never just omit the attribute.
 - Couple-uploaded photos (hero, wedding party, album): use the field they
   provide (caption, member name) or a sensible fallback ("Wedding photo").
-  Never `alt="image"` or `alt="photo"` — that's worse than nothing.
+  Never `alt="image"` or `alt="photo"`, that's worse than nothing.
 
 ### 2. Forms
 - Every `<input>`, `<textarea>`, `<select>` needs a programmatic label.
@@ -392,22 +392,22 @@ plaintiff's scanner would actually hit.
 ### 3. Color contrast
 - Body text against its background must hit WCAG AA: 4.5:1 for normal text,
   3:1 for large text (18pt+ or 14pt+ bold). The brown-light / cream palette
-  is borderline — check new color combinations at webaim.org/resources/contrastchecker
+  is borderline, check new color combinations at webaim.org/resources/contrastchecker
   before shipping.
 - Never use color as the ONLY way to convey information (e.g. red text for
-  "error" — pair it with an icon and/or text like "Error:").
+  "error", pair it with an icon and/or text like "Error:").
 
 ### 4. Keyboard navigation
 - Every interactive element must be reachable by Tab and operable by
   Enter/Space. If you're tempted to put `onClick` on a `<div>`, use a
-  `<button>` instead — it gets keyboard, focus, and screen reader for free.
+  `<button>` instead, it gets keyboard, focus, and screen reader for free.
 - Visible focus indicator on every focusable element. Tailwind's default
-  `focus:outline-none` is the most common offender — pair it with
+  `focus:outline-none` is the most common offender, pair it with
   `focus-visible:ring-2 focus-visible:ring-gold` or equivalent.
 - Modals must trap focus, return focus to the trigger on close, and close on
   Escape.
 - Custom widgets (the divider in SideBySideEditor is a good example) need
-  proper ARIA: `role`, `aria-*` state, and keyboard handlers — see
+  proper ARIA: `role`, `aria-*` state, and keyboard handlers, see
   `SideBySideEditor.tsx` for the pattern.
 
 ### 5. Semantic HTML and headings
@@ -449,13 +449,13 @@ plaintiff's scanner would actually hit.
 ### Tooling status
 - `frontend-public/`: `next lint` runs `eslint-plugin-jsx-a11y` rules
   automatically. Run before pushing public-page changes.
-- `frontend-app/`: no eslint config yet — relies on manual review. Lower
+- `frontend-app/`: no eslint config yet, relies on manual review. Lower
   legal risk (behind auth) but UX still matters.
 - Manual smoke test before any major public-page launch: Tab through the
   page top-to-bottom, then run it through https://wave.webaim.org/ and
   fix anything red.
 
-## What NOT to Do — Ever
+## What NOT to Do, Ever
 - Never put @Entity on a domain model Record
 - Never import infrastructure.* in domain.*
 - Never import web.* in application.*  
@@ -463,7 +463,7 @@ plaintiff's scanner would actually hit.
 - Never store plain text passwords
 - Never hardcode secrets, API keys, or connection strings
 - Never use ddl-auto=create/update in production
-- Never skip Flyway — all migrations are versioned and irreversible
+- Never skip Flyway, all migrations are versioned and irreversible
 - Never use WebSecurityConfigurerAdapter (removed in Spring Security 6+)
 - Never use RestTemplate for new code (use RestClient or @HttpExchange)
 - Never use primitive types in DTO Records (use boxed: Integer not int, Boolean not boolean)
@@ -472,17 +472,17 @@ plaintiff's scanner would actually hit.
 - Vendors pay monthly subscriptions (BASIC $29, FEATURED $79, PREMIUM $149)
 - Couples have free and paid tiers (Covenant Plan $9/mo)
 - Church partnerships: churches pay $99/mo for congregation access
-- Stripe is the payment processor — VendorSubscription entity tracks this
-- **Payments are Phase 8 — do NOT add Stripe until vendor + couple usage is established**
-- Affiliate links: Amazon and Target (registry product links), "The Meaning of Marriage" by Timothy Keller, "The Five Love Languages" by Gary Chapman — add to a /resources page (Phase 6c)
+- Stripe is the payment processor, VendorSubscription entity tracks this
+- **Payments are Phase 8, do NOT add Stripe until vendor + couple usage is established**
+- Affiliate links: Amazon and Target (registry product links), "The Meaning of Marriage" by Timothy Keller, "The Five Love Languages" by Gary Chapman, add to a /resources page (Phase 6c)
 
-## Build Phases — Current Status
+## Build Phases, Current Status
 
 Schema state is captured in the Domain Entities list above. Anything that shipped
 is recoverable from `git log` + the live DB. Only load-bearing facts and active
 work are listed here.
 
-### Shipped (Phases 1 through 7b) — couples can fully self-serve
+### Shipped (Phases 1 through 7b), couples can fully self-serve
 
 Live in prod: auth (JWT + refresh), couple signup + onboarding wizard, wedding
 website (altarwed.com/wedding/[slug]) with side-by-side block editor (14 block
@@ -510,7 +510,7 @@ sitemap.xml, RSVP reminders (hourly poll).
   (no site chrome). Tab param is lowercased in URL, uppercased server-side.
 - **Async email:** Spring `@Async` on `emailExecutor` (4–10 threads, queue 200).
   Any new email send goes through `AsyncEmailService`.
-- **Scripture verse is locked from manual edit** in the editor — couples must
+- **Scripture verse is locked from manual edit** in the editor, couples must
   pick via the "Browse wedding verses" modal or autofill.
 - **Scripture / testimony / covenant fields:** scripture stayed (load-bearing).
   Testimony, covenant statement, and PIN privacy were removed in V25 after the
@@ -518,10 +518,10 @@ sitemap.xml, RSVP reminders (hourly poll).
 
 ### Next up
 
-- **Phase 2 (editor polish) — RSVP "find your invitation"** — public endpoint
+- **Phase 2 (editor polish), RSVP "find your invitation"**, public endpoint
   `GET /api/v1/guests/rsvp/find?slug={slug}&name={name}` returning masked guest
   name + token. No auth, Bucket4j rate-limited. UI on the public RSVP tab.
-- **Phase 8 — Stripe billing** — VendorSubscription wired to Stripe (BASIC $29 /
+- **Phase 8, Stripe billing**, VendorSubscription wired to Stripe (BASIC $29 /
   FEATURED $79 / PREMIUM $149 / couple Covenant $9). Webhook handler, portal UI.
   Gated until vendor + couple usage is established (see Monetization Context).
 
@@ -529,7 +529,7 @@ sitemap.xml, RSVP reminders (hourly poll).
 
 - Blog post `revalidate = 60s` (should be 3600s per SEO rules above). Not urgent.
 
-## Wedding Website Feature — Live Details
+## Wedding Website Feature, Live Details
 - URL pattern: altarwed.com/wedding/[slug]
 - Dashboard: app.altarwed.com/dashboard/website
 - Hero photo upload: POST /api/v1/uploads/wedding-websites/{websiteId}/hero
@@ -539,10 +539,10 @@ sitemap.xml, RSVP reminders (hourly poll).
 - Soft delete: website data preserved, public page returns 404
 
 ## Scale-Up Path (MVP → Enterprise)
-These are intentional deferments — build simple now, upgrade when traffic justifies it.
+These are intentional deferments, build simple now, upgrade when traffic justifies it.
 
 ### Couple search (currently: JPQL LIKE query)
-- MVP: `WHERE partner_one_name LIKE :name OR partner_two_name LIKE :name` — fine for thousands of couples
+- MVP: `WHERE partner_one_name LIKE :name OR partner_two_name LIKE :name`, fine for thousands of couples
 - Enterprise upgrade: Azure Cognitive Search (full-text, fuzzy matching, facets). Wire when LIKE queries get slow or couples complain search doesn't find their names.
 
 ### Email delivery (currently: synchronous Resend via @Async thread pool)

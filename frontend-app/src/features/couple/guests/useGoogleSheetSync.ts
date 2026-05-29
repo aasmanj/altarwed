@@ -31,7 +31,7 @@ export function useGoogleSheetSync(coupleId: string) {
     },
     enabled: !!coupleId,
     staleTime: 30_000,
-    // 404 means "not configured" — return null instead of throwing
+    // 404 means "not configured", return null instead of throwing
     retry: (_, err: any) => err?.response?.status !== 404,
     select: (data) => data ?? null,
   })

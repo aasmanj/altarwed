@@ -202,7 +202,7 @@ public class GlobalExceptionHandler {
     }
 
     // Catches DB unique constraint violations that slip past service-layer checks
-    // (e.g. two simultaneous registrations with the same email — race condition)
+    // (e.g. two simultaneous registrations with the same email, race condition)
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
         // ERROR because this signals a service-layer check missed a constraint, OR a

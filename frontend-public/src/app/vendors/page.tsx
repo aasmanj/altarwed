@@ -50,7 +50,7 @@ async function getVendors(category?: string, city?: string): Promise<Vendor[]> {
   const params = new URLSearchParams()
   if (category) params.set('category', category)
   if (city) params.set('city', city)
-  // Short cache — new vendors should appear within 15 seconds
+  // Short cache, new vendors should appear within 15 seconds
   try {
     const res = await fetch(`${apiUrl}/api/v1/vendors?${params}`, { next: { revalidate: 15 } })
     if (!res.ok) return []

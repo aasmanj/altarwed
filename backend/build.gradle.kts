@@ -40,11 +40,11 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
 
-    // Flyway — starter ensures Spring Boot 4 autoconfiguration triggers; sqlserver adds T-SQL support
+    // Flyway, starter ensures Spring Boot 4 autoconfiguration triggers; sqlserver adds T-SQL support
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-sqlserver")
 
-    // Azure SQL (SQL Server JDBC driver — runtime only, not needed at compile time)
+    // Azure SQL (SQL Server JDBC driver, runtime only, not needed at compile time)
     runtimeOnly("com.microsoft.sqlserver:mssql-jdbc:$mssqlVersion")
 
     // JWT
@@ -55,17 +55,17 @@ dependencies {
     // OpenAPI / Swagger UI
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:$springdocVersion")
 
-    // Lombok — compile-time only; annotation processor generates boilerplate
+    // Lombok, compile-time only; annotation processor generates boilerplate
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
 
     // Actuator (health checks, metrics for Azure App Insights)
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 
-    // Rate limiting — token bucket algorithm, no Redis required (in-memory per instance)
+    // Rate limiting, token bucket algorithm, no Redis required (in-memory per instance)
     implementation("com.bucket4j:bucket4j-core:$bucket4jVersion")
 
-    // Azure Blob Storage — media uploads (wedding photos, wedding party headshots)
+    // Azure Blob Storage, media uploads (wedding photos, wedding party headshots)
     implementation("com.azure:azure-storage-blob:$azureStorageVersion")
 
     // ---- Test dependencies ----
@@ -80,7 +80,7 @@ dependencies {
     testAnnotationProcessor("org.projectlombok:lombok")
 }
 
-// Default test task — unit and application-layer tests only.
+// Default test task, unit and application-layer tests only.
 // Excludes the schema-validation integration test because that test
 // requires a live SQL Server instance (only available in CI).
 tasks.withType<Test> {
@@ -89,7 +89,7 @@ tasks.withType<Test> {
     }
 }
 
-// Schema validation task — runs ONLY the @Tag("schema-validation") tests.
+// Schema validation task, runs ONLY the @Tag("schema-validation") tests.
 // Requires a SQL Server container on localhost:1433 with an empty "altarwed"
 // database. The GitHub Actions deploy workflow runs this before every deploy.
 // To run locally: ./gradlew schemaValidationTest -Dspring.profiles.active=ci

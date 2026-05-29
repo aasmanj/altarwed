@@ -85,7 +85,7 @@ jobs:
             -S localhost -U sa -P "AltarWedCI@2024" \
             -Q "CREATE DATABASE altarwed" -No
 
-      # Gradle resolves schemaValidationTest's compile dependencies itself —
+      # Gradle resolves schemaValidationTest's compile dependencies itself
       # no separate build step needed in this job.
       - name: Schema validation test (Flyway + Hibernate vs real SQL Server)
         working-directory: ./backend

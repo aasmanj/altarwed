@@ -114,7 +114,7 @@ export function useUpdateGuest(coupleId: string) {
 }
 
 // Dedicated hook for seating assignment. Uses PUT (not PATCH) so null
-// unambiguously means "remove from table" — the general PATCH endpoint
+// unambiguously means "remove from table", the general PATCH endpoint
 // uses null-means-not-provided merge semantics and can't clear tableNumber.
 export function useAssignGuestTable(coupleId: string) {
   const qc = useQueryClient()

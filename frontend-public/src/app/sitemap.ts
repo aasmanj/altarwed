@@ -15,7 +15,7 @@ const STATIC_PAGES: MetadataRoute.Sitemap = [
     changeFrequency: 'daily',
     priority: 0.9,
   },
-  // Flagship SEO blog posts — high priority so Google discovers them quickly
+  // Flagship SEO blog posts, high priority so Google discovers them quickly
   {
     url: `${BASE_URL}/blog/bible-verses-for-weddings`,
     changeFrequency: 'monthly',
@@ -95,7 +95,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           }))
       }
     } catch {
-      // API down — static pages still included, blog dynamic entries skipped
+      // API down, static pages still included, blog dynamic entries skipped
     }
   }
 
@@ -118,7 +118,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         }))
       }
     } catch {
-      // API down — wedding pages skipped, static pages still served
+      // API down, wedding pages skipped, static pages still served
     }
   }
 

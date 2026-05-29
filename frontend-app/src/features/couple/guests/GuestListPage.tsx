@@ -422,7 +422,7 @@ export default function GuestListPage() {
                 ))}
               </div>
               <p className="text-stone-500 mb-2">
-                AltarWed will fill in the last column automatically — it's how we keep your sheet in sync even if you rename guests.
+                AltarWed will fill in the last column automatically, it's how we keep your sheet in sync even if you rename guests.
               </p>
               <button
                 onClick={copyHeaders}
@@ -544,7 +544,7 @@ export default function GuestListPage() {
               await addGuest.mutateAsync(data)
               setShowAdd(false)
               if (wasFirstGuest) {
-                // First guest added — celebrate the milestone.
+                // First guest added, celebrate the milestone.
                 confetti({
                   particleCount: 120,
                   spread: 70,
@@ -650,16 +650,16 @@ function GuestRow({ guest, onEdit, onRemove, onInvite, sendInvitePending }: {
             <span className="block text-xs text-brown-light/80 mt-0.5 italic truncate">{guest.partyName}</span>
           )}
         </td>
-        <td className="px-4 py-3 text-brown-light hidden sm:table-cell">{guest.email ?? '—'}</td>
+        <td className="px-4 py-3 text-brown-light hidden sm:table-cell">{guest.email ?? ', '}</td>
         <td className="px-4 py-3 text-brown-light hidden md:table-cell capitalize">
-          {guest.side ? guest.side.toLowerCase() : '—'}
+          {guest.side ? guest.side.toLowerCase() : ', '}
         </td>
         <td className="px-4 py-3">
           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLOR[guest.rsvpStatus]}`}>
             {STATUS_LABEL[guest.rsvpStatus]}
           </span>
         </td>
-        <td className="px-4 py-3 text-brown-light hidden lg:table-cell">{guest.tableNumber ?? '—'}</td>
+        <td className="px-4 py-3 text-brown-light hidden lg:table-cell">{guest.tableNumber ?? ', '}</td>
         <td className="px-4 py-3">
           <div className="flex items-center gap-2 justify-end">
             {guest.email && (guest.inviteSendCount ?? 0) < 3 && (
@@ -676,7 +676,7 @@ function GuestRow({ guest, onEdit, onRemove, onInvite, sendInvitePending }: {
           </div>
         </td>
       </tr>
-      {/* RSVP detail row — dietary restrictions and song request filled in by guest */}
+      {/* RSVP detail row, dietary restrictions and song request filled in by guest */}
       {(guest.dietaryRestrictions || guest.songRequest) && (
         <tr className="border-b border-gold-light/50 bg-stone-50/60">
           <td colSpan={6} className="px-4 py-1.5 text-xs text-brown-light">
@@ -796,7 +796,7 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
         <Field label="Side">
           <select value={side} onChange={e => setSide(e.target.value as GuestSide | '')}
             className={inputCls}>
-            <option value="">— Select —</option>
+            <option value="">, Select, </option>
             {SIDES.map(s => <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>)}
           </select>
         </Field>
@@ -885,7 +885,7 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
           </Field>
           <Field label="Side">
             <select value={side} onChange={e => setSide(e.target.value as GuestSide | '')} className={inputCls}>
-              <option value="">—</option>
+              <option value="">, </option>
               {SIDES.map(s => <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>)}
             </select>
           </Field>

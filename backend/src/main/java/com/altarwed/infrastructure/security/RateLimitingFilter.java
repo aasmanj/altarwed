@@ -30,7 +30,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 
     private Bucket newBucket() {
-        // Refill 5 tokens per 60 seconds — steady rate, no burst beyond 10
+        // Refill 5 tokens per 60 seconds, steady rate, no burst beyond 10
         Bandwidth limit = Bandwidth.builder()
                 .capacity(10)
                 .refillGreedy(5, Duration.ofMinutes(1))
@@ -77,7 +77,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         }
     }
 
-    // X-Forwarded-For is set by Azure's load balancer — use it so we rate-limit
+    // X-Forwarded-For is set by Azure's load balancer, use it so we rate-limit
     // the real client IP, not the internal proxy IP. Fall back to remoteAddr if absent.
     private String resolveClientIp(HttpServletRequest request) {
         String forwarded = request.getHeader("X-Forwarded-For");

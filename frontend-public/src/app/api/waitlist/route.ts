@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   const audienceId = process.env.RESEND_AUDIENCE_ID
 
   if (!apiKey || !audienceId) {
-    console.log(`[waitlist] New signup — email: ${email}, name: ${name || '(not provided)'}`)
+    console.log(`[waitlist] New signup, email: ${email}, name: ${name || '(not provided)'}`)
     return NextResponse.json({ ok: true })
   }
 

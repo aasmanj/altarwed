@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     description:
       'A faith-based wedding planning platform for Christian couples. Build your wedding website, manage guests, and find vendors who share your faith.',
     // og:image is supplied by the file-based opengraph-image.tsx convention.
-    // Do not also declare images here — it would emit a duplicate og:image
+    // Do not also declare images here, it would emit a duplicate og:image
     // pointing at the non-existent /og-image.png.
   },
   twitter: {
@@ -51,7 +51,7 @@ export const metadata: Metadata = {
     title: 'AltarWed: Christian Wedding Planning Platform',
     description:
       'A faith-based platform for Christian couples and vendors.',
-    // No twitter:image — Twitter/X falls back to og:image (the generated card)
+    // No twitter:image, Twitter/X falls back to og:image (the generated card)
     // when twitter:image is absent, so this stays DRY.
   },
   icons: {
@@ -65,7 +65,7 @@ export const metadata: Metadata = {
   },
   // NOTE: Do NOT set alternates.canonical here. Next.js merges layout metadata
   // into every child page, so a canonical set on the root layout would cascade
-  // to all routes that don't override it — making Google think every page is
+  // to all routes that don't override it, making Google think every page is
   // a duplicate of the homepage. Each page sets its own canonical instead.
 }
 

@@ -27,7 +27,7 @@ jobs:
           app_location: /frontend-public
           output_location: .next
         env:
-          # Runtime env vars — set these in Azure SWA Application Settings too
+          # Runtime env vars, set these in Azure SWA Application Settings too
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           # NEXT_PUBLIC_ vars are baked into the JS bundle at build time
           NEXT_PUBLIC_FB_PIXEL_ID: ${{ secrets.NEXT_PUBLIC_FB_PIXEL_ID }}

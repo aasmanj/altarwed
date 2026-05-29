@@ -24,7 +24,7 @@ public class PrintOrderService {
     private static final Logger log = LoggerFactory.getLogger(PrintOrderService.class);
 
     // Rough per-postcard cost preview (USPS first-class 6x11 via Lob ~ $1.50).
-    // This is informational only — Lob bills us out of band.
+    // This is informational only, Lob bills us out of band.
     private static final int COST_PER_POSTCARD_CENTS = 150;
 
     private final PrintOrderRepository printOrderRepository;
@@ -54,7 +54,7 @@ public class PrintOrderService {
 
     /**
      * Deliberately NOT @Transactional. Persisting a DRAFT order row BEFORE the Lob
-     * loop guarantees an audit row exists if anything explodes mid-flight — including
+     * loop guarantees an audit row exists if anything explodes mid-flight, including
      * a power loss between Lob acceptance and the final save. Wrapping the whole
      * method in a transaction would roll back the DRAFT row on failure even though
      * Lob has already accepted (and will charge for + mail) the postcards we sent so

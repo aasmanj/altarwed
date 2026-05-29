@@ -4,7 +4,7 @@
 -- but wipes everything else attached to them or their wedding website.
 --
 -- Designed for Jordan's own QA: walk through onboarding as a brand-new user
--- without losing the auth account. NOT a self-serve feature yet — couples
+-- without losing the auth account. NOT a self-serve feature yet, couples
 -- shouldn't be able to nuke their own data without a confirm flow we haven't
 -- built. Run this manually via Azure Portal Query Editor against the prod DB
 -- (altarwed-prod-sql / altarwed) by an admin who knows what they're doing.
@@ -26,7 +26,7 @@ DECLARE @website_id   UNIQUEIDENTIFIER = (SELECT id FROM wedding_websites WHERE 
 
 IF @couple_id IS NULL
 BEGIN
-    RAISERROR('No couple found for email %s — aborting.', 16, 1, @target_email);
+    RAISERROR('No couple found for email %s, aborting.', 16, 1, @target_email);
     RETURN;
 END;
 
@@ -75,7 +75,7 @@ BEGIN TRAN;
     -- so the children clean themselves when we drop the parent row.
     DELETE FROM wedding_websites        WHERE couple_id = @couple_id;
 
-    -- Keep: couples (login), refresh_tokens (active session — though sign-out
+    -- Keep: couples (login), refresh_tokens (active session, though sign-out
     -- recommended anyway since the JWT still carries a coupleId).
 
 COMMIT;

@@ -74,7 +74,7 @@ public class JwtService {
         return id != null ? UUID.fromString(id) : null;
     }
 
-    /** SHA-256 hex hash of a raw token string — stored in DB, never the raw token. */
+    /** SHA-256 hex hash of a raw token string, stored in DB, never the raw token. */
     public String hashToken(String rawToken) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

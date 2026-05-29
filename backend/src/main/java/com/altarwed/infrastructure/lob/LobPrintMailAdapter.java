@@ -77,7 +77,7 @@ public class LobPrintMailAdapter implements PrintMailPort {
             log.info("lob accepted postcard, lobId={}, templateKey={}", lobId, req.templateKey());
             return lobId;
         } catch (RestClientResponseException ex) {
-            // PII guard: do NOT log req.to().name() — guest name. Use status + body for diagnosis.
+            // PII guard: do NOT log req.to().name(), guest name. Use status + body for diagnosis.
             log.warn("lob rejected postcard, status={}, body={}", ex.getStatusCode(), ex.getResponseBodyAsString());
             throw new PrintMailException("Lob rejected postcard: " + ex.getStatusCode() + " " + ex.getResponseBodyAsString(), ex);
         } catch (org.springframework.web.client.RestClientException ex) {
@@ -116,7 +116,7 @@ public class LobPrintMailAdapter implements PrintMailPort {
         boolean saveTheDate = "SAVE_THE_DATE_CLASSIC".equals(req.templateKey())
                 || req.templateKey().startsWith("SAVE_THE_DATE");
         String headline = saveTheDate ? "Save the Date" : "You're Invited";
-        // CSS context — escape() only handles HTML entities. Single quote / backslash
+        // CSS context, escape() only handles HTML entities. Single quote / backslash
         // would terminate the url('...') literal, so percent-encode them defensively.
         String safePhotoUrl = req.heroPhotoUrl() == null ? null
                 : escape(req.heroPhotoUrl()).replace("\\", "%5C").replace("'", "%27");

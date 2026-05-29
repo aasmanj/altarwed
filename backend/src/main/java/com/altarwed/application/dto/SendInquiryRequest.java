@@ -9,7 +9,7 @@ import java.util.UUID;
 
 /**
  * Public payload for POST /api/v1/inquiries. The endpoint is unauthenticated
- * and rate-limited at the filter level — the only protection against spam is
+ * and rate-limited at the filter level, the only protection against spam is
  * Bucket4j (per-IP) plus the Bean Validation constraints below. Keep these
  * tight: an unauthenticated POST that sends two emails per invocation is a
  * high-leverage target for abuse if we let any of these fields balloon.

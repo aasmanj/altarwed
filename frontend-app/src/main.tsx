@@ -6,7 +6,7 @@ import App from './App'
 import './index.css'
 
 // Dev-only: log a11y violations to the console as the UI mounts/updates.
-// Zero prod overhead — Vite tree-shakes the import out of the prod bundle.
+// Zero prod overhead, Vite tree-shakes the import out of the prod bundle.
 if (import.meta.env.DEV) {
   import('@axe-core/react').then(axe => {
     axe.default(React, ReactDOM, 1000)
