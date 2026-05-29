@@ -20,7 +20,7 @@ const siteUrl = 'https://www.altarwed.com'
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: 'AltarWed — Christian Wedding Planning Platform',
+    default: 'AltarWed: Christian Wedding Planning Platform',
     template: '%s | AltarWed',
   },
   description:
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     locale: 'en_US',
     url: siteUrl,
     siteName: 'AltarWed',
-    title: 'AltarWed — Christian Wedding Planning Platform',
+    title: 'AltarWed: Christian Wedding Planning Platform',
     description:
       'A faith-based wedding planning platform for Christian couples. Build your wedding website, manage guests, and find vendors who share your faith.',
     // og:image is supplied by the file-based opengraph-image.tsx convention.
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'AltarWed — Christian Wedding Planning Platform',
+    title: 'AltarWed: Christian Wedding Planning Platform',
     description:
       'A faith-based platform for Christian couples and vendors.',
     // No twitter:image — Twitter/X falls back to og:image (the generated card)

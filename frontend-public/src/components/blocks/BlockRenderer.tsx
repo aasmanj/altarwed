@@ -172,7 +172,7 @@ function ScriptureBlock({ reference, text, translation }: { reference: string; t
       )}
       {reference && (
         <p className="mt-5 text-[#d4af6a] text-sm tracking-[0.25em] uppercase font-medium">
-          — {reference}
+          {reference}
           {translation && <span className="text-white/40 ml-2 normal-case tracking-normal">({translation})</span>}
         </p>
       )}

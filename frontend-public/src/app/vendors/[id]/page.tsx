@@ -48,15 +48,15 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { id } = await params
   const vendor = await getVendor(id)
-  if (!vendor) return { title: 'Vendor Not Found — AltarWed' }
+  if (!vendor) return { title: 'Vendor Not Found | AltarWed' }
   const category = CATEGORY_LABELS[vendor.category] ?? vendor.category
   const url = `https://www.altarwed.com/vendors/${id}`
   return {
-    title: `${vendor.businessName} — ${category} in ${vendor.city} — AltarWed`,
+    title: `${vendor.businessName}: ${category} in ${vendor.city} | AltarWed`,
     description: `${vendor.businessName} is a ${category.toLowerCase()} serving ${vendor.city}, ${vendor.state}${vendor.isChristianOwned ? ', a Christian-owned business' : ''}.`,
     alternates: { canonical: url },
     openGraph: {
-      title: `${vendor.businessName} — ${category} in ${vendor.city}`,
+      title: `${vendor.businessName}: ${category} in ${vendor.city}`,
       description: `${vendor.businessName} is a ${category.toLowerCase()} serving ${vendor.city}, ${vendor.state}${vendor.isChristianOwned ? ', a Christian-owned business' : ''}.`,
       url,
       siteName: 'AltarWed',

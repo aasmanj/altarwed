@@ -86,7 +86,7 @@ export default async function PreviewPage({
       {!wedding.isPublished && (
         <div className="sticky top-0 z-40 bg-amber-100 border-b border-amber-300 px-4 py-1.5 text-center">
           <span className="text-xs font-semibold text-amber-900 uppercase tracking-wider">
-            Draft preview — only you can see this
+            Draft preview &middot; only you can see this
           </span>
         </div>
       )}
@@ -134,7 +134,7 @@ export default async function PreviewPage({
           )}
           {wedding.scriptureReference && (
             <p className="mt-3 text-[#d4af6a] text-xs tracking-[0.25em] uppercase font-medium">
-              — {wedding.scriptureReference}
+              {wedding.scriptureReference}
             </p>
           )}
         </section>

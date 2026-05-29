@@ -12,11 +12,11 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { slug } = await params
   const wedding = await getWedding(slug)
-  if (!wedding) return { title: 'Wedding Not Found — AltarWed' }
+  if (!wedding) return { title: 'Wedding Not Found | AltarWed' }
 
   // Display convention: bride (partnerTwoName) first per Jordan's wife-first preference.
   // DB convention is unchanged (partnerOneName = Groom, partnerTwoName = Bride).
-  const title = `${wedding.partnerTwoName} & ${wedding.partnerOneName} — AltarWed`
+  const title = `${wedding.partnerTwoName} & ${wedding.partnerOneName} | AltarWed`
   const description = wedding.ourStory
     ? wedding.ourStory.slice(0, 155) + '…'
     : `${wedding.partnerTwoName} and ${wedding.partnerOneName} are getting married. Join them to celebrate their covenant.`
@@ -181,7 +181,7 @@ export default async function WeddingLayout({
           )}
           {wedding.scriptureReference && (
             <p className="mt-6 text-[#d4af6a] text-sm sm:text-base tracking-[0.25em] uppercase font-medium">
-              — {wedding.scriptureReference}
+              {wedding.scriptureReference}
             </p>
           )}
         </section>

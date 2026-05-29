@@ -5,14 +5,14 @@ import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
-  title: 'AltarWed — Christian Wedding Planning Platform',
+  title: 'AltarWed: Christian Wedding Planning Platform',
   description:
     'Plan your Christian wedding with faith-aligned vendors, a free shareable wedding website, guest management, ceremony builder, and more. Built for covenant couples.',
   alternates: {
     canonical: 'https://www.altarwed.com',
   },
   openGraph: {
-    title: 'AltarWed — Christian Wedding Planning Platform',
+    title: 'AltarWed: Christian Wedding Planning Platform',
     description:
       'Plan your Christian wedding with faith-aligned vendors, a free shareable wedding website, guest management, ceremony builder, and more.',
     url: 'https://www.altarwed.com',
@@ -50,7 +50,7 @@ const features = [
       </svg>
     ),
     title: 'Free Wedding Website',
-    description: 'Your own shareable page at altarwed.com/wedding/your-names. Share your story, scripture, registry, travel, photos, and RSVP — all in one place.',
+    description: 'Your own shareable page at altarwed.com/wedding/your-names. Share your story, scripture, registry, travel, photos, and RSVP, all in one place.',
   },
   {
     icon: (
@@ -155,8 +155,7 @@ export default function HomePage() {
 
             <p className="text-lg sm:text-xl text-white/90 max-w-2xl mx-auto leading-relaxed mb-10 text-balance">
               AltarWed gives every Christian couple a free wedding website, guest management,
-              ceremony builder, vow writer, and faith-aligned vendor directory. Your
-              wedding day is a covenant, not just an event.
+              ceremony builder, vow writer, and faith-aligned vendor directory.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -217,7 +216,7 @@ export default function HomePage() {
               <p className="text-[#d4af6a] text-sm font-serif italic mb-2">Two becoming one</p>
               <h3 className="font-serif text-3xl sm:text-4xl font-bold mb-2">Jordan &amp; Eden-Faith</h3>
               <p className="text-[#e8dcc8]/70 text-sm">September 13, 2025 · Fredericksburg, VA</p>
-              <p className="text-[#d4af6a]/80 text-xs font-serif italic mt-3">&ldquo;And over all these virtues put on love.&rdquo; — Col 3:14</p>
+              <p className="text-[#d4af6a]/80 text-xs font-serif italic mt-3">&ldquo;And over all these virtues put on love.&rdquo; &middot; Col 3:14</p>
             </div>
 
             {/* Tab nav mockup */}

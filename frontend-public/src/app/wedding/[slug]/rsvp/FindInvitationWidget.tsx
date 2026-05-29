@@ -85,7 +85,7 @@ export default function FindInvitationWidget({ slug }: Props) {
       {results && results.length > 0 && (
         <div className="space-y-3">
           <p className="text-center text-sm text-[#a08060]">
-            {results.length === 1 ? 'We found your invitation!' : `We found ${results.length} matches — select yours below.`}
+            {results.length === 1 ? 'We found your invitation!' : `We found ${results.length} matches. Select yours below.`}
           </p>
           {results.map((r, i) => (
             <div

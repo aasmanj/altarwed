@@ -4,11 +4,11 @@ import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
-  title: 'Find Christian Wedding Vendors — AltarWed',
+  title: 'Find Christian Wedding Vendors | AltarWed',
   description: 'Browse faith-aligned photographers, florists, venues, officiants, and more for your Christian wedding.',
   alternates: { canonical: 'https://www.altarwed.com/vendors' },
   openGraph: {
-    title: 'Find Christian Wedding Vendors — AltarWed',
+    title: 'Find Christian Wedding Vendors | AltarWed',
     description: 'Browse faith-aligned photographers, florists, venues, officiants, and more for your Christian wedding.',
     url: 'https://www.altarwed.com/vendors',
     siteName: 'AltarWed',

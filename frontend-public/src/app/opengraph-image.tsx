@@ -11,7 +11,7 @@ import { ImageResponse } from 'next/og'
 // No runtime pin: next/og runs on the default Node runtime in Next 14, which
 // Azure's hosting supports. Forcing 'edge' would fail on hosts without edge
 // functions.
-export const alt = 'AltarWed — Christian Wedding Planning Platform'
+export const alt = 'AltarWed: Christian Wedding Planning Platform'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
