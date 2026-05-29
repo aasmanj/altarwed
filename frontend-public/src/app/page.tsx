@@ -27,9 +27,17 @@ const jsonLd = {
   name: 'AltarWed',
   url: 'https://www.altarwed.com',
   description: 'Faith-first wedding planning marketplace for Christian couples and vendors.',
+  // Point the sitewide search box at /find-wedding, which is a real search
+  // results page (queries the backend by ?name=). The old target was
+  // /vendors?q=, but /vendors never read a `q` param, so Google crawled the
+  // literal "?q={search_term_string}" as a dead URL and the searchbox was a
+  // misrepresentation. /find-wedding?name= is honest and actually works.
   potentialAction: {
     '@type': 'SearchAction',
-    target: 'https://www.altarwed.com/vendors?q={search_term_string}',
+    target: {
+      '@type': 'EntryPoint',
+      urlTemplate: 'https://www.altarwed.com/find-wedding?name={search_term_string}',
+    },
     'query-input': 'required name=search_term_string',
   },
 }
