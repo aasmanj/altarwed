@@ -20,7 +20,12 @@ export async function generateMetadata(
   const description = wedding.ourStory
     ? wedding.ourStory.slice(0, 155) + '…'
     : `${wedding.partnerTwoName} and ${wedding.partnerOneName} are getting married. Join them to celebrate their covenant.`
-  const image = wedding.heroPhotoUrl ?? 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&q=80'
+  // Fallback share image when the couple has not uploaded a hero. Self-hosted
+  // in /public so the OG card Facebook/Pinterest renders for every shared
+  // wedding site (the core of the viral loop) never depends on a third-party
+  // hotlink that can rate-limit or 404. Next resolves this relative URL against
+  // metadataBase (https://www.altarwed.com) into the absolute og:image FB needs.
+  const image = wedding.heroPhotoUrl ?? '/hero-wedding.jpg'
 
   // All tab sub-routes (/story, /details, /travel, etc.) inherit this canonical
   // from the layout, so Google treats them as alternates of the main wedding page
@@ -52,8 +57,7 @@ export default async function WeddingLayout({
   if (!wedding || !wedding.isPublished) notFound()
 
 
-  const heroImage = wedding.heroPhotoUrl
-    ?? 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1600&q=80'
+  const heroImage = wedding.heroPhotoUrl ?? '/hero-wedding.jpg'
   const countdown = wedding.weddingDate ? daysUntilDate(wedding.weddingDate) : null
 
   const hasStory    = !!wedding.ourStory
@@ -67,6 +71,13 @@ export default async function WeddingLayout({
   // JSON.parse + one CSV split, both bounded by tiny inputs).
   const tabCustom = parseTabCustomisation(wedding)
 
+  // schema.org images must be absolute URLs. heroImage is either an absolute
+  // Blob URL (couple uploaded) or the relative /public fallback, so prefix the
+  // origin only in the relative case.
+  const heroImageAbsolute = heroImage.startsWith('http')
+    ? heroImage
+    : `https://www.altarwed.com${heroImage}`
+
   // schema.org Event structured data. Google uses this for rich snippets
   // (event date pill, location, calendar integration). startDate must be ISO
   // 8601; ceremonyTime is free-form ("4:00 PM") so we only include the date
@@ -79,7 +90,7 @@ export default async function WeddingLayout({
     startDate: wedding.weddingDate,
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
     eventStatus: 'https://schema.org/EventScheduled',
-    image: [heroImage],
+    image: [heroImageAbsolute],
     description: wedding.ourStory
       ? wedding.ourStory.slice(0, 300)
       : `${wedding.partnerTwoName} and ${wedding.partnerOneName} are getting married.`,
@@ -214,7 +225,7 @@ export default async function WeddingLayout({
             Getting married? Create your Christian wedding website for free.
           </p>
           <a
-            href="https://app.altarwed.com/register"
+            href="https://app.altarwed.com/register?utm_source=wedding-site&utm_medium=referral&utm_campaign=viral-footer"
             className="inline-block px-6 py-2.5 rounded-full bg-[#3b2f2f] text-white text-xs font-semibold hover:bg-[#5c4033] transition"
           >
             Start for free →

@@ -81,6 +81,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const description = post.seoDesc ?? post.excerpt
   const url = `https://www.altarwed.com/blog/${post.slug}`
 
+  // Give each post its own share card instead of falling back to the sitewide
+  // brand OG image. The cover may be relative (self-hosted /public) or absolute
+  // (external/Blob); Next resolves the relative case against metadataBase
+  // (https://www.altarwed.com) into the absolute og:image scrapers require.
+  const ogImages = post.coverImage ? [post.coverImage] : undefined
+
   return {
     title: `${title} | AltarWed Blog`,
     description,
@@ -94,6 +100,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       publishedTime: post.publishedAt,
       modifiedTime: post.updatedAt,
       authors: [post.author],
+      images: ogImages,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${title} | AltarWed Blog`,
+      description,
+      images: ogImages,
     },
   }
 }
@@ -109,12 +122,22 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
   const articleUrl = `https://www.altarwed.com/blog/${post.slug}`
 
+  // schema.org images must be absolute. Covers are usually absolute (Blob /
+  // external), but self-hosted /public covers are stored relative, so prefix
+  // the origin in that case. next/image still gets the relative path for
+  // same-origin optimization; only the JSON-LD copy is absolutized.
+  const coverImageAbsolute = post.coverImage
+    ? post.coverImage.startsWith('http')
+      ? post.coverImage
+      : `https://www.altarwed.com${post.coverImage}`
+    : undefined
+
   const articleJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Article',
     headline: post.title,
     description: post.excerpt,
-    image: post.coverImage ? [post.coverImage] : undefined,
+    image: coverImageAbsolute ? [coverImageAbsolute] : undefined,
     inLanguage: 'en-US',
     author: { '@type': 'Organization', name: post.author, url: 'https://www.altarwed.com' },
     publisher: {

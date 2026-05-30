@@ -74,8 +74,7 @@ export default async function PreviewPage({
     getPhotos(slug),
   ])
 
-  const heroImage = wedding.heroPhotoUrl
-    ?? 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1600&q=80'
+  const heroImage = wedding.heroPhotoUrl ?? '/hero-wedding.jpg'
   const countdown = wedding.weddingDate ? daysUntilDate(wedding.weddingDate) : null
 
   return (
