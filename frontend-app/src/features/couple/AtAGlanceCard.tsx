@@ -37,7 +37,7 @@ export default function AtAGlanceCard({ coupleId, website }: Props) {
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <Metric
           label="Wedding day"
-          primary={days === null ? ', ' : days > 0 ? `${days}` : days === 0 ? 'Today!' : `${Math.abs(days)}`}
+          primary={days === null ? 'Not set' : days > 0 ? `${days}` : days === 0 ? 'Today!' : `${Math.abs(days)}`}
           suffix={days === null ? '' : days > 0 ? 'days to go' : days === 0 ? '' : 'days ago'}
           sub={dateLabel}
         />
@@ -49,7 +49,7 @@ export default function AtAGlanceCard({ coupleId, website }: Props) {
         />
         <Metric
           label="Budget"
-          primary={goal > 0 ? `$${spent.toLocaleString()}` : ', '}
+          primary={goal > 0 ? `$${spent.toLocaleString()}` : 'Not set'}
           suffix={goal > 0 ? `of $${goal.toLocaleString()}` : 'No goal set'}
           sub={goal > 0 ? (overBudget ? `Over by $${(spent - goal).toLocaleString()}` : `${budgetPct}% of goal`) : 'Set a goal in Budget'}
           bar={goal > 0 ? { pct: budgetPct, color: overBudget ? 'bg-rose-500' : 'bg-gold' } : undefined}

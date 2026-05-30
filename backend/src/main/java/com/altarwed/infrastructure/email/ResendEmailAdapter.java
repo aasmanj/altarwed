@@ -104,7 +104,7 @@ public class ResendEmailAdapter implements EmailPort {
                     </a>
                   </div>
                   <p style="text-align:center; color:#a08060; font-size:11px; margin-top:32px;">
-                    "And over all these virtues put on love, which binds them all together in perfect unity.", Colossians 3:14
+                    "And over all these virtues put on love, which binds them all together in perfect unity." (Colossians 3:14)
                   </p>
                 </div>
                 """.formatted(coupleNames.replace(" & ", "</h1><p style=\"text-align:center; color:#d4af6a; font-size:22px; margin:0 0 8px;\">&amp;</p><h1 style=\"text-align:center; color:#3b2f2f; font-size:36px; margin:0 0 24px;\">"),
@@ -119,13 +119,13 @@ public class ResendEmailAdapter implements EmailPort {
 
                 Visit their wedding website: %s
 
-                "And over all these virtues put on love, which binds them all together in perfect unity.", Colossians 3:14
+                "And over all these virtues put on love, which binds them all together in perfect unity." (Colossians 3:14)
                 """.formatted(coupleNames, weddingDate, guestName, weddingUrl);
 
         Map<String, Object> body = Map.of(
                 "from", coupleNames + " <" + fromEmail + ">",
                 "to", List.of(toEmail),
-                "subject", "Save the Date, " + coupleNames + " are getting married!",
+                "subject", "Save the Date: " + coupleNames + " are getting married!",
                 "html", html,
                 "text", text
         );
@@ -178,7 +178,7 @@ public class ResendEmailAdapter implements EmailPort {
                     </a>
                   </div>
                   <p style="text-align:center;color:#a08060;font-size:11px;margin-top:32px;">
-                    "And over all these virtues put on love, which binds them all together in perfect unity.", Colossians 3:14
+                    "And over all these virtues put on love, which binds them all together in perfect unity." (Colossians 3:14)
                   </p>
                 </div>
                 """.formatted(emoji, statusWord, guestName, guestName, statusColor, statusWord, noteRow, dashboardUrl);

@@ -17,7 +17,7 @@ import { TIPS } from '@/lib/tips'
 const CATEGORIES = Object.keys(CATEGORY_LABELS) as BudgetCategory[]
 
 function fmt(n: number | null | undefined) {
-  if (n == null) return ', '
+  if (n == null) return '-'
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
 }
 

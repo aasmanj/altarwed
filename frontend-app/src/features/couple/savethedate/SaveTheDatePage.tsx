@@ -70,7 +70,7 @@ export default function SaveTheDatePage() {
               Visit Our Wedding Website
             </div>
             <p className="mt-6 text-[#a08060] text-xs italic">
-              "And over all these virtues put on love, which binds them all together in perfect unity.", Colossians 3:14
+              "And over all these virtues put on love, which binds them all together in perfect unity." (Colossians 3:14)
             </p>
           </div>
         </div>

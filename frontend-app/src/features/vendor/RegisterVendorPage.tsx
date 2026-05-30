@@ -99,7 +99,7 @@ export default function RegisterVendorPage() {
             <div>
               <label className={cls.label}>Category *</label>
               <select required value={form.category} onChange={set('category')} className={cls.input}>
-                <option value="">, Select, </option>
+                <option value="">Select a category</option>
                 {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </div>

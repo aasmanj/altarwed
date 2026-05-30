@@ -314,7 +314,7 @@ function MemberForm({ initial, onSubmit, onCancel, isPending, allowPhoto = false
           ) : (
             <div className="flex gap-2">
               <select value={role} onChange={e => setRole(e.target.value)} className={inputCls} required>
-                <option value="">, Select role, </option>
+                <option value="">Select a role</option>
                 {SUGGESTED_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
               <button type="button" onClick={() => { setCustomRole(true); setRole('') }}

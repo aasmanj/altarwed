@@ -557,7 +557,7 @@ function Step6Scripture({
       {selectedText && (
         <div className="rounded-xl bg-[#fdfaf6] border border-[#d4af6a] px-4 py-3">
           <p className="font-serif italic text-[#3b2f2f] text-sm leading-relaxed">&ldquo;{selectedText}&rdquo;</p>
-          <p className="mt-2 text-xs text-[#a08060] uppercase tracking-wider">, {selectedReference}</p>
+          <p className="mt-2 text-xs text-[#a08060] uppercase tracking-wider">{selectedReference}</p>
         </div>
       )}
 
