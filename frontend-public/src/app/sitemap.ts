@@ -1,4 +1,5 @@
 import { MetadataRoute } from 'next'
+import { CEREMONY_GUIDES } from './ceremony-templates/data'
 
 const BASE_URL = 'https://www.altarwed.com'
 
@@ -36,6 +37,18 @@ const STATIC_PAGES: MetadataRoute.Sitemap = [
     changeFrequency: 'monthly',
     priority: 0.8,
   },
+  // Programmatic ceremony-template pages, one per authored denomination. Defined
+  // in code (data.ts), so they are known at build and listed statically here.
+  {
+    url: `${BASE_URL}/ceremony-templates`,
+    changeFrequency: 'monthly',
+    priority: 0.8,
+  },
+  ...CEREMONY_GUIDES.map((g) => ({
+    url: `${BASE_URL}/ceremony-templates/${g.slug}`,
+    changeFrequency: 'monthly' as const,
+    priority: 0.8,
+  })),
   {
     url: `${BASE_URL}/vendors`,
     changeFrequency: 'daily',
