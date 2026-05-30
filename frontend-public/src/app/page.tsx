@@ -110,7 +110,7 @@ const testimonials = [
   {
     quote: 'AltarWed gave us a beautiful wedding website in minutes. Having scripture woven through every tool reminded us what our day was really about.',
     name: 'Jordan & Eden-Faith',
-    detail: 'Getting married September 2025',
+    detail: 'Married September 2025 · Fredericksburg, VA',
   },
 ]
 
@@ -132,7 +132,7 @@ export default function HomePage() {
               width and avoid shipping a 1920px file to a phone. */}
           <div className="absolute inset-0">
             <Image
-              src="https://images.unsplash.com/photo-1519741497674-611481863552?w=1920&q=80"
+              src="/hero-wedding.jpg"
               alt="A bride and groom holding hands at the altar during their Christian wedding ceremony"
               fill
               priority
@@ -214,8 +214,8 @@ export default function HomePage() {
             {/* Hero area */}
             <div className="bg-gradient-to-br from-[#3b2f2f] to-[#5c4033] px-8 py-14 text-center text-white">
               <p className="text-[#d4af6a] text-sm font-serif italic mb-2">Two becoming one</p>
-              <h3 className="font-serif text-3xl sm:text-4xl font-bold mb-2">Jordan &amp; Eden-Faith</h3>
-              <p className="text-[#e8dcc8]/70 text-sm">September 13, 2025 · Fredericksburg, VA</p>
+              <h3 className="font-serif text-3xl sm:text-4xl font-bold mb-2">Adam &amp; Ruth</h3>
+              <p className="text-[#e8dcc8]/70 text-sm">December 12, 2026 · Raleigh, North Carolina</p>
               <p className="text-[#d4af6a]/80 text-xs font-serif italic mt-3">&ldquo;And over all these virtues put on love.&rdquo; &middot; Col 3:14</p>
             </div>
 
@@ -331,7 +331,7 @@ export default function HomePage() {
             <div className="bg-white rounded-2xl border border-[#e8dcc8] shadow-md overflow-hidden">
               <div className="relative h-36">
                 <Image
-                  src="https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=800&q=80"
+                  src="/vendor-photographer.jpg"
                   alt="A Christian wedding photographer capturing a couple at sunset"
                   fill
                   sizes="(max-width: 768px) 100vw, 50vw"
@@ -399,7 +399,7 @@ export default function HomePage() {
                 tag: 'Scripture',
                 title: '40 Bible Verses for Your Wedding Ceremony',
                 excerpt: 'The most meaningful scripture for Christian weddings, organized by theme: covenant, love, unity, and blessing.',
-                image: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=800&q=80',
+                image: '/blog-bible-verses.jpg',
                 alt: 'An open Bible resting on a wooden church pew',
               },
               {
@@ -407,7 +407,7 @@ export default function HomePage() {
                 tag: 'Vows',
                 title: 'Christian Wedding Vow Examples & Templates',
                 excerpt: 'Traditional and modern vow templates rooted in scripture. Customize them for your denomination and your story.',
-                image: 'https://images.unsplash.com/photo-1537633552985-df8429e8048b?w=800&q=80',
+                image: '/blog-vows.jpg',
                 alt: 'A bride and groom exchanging rings during their wedding ceremony',
               },
               {
@@ -415,7 +415,7 @@ export default function HomePage() {
                 tag: 'Ceremony',
                 title: 'A Classic Christian Wedding Ceremony Order',
                 excerpt: 'A complete processional-to-recessional guide for a Christ-centered ceremony, with variations by denomination.',
-                image: 'https://images.unsplash.com/photo-1465495976277-4387d4b0e4a6?w=800&q=80',
+                image: '/blog-ceremony.jpg',
                 alt: 'A couple exchanging vows at an outdoor garden ceremony',
               },
             ].map((post) => (
