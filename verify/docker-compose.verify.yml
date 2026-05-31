@@ -1,0 +1,50 @@
+# Persistent SQL Server for verification, an ALTERNATIVE to Testcontainers.
+#
+# The primary /verify path uses Testcontainers (`./gradlew bootTestRun`), which
+# starts and disposes a throwaway SQL Server automatically, you do not need this
+# file for that. Use this compose file when you want a LONG-LIVED database, e.g.:
+#   - inspect seeded rows with a SQL client between runs
+#   - run the existing schema-validation test locally:
+#       docker compose -f verify/docker-compose.verify.yml up -d
+#       (cd backend && ./gradlew schemaValidationTest -Dspring.profiles.active=ci)
+#
+# Credentials and the `altarwed` database name match the `ci` Spring profile
+# (src/test/resources/application-ci.yml), so the ci profile talks to it directly.
+#
+# Bring up:   docker compose -f verify/docker-compose.verify.yml up -d
+# Tear down:  docker compose -f verify/docker-compose.verify.yml down -v
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: altarwed-verify-sql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "AltarWedCI@2024"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - altarwed-verify-sql-data:/var/opt/mssql
+
+  # One-shot sidecar: waits for SQL Server, then creates the `altarwed` database
+  # the ci profile expects. The server image ships no sqlcmd, so we use the
+  # dedicated mssql-tools image.
+  db-init:
+    image: mcr.microsoft.com/mssql-tools:latest
+    container_name: altarwed-verify-sql-init
+    depends_on:
+      - sqlserver
+    restart: "no"
+    entrypoint:
+      - bash
+      - -c
+      - >
+        for i in $(seq 1 40); do
+          /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P 'AltarWedCI@2024'
+            -Q "IF DB_ID('altarwed') IS NULL CREATE DATABASE altarwed" && exit 0;
+          echo "waiting for sql server ($i)"; sleep 3;
+        done; echo "sql server did not become ready"; exit 1
+
+volumes:
+  altarwed-verify-sql-data:

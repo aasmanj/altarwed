@@ -28,6 +28,7 @@ val springdocVersion = "3.0.0"
 val mssqlVersion = "12.8.1.jre11"
 val bucket4jVersion = "8.10.1"
 val azureStorageVersion = "12.29.0"
+val testcontainersVersion = "1.20.4"
 
 dependencies {
     // Web
@@ -74,6 +75,16 @@ dependencies {
 
     // H2 in-memory DB for @DataJpaTest slices
     testRuntimeOnly("com.h2database:h2")
+
+    // Testcontainers, dev-time SQL Server for `./gradlew bootTestRun` (the /verify
+    // harness). spring-boot-testcontainers gives @ServiceConnection auto-wiring so
+    // the datasource points at the throwaway container with no hardcoded URL.
+    // The Testcontainers BOM pins the module versions (the Spring Boot BOM does not
+    // manage org.testcontainers:* in this setup).
+    testImplementation(platform("org.testcontainers:testcontainers-bom:$testcontainersVersion"))
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("org.testcontainers:mssqlserver")
+    testImplementation("org.testcontainers:junit-jupiter")
 
     // Lombok in tests
     testCompileOnly("org.projectlombok:lombok")

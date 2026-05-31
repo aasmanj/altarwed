@@ -1,0 +1,12 @@
+{
+  "apiUrl": "http://localhost:8080",
+  "appUrl": "http://localhost:5173",
+  "publicUrl": "http://localhost:3000",
+  "slug": "the-verify-wedding",
+  "couple": {
+    "partnerOneName": "Verify Groom",
+    "partnerTwoName": "Verify Bride",
+    "email": "couple@verify.test",
+    "password": "VerifyPass123!"
+  }
+}

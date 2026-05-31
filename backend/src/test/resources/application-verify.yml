@@ -1,0 +1,85 @@
+# "verify" profile, activated by TestAltarWedApplication for `./gradlew bootTestRun`.
+#
+# Purpose: boot the REAL application locally for the /verify harness against a
+# Testcontainers SQL Server. It supplies throwaway values for every secret the
+# prod config (application.yml) reads from Key Vault, so the context starts with
+# no real credentials. The datasource block below is a dummy that only exists to
+# satisfy placeholder resolution; the Testcontainers @ServiceConnection bean
+# overrides the actual connection at runtime.
+#
+# Nothing here is a real secret. Never point this profile at a real database.
+
+spring:
+  config:
+    activate:
+      on-profile: verify
+
+  # Dummy datasource. Overridden at runtime by the @ServiceConnection container in
+  # TestcontainersConfiguration; present only so ${AZURE_SQL_URL} resolves.
+  datasource:
+    url: jdbc:sqlserver://localhost:1433;databaseName=master;encrypt=false;trustServerCertificate=true
+    username: sa
+    password: "verify-placeholder-overridden-by-testcontainers"
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+
+  jpa:
+    database-platform: org.hibernate.dialect.SQLServerDialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # Fresh container every run, so run every migration from V1 (no baseline).
+    baseline-on-migrate: false
+    validate-on-migrate: true
+
+altarwed:
+  jwt:
+    # Must be >= 32 ASCII chars (256 bits) for HMAC-SHA256.
+    secret: "verify-harness-placeholder-jwt-secret-not-real-0123456789"
+    access-token-expiry-ms: 900000
+    refresh-token-expiry-ms: 604800000
+
+  # Both frontends, so the SPA (5173) and the public site (3000) can call the API.
+  cors:
+    allowed-origins: http://localhost:3000,http://localhost:5173
+
+  resend:
+    api-key: "verify-placeholder"
+    from-email: noreply@verify.test
+
+  app:
+    base-url: http://localhost:5173
+
+  admin:
+    emails: verify@altarwed.test
+
+  nextjs:
+    base-url: http://localhost:3000
+    revalidation-secret: "verify-placeholder"
+
+  google:
+    client-id: "verify-placeholder"
+    client-secret: "verify-placeholder"
+    redirect-uri: http://localhost:8080/api/v1/integrations/google-sheets/callback
+
+  lob:
+    # Empty so the print path never reaches the real Lob API. The seed + verifier
+    # exercise the order/idempotency logic; they must NOT mail physical postcards.
+    api-key: ""
+
+  azure:
+    storage:
+      # Azurite's well-known public dev key. Never connects to real Azure; blob
+      # calls are not exercised by the verify flow.
+      connection-string: "DefaultEndpointsProtocol=https;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;EndpointSuffix=core.windows.net"
+      container-name: altarwed-media
+
+# Swagger on for the verify backend so endpoints are browsable at /swagger-ui.html
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
