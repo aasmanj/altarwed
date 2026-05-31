@@ -12,13 +12,28 @@
 -- added earlier in the same batch (same reasoning as the CLAUDE.md inline-
 -- constraint rule, applied to a filtered index that can't be declared inline).
 
-ALTER TABLE print_orders ADD idempotency_key NVARCHAR(64) NULL;
+-- IF NOT EXISTS guards mirror V29 so a manual replay against a partially-migrated
+-- DB is a no-op rather than an error.
+
+IF NOT EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = 'print_orders' AND COLUMN_NAME = 'idempotency_key'
+)
+BEGIN
+    ALTER TABLE print_orders ADD idempotency_key NVARCHAR(64) NULL;
+END
 GO
 
 -- Filtered unique index: at most one order per couple per key, while still
 -- allowing many legacy rows with NULL keys. This is the hard guarantee that a
 -- racing duplicate submit cannot create two charged orders.
-CREATE UNIQUE INDEX ux_print_orders_couple_idempotency
-    ON print_orders (couple_id, idempotency_key)
-    WHERE idempotency_key IS NOT NULL;
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE name = 'ux_print_orders_couple_idempotency' AND object_id = OBJECT_ID('print_orders')
+)
+BEGIN
+    CREATE UNIQUE INDEX ux_print_orders_couple_idempotency
+        ON print_orders (couple_id, idempotency_key)
+        WHERE idempotency_key IS NOT NULL;
+END
 GO

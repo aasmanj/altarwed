@@ -116,7 +116,12 @@ export default function CommunicationsPage() {
           ? `Submitted ${order.recipientCount} postcards to print.`
           : order.status === 'PARTIAL_FAILURE'
             ? `Submitted ${order.recipientCount - failedCount} postcards. ${failedCount} failed. See order details below.`
-            : `Order failed: ${order.errorMessage ?? 'Unknown error'}`
+            // DRAFT here means this submit was deduped against an order still being
+            // processed (idempotent replay). It is NOT a failure, so don't alarm the
+            // couple; point them at Past orders, which refetches the real status.
+            : order.status === 'DRAFT'
+              ? 'This order is still being processed. Check Past orders below in a moment for the final status.'
+              : `Order failed: ${order.errorMessage ?? 'Unknown error'}`
       )
       // Clearing the selection rotates the key via the effect above, so the next
       // deliberate batch is treated as a new order.
