@@ -12,6 +12,7 @@ import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } 
 import { CSS } from '@dnd-kit/utilities'
 import { ChevronDown, ChevronRight, GripVertical, Trash2 } from 'lucide-react'
 import BlockForm from './BlockForm'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { BLOCK_TYPE_LABELS, type WeddingPageBlock } from './types'
 
 interface Props {
@@ -84,6 +85,7 @@ function SortableRow({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: block.id,
   })
+  const confirm = useConfirm()
   const [open, setOpen] = useState(initiallyExpanded)
 
   // If the parent later flags this row as initially-expanded (e.g. because the
@@ -118,8 +120,13 @@ function SortableRow({
           {BLOCK_TYPE_LABELS[block.type]}
         </button>
         <button
-          onClick={() => {
-            if (confirm('Delete this block?')) onDelete()
+          onClick={async () => {
+            if (await confirm({
+              title: `Delete this ${BLOCK_TYPE_LABELS[block.type].toLowerCase()} block?`,
+              message: 'This section will be removed from your wedding website.',
+              tone: 'danger',
+              confirmLabel: 'Delete',
+            })) onDelete()
           }}
           className="p-1 text-stone-400 hover:text-red-600"
           aria-label="Delete block"

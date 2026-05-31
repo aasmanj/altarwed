@@ -75,6 +75,7 @@ export default function BlockListLive({ initialBlocks, wedding, partyMembers, ph
             wedding={wedding}
             partyMembers={partyMembers}
             photos={photos}
+            preview
           />
         ))}
     </>

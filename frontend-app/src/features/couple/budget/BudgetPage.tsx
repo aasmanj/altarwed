@@ -12,9 +12,15 @@ import {
 } from './useBudget'
 import { useWeddingWebsite, useUpdateWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import TipCallout from '@/components/TipCallout'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { TIPS } from '@/lib/tips'
 
 const CATEGORIES = Object.keys(CATEGORY_LABELS) as BudgetCategory[]
+
+// Hide the native number-input spinner arrows. They look cheap next to dollar
+// amounts and invite mis-clicks. Couples type the figure; they never step it.
+const NO_SPINNER =
+  '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
 
 function fmt(n: number | null | undefined) {
   if (n == null) return '-'
@@ -48,6 +54,17 @@ export default function BudgetPage() {
   const deleteItem = useDeleteBudgetItem(coupleId)
   const { data: website } = useWeddingWebsite(coupleId)
   const updateWebsite = useUpdateWeddingWebsite(coupleId)
+  const confirm = useConfirm()
+
+  async function confirmDeleteItem(id: string) {
+    if (await confirm({
+      title: 'Remove this budget item?',
+      tone: 'danger',
+      confirmLabel: 'Remove',
+    })) {
+      deleteItem.mutate(id)
+    }
+  }
 
   // Goal input is a separate, debounced local state so typing feels instant
   // and the PATCH doesn't fire on every keystroke.
@@ -165,7 +182,7 @@ export default function BudgetPage() {
                 onBlur={commitGoal}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                 placeholder="e.g. 25000"
-                className="w-32 border border-stone-300 rounded-lg px-3 py-2 text-sm text-right focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                className={`w-32 border border-stone-300 rounded-lg px-3 py-2 text-sm text-right focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${NO_SPINNER}`}
               />
             </div>
           </div>
@@ -185,6 +202,17 @@ export default function BudgetPage() {
                   style={{ width: `${goalPercent}%` }}
                 />
               </div>
+              {/* Encouraging, faith-warm feedback. Couples obsess over going over
+                  budget; reward the good case and frame the over case gently. */}
+              {summary.totalActual > 0 && (
+                <p className={`text-xs mt-2.5 font-medium ${goalOver ? 'text-rose-600' : 'text-emerald-600'}`}>
+                  {goalOver
+                    ? `You're ${fmt(summary.totalActual - goal)} over your goal. Trim a category or nudge the target, you've got this.`
+                    : goalPercent >= 90
+                      ? `Cutting it close, but still under budget with ${fmt(goal - summary.totalActual)} to spare. Well managed.`
+                      : `On track and under budget with ${fmt(goal - summary.totalActual)} of room left. Beautifully done.`}
+                </p>
+              )}
             </>
           ) : (
             <p className="text-xs text-stone-400 italic">No goal set yet.</p>
@@ -196,7 +224,7 @@ export default function BudgetPage() {
           <SummaryCard label="Total Budget" value={fmt(summary.totalBudget)} color="stone" />
           <SummaryCard label="Actual Cost" value={fmt(summary.totalActual)} color="amber" />
           <SummaryCard label="Paid So Far" value={fmt(summary.totalPaid)} color="green" />
-          <SummaryCard label="Remaining" value={fmt(summary.totalRemaining)} color="rose" />
+          <SummaryCard label="Yet to be paid" value={fmt(summary.totalRemaining)} color="rose" />
         </div>
 
         {/* Progress bar */}
@@ -264,7 +292,7 @@ export default function BudgetPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
-                      <button onClick={() => { if (confirm('Remove this budget item?')) deleteItem.mutate(item.id) }} className="text-stone-400 hover:text-rose-500 p-1">
+                      <button onClick={() => confirmDeleteItem(item.id)} className="text-stone-400 hover:text-rose-500 p-1">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
@@ -345,11 +373,7 @@ export default function BudgetPage() {
                               </svg>
                             </button>
                             <button
-                              onClick={() => {
-                                if (confirm('Remove this budget item?')) {
-                                  deleteItem.mutate(item.id)
-                                }
-                              }}
+                              onClick={() => confirmDeleteItem(item.id)}
                               className="text-stone-400 hover:text-rose-500 transition-colors"
                               title="Delete"
                             >
@@ -421,7 +445,7 @@ export default function BudgetPage() {
                     value={form.estimatedCost}
                     onChange={e => setForm(f => ({ ...f, estimatedCost: e.target.value }))}
                     placeholder="0.00"
-                    className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                    className={`w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${NO_SPINNER}`}
                   />
                 </div>
                 <div>
@@ -433,7 +457,7 @@ export default function BudgetPage() {
                     value={form.actualCost}
                     onChange={e => setForm(f => ({ ...f, actualCost: e.target.value }))}
                     placeholder="0.00"
-                    className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                    className={`w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${NO_SPINNER}`}
                   />
                 </div>
               </div>

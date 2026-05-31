@@ -92,7 +92,7 @@ export default function CoupleDashboard() {
 
         <PhaseSection number={3} title="Plan the day" description="The logistics that come together as the date approaches.">
           <DashboardCard title="Budget Tracker" description="Plan and track wedding spending" href="/dashboard/budget" live />
-          <DashboardCard title="Seating Chart" description="Drag and drop guest table assignments" href="/dashboard/seating" live />
+          <DashboardCard title="Seating Chart" description="Assign tables, then print a Find Your Seat board for the reception" href="/dashboard/seating" live />
           <DashboardCard title="Wedding Photos" description="Upload and share photos with guests" href="/dashboard/photos" live />
         </PhaseSection>
 
@@ -104,7 +104,7 @@ export default function CoupleDashboard() {
           <DashboardCard title="Ceremony Builder" description="Plan your order of service with scripture, vows, and music" href="/dashboard/ceremony" live />
           <DashboardCard title="Scripture Builder" description="Browse wedding verses and pin one to your site" href="/dashboard/scripture" live />
           <DashboardCard title="Vow Builder" description="Write and save your vows, just for the two of you" href="/dashboard/vows" live />
-          <DashboardCard title="Ceremony Program" description="Print a one-page program for guests" href="/dashboard/ceremony/program" live />
+          <DashboardCard title="Ceremony Program" description="Print a keepsake one-page program for guests to hold during the service" href="/dashboard/ceremony/program" live />
         </PhaseSection>
 
         <PhaseSection title="Explore" description="Optional, browse anytime.">

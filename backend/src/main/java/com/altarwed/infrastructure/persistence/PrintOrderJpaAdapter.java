@@ -39,10 +39,16 @@ public class PrintOrderJpaAdapter implements PrintOrderRepository {
         return jpa.findAllByCoupleIdOrderByCreatedAtDesc(coupleId).stream().map(this::toDomain).toList();
     }
 
+    @Override
+    public Optional<PrintOrder> findByCoupleIdAndIdempotencyKey(UUID coupleId, String idempotencyKey) {
+        return jpa.findByCoupleIdAndIdempotencyKey(coupleId, idempotencyKey).map(this::toDomain);
+    }
+
     private PrintOrderEntity toEntity(PrintOrder o) {
         PrintOrderEntity e = PrintOrderEntity.builder()
                 .id(o.id())
                 .coupleId(o.coupleId())
+                .idempotencyKey(o.idempotencyKey())
                 .orderType(o.orderType().name())
                 .status(o.status().name())
                 .templateKey(o.templateKey())
@@ -80,7 +86,8 @@ public class PrintOrderJpaAdapter implements PrintOrderRepository {
                 e.getErrorMessage(),
                 e.getCreatedAt(),
                 e.getSubmittedAt(),
-                e.getRecipients().stream().map(this::toRecipientDomain).toList()
+                e.getRecipients().stream().map(this::toRecipientDomain).toList(),
+                e.getIdempotencyKey()
         );
     }
 

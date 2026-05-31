@@ -4,6 +4,7 @@ import { ImagePlus, Loader2, RotateCcw } from 'lucide-react'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '../useWeddingWebsite'
 import { useAuth } from '@/core/auth/AuthContext'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { defaultContentJson, type BlockType, type WeddingPageBlock } from './types'
 
 // Debounced autosave: every time `contentJson` changes locally, schedule a save
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export default function BlockForm({ block, onSave }: Props) {
+  const confirm = useConfirm()
   const [draft, setDraft] = useState<string>(block.contentJson || '{}')
   const timerRef = useRef<number | null>(null)
   const pendingRef = useRef<string | null>(null)
@@ -67,10 +69,15 @@ export default function BlockForm({ block, onSave }: Props) {
   // with custom text and wants to start over with the standard placeholder
   // (e.g. "New heading"). Confirms first because typing in a long story is
   // easy to wipe by accident.
-  const resetToDefault = () => {
+  const resetToDefault = async () => {
     const fresh = defaultContentJson(block.type)
     if (draft === fresh) return
-    if (!window.confirm('Reset this block to its default content? Your current edits will be lost.')) return
+    if (!await confirm({
+      title: 'Reset this block?',
+      message: 'It will return to its default content and your current edits will be lost.',
+      tone: 'danger',
+      confirmLabel: 'Reset',
+    })) return
     if (timerRef.current) window.clearTimeout(timerRef.current)
     pendingRef.current = null
     setDraft(fresh)
@@ -506,10 +513,13 @@ function BlockImageUpload({
   )
 }
 
-// Link to a specific tab in the classic wedding website editor.
+// Link to a specific tab in the classic wedding website editor. The classic
+// editor (WeddingWebsiteEditor) reads ?tab=<id> on mount, so we MUST carry the
+// query string here, otherwise the link silently lands on the default "Our
+// Story" tab and the couple never finds the Event Details fields.
 const TAB_PATHS: Record<string, string> = {
-  details:      '/dashboard/website',
-  hotel:        '/dashboard/website',
+  details:      '/dashboard/website?tab=details',
+  hotel:        '/dashboard/website?tab=hotel',
   photos:       '/dashboard/photos',
   vows:         '/dashboard/vows',
   weddingparty: '/dashboard/wedding-party',

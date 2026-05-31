@@ -17,5 +17,9 @@ public record CreatePrintOrderRequest(
         String returnAddressLine2,
         @NotBlank String returnCity,
         @NotBlank String returnState,
-        @NotBlank String returnZip
+        @NotBlank String returnZip,
+        // Client-generated dedup token (UUID). Optional for backward compatibility,
+        // but the web client always sends one. A repeat submit with the same key
+        // returns the original order instead of mailing the batch again.
+        String idempotencyKey
 ) {}

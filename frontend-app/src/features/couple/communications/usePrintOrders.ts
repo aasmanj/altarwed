@@ -35,6 +35,9 @@ export interface CreatePrintOrderPayload {
   returnCity: string
   returnState: string
   returnZip: string
+  // Per-submit dedup token. The backend returns the original order if it sees
+  // the same key again, so a retry can never mail/charge the batch twice.
+  idempotencyKey: string
 }
 
 const key = (coupleId: string) => ['print-orders', coupleId]

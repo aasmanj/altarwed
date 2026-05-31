@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
+import { useConfirm } from '@/components/ConfirmDialog'
 import {
   DndContext,
   DragEndEvent,
@@ -13,7 +15,7 @@ import {
   useDroppable,
   useDraggable,
 } from '@dnd-kit/core'
-import { Lock, Unlock, Users } from 'lucide-react'
+import { Printer, Users } from 'lucide-react'
 import { useGuests, useAssignGuestTable, type Guest } from '@/features/couple/guests/useGuests'
 import {
   useSeatingTables,
@@ -27,18 +29,13 @@ import {
 
 function GuestChip({
   guest,
-  locked = false,
   isAssigned = false,
   onUnassign,
 }: {
   guest: Guest
-  locked?: boolean
   isAssigned?: boolean
   onUnassign?: () => void
 }) {
-  // useDraggable must still be called (hook rules), but we drop the listeners/
-  // attributes when locked so the chip is non-interactive and shows the default
-  // cursor instead of cursor-grab.
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: guest.id })
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
@@ -48,18 +45,16 @@ function GuestChip({
     <div
       ref={setNodeRef}
       style={{ ...style, opacity: isDragging ? 0.3 : 1 }}
-      className={`group flex items-center gap-2 pl-3 pr-1 py-2 bg-white rounded-lg border border-stone-200 shadow-sm select-none text-sm text-stone-800 ${
-        locked ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'
-      }`}
-      {...(locked ? {} : listeners)}
-      {...(locked ? {} : attributes)}
+      className="group flex items-center gap-2 pl-3 pr-1 py-2 bg-white rounded-lg border border-stone-200 shadow-sm select-none text-sm text-stone-800 cursor-grab active:cursor-grabbing"
+      {...listeners}
+      {...attributes}
     >
       <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
       <span className="truncate flex-1">{guest.name}</span>
       {guest.plusOneName && (
         <span className="text-xs text-stone-400 flex-shrink-0">+{guest.plusOneName}</span>
       )}
-      {isAssigned && !locked && onUnassign && (
+      {isAssigned && onUnassign && (
         <button
           onPointerDown={e => e.stopPropagation()}
           onClick={e => { e.stopPropagation(); onUnassign() }}
@@ -81,14 +76,12 @@ function TableColumn({
   guests,
   onEdit,
   onUnassign,
-  locked = false,
   sticky = false,
 }: {
   table: SeatingTable | null
   guests: Guest[]
   onEdit?: (t: SeatingTable) => void
   onUnassign?: (guestId: string) => void
-  locked?: boolean
   sticky?: boolean
 }) {
   const id = table ? table.id : 'unassigned'
@@ -143,7 +136,6 @@ function TableColumn({
           <GuestChip
             key={g.id}
             guest={g}
-            locked={locked}
             isAssigned={!isUnassigned}
             onUnassign={onUnassign ? () => onUnassign(g.id) : undefined}
           />
@@ -268,6 +260,7 @@ function TableModal({
   const create = useCreateSeatingTable(coupleId)
   const update = useUpdateSeatingTable(coupleId)
   const del = useDeleteSeatingTable(coupleId)
+  const confirm = useConfirm()
 
   const [name, setName] = useState(table?.name ?? '')
   const [capacity, setCapacity] = useState(String(table?.capacity ?? 8))
@@ -284,7 +277,12 @@ function TableModal({
 
   async function handleDelete() {
     if (!table) return
-    if (confirm(`Remove "${table.name}"? Guests at this table will become unassigned.`)) {
+    if (await confirm({
+      title: `Remove "${table.name}"?`,
+      message: 'Guests seated at this table will become unassigned. Your guest list is not affected.',
+      tone: 'danger',
+      confirmLabel: 'Remove table',
+    })) {
       await del.mutateAsync(table.id)
       onClose()
     }
@@ -364,15 +362,6 @@ export default function SeatingPage() {
   const [editingTable, setEditingTable] = useState<SeatingTable | 'new' | null>(null)
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
-  // Locks the seating chart: drag/tap-to-assign disabled, guests sorted by name
-  // within each table. Persisted in localStorage so couples don't have to
-  // re-lock the chart every visit after they've finalized seating.
-  const [locked, setLocked] = useState<boolean>(
-    () => typeof window !== 'undefined' && window.localStorage.getItem('seating.locked') === '1',
-  )
-  useEffect(() => {
-    window.localStorage.setItem('seating.locked', locked ? '1' : '0')
-  }, [locked])
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -392,7 +381,6 @@ export default function SeatingPage() {
 
   function handleDragEnd(event: DragEndEvent) {
     setActiveGuest(null)
-    if (locked) return
     const { over, active } = event
     if (!over) return
     const guest = guests.find(g => g.id === active.id)
@@ -411,7 +399,6 @@ export default function SeatingPage() {
   }
 
   function handleMobileAssign(tableId: string) {
-    if (locked) return
     if (!selectedGuestId) return
     const guest = guests.find(g => g.id === selectedGuestId)
     if (!guest) return
@@ -422,20 +409,15 @@ export default function SeatingPage() {
   }
 
   function handleMobileUnassign(guestId: string) {
-    if (locked) return
     assignTable.mutate({ guestId, tableNumber: null })
     setSelectedGuestId(null)
   }
 
   function guestsForTable(table: SeatingTable) {
     const idx = tables.indexOf(table) + 1
-    const out = guests.filter(g => g.tableNumber === idx)
-    return locked ? [...out].sort((a, b) => a.name.localeCompare(b.name)) : out
+    return guests.filter(g => g.tableNumber === idx)
   }
-  const unassignedGuests = (() => {
-    const out = guests.filter(g => !g.tableNumber || !tables[g.tableNumber - 1])
-    return locked ? [...out].sort((a, b) => a.name.localeCompare(b.name)) : out
-  })()
+  const unassignedGuests = guests.filter(g => !g.tableNumber || !tables[g.tableNumber - 1])
   const assignedCount = guests.filter(g => g.tableNumber && tables[g.tableNumber - 1]).length
   const isLoading = guestsLoading || tablesLoading
 
@@ -452,30 +434,23 @@ export default function SeatingPage() {
       <PageHeader
         title="Seating Chart"
         subtitle={
-          locked
-            ? 'Locked, guests sorted by name within each table. Unlock to make changes.'
-            : isMobile
-              ? 'Tap a guest, then tap a table to assign'
-              : 'Drag guests between tables to assign seats'
+          isMobile
+            ? 'Tap a guest, then tap a table to assign'
+            : 'Drag guests between tables to assign seats'
         }
         action={
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setLocked(l => !l)}
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition ${
-                locked
-                  ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
-                  : 'border-stone-300 text-stone-700 hover:bg-stone-50'
-              }`}
-              title={locked ? 'Unlock to drag and reassign' : 'Lock the chart and sort by name'}
+            <Link
+              to="/dashboard/seating/board"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-50 transition"
+              title="Print a Find Your Seat board for the reception"
             >
-              {locked ? <Lock size={12} /> : <Unlock size={12} />}
-              {locked ? 'Locked' : 'Lock chart'}
-            </button>
+              <Printer size={14} />
+              Print seating board
+            </Link>
             <button
               onClick={() => setEditingTable('new')}
-              disabled={locked}
-              className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark transition"
             >
               + Add table
             </button>
@@ -527,7 +502,7 @@ export default function SeatingPage() {
                       key={g.id}
                       guest={g}
                       isSelected={selectedGuestId === g.id}
-                      onTap={() => !locked && setSelectedGuestId(prev => prev === g.id ? null : g.id)}
+                      onTap={() => setSelectedGuestId(prev => prev === g.id ? null : g.id)}
                     />
                   ))}
                 </div>
@@ -553,14 +528,12 @@ export default function SeatingPage() {
                         {tableGuests.map(g => (
                           <div key={g.id} className="flex items-center justify-between gap-2">
                             <span className="text-xs text-stone-600 truncate">{g.name}</span>
-                            {!locked && (
-                              <button
-                                onClick={() => handleMobileUnassign(g.id)}
-                                className="text-xs text-stone-400 hover:text-rose-500 flex-shrink-0"
-                              >
-                                Remove
-                              </button>
-                            )}
+                            <button
+                              onClick={() => handleMobileUnassign(g.id)}
+                              className="text-xs text-stone-400 hover:text-rose-500 flex-shrink-0"
+                            >
+                              Remove
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -582,7 +555,6 @@ export default function SeatingPage() {
                 <TableColumn
                   table={null}
                   guests={unassignedGuests}
-                  locked={locked}
                   sticky
                 />
                 {tables.map(t => (
@@ -590,9 +562,8 @@ export default function SeatingPage() {
                     key={t.id}
                     table={t}
                     guests={guestsForTable(t)}
-                    onEdit={locked ? undefined : setEditingTable}
-                    onUnassign={locked ? undefined : (guestId) => assignTable.mutate({ guestId, tableNumber: null })}
-                    locked={locked}
+                    onEdit={setEditingTable}
+                    onUnassign={(guestId) => assignTable.mutate({ guestId, tableNumber: null })}
                   />
                 ))}
               </div>

@@ -8,6 +8,7 @@ import com.altarwed.domain.port.PrintMailPort.PostcardRequest;
 import com.altarwed.domain.port.PrintMailPort.ToAddress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,8 +66,28 @@ public class PrintOrderService {
      */
     public PrintOrder createOrder(UUID coupleId, CreatePrintOrderRequest req) {
         PrintOrderType orderType = PrintOrderType.valueOf(req.orderType());
+        String idempotencyKey = req.idempotencyKey();
         log.info("print order requested, coupleId={}, orderType={}, templateKey={}, recipients={}",
                  coupleId, orderType, req.templateKey(), req.guestIds().size());
+
+        // Idempotency guard: a double-click or an exact-batch retry carries the same
+        // client-generated key. If we already have an order for it, return that one
+        // instead of mailing and billing the whole batch a second time.
+        //
+        // Edge case: if the matched order is still in DRAFT (a prior attempt died
+        // between the draft insert and the Lob loop, e.g. a dropped connection), we
+        // still return it. That is deliberate, returning the draft is strictly safer
+        // than re-running the Lob loop and risking a double charge. The draft self-
+        // heals: the original (or this) request finalizes it to SUBMITTED, and the
+        // client's Past Orders list reflects the real state on its next refetch.
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<PrintOrder> replay = printOrderRepository.findByCoupleIdAndIdempotencyKey(coupleId, idempotencyKey);
+            if (replay.isPresent()) {
+                log.info("print order idempotent replay, returning existing, coupleId={}, orderId={}, status={}",
+                         coupleId, replay.get().id(), replay.get().status());
+                return replay.get();
+            }
+        }
 
         Couple couple = coupleRepository.findById(coupleId)
                 .orElseThrow(() -> new IllegalArgumentException("Couple not found"));
@@ -98,11 +119,25 @@ public class PrintOrderService {
         );
 
         // Step 1: persist DRAFT before any external side-effect so we have an audit
-        // row even if Lob calls or the final save fail.
-        PrintOrder draft = printOrderRepository.save(new PrintOrder(
-                null, coupleId, orderType, PrintOrderStatus.DRAFT, req.templateKey(),
-                req.guestIds().size(), 0, null, LocalDateTime.now(), null, List.of()
-        ));
+        // row even if Lob calls or the final save fail. The DRAFT also claims the
+        // idempotency key in the unique index, so a racing concurrent submit with
+        // the same key fails here rather than mailing a duplicate batch.
+        PrintOrder draft;
+        try {
+            draft = printOrderRepository.save(new PrintOrder(
+                    null, coupleId, orderType, PrintOrderStatus.DRAFT, req.templateKey(),
+                    req.guestIds().size(), 0, null, LocalDateTime.now(), null, List.of(), idempotencyKey
+            ));
+        } catch (DataIntegrityViolationException race) {
+            // Concurrent request with the same key won the unique index. Hand back
+            // its order rather than mailing again.
+            log.warn("print order idempotency race, returning concurrent order, coupleId={}", coupleId);
+            if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+                return printOrderRepository.findByCoupleIdAndIdempotencyKey(coupleId, idempotencyKey)
+                        .orElseThrow(() -> race);
+            }
+            throw race;
+        }
         UUID orderId = draft.id();
         log.info("print order draft persisted, orderId={}, coupleId={}", orderId, coupleId);
 
@@ -168,7 +203,8 @@ public class PrintOrderService {
                 recipients.size(), successCount * COST_PER_POSTCARD_CENTS,
                 errorMessage, draft.createdAt(),
                 successCount > 0 ? now : null,
-                recipients
+                recipients,
+                idempotencyKey
         );
         PrintOrder saved = printOrderRepository.save(order);
         log.info("print order finalized, orderId={}, coupleId={}, status={}, succeeded={}, failed={}",

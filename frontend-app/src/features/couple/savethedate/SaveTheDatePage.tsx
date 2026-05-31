@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import confetti from 'canvas-confetti'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { useMutation } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
@@ -16,8 +17,19 @@ export default function SaveTheDatePage() {
   const { data: guests = [] } = useGuests(coupleId)
   const [sent, setSent] = useState(false)
   const qrRef = useRef<HTMLCanvasElement>(null)
+  const confirm = useConfirm()
 
   const eligibleCount = guests.filter(g => g.email).length
+
+  async function handleSend() {
+    if (sendMutation.isPending || sent || eligibleCount === 0) return
+    if (!await confirm({
+      title: `Send save-the-dates to ${eligibleCount} guest${eligibleCount !== 1 ? 's' : ''}?`,
+      message: 'Each guest with an email address will receive your faith-themed announcement. Make sure your wedding website is published first.',
+      confirmLabel: 'Send now',
+    })) return
+    sendMutation.mutate()
+  }
 
   const sendMutation = useMutation({
     mutationFn: () =>
@@ -81,9 +93,16 @@ export default function SaveTheDatePage() {
             <div>
               <h2 className="font-semibold text-stone-900 mb-1">Send to your guest list</h2>
               <p className="text-sm text-stone-500">
-                {eligibleCount === 0
-                  ? 'No guests with email addresses yet. Add guests first.'
-                  : `Will be sent to ${eligibleCount} guest${eligibleCount !== 1 ? 's' : ''} with email addresses.`}
+                {eligibleCount === 0 ? (
+                  <>
+                    No guests with email addresses yet.{' '}
+                    <Link to="/dashboard/guests" className="text-amber-600 font-medium underline hover:text-amber-700">
+                      Add guests first
+                    </Link>.
+                  </>
+                ) : (
+                  `Will be sent to ${eligibleCount} guest${eligibleCount !== 1 ? 's' : ''} with email addresses.`
+                )}
               </p>
               {website && (
                 <p className="text-xs text-stone-400 mt-1">
@@ -100,7 +119,7 @@ export default function SaveTheDatePage() {
               </div>
             ) : (
               <button
-                onClick={() => sendMutation.mutate()}
+                onClick={handleSend}
                 disabled={sendMutation.isPending || eligibleCount === 0}
                 className="whitespace-nowrap px-5 py-2.5 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50 transition-colors"
               >

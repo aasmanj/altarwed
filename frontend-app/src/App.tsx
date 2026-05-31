@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { Toaster } from 'sonner'
 import { AnimatePresence, motion, MotionConfig } from 'framer-motion'
 import { AuthProvider } from '@/core/auth/AuthContext'
+import { ConfirmProvider } from '@/components/ConfirmDialog'
 import { ProtectedRoute } from '@/core/auth/ProtectedRoute'
 import LoginPage from '@/features/auth/LoginPage'
 import RegisterPage from '@/features/auth/RegisterPage'
@@ -20,6 +21,7 @@ import BudgetPage from '@/features/couple/budget/BudgetPage'
 import SaveTheDatePage from '@/features/couple/savethedate/SaveTheDatePage'
 import PhotosPage from '@/features/couple/photos/PhotosPage'
 import SeatingPage from '@/features/couple/seating/SeatingPage'
+import SeatingBoardPage from '@/features/couple/seating/SeatingBoardPage'
 import ScripturePage from '@/features/couple/scripture/ScripturePage'
 import VowsPage from '@/features/couple/vows/VowsPage'
 import CeremonyPage from '@/features/couple/ceremony/CeremonyPage'
@@ -131,6 +133,14 @@ function AnimatedRoutes() {
             }
           />
           <Route
+            path="/dashboard/seating/board"
+            element={
+              <ProtectedRoute role="COUPLE">
+                <SeatingBoardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/dashboard/scripture"
             element={
               <ProtectedRoute role="COUPLE">
@@ -210,20 +220,22 @@ export default function App() {
     <MotionConfig reducedMotion="user">
       <BrowserRouter>
         <AuthProvider>
-          {/* Toast notifications, sonner. Top-right placement is consistent with
-              Vercel/Linear/Cal.com; bottom-right reads as a chat notification. */}
-          <Toaster
-            position="top-right"
-            richColors
-            closeButton
-            toastOptions={{
-              classNames: {
-                toast: 'font-sans',
-                title: 'font-medium',
-              },
-            }}
-          />
-          <AnimatedRoutes />
+          <ConfirmProvider>
+            {/* Toast notifications, sonner. Top-right placement is consistent with
+                Vercel/Linear/Cal.com; bottom-right reads as a chat notification. */}
+            <Toaster
+              position="top-right"
+              richColors
+              closeButton
+              toastOptions={{
+                classNames: {
+                  toast: 'font-sans',
+                  title: 'font-medium',
+                },
+              }}
+            />
+            <AnimatedRoutes />
+          </ConfirmProvider>
         </AuthProvider>
       </BrowserRouter>
     </MotionConfig>

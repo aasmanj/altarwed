@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
@@ -52,6 +52,18 @@ export default function CommunicationsPage() {
   const [returnZip, setReturnZip] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [lastResult, setLastResult] = useState<string | null>(null)
+  // Dedup token for the in-flight submit. Generated when the confirm dialog
+  // opens and regenerated after a successful send, so a retry of the SAME
+  // submit is deduped server-side while a deliberate new batch gets a fresh key.
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() => crypto.randomUUID())
+
+  // Regenerate the dedup key whenever the batch contents change, so each distinct
+  // batch is treated as a new order. A retry of the SAME batch (selection/template
+  // unchanged, e.g. after a transient failure) keeps the key and is deduped
+  // server-side. Clearing the selection after a success also rotates the key.
+  useEffect(() => {
+    setIdempotencyKey(crypto.randomUUID())
+  }, [orderType, templateKey, selectedIds])
 
   const mailableGuests = useMemo(
     () => guests.filter(g => g.mailLine1 && g.mailLine1.trim().length > 0),
@@ -79,6 +91,10 @@ export default function CommunicationsPage() {
   }
 
   async function submit() {
+    // Re-entry guard: ignore a second click while the first request is in flight.
+    // The idempotency key makes a duplicate harmless server-side; this just avoids
+    // firing a redundant request at all.
+    if (createOrder.isPending) return
     setConfirmOpen(false)
     const payload: CreatePrintOrderPayload = {
       orderType,
@@ -90,6 +106,7 @@ export default function CommunicationsPage() {
       returnCity: returnCity.trim(),
       returnState: returnState.trim().toUpperCase(),
       returnZip: returnZip.trim(),
+      idempotencyKey,
     }
     try {
       const order = await createOrder.mutateAsync(payload)
@@ -101,10 +118,14 @@ export default function CommunicationsPage() {
             ? `Submitted ${order.recipientCount - failedCount} postcards. ${failedCount} failed. See order details below.`
             : `Order failed: ${order.errorMessage ?? 'Unknown error'}`
       )
+      // Clearing the selection rotates the key via the effect above, so the next
+      // deliberate batch is treated as a new order.
       setSelectedIds([])
     } catch (err) {
       const msg = (err as { response?: { data?: { message?: string } }; message?: string })
       setLastResult(`Failed to submit: ${msg.response?.data?.message ?? msg.message ?? 'Unknown error'}`)
+      // Keep the SAME key on failure: if the couple retries, the backend dedups
+      // in case the batch actually went through before the error surfaced.
     }
   }
 
@@ -122,22 +143,34 @@ export default function CommunicationsPage() {
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-10">
 
-        {/* Digital quick links */}
-        <section className="grid gap-4 sm:grid-cols-2">
-          <Link
-            to="/dashboard/save-the-date"
-            className="block rounded-xl border border-gold-light bg-white p-5 hover:shadow-md transition"
-          >
-            <h3 className="font-serif text-lg font-semibold text-brown mb-1">Digital save-the-dates</h3>
-            <p className="text-sm text-brown-light">Send a faith-themed email to every guest with an email address. Free.</p>
-          </Link>
-          <Link
-            to="/dashboard/guests"
-            className="block rounded-xl border border-gold-light bg-white p-5 hover:shadow-md transition"
-          >
-            <h3 className="font-serif text-lg font-semibold text-brown mb-1">Digital RSVP invitations</h3>
-            <p className="text-sm text-brown-light">Send individual RSVP links from the guest list. Free, up to 3 sends per guest.</p>
-          </Link>
+        {/* Digital quick links.
+            These used to be two unlabelled tiles, one of which silently jumped to
+            the guest list and confused couples. Now each card names its destination
+            and the order it happens in, so a first-time planner knows exactly what
+            clicking does before they click. */}
+        <section>
+          <h2 className="font-serif text-xl font-bold text-brown mb-1">Reach your guests by email</h2>
+          <p className="text-sm text-stone-500 mb-4">Two faith-themed emails, both free. Send the save-the-date first, then RSVP invitations closer to the day.</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Link
+              to="/dashboard/save-the-date"
+              className="flex flex-col rounded-xl border border-gold-light bg-white p-5 hover:shadow-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            >
+              <span className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Step 1 · Free</span>
+              <h3 className="font-serif text-lg font-semibold text-brown mb-1">Save-the-dates</h3>
+              <p className="text-sm text-brown-light flex-1">A one-time announcement emailed to everyone with an email address. Send it months ahead so guests can plan.</p>
+              <span className="mt-3 text-sm font-medium text-amber-700">Go to save-the-dates →</span>
+            </Link>
+            <Link
+              to="/dashboard/guests"
+              className="flex flex-col rounded-xl border border-gold-light bg-white p-5 hover:shadow-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            >
+              <span className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Step 2 · Free</span>
+              <h3 className="font-serif text-lg font-semibold text-brown mb-1">RSVP invitations</h3>
+              <p className="text-sm text-brown-light flex-1">Sent guest by guest from your guest list, each person gets their own RSVP link. Up to 3 sends per guest.</p>
+              <span className="mt-3 text-sm font-medium text-amber-700">Open guest list to send →</span>
+            </Link>
+          </div>
         </section>
 
         {/* Physical print order */}
@@ -357,15 +390,17 @@ export default function CommunicationsPage() {
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setConfirmOpen(false)}
-                className="px-4 py-2 text-sm text-stone-700 hover:bg-stone-100 rounded-lg"
+                disabled={createOrder.isPending}
+                className="px-4 py-2 text-sm text-stone-700 hover:bg-stone-100 rounded-lg disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={submit}
-                className="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700"
+                disabled={createOrder.isPending}
+                className="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50"
               >
-                Submit order
+                {createOrder.isPending ? 'Submitting…' : 'Submit order'}
               </button>
             </div>
           </div>

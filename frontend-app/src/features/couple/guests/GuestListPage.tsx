@@ -11,6 +11,7 @@ import {
   type Guest, type RsvpStatus, type GuestSide,
 } from './useGuests'
 import TipCallout from '@/components/TipCallout'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { TIPS } from '@/lib/tips'
 import {
   useGoogleSheetSync, useSetGoogleSheetSync, useDeleteGoogleSheetSync,
@@ -38,6 +39,7 @@ export default function GuestListPage() {
   const removeGuest = useRemoveGuest(coupleId)
   const sendInvite  = useSendInvite(coupleId)
 
+  const confirm                 = useConfirm()
   const { data: sheetSync }     = useGoogleSheetSync(coupleId)
   const setSheetSync            = useSetGoogleSheetSync(coupleId)
   const deleteSheetSync         = useDeleteGoogleSheetSync(coupleId)
@@ -117,7 +119,11 @@ export default function GuestListPage() {
   }, [sheetUrlInput, setSheetSync])
 
   const handleRemoveSheet = useCallback(async () => {
-    if (!confirm('Remove the Google Sheet connection? Your existing guests stay; only the live sync stops.')) return
+    if (!await confirm({
+      title: 'Disconnect Google Sheet?',
+      message: 'Your existing guests stay; only the live sync stops.',
+      confirmLabel: 'Disconnect',
+    })) return
     const promise = deleteSheetSync.mutateAsync()
     toast.promise(promise, {
       loading: 'Disconnecting sheet…',
@@ -130,7 +136,7 @@ export default function GuestListPage() {
     } catch {
       // toast already announced
     }
-  }, [deleteSheetSync])
+  }, [deleteSheetSync, confirm])
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [showAdd, setShowAdd]           = useState(false)
@@ -602,10 +608,21 @@ export default function GuestListPage() {
                         key={guest.id}
                         guest={guest}
                         onEdit={() => setEditingId(guest.id)}
-                        onRemove={() => { if (confirm(`Remove ${guest.name}?`)) removeGuest.mutate(guest.id) }}
-                        onInvite={() => {
+                        onRemove={async () => {
+                          if (await confirm({
+                            title: `Remove ${guest.name}?`,
+                            message: 'This guest and their RSVP will be permanently removed from your list.',
+                            tone: 'danger',
+                            confirmLabel: 'Remove',
+                          })) removeGuest.mutate(guest.id)
+                        }}
+                        onInvite={async () => {
                           const action = guest.inviteSentAt ? 'Resend' : 'Send'
-                          if (confirm(`${action} an RSVP invite to ${guest.name} at ${guest.email}?`)) {
+                          if (await confirm({
+                            title: `${action} RSVP invite?`,
+                            message: `An RSVP email will be sent to ${guest.name} at ${guest.email}.`,
+                            confirmLabel: `${action} invite`,
+                          })) {
                             sendInvite.mutate(guest.id)
                           }
                         }}

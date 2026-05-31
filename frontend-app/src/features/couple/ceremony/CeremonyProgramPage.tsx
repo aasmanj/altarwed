@@ -178,7 +178,9 @@ export default function CeremonyProgramPage() {
         {/* Closing */}
         <footer className="text-center mt-12 pt-6 border-t-2 border-double border-stone-400">
           <p className="font-serif italic text-stone-600 text-sm">
-            Thank you for sharing in our covenant.
+            {website
+              ? `Thank you for celebrating the marriage of ${coupleLine}.`
+              : 'Thank you for celebrating with us today.'}
           </p>
           <p className="text-[10px] text-stone-400 mt-3 uppercase tracking-widest">
             Created with AltarWed

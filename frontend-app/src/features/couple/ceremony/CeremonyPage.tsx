@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
+import { useConfirm } from '@/components/ConfirmDialog'
 import {
   useCeremonySections,
   useCreateCeremonySection,
@@ -45,6 +46,7 @@ export default function CeremonyPage() {
   const createSection = useCreateCeremonySection(coupleId)
   const updateSection = useUpdateCeremonySection(coupleId)
   const deleteSection = useDeleteCeremonySection(coupleId)
+  const confirm = useConfirm()
 
   const [modalMode, setModalMode] = useState<'add' | 'edit' | null>(null)
   const [editTarget, setEditTarget] = useState<CeremonySection | null>(null)
@@ -80,7 +82,12 @@ export default function CeremonyPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('Remove this section from the order of service?')) {
+    if (await confirm({
+      title: 'Remove this section?',
+      message: 'It will be removed from your order of service.',
+      tone: 'danger',
+      confirmLabel: 'Remove',
+    })) {
       await deleteSection.mutateAsync(id)
     }
   }

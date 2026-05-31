@@ -4,7 +4,7 @@
 // the WeddingWebsite scalar fields rather than the block's contentJson, so the couple
 // only maintains one source of truth for those fields.
 
-import { Calendar, ExternalLink, Hotel, MapPin, Gift } from 'lucide-react'
+import { Calendar, ExternalLink, Hotel, MapPin, Gift, type LucideIcon } from 'lucide-react'
 import type { WeddingWebsite, WeddingPageBlock } from '@/app/wedding/[slug]/data'
 import { daysUntilDate, formatWeddingDate } from '@/lib/date'
 
@@ -31,9 +31,14 @@ interface Props {
   wedding: WeddingWebsite
   partyMembers?: WeddingPartyMember[]
   photos?: WeddingPhoto[]
+  // When true (editor preview iframe only) data-driven cards that have no data
+  // yet render a dashed "fill this in" placeholder instead of disappearing, so
+  // couples can see the block exists and where to populate it. On the live
+  // public page this stays false and empty cards render nothing for guests.
+  preview?: boolean
 }
 
-export default function BlockRenderer({ block, wedding, partyMembers = [], photos = [] }: Props) {
+export default function BlockRenderer({ block, wedding, partyMembers = [], photos = [], preview = false }: Props) {
   const content = safeParseJson(block.contentJson)
 
   const str = (v: unknown, fallback = ''): string =>
@@ -68,17 +73,17 @@ export default function BlockRenderer({ block, wedding, partyMembers = [], photo
     case 'DIVIDER':
       return <DividerBlock />
     case 'VENUE_CARD':
-      return <VenueCardBlock wedding={wedding} />
+      return <VenueCardBlock wedding={wedding} preview={preview} />
     case 'HOTEL_CARD':
-      return <HotelCardBlock wedding={wedding} />
+      return <HotelCardBlock wedding={wedding} preview={preview} />
     case 'REGISTRY_CARD': {
       const slot = num(content.slot, 1)
       const url   = slot === 1 ? wedding.registryUrl1   : slot === 2 ? wedding.registryUrl2   : wedding.registryUrl3
       const label = slot === 1 ? wedding.registryLabel1 : slot === 2 ? wedding.registryLabel2 : wedding.registryLabel3
-      return <RegistryCardBlock url={url} label={label} />
+      return <RegistryCardBlock url={url} label={label} preview={preview} />
     }
     case 'COUNTDOWN':
-      return <CountdownBlock weddingDate={wedding.weddingDate} />
+      return <CountdownBlock weddingDate={wedding.weddingDate} preview={preview} />
     case 'RSVP_CTA':
       return (
         <RsvpCtaBlock
@@ -190,9 +195,29 @@ function DividerBlock() {
   )
 }
 
-function VenueCardBlock({ wedding }: { wedding: WeddingWebsite }) {
+// Dashed scaffold shown in the editor preview when a data-driven card has no
+// data yet. Tells the couple the block exists and where to populate it.
+function EmptyCardPlaceholder({ icon: Icon, title, hint }: { icon: LucideIcon; title: string; hint: string }) {
+  return (
+    <div className="rounded-xl border-2 border-dashed border-[#e8dcc8] bg-[#fdfaf6] p-6 text-center">
+      <Icon className="w-5 h-5 text-[#d4af6a] mx-auto mb-2" strokeWidth={1.5} />
+      <p className="text-sm font-medium text-[#6b5344]">{title}</p>
+      <p className="text-xs text-[#a08060] mt-1">{hint}</p>
+    </div>
+  )
+}
+
+function VenueCardBlock({ wedding, preview = false }: { wedding: WeddingWebsite; preview?: boolean }) {
   const { venueName, venueAddress, venueCity, venueState, ceremonyTime, weddingDate, dressCode } = wedding
-  if (!venueName) return null
+  if (!venueName) {
+    return preview ? (
+      <EmptyCardPlaceholder
+        icon={MapPin}
+        title="Venue card"
+        hint="Add your venue name, address, time, and dress code in the Event Details tab to fill this in."
+      />
+    ) : null
+  }
   const address = [venueAddress, venueCity, venueState].filter(Boolean).join(', ')
   return (
     <div className="rounded-xl border border-[#e8dcc8] bg-white p-6 space-y-3">
@@ -219,9 +244,17 @@ function VenueCardBlock({ wedding }: { wedding: WeddingWebsite }) {
   )
 }
 
-function HotelCardBlock({ wedding }: { wedding: WeddingWebsite }) {
+function HotelCardBlock({ wedding, preview = false }: { wedding: WeddingWebsite; preview?: boolean }) {
   const { hotelName, hotelUrl, hotelDetails } = wedding
-  if (!hotelName) return null
+  if (!hotelName) {
+    return preview ? (
+      <EmptyCardPlaceholder
+        icon={Hotel}
+        title="Hotel card"
+        hint="Add a hotel block in the Travel tab to fill this in for out-of-town guests."
+      />
+    ) : null
+  }
   return (
     <div className="rounded-xl border border-[#e8dcc8] bg-white p-6 space-y-3">
       <div className="flex items-start gap-3">
@@ -245,8 +278,16 @@ function HotelCardBlock({ wedding }: { wedding: WeddingWebsite }) {
   )
 }
 
-function RegistryCardBlock({ url, label }: { url: string | null | undefined; label: string | null | undefined }) {
-  if (!url) return null
+function RegistryCardBlock({ url, label, preview = false }: { url: string | null | undefined; label: string | null | undefined; preview?: boolean }) {
+  if (!url) {
+    return preview ? (
+      <EmptyCardPlaceholder
+        icon={Gift}
+        title={label || 'Registry'}
+        hint="Add a registry link in the Registry tab to fill this in."
+      />
+    ) : null
+  }
   return (
     <a
       href={url}
@@ -264,8 +305,16 @@ function RegistryCardBlock({ url, label }: { url: string | null | undefined; lab
   )
 }
 
-function CountdownBlock({ weddingDate }: { weddingDate: string | null }) {
-  if (!weddingDate) return null
+function CountdownBlock({ weddingDate, preview = false }: { weddingDate: string | null; preview?: boolean }) {
+  if (!weddingDate) {
+    return preview ? (
+      <EmptyCardPlaceholder
+        icon={Calendar}
+        title="Countdown"
+        hint="Set your wedding date in the Event Details tab to start the countdown."
+      />
+    ) : null
+  }
   const countdown = daysUntilDate(weddingDate)
   if (countdown > 0) {
     return (

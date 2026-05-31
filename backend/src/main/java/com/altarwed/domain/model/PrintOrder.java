@@ -15,6 +15,10 @@ public record PrintOrder(
         String errorMessage,
         LocalDateTime createdAt,
         LocalDateTime submittedAt,
-        List<PrintOrderRecipient> recipients
+        List<PrintOrderRecipient> recipients,
+        // Client-supplied dedup token. A repeat submit with the same key for the
+        // same couple returns the original order instead of mailing again.
+        // Nullable for legacy rows created before idempotency was added.
+        String idempotencyKey
 ) {
 }

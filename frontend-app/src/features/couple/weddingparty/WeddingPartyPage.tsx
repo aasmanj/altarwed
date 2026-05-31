@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import {
   useWeddingParty, useAddMember, useUpdateMember, useDeleteMember, useUploadMemberPhoto,
@@ -21,6 +22,7 @@ const inputCls = 'w-full rounded-lg border border-gold-light px-3 py-2 text-brow
 export default function WeddingPartyPage() {
   const { user } = useAuth()
   const coupleId = user?.id ?? ''
+  const confirm = useConfirm()
 
   const { data: website } = useWeddingWebsite(coupleId)
   const websiteId = website?.id ?? ''
@@ -118,8 +120,7 @@ export default function WeddingPartyPage() {
         ) : displayed.length === 0 && !showAdd ? (
           <div className="text-center py-16">
             <p className="text-brown font-medium mb-1">No members yet</p>
-            <p className="text-sm text-brown-light">Add your officiant, wedding party, and family.</p>
-            <p className="text-xs text-brown-light mt-2">Tip: add your pastor or officiant first, it's front and center on your wedding website.</p>
+            <p className="text-sm text-brown-light">Add your wedding party and family.</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -141,8 +142,13 @@ export default function WeddingPartyPage() {
                   key={member.id}
                   member={member}
                   onEdit={() => setEditingId(member.id)}
-                  onDelete={() => {
-                    if (confirm(`Remove ${member.name}?`)) deleteMember.mutate(member.id)
+                  onDelete={async () => {
+                    if (await confirm({
+                      title: `Remove ${member.name}?`,
+                      message: 'They will be removed from your wedding party and your public wedding website.',
+                      tone: 'danger',
+                      confirmLabel: 'Remove',
+                    })) deleteMember.mutate(member.id)
                   }}
                   onPhotoUpload={(file) => uploadPhoto.mutate({ memberId: member.id, file })}
                   isUploading={uploadPhoto.isPending}

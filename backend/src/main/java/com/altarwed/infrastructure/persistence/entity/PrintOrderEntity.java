@@ -25,6 +25,9 @@ public class PrintOrderEntity {
     @Column(name = "couple_id", nullable = false)
     private UUID coupleId;
 
+    @Column(name = "idempotency_key", length = 64)
+    private String idempotencyKey;
+
     @Column(name = "order_type", nullable = false, length = 32)
     private String orderType;
 

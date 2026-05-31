@@ -5,6 +5,7 @@ import confetti from 'canvas-confetti'
 import { useUpdateWeddingWebsite, usePublishWeddingWebsite, type WeddingWebsite } from './useWeddingWebsite'
 import { useHotels, useAddHotel, useUpdateHotel, useDeleteHotel, type WeddingHotelPayload, type WeddingHotel } from './useHotels'
 import PageHeader from '@/components/PageHeader'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { apiClient } from '@/core/api/client'
 
 interface Props {
@@ -61,6 +62,17 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
     setForm(prev => ({ ...prev, [field]: e.target.value }))
     setSaved(false)
   }
+
+  // Registry is backed by three fixed slots, but couples shouldn't be greeted by
+  // three empty boxes. Show one to start (plus any already filled), and let them
+  // reveal more with an "Add another" button. Three covers Amazon + Target + Zola,
+  // which is plenty; if couples ever hit the cap we'd migrate to an N-row table.
+  const [visibleRegistries, setVisibleRegistries] = useState<number>(() => {
+    const filled = ([1, 2, 3] as const).filter(
+      n => form[`registryUrl${n}`]?.trim() || form[`registryLabel${n}`]?.trim()
+    ).length
+    return Math.max(1, filled)
+  })
 
   const handleSave = async () => {
     await update.mutateAsync({
@@ -199,9 +211,30 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
         )}
 
         {activeTab === 'registry' && <>
-          {([1, 2, 3] as const).map(n => (
+          <p className="text-sm text-brown-light">
+            Add the registries you'd like guests to see. Most couples link one or two
+            (Amazon, Target, Zola). Guests see a button for each after they RSVP.
+          </p>
+          {([1, 2, 3] as const).filter(n => n <= visibleRegistries).map(n => (
             <div key={n} className="rounded-xl border border-gold-light p-5 space-y-4">
-              <p className="text-sm font-medium text-brown">Registry {n}</p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-brown">Registry {n}</p>
+                {/* Allow clearing a revealed slot. Clears its fields and hides the
+                    last slot so the couple isn't stuck with an empty box. */}
+                {n === visibleRegistries && n > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm(prev => ({ ...prev, [`registryLabel${n}`]: '', [`registryUrl${n}`]: '' }))
+                      setVisibleRegistries(v => v - 1)
+                      setSaved(false)
+                    }}
+                    className="text-xs text-brown-light hover:text-red-600 transition"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
               <Row label="Label" hint='e.g. "Amazon" or "Williams Sonoma"'>
                 <Input
                   value={form[`registryLabel${n}`]}
@@ -218,6 +251,15 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
               </Row>
             </div>
           ))}
+          {visibleRegistries < 3 && (
+            <button
+              type="button"
+              onClick={() => setVisibleRegistries(v => Math.min(3, v + 1))}
+              className="w-full rounded-xl border border-dashed border-gold-light py-3 text-sm font-medium text-gold hover:bg-gold/5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            >
+              + Add another registry link
+            </button>
+          )}
         </>}
       </div>
 
@@ -448,6 +490,7 @@ function HotelTab({ hotels, onAdd, onUpdate, onDelete, isAddPending, isUpdatePen
   isDeletePending: boolean
 }) {
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
+  const confirm = useConfirm()
 
   return (
     <div className="space-y-4">
@@ -508,7 +551,7 @@ function HotelTab({ hotels, onAdd, onUpdate, onDelete, isAddPending, isUpdatePen
                 className="text-xs text-brown-light hover:text-brown">Edit</button>
               <button
                 type="button"
-                onClick={() => { if (confirm(`Remove "${hotel.name}"?`)) onDelete(hotel.id) }}
+                onClick={async () => { if (await confirm({ title: `Remove "${hotel.name}"?`, message: 'This hotel block will be removed from your wedding website.', tone: 'danger', confirmLabel: 'Remove' })) onDelete(hotel.id) }}
                 disabled={isDeletePending}
                 className="text-xs text-red-400 hover:text-red-600 disabled:opacity-50"
               >Remove</button>

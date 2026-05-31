@@ -10,4 +10,5 @@ public interface PrintOrderRepository {
     PrintOrder save(PrintOrder order);
     Optional<PrintOrder> findById(UUID id);
     List<PrintOrder> findAllByCoupleId(UUID coupleId);
+    Optional<PrintOrder> findByCoupleIdAndIdempotencyKey(UUID coupleId, String idempotencyKey);
 }

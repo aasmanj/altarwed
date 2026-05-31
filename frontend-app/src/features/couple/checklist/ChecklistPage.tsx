@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import TipCallout from '@/components/TipCallout'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { TIPS } from '@/lib/tips'
 import {
   usePlanningTasks, useToggleTask, useAddTask, useDeleteTask,
@@ -215,6 +216,7 @@ function TaskRow({ task, onToggle, onSaveDetails, onDelete }: {
   onSaveDetails: (payload: { notes: string; assignee: string }) => void
   onDelete: () => void
 }) {
+  const confirm = useConfirm()
   const [expanded, setExpanded] = useState(false)
   const [notes, setNotes] = useState(task.notes ?? '')
   const [assignee, setAssignee] = useState(task.assignee ?? '')
@@ -257,15 +259,25 @@ function TaskRow({ task, onToggle, onSaveDetails, onDelete }: {
           <p className={`text-sm font-medium ${task.isCompleted ? 'line-through text-brown-light' : 'text-brown'}`}>
             {task.title}
           </p>
-          <div className="flex flex-wrap items-center gap-3 text-xs text-brown-light mt-0.5">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-brown-light mt-0.5">
             {task.dueMonthsBefore != null && (
               <span>
                 ~{task.dueMonthsBefore} month{task.dueMonthsBefore !== 1 ? 's' : ''} before
               </span>
             )}
-            {task.assignee && <span className="text-stone-600">· {task.assignee}</span>}
-            {task.notes && <span className="text-stone-500 italic truncate">· note</span>}
+            {task.assignee && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-ivory px-2 py-0.5 text-brown">
+                {task.assignee}
+              </span>
+            )}
           </div>
+          {/* Show the actual note when collapsed so couples don't have to expand
+              every task to remember what they wrote. */}
+          {!expanded && task.notes && (
+            <p className="mt-1.5 text-xs text-stone-600 line-clamp-2 whitespace-pre-line border-l-2 border-gold-light pl-2">
+              {task.notes}
+            </p>
+          )}
         </button>
 
         <button
@@ -277,7 +289,14 @@ function TaskRow({ task, onToggle, onSaveDetails, onDelete }: {
         </button>
 
         <button
-          onClick={() => { if (confirm(`Delete "${task.title}"?`)) onDelete() }}
+          onClick={async () => {
+            if (await confirm({
+              title: `Delete "${task.title}"?`,
+              message: 'This task will be removed from your checklist.',
+              tone: 'danger',
+              confirmLabel: 'Delete',
+            })) onDelete()
+          }}
           className="shrink-0 text-xs text-red-300 hover:text-red-500 transition"
         >
           Remove
@@ -285,7 +304,7 @@ function TaskRow({ task, onToggle, onSaveDetails, onDelete }: {
       </div>
 
       {expanded && (
-        <div className="px-5 pb-4 pt-1 grid sm:grid-cols-2 gap-3">
+        <div className="px-5 pb-4 pt-1 space-y-3">
           <label className="block">
             <span className="block text-xs font-medium text-brown-light mb-1">Assigned to</span>
             <input
@@ -296,24 +315,24 @@ function TaskRow({ task, onToggle, onSaveDetails, onDelete }: {
               className="w-full rounded-lg border border-gold-light px-3 py-2 text-sm text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
             />
           </label>
-          <label className="block sm:row-span-2">
+          <label className="block">
             <span className="block text-xs font-medium text-brown-light mb-1">Notes</span>
             <textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              rows={3}
+              rows={4}
               placeholder="Vendor contact, deadline, payment status…"
-              className="w-full rounded-lg border border-gold-light px-3 py-2 text-sm text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold resize-none"
+              className="w-full rounded-lg border border-gold-light px-3 py-2 text-sm text-brown leading-relaxed focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold resize-y min-h-[88px]"
             />
           </label>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 pt-0.5">
             <button
               onClick={() => {
                 onSaveDetails({ notes, assignee })
                 setExpanded(false)
               }}
               disabled={!isDirty}
-              className="rounded-lg bg-gold px-3 py-1.5 text-xs font-semibold text-white hover:bg-gold-dark disabled:opacity-50 transition"
+              className="rounded-lg bg-gold px-4 py-1.5 text-xs font-semibold text-white hover:bg-gold-dark disabled:opacity-50 transition"
             >
               Save details
             </button>
@@ -327,6 +346,9 @@ function TaskRow({ task, onToggle, onSaveDetails, onDelete }: {
               >
                 Reset
               </button>
+            )}
+            {!isDirty && (notes || assignee) && (
+              <span className="text-xs text-green-600">Saved</span>
             )}
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
@@ -58,6 +59,7 @@ export default function PhotosPage() {
   const coupleId = user?.id ?? ''
   const { data: website } = useWeddingWebsite(coupleId)
   const websiteId = website?.id ?? ''
+  const confirm = useConfirm()
 
   const { data: photos = [], isLoading } = usePhotos(websiteId)
   const upload = useUploadPhoto(websiteId)
@@ -166,8 +168,13 @@ export default function PhotosPage() {
                     </svg>
                   </button>
                   <button
-                    onClick={() => {
-                      if (confirm('Remove this photo?')) deletePhoto.mutate(photo.id)
+                    onClick={async () => {
+                      if (await confirm({
+                        title: 'Remove this photo?',
+                        message: 'It will be removed from your public photo album.',
+                        tone: 'danger',
+                        confirmLabel: 'Remove',
+                      })) deletePhoto.mutate(photo.id)
                     }}
                     className="p-2 bg-white rounded-full shadow text-stone-700 hover:text-rose-600"
                     title="Delete photo"
