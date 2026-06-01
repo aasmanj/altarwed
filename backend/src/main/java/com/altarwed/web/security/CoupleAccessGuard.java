@@ -65,7 +65,7 @@ public class CoupleAccessGuard {
                 .map(WeddingWebsite::coupleId)
                 .orElseThrow(() -> {
                     // Deny rather than 404 so a couple can't probe which websiteIds exist.
-                    log.warn("access denied, reason=website not found, actor={}, websiteId={}",
+                    log.warn("access denied, reason=website-not-found, actor={}, websiteId={}",
                              LogSanitizer.maskEmail(email), websiteId);
                     return new AccessDeniedException("Access denied");
                 });
@@ -80,7 +80,7 @@ public class CoupleAccessGuard {
         return coupleRepository.findByEmail(email)
                 .map(Couple::id)
                 .orElseThrow(() -> {
-                    log.warn("access denied, reason=unknown principal, actor={}", LogSanitizer.maskEmail(email));
+                    log.warn("access denied, reason=unknown-principal, actor={}", LogSanitizer.maskEmail(email));
                     return new AccessDeniedException("Unknown principal");
                 });
     }
