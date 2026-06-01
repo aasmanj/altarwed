@@ -4,10 +4,10 @@ import com.altarwed.application.dto.GoogleSheetSyncResponse;
 import com.altarwed.application.dto.SetGoogleSheetSyncRequest;
 import com.altarwed.application.dto.TriggerSyncResponse;
 import com.altarwed.application.service.GoogleSheetSyncService;
+import com.altarwed.web.security.CoupleAccessGuard;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -25,25 +25,29 @@ import java.util.UUID;
 public class GoogleSheetSyncController {
 
     private final GoogleSheetSyncService syncService;
+    private final CoupleAccessGuard accessGuard;
 
-    public GoogleSheetSyncController(GoogleSheetSyncService syncService) {
+    public GoogleSheetSyncController(GoogleSheetSyncService syncService, CoupleAccessGuard accessGuard) {
         this.syncService = syncService;
+        this.accessGuard = accessGuard;
     }
 
     @PutMapping("/couple/{coupleId}")
     public ResponseEntity<GoogleSheetSyncResponse> setSync(
             @PathVariable UUID coupleId,
             @Valid @RequestBody SetGoogleSheetSyncRequest request,
-            @AuthenticationPrincipal UserDetails principal
+            @AuthenticationPrincipal String email
     ) {
+        accessGuard.assertOwns(coupleId, email);
         return ResponseEntity.ok(syncService.setSync(coupleId, request));
     }
 
     @GetMapping("/couple/{coupleId}")
     public ResponseEntity<GoogleSheetSyncResponse> getSync(
             @PathVariable UUID coupleId,
-            @AuthenticationPrincipal UserDetails principal
+            @AuthenticationPrincipal String email
     ) {
+        accessGuard.assertOwns(coupleId, email);
         return syncService.getSync(coupleId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -52,8 +56,9 @@ public class GoogleSheetSyncController {
     @DeleteMapping("/couple/{coupleId}")
     public ResponseEntity<Void> deleteSync(
             @PathVariable UUID coupleId,
-            @AuthenticationPrincipal UserDetails principal
+            @AuthenticationPrincipal String email
     ) {
+        accessGuard.assertOwns(coupleId, email);
         syncService.deleteSync(coupleId);
         return ResponseEntity.noContent().build();
     }
@@ -63,8 +68,9 @@ public class GoogleSheetSyncController {
     @PostMapping("/couple/{coupleId}/trigger")
     public ResponseEntity<TriggerSyncResponse> triggerSync(
             @PathVariable UUID coupleId,
-            @AuthenticationPrincipal UserDetails principal
+            @AuthenticationPrincipal String email
     ) {
+        accessGuard.assertOwns(coupleId, email);
         return ResponseEntity.ok(syncService.triggerSyncWithCounts(coupleId));
     }
 }

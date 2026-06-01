@@ -8,5 +8,12 @@
     "partnerTwoName": "Verify Bride",
     "email": "couple@verify.test",
     "password": "VerifyPass123!"
+  },
+  "coupleB": {
+    "partnerOneName": "Other Groom",
+    "partnerTwoName": "Other Bride",
+    "email": "coupleb@verify.test",
+    "password": "VerifyPass123!",
+    "slug": "the-other-wedding"
   }
 }

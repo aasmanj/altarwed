@@ -9,9 +9,11 @@ import com.altarwed.application.service.WeddingPageBlockService;
 import com.altarwed.application.service.WeddingWebsiteService;
 import com.altarwed.domain.model.BlockTab;
 import com.altarwed.web.mapper.WeddingPageBlockMapper;
+import com.altarwed.web.security.CoupleAccessGuard;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,17 +27,20 @@ public class WeddingPageBlockController {
     private final WeddingWebsiteService websiteService;
     private final BlockBackfillService backfillService;
     private final WeddingPageBlockMapper mapper;
+    private final CoupleAccessGuard accessGuard;
 
     public WeddingPageBlockController(
             WeddingPageBlockService blockService,
             WeddingWebsiteService websiteService,
             BlockBackfillService backfillService,
-            WeddingPageBlockMapper mapper
+            WeddingPageBlockMapper mapper,
+            CoupleAccessGuard accessGuard
     ) {
         this.blockService = blockService;
         this.websiteService = websiteService;
         this.backfillService = backfillService;
         this.mapper = mapper;
+        this.accessGuard = accessGuard;
     }
 
     // ----- Public (SSR consumer) -----
@@ -57,7 +62,11 @@ public class WeddingPageBlockController {
     // ----- Authenticated (couple dashboard) -----
 
     @GetMapping("/website/{websiteId}")
-    public ResponseEntity<List<WeddingPageBlockResponse>> listByWebsite(@PathVariable UUID websiteId) {
+    public ResponseEntity<List<WeddingPageBlockResponse>> listByWebsite(
+            @PathVariable UUID websiteId,
+            @AuthenticationPrincipal String email
+    ) {
+        accessGuard.assertOwnsWebsite(websiteId, email);
         return ResponseEntity.ok(
                 blockService.listByWebsite(websiteId).stream().map(mapper::toResponse).toList()
         );
@@ -66,8 +75,10 @@ public class WeddingPageBlockController {
     @PostMapping("/website/{websiteId}")
     public ResponseEntity<WeddingPageBlockResponse> create(
             @PathVariable UUID websiteId,
-            @Valid @RequestBody CreateWeddingPageBlockRequest request
+            @Valid @RequestBody CreateWeddingPageBlockRequest request,
+            @AuthenticationPrincipal String email
     ) {
+        accessGuard.assertOwnsWebsite(websiteId, email);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(mapper.toResponse(blockService.create(websiteId, request)));
     }
@@ -76,16 +87,20 @@ public class WeddingPageBlockController {
     public ResponseEntity<WeddingPageBlockResponse> update(
             @PathVariable UUID websiteId,
             @PathVariable UUID blockId,
-            @Valid @RequestBody UpdateWeddingPageBlockRequest request
+            @Valid @RequestBody UpdateWeddingPageBlockRequest request,
+            @AuthenticationPrincipal String email
     ) {
+        accessGuard.assertOwnsWebsite(websiteId, email);
         return ResponseEntity.ok(mapper.toResponse(blockService.update(websiteId, blockId, request)));
     }
 
     @DeleteMapping("/website/{websiteId}/{blockId}")
     public ResponseEntity<Void> delete(
             @PathVariable UUID websiteId,
-            @PathVariable UUID blockId
+            @PathVariable UUID blockId,
+            @AuthenticationPrincipal String email
     ) {
+        accessGuard.assertOwnsWebsite(websiteId, email);
         blockService.delete(websiteId, blockId);
         return ResponseEntity.noContent().build();
     }
@@ -95,7 +110,11 @@ public class WeddingPageBlockController {
     // twice never duplicates. Called by the editor on first entry to ensure pre-Phase-1
     // couples never see an empty block UI.
     @PostMapping("/website/{websiteId}/backfill")
-    public ResponseEntity<BlockBackfillService.BackfillReport> backfill(@PathVariable UUID websiteId) {
+    public ResponseEntity<BlockBackfillService.BackfillReport> backfill(
+            @PathVariable UUID websiteId,
+            @AuthenticationPrincipal String email
+    ) {
+        accessGuard.assertOwnsWebsite(websiteId, email);
         return ResponseEntity.ok(backfillService.backfill(websiteId));
     }
 
@@ -103,8 +122,10 @@ public class WeddingPageBlockController {
     public ResponseEntity<List<WeddingPageBlockResponse>> reorder(
             @PathVariable UUID websiteId,
             @PathVariable BlockTab tab,
-            @Valid @RequestBody ReorderBlocksRequest request
+            @Valid @RequestBody ReorderBlocksRequest request,
+            @AuthenticationPrincipal String email
     ) {
+        accessGuard.assertOwnsWebsite(websiteId, email);
         return ResponseEntity.ok(
                 blockService.reorder(websiteId, tab, request).stream().map(mapper::toResponse).toList()
         );

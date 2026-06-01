@@ -72,7 +72,9 @@ async function main() {
   }
 
   if (!freshCouple) {
-    console.log('\n  Already seeded. Nothing to do. Test couple is ready:')
+    console.log('\n  Couple A already seeded.')
+    await seedCoupleB()
+    console.log('\n  Ready:')
     printSummary(coupleId)
     return
   }
@@ -165,8 +167,38 @@ async function main() {
   }
   console.log(`  ${tableNames.length} tables created, ${assignments.length} guests seated (1 left unassigned)`)
 
+  await seedCoupleB()
+
   console.log('\n  Seed complete. Test couple is ready:')
   printSummary(coupleId)
+}
+
+// A minimal SECOND couple so cross-access (IDOR) tests have a victim to target:
+// couple A's token must be denied on couple B's coupleId/websiteId. Idempotent.
+async function seedCoupleB() {
+  const b = cfg.coupleB
+  console.log('\n  Seeding second couple (cross-access target)...')
+  const reg = await api('POST', '/api/v1/couples/register', {
+    partnerOneName: b.partnerOneName,
+    partnerTwoName: b.partnerTwoName,
+    email: b.email,
+    password: b.password,
+    weddingDate: '2026-10-10',
+  })
+  if (reg.status === 409) {
+    console.log('  couple B already exists, leaving as-is')
+    return
+  }
+  if (reg.status !== 201) die(`couple B register failed (${reg.status})`, reg.data)
+  token = reg.data.accessToken
+  const bId = reg.data.userId
+
+  const site = await api('POST', `/api/v1/wedding-websites/couple/${bId}`, {
+    slug: b.slug, partnerOneName: b.partnerOneName, partnerTwoName: b.partnerTwoName, weddingDate: '2026-10-10',
+  })
+  if (!site.ok && site.status !== 409) die('couple B website failed', site.data)
+  await api('POST', `/api/v1/guests/couple/${bId}`, { name: 'Couple B Guest', email: 'bguest@guest.test', plusOneAllowed: false })
+  console.log(`  couple B ready, coupleId=${bId}, slug=${b.slug}`)
 }
 
 function printSummary(coupleId) {
