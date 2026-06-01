@@ -77,7 +77,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const post = await getPost(slug)
   if (!post) return { title: 'Not Found | AltarWed' }
 
-  const title = post.seoTitle ?? post.title
+  // seoTitle values may already carry a "| AltarWed" brand suffix; strip it so we
+  // don't double-brand (e.g. "... | AltarWed | AltarWed Blog") in the title and
+  // share cards.
+  const baseTitle = (post.seoTitle ?? post.title).replace(/\s*\|\s*AltarWed\s*$/i, '')
+  const title = `${baseTitle} | AltarWed Blog`
   const description = post.seoDesc ?? post.excerpt
   const url = `https://www.altarwed.com/blog/${post.slug}`
 
@@ -88,11 +92,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const ogImages = post.coverImage ? [post.coverImage] : undefined
 
   return {
-    title: `${title} | AltarWed Blog`,
+    title,
     description,
     alternates: { canonical: url },
     openGraph: {
-      title: `${title} | AltarWed Blog`,
+      title,
       description,
       url,
       siteName: 'AltarWed',
@@ -104,7 +108,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${title} | AltarWed Blog`,
+      title,
       description,
       images: ogImages,
     },
