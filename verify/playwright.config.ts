@@ -10,6 +10,10 @@ export default defineConfig({
   timeout: 45_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
+  // One retry so a transient auth rate-limit (Bucket4j: 10 burst / 5 per min per
+  // IP on /auth/**) self-heals, a token refills within ~12s. Normal usage
+  // (seed + idempotency + one suite) stays under the limit anyway.
+  retries: 1,
   reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
   outputDir: 'test-results',
   use: {

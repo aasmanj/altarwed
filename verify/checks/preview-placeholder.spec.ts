@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { cfg } from '../helpers/login'
+import { cfg } from '../config'
 
 // Verifies the BlockRenderer change: an empty data-driven card (here the empty
 // registry) shows a "fill this in" placeholder in the EDITOR PREVIEW, but guests

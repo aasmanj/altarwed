@@ -10,6 +10,7 @@ import com.altarwed.infrastructure.persistence.entity.PrintOrderRecipientEntity;
 import com.altarwed.infrastructure.persistence.repository.PrintOrderJpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -59,7 +60,11 @@ public class PrintOrderJpaAdapter implements PrintOrderRepository {
                 .submittedAt(o.submittedAt())
                 .build();
         if (o.recipients() != null) {
-            e.setRecipients(o.recipients().stream().map(this::toRecipientEntity).toList());
+            // Must be a MUTABLE list: Hibernate manages this @OneToMany collection
+            // (orphanRemoval + merge on the final update) and cannot mutate an
+            // immutable Stream.toList() result, it throws UnsupportedOperationException.
+            e.setRecipients(new ArrayList<>(
+                    o.recipients().stream().map(this::toRecipientEntity).toList()));
         }
         return e;
     }

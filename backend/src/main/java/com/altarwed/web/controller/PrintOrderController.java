@@ -9,7 +9,6 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -31,18 +30,18 @@ public class PrintOrderController {
     public ResponseEntity<PrintOrderResponse> create(
             @PathVariable UUID coupleId,
             @Valid @RequestBody CreatePrintOrderRequest req,
-            @AuthenticationPrincipal UserDetails principal
+            @AuthenticationPrincipal String email
     ) {
-        assertOwns(coupleId, principal);
+        assertOwns(coupleId, email);
         return ResponseEntity.ok(PrintOrderMapper.toResponse(printOrderService.createOrder(coupleId, req)));
     }
 
     @GetMapping("/couple/{coupleId}")
     public ResponseEntity<List<PrintOrderResponse>> list(
             @PathVariable UUID coupleId,
-            @AuthenticationPrincipal UserDetails principal
+            @AuthenticationPrincipal String email
     ) {
-        assertOwns(coupleId, principal);
+        assertOwns(coupleId, email);
         return ResponseEntity.ok(
                 printOrderService.listOrders(coupleId).stream().map(PrintOrderMapper::toResponse).toList()
         );
@@ -52,10 +51,14 @@ public class PrintOrderController {
      * IDOR guard: the JWT principal's email must resolve to the same Couple as the
      * path coupleId. Without this, any authenticated couple could mail postcards
      * on another couple's behalf (and rack up real Lob charges on their account).
+     *
+     * The principal is the email String set by JwtAuthenticationFilter, NOT a
+     * UserDetails. Binding it as @AuthenticationPrincipal UserDetails yields null
+     * and makes this guard reject every request, the print feature 500s for all.
      */
-    private void assertOwns(UUID coupleId, UserDetails principal) {
-        if (principal == null) throw new AccessDeniedException("Unauthenticated");
-        UUID authenticatedCoupleId = coupleRepository.findByEmail(principal.getUsername())
+    private void assertOwns(UUID coupleId, String email) {
+        if (email == null) throw new AccessDeniedException("Unauthenticated");
+        UUID authenticatedCoupleId = coupleRepository.findByEmail(email)
                 .map(c -> c.id())
                 .orElseThrow(() -> new AccessDeniedException("Unknown principal"));
         if (!authenticatedCoupleId.equals(coupleId)) {

@@ -72,9 +72,11 @@ altarwed:
 
   azure:
     storage:
-      # Azurite's well-known public dev key. Never connects to real Azure; blob
-      # calls are not exercised by the verify flow.
-      connection-string: "DefaultEndpointsProtocol=https;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;EndpointSuffix=core.windows.net"
+      # Points at a local Azurite emulator (the AzureBlobStorageAdapter constructor
+      # eagerly checks/creates the container, so the endpoint must be reachable).
+      # BlobEndpoint=127.0.0.1:10000 keeps it local; never touches real Azure.
+      # Start Azurite first, see the run-altarwed skill.
+      connection-string: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
       container-name: altarwed-media
 
 # Swagger on for the verify backend so endpoints are browsable at /swagger-ui.html
