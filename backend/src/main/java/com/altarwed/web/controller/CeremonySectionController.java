@@ -4,8 +4,10 @@ import com.altarwed.application.dto.CeremonySectionRequest;
 import com.altarwed.application.dto.CeremonySectionResponse;
 import com.altarwed.application.service.CeremonySectionService;
 import com.altarwed.domain.model.CeremonySection;
+import com.altarwed.web.security.CoupleAccessGuard;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,13 +18,19 @@ import java.util.UUID;
 public class CeremonySectionController {
 
     private final CeremonySectionService service;
+    private final CoupleAccessGuard accessGuard;
 
-    public CeremonySectionController(CeremonySectionService service) {
+    public CeremonySectionController(CeremonySectionService service, CoupleAccessGuard accessGuard) {
         this.service = service;
+        this.accessGuard = accessGuard;
     }
 
     @GetMapping("/couple/{coupleId}")
-    public List<CeremonySectionResponse> list(@PathVariable UUID coupleId) {
+    public List<CeremonySectionResponse> list(
+            @PathVariable UUID coupleId,
+            @AuthenticationPrincipal String email
+    ) {
+        accessGuard.assertOwns(coupleId, email);
         return service.getByCoupleId(coupleId).stream().map(this::toResponse).toList();
     }
 
@@ -30,23 +38,33 @@ public class CeremonySectionController {
     @ResponseStatus(HttpStatus.CREATED)
     public CeremonySectionResponse create(
             @PathVariable UUID coupleId,
-            @Valid @RequestBody CeremonySectionRequest req
+            @Valid @RequestBody CeremonySectionRequest req,
+            @AuthenticationPrincipal String email
     ) {
+        accessGuard.assertOwns(coupleId, email);
         return toResponse(service.create(coupleId, req));
     }
 
+    // Scoped by section id (no path coupleId): resolve the authenticated couple
+    // and let the service filter by it (cross-couple = not-found).
     @PutMapping("/{id}")
     public CeremonySectionResponse update(
             @PathVariable UUID id,
-            @Valid @RequestBody CeremonySectionRequest req
+            @Valid @RequestBody CeremonySectionRequest req,
+            @AuthenticationPrincipal String email
     ) {
-        return toResponse(service.update(id, req));
+        UUID coupleId = accessGuard.requireCoupleId(email);
+        return toResponse(service.update(coupleId, id, req));
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable UUID id) {
-        service.delete(id);
+    public void delete(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal String email
+    ) {
+        UUID coupleId = accessGuard.requireCoupleId(email);
+        service.delete(coupleId, id);
     }
 
     private CeremonySectionResponse toResponse(CeremonySection s) {

@@ -33,9 +33,14 @@ public class CeremonySectionService {
         return repository.save(section);
     }
 
+    // update/delete are scoped by section id (no path coupleId), so the caller
+    // passes the authenticated couple's id and we filter by it: a section owned by
+    // another couple is treated as not-found, no cross-couple access, no existence
+    // leak. (Security fix, was previously editable/deletable by any couple.)
     @Transactional
-    public CeremonySection update(UUID id, CeremonySectionRequest req) {
+    public CeremonySection update(UUID coupleId, UUID id, CeremonySectionRequest req) {
         CeremonySection existing = repository.findById(id)
+                .filter(s -> s.coupleId().equals(coupleId))
                 .orElseThrow(() -> new IllegalArgumentException("Ceremony section not found: " + id));
         CeremonySection updated = new CeremonySection(
                 existing.id(), existing.coupleId(), req.title(), req.sectionType(),
@@ -45,7 +50,10 @@ public class CeremonySectionService {
     }
 
     @Transactional
-    public void delete(UUID id) {
+    public void delete(UUID coupleId, UUID id) {
+        repository.findById(id)
+                .filter(s -> s.coupleId().equals(coupleId))
+                .orElseThrow(() -> new IllegalArgumentException("Ceremony section not found: " + id));
         repository.deleteById(id);
     }
 }

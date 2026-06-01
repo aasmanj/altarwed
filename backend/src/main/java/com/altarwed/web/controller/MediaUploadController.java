@@ -7,8 +7,10 @@ import com.altarwed.application.service.WeddingPartyMemberService;
 import com.altarwed.application.service.WeddingPhotoService;
 import com.altarwed.application.service.WeddingWebsiteService;
 import com.altarwed.web.mapper.WeddingPhotoMapper;
+import com.altarwed.web.security.CoupleAccessGuard;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,27 +27,32 @@ public class MediaUploadController {
     private final WeddingWebsiteService weddingWebsiteService;
     private final WeddingPhotoService weddingPhotoService;
     private final WeddingPhotoMapper weddingPhotoMapper;
+    private final CoupleAccessGuard accessGuard;
 
     public MediaUploadController(
             MediaUploadService mediaUploadService,
             WeddingPartyMemberService weddingPartyMemberService,
             WeddingWebsiteService weddingWebsiteService,
             WeddingPhotoService weddingPhotoService,
-            WeddingPhotoMapper weddingPhotoMapper
+            WeddingPhotoMapper weddingPhotoMapper,
+            CoupleAccessGuard accessGuard
     ) {
         this.mediaUploadService = mediaUploadService;
         this.weddingPartyMemberService = weddingPartyMemberService;
         this.weddingWebsiteService = weddingWebsiteService;
         this.weddingPhotoService = weddingPhotoService;
         this.weddingPhotoMapper = weddingPhotoMapper;
+        this.accessGuard = accessGuard;
     }
 
     @PostMapping("/wedding-party/{websiteId}/{memberId}/photo")
     public ResponseEntity<Map<String, String>> uploadMemberPhoto(
             @PathVariable UUID websiteId,
             @PathVariable UUID memberId,
-            @RequestParam("file") MultipartFile file
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal String email
     ) throws IOException {
+        accessGuard.assertOwnsWebsite(websiteId, email);
         // Verify member belongs to website before uploading
         weddingPartyMemberService.getMemberForUpload(websiteId, memberId);
         String url = mediaUploadService.uploadWeddingPartyPhoto(memberId, file);
@@ -60,8 +67,10 @@ public class MediaUploadController {
             @PathVariable UUID websiteId,
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "caption", required = false) String caption,
-            @RequestParam(value = "sortOrder", required = false) Integer sortOrder
+            @RequestParam(value = "sortOrder", required = false) Integer sortOrder,
+            @AuthenticationPrincipal String email
     ) throws IOException {
+        accessGuard.assertOwnsWebsite(websiteId, email);
         String url = mediaUploadService.uploadWeddingPhoto(websiteId, file);
         AddWeddingPhotoRequest req = new AddWeddingPhotoRequest(url, caption, sortOrder);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -74,8 +83,10 @@ public class MediaUploadController {
     @PostMapping("/wedding-websites/{websiteId}/block-image")
     public ResponseEntity<Map<String, String>> uploadBlockImage(
             @PathVariable UUID websiteId,
-            @RequestParam("file") MultipartFile file
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal String email
     ) throws IOException {
+        accessGuard.assertOwnsWebsite(websiteId, email);
         String url = mediaUploadService.uploadBlockImage(websiteId, file);
         return ResponseEntity.ok(Map.of("url", url));
     }
@@ -83,8 +94,10 @@ public class MediaUploadController {
     @PostMapping("/wedding-websites/{websiteId}/hero")
     public ResponseEntity<Map<String, String>> uploadHeroPhoto(
             @PathVariable UUID websiteId,
-            @RequestParam("file") MultipartFile file
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal String email
     ) throws IOException {
+        accessGuard.assertOwnsWebsite(websiteId, email);
         String url = mediaUploadService.uploadHeroPhoto(websiteId, file);
         weddingWebsiteService.updateHeroPhoto(websiteId, url);
         return ResponseEntity.ok(Map.of("photoUrl", url));

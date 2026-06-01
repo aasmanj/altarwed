@@ -7,9 +7,11 @@ import com.altarwed.application.dto.WeddingWebsiteSearchResultResponse;
 import com.altarwed.application.dto.WeddingWebsiteSitemapEntry;
 import com.altarwed.application.service.WeddingWebsiteService;
 import com.altarwed.web.mapper.WeddingWebsiteMapper;
+import com.altarwed.web.security.CoupleAccessGuard;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,10 +23,12 @@ public class WeddingWebsiteController {
 
     private final WeddingWebsiteService websiteService;
     private final WeddingWebsiteMapper mapper;
+    private final CoupleAccessGuard accessGuard;
 
-    public WeddingWebsiteController(WeddingWebsiteService websiteService, WeddingWebsiteMapper mapper) {
+    public WeddingWebsiteController(WeddingWebsiteService websiteService, WeddingWebsiteMapper mapper, CoupleAccessGuard accessGuard) {
         this.websiteService = websiteService;
         this.mapper = mapper;
+        this.accessGuard = accessGuard;
     }
 
     // Public, fetched by the Next.js SSR page at /wedding/[slug]
@@ -56,37 +60,57 @@ public class WeddingWebsiteController {
     @PostMapping("/couple/{coupleId}")
     public ResponseEntity<WeddingWebsiteResponse> create(
             @PathVariable UUID coupleId,
-            @Valid @RequestBody CreateWeddingWebsiteRequest request
+            @Valid @RequestBody CreateWeddingWebsiteRequest request,
+            @AuthenticationPrincipal String email
     ) {
+        accessGuard.assertOwns(coupleId, email);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(mapper.toResponse(websiteService.create(coupleId, request)));
     }
 
     @GetMapping("/couple/{coupleId}")
-    public ResponseEntity<WeddingWebsiteResponse> getByCoupleId(@PathVariable UUID coupleId) {
+    public ResponseEntity<WeddingWebsiteResponse> getByCoupleId(
+            @PathVariable UUID coupleId,
+            @AuthenticationPrincipal String email
+    ) {
+        accessGuard.assertOwns(coupleId, email);
         return ResponseEntity.ok(mapper.toResponse(websiteService.getByCoupleId(coupleId)));
     }
 
     @PatchMapping("/couple/{coupleId}")
     public ResponseEntity<WeddingWebsiteResponse> update(
             @PathVariable UUID coupleId,
-            @Valid @RequestBody UpdateWeddingWebsiteRequest request
+            @Valid @RequestBody UpdateWeddingWebsiteRequest request,
+            @AuthenticationPrincipal String email
     ) {
+        accessGuard.assertOwns(coupleId, email);
         return ResponseEntity.ok(mapper.toResponse(websiteService.update(coupleId, request)));
     }
 
     @PostMapping("/couple/{coupleId}/publish")
-    public ResponseEntity<WeddingWebsiteResponse> publish(@PathVariable UUID coupleId) {
+    public ResponseEntity<WeddingWebsiteResponse> publish(
+            @PathVariable UUID coupleId,
+            @AuthenticationPrincipal String email
+    ) {
+        accessGuard.assertOwns(coupleId, email);
         return ResponseEntity.ok(mapper.toResponse(websiteService.publish(coupleId)));
     }
 
     @PostMapping("/couple/{coupleId}/unpublish")
-    public ResponseEntity<WeddingWebsiteResponse> unpublish(@PathVariable UUID coupleId) {
+    public ResponseEntity<WeddingWebsiteResponse> unpublish(
+            @PathVariable UUID coupleId,
+            @AuthenticationPrincipal String email
+    ) {
+        accessGuard.assertOwns(coupleId, email);
         return ResponseEntity.ok(mapper.toResponse(websiteService.unpublish(coupleId)));
     }
 
     @DeleteMapping("/couple/{coupleId}")
-    public ResponseEntity<Void> delete(@PathVariable UUID coupleId) {
+    public ResponseEntity<Void> delete(
+            @PathVariable UUID coupleId,
+            @AuthenticationPrincipal String email
+    ) {
+        accessGuard.assertOwns(coupleId, email);
         websiteService.delete(coupleId);
         return ResponseEntity.noContent().build();
     }

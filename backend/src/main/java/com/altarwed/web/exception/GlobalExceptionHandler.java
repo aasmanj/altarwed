@@ -24,6 +24,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.validation.FieldError;
@@ -235,6 +236,18 @@ public class GlobalExceptionHandler {
         pd.setType(URI.create("https://altarwed.com/problems/route-not-found"));
         pd.setTitle("Not Found");
         pd.setDetail("No endpoint exists for this path.");
+        return pd;
+    }
+
+    // Authorization failure (IDOR guard, ownership mismatch). The guard already
+    // WARN-logs the security details; here we just translate to a clean 403 with
+    // no resource detail, so a probing couple learns nothing about what exists.
+    @ExceptionHandler(AccessDeniedException.class)
+    public ProblemDetail handleAccessDenied(AccessDeniedException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.FORBIDDEN);
+        pd.setType(URI.create("https://altarwed.com/problems/access-denied"));
+        pd.setTitle("Access Denied");
+        pd.setDetail("You do not have access to this resource.");
         return pd;
     }
 

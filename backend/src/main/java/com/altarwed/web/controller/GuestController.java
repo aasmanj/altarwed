@@ -3,9 +3,11 @@ package com.altarwed.web.controller;
 import com.altarwed.application.dto.*;
 import com.altarwed.application.service.GuestService;
 import com.altarwed.web.mapper.GuestMapper;
+import com.altarwed.web.security.CoupleAccessGuard;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,22 +20,30 @@ public class GuestController {
 
     private final GuestService guestService;
     private final GuestMapper mapper;
+    private final CoupleAccessGuard accessGuard;
 
-    public GuestController(GuestService guestService, GuestMapper mapper) {
+    public GuestController(GuestService guestService, GuestMapper mapper, CoupleAccessGuard accessGuard) {
         this.guestService = guestService;
         this.mapper = mapper;
+        this.accessGuard = accessGuard;
     }
 
     @GetMapping("/couple/{coupleId}")
-    public ResponseEntity<List<GuestResponse>> list(@PathVariable UUID coupleId) {
+    public ResponseEntity<List<GuestResponse>> list(
+            @PathVariable UUID coupleId,
+            @AuthenticationPrincipal String email
+    ) {
+        accessGuard.assertOwns(coupleId, email);
         return ResponseEntity.ok(guestService.listGuests(coupleId).stream().map(mapper::toResponse).toList());
     }
 
     @PostMapping("/couple/{coupleId}")
     public ResponseEntity<GuestResponse> add(
             @PathVariable UUID coupleId,
-            @Valid @RequestBody CreateGuestRequest request
+            @Valid @RequestBody CreateGuestRequest request,
+            @AuthenticationPrincipal String email
     ) {
+        accessGuard.assertOwns(coupleId, email);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(mapper.toResponse(guestService.addGuest(coupleId, request)));
     }
@@ -42,16 +52,20 @@ public class GuestController {
     public ResponseEntity<GuestResponse> update(
             @PathVariable UUID coupleId,
             @PathVariable UUID guestId,
-            @Valid @RequestBody UpdateGuestRequest request
+            @Valid @RequestBody UpdateGuestRequest request,
+            @AuthenticationPrincipal String email
     ) {
+        accessGuard.assertOwns(coupleId, email);
         return ResponseEntity.ok(mapper.toResponse(guestService.updateGuest(coupleId, guestId, request)));
     }
 
     @DeleteMapping("/couple/{coupleId}/{guestId}")
     public ResponseEntity<Void> remove(
             @PathVariable UUID coupleId,
-            @PathVariable UUID guestId
+            @PathVariable UUID guestId,
+            @AuthenticationPrincipal String email
     ) {
+        accessGuard.assertOwns(coupleId, email);
         guestService.removeGuest(coupleId, guestId);
         return ResponseEntity.noContent().build();
     }
@@ -64,24 +78,30 @@ public class GuestController {
     public ResponseEntity<GuestResponse> assignTable(
             @PathVariable UUID coupleId,
             @PathVariable UUID guestId,
-            @Valid @RequestBody AssignTableRequest request
+            @Valid @RequestBody AssignTableRequest request,
+            @AuthenticationPrincipal String email
     ) {
+        accessGuard.assertOwns(coupleId, email);
         return ResponseEntity.ok(mapper.toResponse(guestService.assignTable(coupleId, guestId, request.tableNumber())));
     }
 
     @PostMapping("/couple/{coupleId}/{guestId}/invite")
     public ResponseEntity<GuestResponse> sendInvite(
             @PathVariable UUID coupleId,
-            @PathVariable UUID guestId
+            @PathVariable UUID guestId,
+            @AuthenticationPrincipal String email
     ) {
+        accessGuard.assertOwns(coupleId, email);
         return ResponseEntity.ok(mapper.toResponse(guestService.sendInvite(coupleId, guestId)));
     }
 
     @PostMapping("/couple/{coupleId}/bulk")
     public ResponseEntity<List<GuestResponse>> bulkAdd(
             @PathVariable UUID coupleId,
-            @Valid @RequestBody com.altarwed.application.dto.BulkCreateGuestsRequest request
+            @Valid @RequestBody com.altarwed.application.dto.BulkCreateGuestsRequest request,
+            @AuthenticationPrincipal String email
     ) {
+        accessGuard.assertOwns(coupleId, email);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(guestService.addGuestsBulk(coupleId, request.guests()).stream().map(mapper::toResponse).toList());
     }
@@ -89,19 +109,27 @@ public class GuestController {
     @PostMapping("/couple/{coupleId}/party")
     public ResponseEntity<List<GuestResponse>> createParty(
             @PathVariable UUID coupleId,
-            @Valid @RequestBody com.altarwed.application.dto.CreatePartyRequest request
+            @Valid @RequestBody com.altarwed.application.dto.CreatePartyRequest request,
+            @AuthenticationPrincipal String email
     ) {
+        accessGuard.assertOwns(coupleId, email);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(guestService.createParty(coupleId, request).stream().map(mapper::toResponse).toList());
     }
 
     @PostMapping("/couple/{coupleId}/invite-all")
-    public ResponseEntity<Map<String, Integer>> sendAllInvites(@PathVariable UUID coupleId) {
+    public ResponseEntity<Map<String, Integer>> sendAllInvites(
+            @PathVariable UUID coupleId,
+            @AuthenticationPrincipal String email
+    ) {
+        accessGuard.assertOwns(coupleId, email);
         int count = guestService.sendAllPendingInvites(coupleId);
         return ResponseEntity.ok(Map.of("invitesSent", count));
     }
 
-    // Public endpoints, no auth, used by the Next.js RSVP page
+    // Public endpoints, no auth, used by the Next.js RSVP page. NO ownership guard,
+    // these are intentionally unauthenticated (whitelisted in SecurityConfig) and
+    // scoped by slug/token, not coupleId.
 
     /**
      * Find-your-invitation search. Guests who don't have their email handy can type
