@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ImagePlus, Loader2, RotateCcw } from 'lucide-react'
+import { ImagePlus, Loader2, RotateCcw, Pencil } from 'lucide-react'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '../useWeddingWebsite'
 import { useAuth } from '@/core/auth/AuthContext'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { defaultContentJson, type BlockType, type WeddingPageBlock } from './types'
+import { useOpenWebsiteSection, type WebsiteSection } from './blockEditContext'
 
 // Debounced autosave: every time `contentJson` changes locally, schedule a save
 // 150ms later. New keystrokes reset the timer (classic debounce). On unmount
@@ -284,20 +285,20 @@ function FieldsFor({
 
     case 'REGISTRY_CARD':
       return (
-        <Field label="Which registry slot">
-          <select
-            value={num('slot', 1)}
-            onChange={e => onChange('slot', Number(e.target.value))}
-            className={inputClass}
-          >
-            <option value={1}>Slot 1</option>
-            <option value={2}>Slot 2</option>
-            <option value={3}>Slot 3</option>
-          </select>
-          <p className="text-xs text-stone-500 mt-1">
-            Manage the registry URLs and labels on the Registry tab of the classic editor.
-          </p>
-        </Field>
+        <>
+          <Field label="Which registry slot">
+            <select
+              value={num('slot', 1)}
+              onChange={e => onChange('slot', Number(e.target.value))}
+              className={inputClass}
+            >
+              <option value={1}>Slot 1</option>
+              <option value={2}>Slot 2</option>
+              <option value={3}>Slot 3</option>
+            </select>
+          </Field>
+          <SectionEditButton section="registry" fallbackTab="registry">Manage registry links</SectionEditButton>
+        </>
       )
 
     case 'WEDDING_PARTY_GRID':
@@ -327,26 +328,32 @@ function FieldsFor({
 
     case 'VENUE_CARD':
       return (
-        <BlockHint>
-          Displays your ceremony venue, address, time, and dress code.
-          Update these in the <EditorLink tab="details">Event Details tab</EditorLink>.
-        </BlockHint>
+        <>
+          <BlockHint>
+            Displays your ceremony venue, address, time, and dress code.
+          </BlockHint>
+          <SectionEditButton section="details" fallbackTab="details">Edit venue details</SectionEditButton>
+        </>
       )
 
     case 'HOTEL_CARD':
       return (
-        <BlockHint>
-          Shows your hotel block(s) for out-of-town guests.
-          Add or edit hotels in the <EditorLink tab="hotel">Travel tab</EditorLink>.
-        </BlockHint>
+        <>
+          <BlockHint>
+            Shows your hotel block(s) for out-of-town guests.
+          </BlockHint>
+          <SectionEditButton section="travel" fallbackTab="hotel">Add or edit hotels</SectionEditButton>
+        </>
       )
 
     case 'COUNTDOWN':
       return (
-        <BlockHint>
-          Counts down to your wedding date automatically.
-          Update your date in <EditorLink tab="details">Event Details</EditorLink>.
-        </BlockHint>
+        <>
+          <BlockHint>
+            Counts down to your wedding date automatically.
+          </BlockHint>
+          <SectionEditButton section="details" fallbackTab="details">Edit wedding date</SectionEditButton>
+        </>
       )
 
     case 'RSVP_CTA':
@@ -531,5 +538,35 @@ function EditorLink({ tab, children }: { tab: string; children: React.ReactNode 
     <Link to={path} className="text-amber-700 underline hover:text-amber-900">
       {children}
     </Link>
+  )
+}
+
+// Opens the in-editor drawer to edit the structured data behind a card block,
+// keeping the couple inside the page builder. Falls back to navigating to the
+// classic editor tab if there's no drawer provider in the tree (defensive: the
+// drawer is only mounted by SideBySideEditor, BlockForm's only real consumer).
+function SectionEditButton({
+  section, fallbackTab, children,
+}: {
+  section: WebsiteSection
+  fallbackTab: string
+  children: React.ReactNode
+}) {
+  const openSection = useOpenWebsiteSection()
+  if (!openSection) {
+    return (
+      <div className="mt-2">
+        <EditorLink tab={fallbackTab}>{children}</EditorLink>
+      </div>
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => openSection(section)}
+      className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 transition"
+    >
+      <Pencil size={12} aria-hidden="true" /> {children}
+    </button>
   )
 }

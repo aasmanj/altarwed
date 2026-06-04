@@ -62,14 +62,24 @@ export default function BlockRenderer({ block, wedding, partyMembers = [], photo
           imagePosition={(content.imagePosition === 'left' ? 'left' : 'right')}
         />
       )
-    case 'SCRIPTURE':
+    case 'SCRIPTURE': {
+      const blockText = str(content.text)
+      // The couple's pinned verse (scalar scriptureText) renders as a site-wide
+      // banner in the wedding layout. Older sites were auto-seeded a HOME
+      // SCRIPTURE block holding that same verse (backfill seeding is now removed),
+      // which showed it twice. Suppress only that case: a HOME block matching the
+      // pinned verse. Re-quoting the same verse on another tab (e.g. Story) is a
+      // deliberate choice and is left untouched.
+      const pinned = (wedding.scriptureText ?? '').trim()
+      if (block.tab === 'HOME' && pinned && blockText.trim() === pinned) return null
       return (
         <ScriptureBlock
           reference={str(content.reference)}
-          text={str(content.text)}
+          text={blockText}
           translation={str(content.translation, 'ESV')}
         />
       )
+    }
     case 'DIVIDER':
       return <DividerBlock />
     case 'VENUE_CARD':

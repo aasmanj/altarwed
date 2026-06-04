@@ -13,6 +13,8 @@ import {
   useWeddingPageBlocks,
 } from './useWeddingPageBlocks'
 import SortableBlockList from './SortableBlockList'
+import WebsiteSectionDrawer from './WebsiteSectionDrawer'
+import { BlockEditContext, type WebsiteSection } from './blockEditContext'
 import {
   ALLOWED_TYPES_PER_TAB,
   BLOCK_TABS,
@@ -54,6 +56,9 @@ export default function SideBySideEditor() {
 
   const [activeTab, setActiveTab] = useState<BlockTab>('HOME')
   const [picking, setPicking] = useState(false)
+  // Which structured-data section the in-editor drawer is editing (venue,
+  // hotels, registry), opened from a data-driven card block. Null = closed.
+  const [drawerSection, setDrawerSection] = useState<WebsiteSection | null>(null)
   const [previewKey, setPreviewKey] = useState(0)
   const [previewLoading, setPreviewLoading] = useState(true)
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
@@ -331,6 +336,7 @@ export default function SideBySideEditor() {
   }
 
   return (
+    <BlockEditContext.Provider value={setDrawerSection}>
     <div className="flex flex-col h-screen">
       {/* ── Editor header ─────────────────────────────────────────────── */}
       <header className="bg-white border-b border-gold-light px-6 py-3 flex-shrink-0">
@@ -707,7 +713,19 @@ export default function SideBySideEditor() {
           </div>
         </div>
       </div>
+
+      {/* In-editor drawer for editing the data behind a card block. On close we
+          bumpPreview so the iframe reflects any saved venue/hotel/registry edits. */}
+      {drawerSection && website && (
+        <WebsiteSectionDrawer
+          section={drawerSection}
+          website={website}
+          coupleId={coupleId}
+          onClose={() => { setDrawerSection(null); bumpPreview() }}
+        />
+      )}
     </div>
+    </BlockEditContext.Provider>
   )
 }
 

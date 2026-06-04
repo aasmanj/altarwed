@@ -102,14 +102,10 @@ public class BlockBackfillService {
     private List<WeddingPageBlock> buildHomeBlocks(WeddingWebsite w) {
         List<WeddingPageBlock> out = new ArrayList<>();
         out.add(block(w.id(), BlockTab.HOME, BlockType.COUNTDOWN, nextOrder(out), "{}"));
-        if (isNotBlank(w.scriptureText())) {
-            out.add(block(w.id(), BlockTab.HOME, BlockType.SCRIPTURE, nextOrder(out),
-                    json(node -> {
-                        node.put("reference", nullSafe(w.scriptureReference()));
-                        node.put("text", w.scriptureText());
-                        node.put("translation", "ESV");
-                    })));
-        }
+        // Do NOT seed a SCRIPTURE block from the pinned verse: the wedding layout
+        // already renders scriptureText as a site-wide banner, so a HOME SCRIPTURE
+        // block holding the same verse would show it twice. Couples can still add a
+        // SCRIPTURE block with a different verse to any tab from the block picker.
         out.add(block(w.id(), BlockTab.HOME, BlockType.RSVP_CTA, nextOrder(out), "{}"));
         return out;
     }
@@ -207,10 +203,6 @@ public class BlockBackfillService {
 
     private boolean isNotBlank(String s) {
         return s != null && !s.isBlank();
-    }
-
-    private String nullSafe(String s) {
-        return s == null ? "" : s;
     }
 
     private String json(java.util.function.Consumer<ObjectNode> builder) {

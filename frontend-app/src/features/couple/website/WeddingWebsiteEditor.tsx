@@ -481,7 +481,7 @@ function ScriptureTab({
 // ---------------------------------------------------------------------------
 const hotelInputCls = 'w-full rounded-lg border border-gold-light px-3 py-2 text-brown text-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold'
 
-function HotelTab({ hotels, onAdd, onUpdate, onDelete, isAddPending, isUpdatePending, isDeletePending }: {
+export function HotelTab({ hotels, onAdd, onUpdate, onDelete, isAddPending, isUpdatePending, isDeletePending }: {
   hotels: WeddingHotel[]
   onAdd: (p: WeddingHotelPayload) => void
   onUpdate: (id: string, p: WeddingHotelPayload) => void
