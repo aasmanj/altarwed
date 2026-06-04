@@ -596,7 +596,7 @@ function HotelForm({ initial, onSave, onCancel, isPending }: {
       <div className="grid sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs text-brown-light mb-1">Hotel name *</label>
-          <input required value={name} onChange={e => setName(e.target.value)} className={hotelInputCls} placeholder="Marriott Downtown" />
+          <input required value={name} onChange={e => setName(e.target.value)} className={hotelInputCls} />
         </div>
         <div>
           <label className="block text-xs text-brown-light mb-1">Address</label>

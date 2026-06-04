@@ -13,6 +13,9 @@ frontend-public/.next/
 frontend-app/node_modules/
 frontend-app/dist/
 
+# TypeScript incremental build cache
+*.tsbuildinfo
+
 # Environment files (NEVER commit these)
 .env
 .env.local

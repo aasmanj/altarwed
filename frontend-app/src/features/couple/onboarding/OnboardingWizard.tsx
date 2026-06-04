@@ -347,8 +347,8 @@ function Step1Names({
         title="Welcome to AltarWed"
         subtitle="Let's build your wedding website. First, whose names should be on it?"
       />
-      <LabeledInput label="Bride" value={partnerTwoName} onChange={onPartnerTwo} placeholder="Grace" />
-      <LabeledInput label="Groom" value={partnerOneName} onChange={onPartnerOne} placeholder="Caleb" />
+      <LabeledInput label="Bride" value={partnerTwoName} onChange={onPartnerTwo} />
+      <LabeledInput label="Groom" value={partnerOneName} onChange={onPartnerOne} />
       <PrimaryButton onClick={onNext} disabled={!partnerOneName.trim() || !partnerTwoName.trim()}>
         Continue →
       </PrimaryButton>
@@ -420,10 +420,10 @@ function Step3Venue({
         title="Where & when"
         subtitle="The ceremony venue. You can skip and add this later."
       />
-      <LabeledInput label="Venue name" value={venueName} onChange={onVenueName} placeholder="St. Mary's Chapel" />
+      <LabeledInput label="Venue name" value={venueName} onChange={onVenueName} />
       <LabeledInput label="Street address" value={venueAddress} onChange={onVenueAddress} placeholder="123 Faith Lane" />
       <div className="grid grid-cols-2 gap-3">
-        <LabeledInput label="City" value={venueCity} onChange={onVenueCity} placeholder="Nashville" />
+        <LabeledInput label="City" value={venueCity} onChange={onVenueCity} />
         <LabeledInput label="State" value={venueState} onChange={onVenueState} placeholder="TN" />
       </div>
       <LabeledInput
@@ -453,7 +453,7 @@ function Step4Hotel({
         title="Hotel for guests"
         subtitle="Got a room block negotiated? Drop it here. You can add more hotels later."
       />
-      <LabeledInput label="Hotel name" value={hotelName} onChange={onHotelName} placeholder="Hilton Downtown" />
+      <LabeledInput label="Hotel name" value={hotelName} onChange={onHotelName} />
       <LabeledInput label="Booking URL" value={hotelUrl} onChange={onHotelUrl} placeholder="https://hilton.com/group/xyz" />
       <div>
         <label className="block text-sm font-medium text-[#3b2f2f] mb-1">Notes for guests</label>
@@ -611,7 +611,7 @@ function Step7Registry({
         title="Registry"
         subtitle="One link to start. You can add up to two more in the editor."
       />
-      <LabeledInput label="Registry name" value={registryLabel} onChange={onRegistryLabel} placeholder="Amazon" />
+      <LabeledInput label="Registry name" value={registryLabel} onChange={onRegistryLabel} />
       <LabeledInput label="Link" value={registryUrl} onChange={onRegistryUrl} placeholder="https://amazon.com/wedding/share/..." />
       <Nav onBack={onBack} onNext={onNext} nextLabel={registryUrl ? 'Continue →' : 'Skip for now →'} />
     </div>
