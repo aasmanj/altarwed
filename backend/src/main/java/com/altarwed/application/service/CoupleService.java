@@ -27,6 +27,7 @@ public class CoupleService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final GoogleOAuthTokenRepository googleOAuthTokenRepository;
+    private final AsyncEmailService asyncEmailService;
 
     public CoupleService(
             CoupleRepository coupleRepository,
@@ -34,13 +35,15 @@ public class CoupleService {
             CeremonySectionRepository ceremonySectionRepository,
             RefreshTokenRepository refreshTokenRepository,
             PasswordResetTokenRepository passwordResetTokenRepository,
-            GoogleOAuthTokenRepository googleOAuthTokenRepository) {
+            GoogleOAuthTokenRepository googleOAuthTokenRepository,
+            AsyncEmailService asyncEmailService) {
         this.coupleRepository = coupleRepository;
         this.printOrderRepository = printOrderRepository;
         this.ceremonySectionRepository = ceremonySectionRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.googleOAuthTokenRepository = googleOAuthTokenRepository;
+        this.asyncEmailService = asyncEmailService;
     }
 
     @Transactional(readOnly = true)
@@ -96,5 +99,14 @@ public class CoupleService {
         coupleRepository.deleteById(coupleId);
 
         log.info("couple account deleted, coupleId={}", coupleId);
+
+        // Confirmation email is fire-and-forget on its own thread, using the data
+        // captured before the delete (the row is gone now). It fires inside the tx
+        // for consistency with the rest of the codebase; the only failure window is
+        // a commit failure after deleteById, which is negligible. If that ever
+        // matters, upgrade to a @TransactionalEventListener(AFTER_COMMIT).
+        asyncEmailService.sendAccountDeletedEmail(
+                couple.email(), couple.partnerOneName(), couple.partnerTwoName());
+        log.info("account-deleted email queued, coupleId={}", coupleId);
     }
 }

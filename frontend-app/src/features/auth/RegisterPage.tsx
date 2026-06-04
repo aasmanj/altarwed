@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import confetti from 'canvas-confetti'
 import { useAuth } from '@/core/auth/AuthContext'
 
 export default function RegisterPage() {
@@ -59,6 +60,14 @@ export default function RegisterPage() {
         password: form.password,
         weddingDate: form.weddingDate || null,
       })
+      // Celebrate the new account. canvas-confetti paints its own fixed canvas on
+      // document.body, so the burst persists across the navigate() below and lands
+      // the couple on their dashboard mid-celebration. Skip it for users who have
+      // asked the OS to reduce motion (a11y).
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      if (!reduceMotion) {
+        confetti({ particleCount: 200, spread: 100, origin: { y: 0.4 }, colors: ['#d4af6a', '#3b2f2f', '#f5ede0', '#22c55e'] })
+      }
       navigate('/dashboard', { replace: true })
     } catch (err: any) {
       const msg = err?.response?.data?.message

@@ -37,6 +37,16 @@ public class AsyncEmailService {
     }
 
     @Async("emailExecutor")
+    public void sendWelcomeEmail(String toEmail, String partnerOneName, String partnerTwoName) {
+        emailPort.sendWelcomeEmail(toEmail, partnerOneName, partnerTwoName);
+    }
+
+    @Async("emailExecutor")
+    public void sendAccountDeletedEmail(String toEmail, String partnerOneName, String partnerTwoName) {
+        emailPort.sendAccountDeletedEmail(toEmail, partnerOneName, partnerTwoName);
+    }
+
+    @Async("emailExecutor")
     public void sendRsvpNotificationToCouple(String coupleEmail, String coupleNames,
                                               String guestName, String rsvpStatus,
                                               String noteForCouple,

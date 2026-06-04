@@ -405,6 +405,112 @@ public class ResendEmailAdapter implements EmailPort {
         postEmail("password-reset", toEmail, body);
     }
 
+    @Override
+    public void sendWelcomeEmail(String toEmail, String partnerOneName, String partnerTwoName) {
+        // app.altarwed.com is the SPA; land them straight on the website builder,
+        // the highest-value first action for a new couple.
+        String dashboardUrl = appBaseUrl + "/dashboard/website";
+        String coupleNames = escapeHtml(partnerOneName) + " &amp; " + escapeHtml(partnerTwoName);
+
+        String html = """
+                <div style="font-family:Georgia,serif;max-width:540px;margin:0 auto;background:#fdfaf6;padding:40px;border-radius:8px;">
+                  <p style="text-align:center;color:#a08060;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">Welcome to AltarWed</p>
+                  <h1 style="text-align:center;color:#3b2f2f;font-size:30px;margin:0 0 16px;">%s</h1>
+                  <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
+                    Congratulations on your engagement. We built AltarWed to help Christian couples plan a wedding that keeps covenant, scripture, and faith at the center, and we are honored to walk this season with you.
+                  </p>
+                  <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
+                    Your first step is your free wedding website. Add your story, your venue, and your registry, then share the link with family and friends. It takes about ten minutes to look beautiful.
+                  </p>
+                  <div style="text-align:center;margin:28px 0 16px;">
+                    <a href="%s"
+                       style="display:inline-block;padding:14px 32px;background:#3b2f2f;color:#d4af6a;text-decoration:none;border-radius:4px;font-size:14px;letter-spacing:0.1em;text-transform:uppercase;">
+                      Build Your Website
+                    </a>
+                  </div>
+                  <p style="text-align:center;color:#a08060;font-size:11px;margin-top:32px;">
+                    "Therefore what God has joined together, let no one separate." (Mark 10:9)
+                  </p>
+                </div>
+                """.formatted(coupleNames, dashboardUrl);
+
+        String text = """
+                Welcome to AltarWed
+
+                Congratulations on your engagement, %s and %s.
+
+                We built AltarWed to help Christian couples plan a wedding that keeps covenant, scripture, and faith at the center.
+
+                Your first step is your free wedding website. Add your story, your venue, and your registry, then share the link with family and friends:
+                %s
+
+                "Therefore what God has joined together, let no one separate." (Mark 10:9)
+                """.formatted(partnerOneName, partnerTwoName, dashboardUrl);
+
+        Map<String, Object> body = Map.of(
+                "from", "AltarWed <" + fromEmail + ">",
+                "to", List.of(toEmail),
+                "subject", "Welcome to AltarWed, let's build your wedding website",
+                "html", html,
+                "text", text
+        );
+
+        postEmail("welcome", toEmail, body);
+    }
+
+    @Override
+    public void sendAccountDeletedEmail(String toEmail, String partnerOneName, String partnerTwoName) {
+        String signupUrl = appBaseUrl + "/signup";
+
+        String html = """
+                <div style="font-family:Georgia,serif;max-width:520px;margin:0 auto;background:#fdfaf6;padding:40px;border-radius:8px;">
+                  <p style="text-align:center;color:#a08060;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">AltarWed</p>
+                  <h2 style="text-align:center;color:#3b2f2f;margin:0 0 16px;">Your account has been deleted</h2>
+                  <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
+                    Hi %s and %s,
+                  </p>
+                  <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
+                    We have permanently deleted your AltarWed account and all of its data, including your wedding website, guest list, and planning details. Nothing was retained, and this cannot be undone.
+                  </p>
+                  <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
+                    Thank you for letting us be part of your story. If your plans bring you back, you are always welcome to start fresh.
+                  </p>
+                  <div style="text-align:center;margin:28px 0 16px;">
+                    <a href="%s"
+                       style="display:inline-block;padding:12px 28px;background:#3b2f2f;color:#d4af6a;text-decoration:none;border-radius:4px;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">
+                      Create a new account
+                    </a>
+                  </div>
+                  <p style="text-align:center;color:#a08060;font-size:11px;margin-top:32px;">
+                    "May the Lord bless you and keep you." (Numbers 6:24)
+                  </p>
+                </div>
+                """.formatted(escapeHtml(partnerOneName), escapeHtml(partnerTwoName), signupUrl);
+
+        String text = """
+                Your AltarWed account has been deleted
+
+                Hi %s and %s,
+
+                We have permanently deleted your AltarWed account and all of its data, including your wedding website, guest list, and planning details. Nothing was retained, and this cannot be undone.
+
+                Thank you for letting us be part of your story. If your plans bring you back, you are always welcome to start fresh:
+                %s
+
+                "May the Lord bless you and keep you." (Numbers 6:24)
+                """.formatted(partnerOneName, partnerTwoName, signupUrl);
+
+        Map<String, Object> body = Map.of(
+                "from", "AltarWed <" + fromEmail + ">",
+                "to", List.of(toEmail),
+                "subject", "Your AltarWed account has been deleted",
+                "html", html,
+                "text", text
+        );
+
+        postEmail("account-deleted", toEmail, body);
+    }
+
     /**
      * Single entry point for all outbound Resend calls.
      *

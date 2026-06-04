@@ -34,19 +34,22 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final AsyncEmailService asyncEmailService;
 
     public AuthService(
             CoupleRepository coupleRepository,
             RefreshTokenRepository refreshTokenRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            AuthenticationManager authenticationManager
+            AuthenticationManager authenticationManager,
+            AsyncEmailService asyncEmailService
     ) {
         this.coupleRepository = coupleRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
+        this.asyncEmailService = asyncEmailService;
     }
 
     @Transactional
@@ -78,6 +81,12 @@ public class AuthService {
         persistRefreshToken(rawRefresh, saved.id(), ROLE_COUPLE);
 
         log.info("couple registration succeeded, coupleId={}, email={}", saved.id(), maskedEmail);
+
+        // Fire-and-forget welcome email on its own thread. A delivery failure must
+        // never fail registration, so this runs async and is not part of this tx.
+        asyncEmailService.sendWelcomeEmail(saved.email(), saved.partnerOneName(), saved.partnerTwoName());
+        log.info("welcome email queued, coupleId={}", saved.id());
+
         return AuthResponse.of(accessToken, rawRefresh, saved.id(), saved.email(),
                 saved.partnerOneName(), saved.partnerTwoName(), saved.weddingDate());
     }
