@@ -80,10 +80,15 @@ export function parseTabCustomisation(wedding: Pick<WeddingWebsite, 'hiddenTabs'
   return { hidden, labels }
 }
 
-export async function getWedding(slug: string): Promise<WeddingWebsite | null> {
+// `fresh` bypasses the 60s ISR data cache. The public wedding page wants the
+// cache (SEO/ISR per the SEO rules); the owner-only editor preview wants fresh
+// data so a just-published site immediately drops its "Draft" banner instead of
+// showing stale isPublished for up to 60s.
+export async function getWedding(slug: string, fresh = false): Promise<WeddingWebsite | null> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
   try {
-    const res = await fetch(`${apiUrl}/api/v1/wedding-websites/slug/${slug}`, { next: { revalidate: 60 } })
+    const res = await fetch(`${apiUrl}/api/v1/wedding-websites/slug/${slug}`,
+      fresh ? { cache: 'no-store' } : { next: { revalidate: 60 } })
     if (res.status === 404) return null
     if (!res.ok) throw new Error(`API error ${res.status}`)
     return res.json()
@@ -113,12 +118,12 @@ export interface WeddingPageBlock {
   contentJson: string
 }
 
-export async function getBlocks(slug: string, tab: BlockTab): Promise<WeddingPageBlock[]> {
+export async function getBlocks(slug: string, tab: BlockTab, fresh = false): Promise<WeddingPageBlock[]> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
   try {
     const res = await fetch(
       `${apiUrl}/api/v1/wedding-page-blocks/slug/${slug}?tab=${tab}`,
-      { next: { revalidate: 60 } },
+      fresh ? { cache: 'no-store' } : { next: { revalidate: 60 } },
     )
     if (!res.ok) return []
     return res.json()

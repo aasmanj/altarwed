@@ -56,9 +56,11 @@ export default async function PreviewPage({
 
   if (!VALID_TABS.has(tab)) notFound()
 
+  // fresh=true: the preview is owner-only and must reflect just-saved edits and
+  // publish state immediately, so bypass the 60s ISR data cache.
   const [wedding, blocks] = await Promise.all([
-    getWedding(slug),
-    getBlocks(slug, tab as BlockTab),
+    getWedding(slug, true),
+    getBlocks(slug, tab as BlockTab, true),
   ])
 
   // Preview must render drafts, that is the whole point of WYSIWYG.

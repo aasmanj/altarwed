@@ -96,6 +96,9 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
   }
 
   const publicUrl = `https://www.altarwed.com/wedding/${website.slug}`
+  // Draft sites 404 on the public URL, so point "View" at the owner-only preview
+  // route until the site is published.
+  const viewUrl = website.isPublished ? publicUrl : `https://www.altarwed.com/preview/${website.slug}/home`
 
   return (
     <div>
@@ -108,9 +111,9 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
             <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${website.isPublished ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
               {website.isPublished ? 'Published' : 'Draft'}
             </span>
-            <a href={publicUrl} target="_blank" rel="noopener noreferrer"
+            <a href={viewUrl} target="_blank" rel="noopener noreferrer"
               className="text-sm text-gold hover:underline hidden sm:inline">
-              View ↗
+              {website.isPublished ? 'View ↗' : 'Preview ↗'}
             </a>
             <button
               onClick={handlePublishToggle}

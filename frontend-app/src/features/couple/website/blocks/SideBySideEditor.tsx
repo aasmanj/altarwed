@@ -368,14 +368,21 @@ export default function SideBySideEditor() {
                 <CheckCircle2 size={12} /> Saved {savedAgo}
               </span>
             )}
+            {/* When published, open the real public page. When still a draft,
+                the public page 404s, so open the owner-only preview route for the
+                current tab instead. */}
             <a
-              href={liveUrl}
+              href={website.isPublished ? liveUrl : tabPreviewUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-brown-light hover:text-brown inline-flex items-center gap-1 px-2 py-1.5 rounded hover:bg-stone-100"
-              title="Open the real public wedding page in a new tab"
+              title={website.isPublished
+                ? 'Open the real public wedding page in a new tab'
+                : 'Preview your unpublished site in a new tab'}
             >
-              <ExternalLink size={12} /> View live
+              {website.isPublished
+                ? <><ExternalLink size={12} /> View live</>
+                : <><Eye size={12} /> Preview</>}
             </a>
             <button
               onClick={togglePublish}
