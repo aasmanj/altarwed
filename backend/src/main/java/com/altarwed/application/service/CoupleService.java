@@ -2,7 +2,12 @@ package com.altarwed.application.service;
 
 import com.altarwed.domain.exception.CoupleNotFoundException;
 import com.altarwed.domain.model.Couple;
+import com.altarwed.domain.port.CeremonySectionRepository;
 import com.altarwed.domain.port.CoupleRepository;
+import com.altarwed.domain.port.GoogleOAuthTokenRepository;
+import com.altarwed.domain.port.PasswordResetTokenRepository;
+import com.altarwed.domain.port.PrintOrderRepository;
+import com.altarwed.domain.port.RefreshTokenRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -17,9 +22,25 @@ public class CoupleService {
     private static final Logger log = LoggerFactory.getLogger(CoupleService.class);
 
     private final CoupleRepository coupleRepository;
+    private final PrintOrderRepository printOrderRepository;
+    private final CeremonySectionRepository ceremonySectionRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final GoogleOAuthTokenRepository googleOAuthTokenRepository;
 
-    public CoupleService(CoupleRepository coupleRepository) {
+    public CoupleService(
+            CoupleRepository coupleRepository,
+            PrintOrderRepository printOrderRepository,
+            CeremonySectionRepository ceremonySectionRepository,
+            RefreshTokenRepository refreshTokenRepository,
+            PasswordResetTokenRepository passwordResetTokenRepository,
+            GoogleOAuthTokenRepository googleOAuthTokenRepository) {
         this.coupleRepository = coupleRepository;
+        this.printOrderRepository = printOrderRepository;
+        this.ceremonySectionRepository = ceremonySectionRepository;
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.passwordResetTokenRepository = passwordResetTokenRepository;
+        this.googleOAuthTokenRepository = googleOAuthTokenRepository;
     }
 
     @Transactional(readOnly = true)
@@ -49,5 +70,31 @@ public class CoupleService {
         Couple couple = getById(id);
         coupleRepository.save(couple.deactivated());
         log.info("couple deactivated, coupleId={}", id);
+    }
+
+    @Transactional
+    public void deleteAccount(UUID coupleId) {
+        Couple couple = getById(coupleId);
+        log.info("couple account deletion started, coupleId={}", coupleId);
+
+        // Delete tables without ON DELETE CASCADE first, in FK-safe order.
+        // 1. print_orders (DB cascades print_order_recipients via ON DELETE CASCADE)
+        printOrderRepository.deleteAllByCoupleId(coupleId);
+        // 2. ceremony_sections (no cascade from couples table)
+        ceremonySectionRepository.deleteAllByCoupleId(coupleId);
+        // 3. google_oauth_tokens (no FK at all in V35 -- live Google refresh token
+        //    would be orphaned and remain usable if not explicitly deleted)
+        googleOAuthTokenRepository.deleteByCoupleId(coupleId);
+        // 4. refresh_tokens (no FK, user_id is a plain UUID column)
+        refreshTokenRepository.deleteAllByUserId(coupleId);
+        // 5. password_reset_tokens (keyed by email, no FK to couples)
+        passwordResetTokenRepository.deleteAllByEmail(couple.email());
+        // 6. Delete the couple -- DB cascades the rest:
+        //    wedding_websites -> wedding_party_members, wedding_photos, wedding_prayers,
+        //    wedding_page_blocks, wedding_hotels; guests -> rsvp_invite_tokens;
+        //    planning_tasks, budget_items, seating_tables, google_sheet_syncs.
+        coupleRepository.deleteById(coupleId);
+
+        log.info("couple account deleted, coupleId={}", coupleId);
     }
 }

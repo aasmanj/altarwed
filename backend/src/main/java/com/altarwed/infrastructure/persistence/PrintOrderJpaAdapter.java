@@ -45,6 +45,11 @@ public class PrintOrderJpaAdapter implements PrintOrderRepository {
         return jpa.findByCoupleIdAndIdempotencyKey(coupleId, idempotencyKey).map(this::toDomain);
     }
 
+    @Override
+    public void deleteAllByCoupleId(UUID coupleId) {
+        jpa.deleteAllByCoupleId(coupleId);
+    }
+
     private PrintOrderEntity toEntity(PrintOrder o) {
         PrintOrderEntity e = PrintOrderEntity.builder()
                 .id(o.id())

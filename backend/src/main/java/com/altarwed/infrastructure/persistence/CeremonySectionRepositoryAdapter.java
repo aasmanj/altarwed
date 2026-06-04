@@ -38,6 +38,11 @@ public class CeremonySectionRepositoryAdapter implements CeremonySectionReposito
         jpaRepository.deleteById(id);
     }
 
+    @Override
+    public void deleteAllByCoupleId(UUID coupleId) {
+        jpaRepository.deleteAllByCoupleId(coupleId);
+    }
+
     private CeremonySection toDomain(CeremonySectionEntity e) {
         return new CeremonySection(
                 e.getId(), e.getCoupleId(), e.getTitle(), e.getSectionType(),

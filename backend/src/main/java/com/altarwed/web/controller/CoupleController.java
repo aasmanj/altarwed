@@ -68,12 +68,12 @@ public class CoupleController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deactivate(
+    public ResponseEntity<Void> deleteAccount(
             @PathVariable UUID id,
             @AuthenticationPrincipal String email
     ) {
         accessGuard.assertOwns(id, email);
-        coupleService.deactivate(id);
+        coupleService.deleteAccount(id);
         return ResponseEntity.noContent().build();
     }
 }

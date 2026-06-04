@@ -11,4 +11,5 @@ public interface CeremonySectionRepository {
     List<CeremonySection> findByCoupleIdOrderBySortOrder(UUID coupleId);
     Optional<CeremonySection> findById(UUID id);
     void deleteById(UUID id);
+    void deleteAllByCoupleId(UUID coupleId);
 }

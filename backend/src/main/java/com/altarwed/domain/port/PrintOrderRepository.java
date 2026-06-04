@@ -11,4 +11,5 @@ public interface PrintOrderRepository {
     Optional<PrintOrder> findById(UUID id);
     List<PrintOrder> findAllByCoupleId(UUID coupleId);
     Optional<PrintOrder> findByCoupleIdAndIdempotencyKey(UUID coupleId, String idempotencyKey);
+    void deleteAllByCoupleId(UUID coupleId);
 }

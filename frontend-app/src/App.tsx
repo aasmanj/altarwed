@@ -28,6 +28,7 @@ import CeremonyPage from '@/features/couple/ceremony/CeremonyPage'
 import CeremonyProgramPage from '@/features/couple/ceremony/CeremonyProgramPage'
 import CommunicationsPage from '@/features/couple/communications/CommunicationsPage'
 import AdminMetricsPage from '@/features/admin/AdminMetricsPage'
+import SettingsPage from '@/features/couple/settings/SettingsPage'
 
 function AnimatedRoutes() {
   const location = useLocation()
@@ -194,6 +195,15 @@ function AnimatedRoutes() {
             element={
               <ProtectedRoute role="VENDOR">
                 <VendorListingPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/dashboard/settings"
+            element={
+              <ProtectedRoute role="COUPLE">
+                <SettingsPage />
               </ProtectedRoute>
             }
           />

@@ -41,6 +41,12 @@ export default function CoupleDashboard() {
               Metrics
             </Link>
           )}
+          <Link
+            to="/dashboard/settings"
+            className="shrink-0 text-sm font-medium text-brown-light hover:text-brown transition py-2 px-3 rounded-lg hover:bg-ivory"
+          >
+            Settings
+          </Link>
           <button
             onClick={logout}
             className="shrink-0 text-sm font-medium text-brown-light hover:text-brown transition py-2 px-3 rounded-lg hover:bg-ivory"

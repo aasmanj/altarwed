@@ -10,4 +10,5 @@ import java.util.UUID;
 public interface PrintOrderJpaRepository extends JpaRepository<PrintOrderEntity, UUID> {
     List<PrintOrderEntity> findAllByCoupleIdOrderByCreatedAtDesc(UUID coupleId);
     Optional<PrintOrderEntity> findByCoupleIdAndIdempotencyKey(UUID coupleId, String idempotencyKey);
+    void deleteAllByCoupleId(UUID coupleId);
 }

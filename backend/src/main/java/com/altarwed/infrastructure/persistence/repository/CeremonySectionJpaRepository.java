@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface CeremonySectionJpaRepository extends JpaRepository<CeremonySectionEntity, UUID> {
     List<CeremonySectionEntity> findByCoupleIdOrderBySortOrder(UUID coupleId);
+    void deleteAllByCoupleId(UUID coupleId);
 }
