@@ -1,7 +1,11 @@
 package com.altarwed.infrastructure.persistence;
 
 import com.altarwed.domain.model.MetricsSnapshot;
+import com.altarwed.domain.model.WebsiteAdminRow;
+import com.altarwed.domain.model.WebsiteRoster;
 import com.altarwed.domain.port.MetricsRepository;
+import com.altarwed.infrastructure.persistence.entity.CoupleEntity;
+import com.altarwed.infrastructure.persistence.entity.WeddingWebsiteEntity;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Repository;
@@ -12,6 +16,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Repository
 public class MetricsJpaAdapter implements MetricsRepository {
@@ -76,6 +81,49 @@ public class MetricsJpaAdapter implements MetricsRepository {
             out.add(new MetricsSnapshot.DailyCount(d, counts.getOrDefault(d, 0L)));
         }
         return out;
+    }
+
+    @Override
+    public WebsiteRoster websiteRoster(int page, int size) {
+        long total = scalarLong("SELECT COUNT(c) FROM CoupleEntity c");
+
+        List<CoupleEntity> couples = em.createQuery(
+                        "SELECT c FROM CoupleEntity c ORDER BY c.createdAt DESC", CoupleEntity.class)
+                .setFirstResult(page * size)
+                .setMaxResults(size)
+                .getResultList();
+
+        if (couples.isEmpty()) {
+            return new WebsiteRoster(List.of(), total, page, size);
+        }
+
+        List<UUID> coupleIds = couples.stream().map(CoupleEntity::getId).toList();
+        List<WeddingWebsiteEntity> websites = em.createQuery(
+                        "SELECT w FROM WeddingWebsiteEntity w WHERE w.coupleId IN :ids AND w.isDeleted = false",
+                        WeddingWebsiteEntity.class)
+                .setParameter("ids", coupleIds)
+                .getResultList();
+
+        Map<UUID, WeddingWebsiteEntity> byCoupleId = new HashMap<>();
+        for (WeddingWebsiteEntity w : websites) {
+            byCoupleId.put(w.getCoupleId(), w);
+        }
+
+        List<WebsiteAdminRow> rows = couples.stream().map(c -> {
+            WeddingWebsiteEntity w = byCoupleId.get(c.getId());
+            return new WebsiteAdminRow(
+                    c.getId(),
+                    c.getEmail(),
+                    c.getPartnerOneName(),
+                    c.getPartnerTwoName(),
+                    c.getWeddingDate(),
+                    c.getCreatedAt(),
+                    w != null ? w.getSlug() : null,
+                    w != null ? w.isPublished() : null
+            );
+        }).toList();
+
+        return new WebsiteRoster(rows, total, page, size);
     }
 
     private long scalarLong(String jpql) {

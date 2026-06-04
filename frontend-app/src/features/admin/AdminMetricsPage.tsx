@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { apiClient } from '@/core/api/client'
@@ -6,6 +7,24 @@ import { useAuth } from '@/core/auth/AuthContext'
 interface DailyCount {
   date: string
   count: number
+}
+
+interface WebsiteAdminRow {
+  coupleId: string
+  email: string
+  groomName: string
+  brideName: string
+  weddingDate: string | null
+  signedUpAt: string
+  slug: string | null
+  isPublished: boolean | null
+}
+
+interface WebsiteRoster {
+  rows: WebsiteAdminRow[]
+  total: number
+  page: number
+  size: number
 }
 
 interface MetricsSnapshot {
@@ -28,12 +47,23 @@ interface MetricsSnapshot {
   coupleSignupsLast30Days: DailyCount[]
 }
 
+const PAGE_SIZE = 20
+
 export default function AdminMetricsPage() {
   const { user, logout } = useAuth()
+  const [websitePage, setWebsitePage] = useState(0)
+
   const { data, isLoading, error } = useQuery<MetricsSnapshot>({
     queryKey: ['admin-metrics'],
     queryFn: () => apiClient.get('/api/v1/admin/metrics').then(r => r.data),
     refetchInterval: 60_000,
+  })
+
+  const { data: roster } = useQuery<WebsiteRoster>({
+    queryKey: ['admin-websites', websitePage],
+    queryFn: () =>
+      apiClient.get(`/api/v1/admin/metrics/websites?page=${websitePage}&size=${PAGE_SIZE}`).then(r => r.data),
+    enabled: !!data, // only load after metrics confirm admin access
   })
 
   const forbidden = (error as { response?: { status?: number } } | null)?.response?.status === 403
@@ -101,6 +131,96 @@ export default function AdminMetricsPage() {
               <h3 className="font-serif text-lg font-semibold text-brown mb-3">Couple signups, last 30 days</h3>
               <Sparkline data={data.coupleSignupsLast30Days} />
             </div>
+
+            {roster && (
+              <div className="mt-10">
+                <div className="flex items-baseline justify-between mb-3">
+                  <h3 className="font-serif text-lg font-semibold text-brown">
+                    All accounts
+                    <span className="ml-2 text-sm font-sans font-normal text-brown-light">
+                      {roster.total.toLocaleString()} total
+                    </span>
+                  </h3>
+                  <div className="flex items-center gap-3 text-sm text-brown-light">
+                    <span>
+                      {roster.total === 0
+                        ? '0 of 0'
+                        : `${roster.page * PAGE_SIZE + 1}–${Math.min((roster.page + 1) * PAGE_SIZE, roster.total)} of ${roster.total.toLocaleString()}`}
+                    </span>
+                    <button
+                      onClick={() => setWebsitePage(p => Math.max(0, p - 1))}
+                      disabled={roster.page === 0}
+                      className="px-3 py-1 rounded border border-gold-light hover:bg-ivory disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    >
+                      Prev
+                    </button>
+                    <button
+                      onClick={() => setWebsitePage(p => p + 1)}
+                      disabled={(roster.page + 1) * PAGE_SIZE >= roster.total}
+                      className="px-3 py-1 rounded border border-gold-light hover:bg-ivory disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-gold-light bg-white overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="border-b border-gold-light bg-ivory">
+                      <tr>
+                        <th className="text-left px-4 py-3 font-medium text-brown-light uppercase tracking-wide text-xs">Couple</th>
+                        <th className="text-left px-4 py-3 font-medium text-brown-light uppercase tracking-wide text-xs">Email</th>
+                        <th className="text-left px-4 py-3 font-medium text-brown-light uppercase tracking-wide text-xs">Website</th>
+                        <th className="text-left px-4 py-3 font-medium text-brown-light uppercase tracking-wide text-xs">Wedding date</th>
+                        <th className="text-left px-4 py-3 font-medium text-brown-light uppercase tracking-wide text-xs">Signed up</th>
+                        <th className="text-left px-4 py-3 font-medium text-brown-light uppercase tracking-wide text-xs">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gold-light">
+                      {roster.rows.map(row => (
+                        <tr key={row.coupleId} className="hover:bg-ivory/50 transition">
+                          <td className="px-4 py-3 font-medium text-brown">
+                            {row.groomName} &amp; {row.brideName}
+                          </td>
+                          <td className="px-4 py-3 text-brown-light">{row.email}</td>
+                          <td className="px-4 py-3">
+                            {row.slug ? (
+                              <a
+                                href={`https://www.altarwed.com/wedding/${row.slug}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-gold hover:underline font-mono text-xs"
+                              >
+                                /{row.slug}
+                              </a>
+                            ) : (
+                              <span className="text-brown-light text-xs italic">no website yet</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-brown-light">
+                            {row.weddingDate ?? <span className="italic text-xs">not set</span>}
+                          </td>
+                          <td className="px-4 py-3 text-brown-light text-xs">
+                            {new Date(row.signedUpAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </td>
+                          <td className="px-4 py-3">
+                            {row.isPublished === true && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Live</span>
+                            )}
+                            {row.isPublished === false && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Draft</span>
+                            )}
+                            {row.isPublished == null && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-stone-100 text-stone-600">No site</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </>
         )}
       </main>
