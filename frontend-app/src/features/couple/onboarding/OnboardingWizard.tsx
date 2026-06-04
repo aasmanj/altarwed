@@ -347,8 +347,8 @@ function Step1Names({
         title="Welcome to AltarWed"
         subtitle="Let's build your wedding website. First, whose names should be on it?"
       />
-      <LabeledInput label="Bride" value={partnerTwoName} onChange={onPartnerTwo} placeholder="Eden-Faith" />
-      <LabeledInput label="Groom" value={partnerOneName} onChange={onPartnerOne} placeholder="Jordan" />
+      <LabeledInput label="Bride" value={partnerTwoName} onChange={onPartnerTwo} placeholder="Grace" />
+      <LabeledInput label="Groom" value={partnerOneName} onChange={onPartnerOne} placeholder="Caleb" />
       <PrimaryButton onClick={onNext} disabled={!partnerOneName.trim() || !partnerTwoName.trim()}>
         Continue →
       </PrimaryButton>
@@ -377,7 +377,7 @@ function Step2UrlDate({
             value={slug}
             onChange={e => onSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
             className="flex-1 px-3 py-3 text-sm text-[#3b2f2f] focus:outline-none bg-white"
-            placeholder="jordan-and-eden-faith"
+            placeholder="caleb-and-grace"
           />
         </div>
         <p className="text-xs text-[#a08060] mt-1">Lowercase letters, numbers, and hyphens only</p>

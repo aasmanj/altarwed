@@ -113,7 +113,7 @@ export default function InquiryForm({ vendorId, vendorBusinessName }: Props) {
           required
           maxLength={120}
           autoComplete="name"
-          placeholder="Jordan and Eden-Faith"
+          placeholder="Caleb and Grace"
           disabled={submitting}
         />
         <Field

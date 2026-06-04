@@ -109,8 +109,8 @@ const verses = [
 const testimonials = [
   {
     quote: 'AltarWed gave us a beautiful wedding website in minutes. Having scripture woven through every tool reminded us what our day was really about.',
-    name: 'Jordan & Eden-Faith',
-    detail: 'Married September 2025 · Fredericksburg, VA',
+    name: 'Caleb & Grace',
+    detail: 'Married June 2026 · Raleigh, NC',
   },
 ]
 
