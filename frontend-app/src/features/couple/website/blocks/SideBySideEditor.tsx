@@ -1076,6 +1076,10 @@ function HeroSettings({
               </button>
             </div>
 
+            <p className="text-[10px] text-stone-400 leading-snug mb-2">
+              A wide landscape photo works best. Tall portrait shots get cropped top and bottom in the banner.
+            </p>
+
             {/* Default photo grid */}
             {pickingPhoto && (
               <div className="grid grid-cols-3 gap-1.5">

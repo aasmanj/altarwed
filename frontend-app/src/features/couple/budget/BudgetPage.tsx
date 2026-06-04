@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Wallet } from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import {
@@ -246,7 +247,7 @@ export default function BudgetPage() {
         {/* Item list */}
         {summary.items.length === 0 ? (
           <div className="bg-white rounded-xl border border-stone-200 p-12 text-center">
-            <div className="text-5xl mb-4">💰</div>
+            <Wallet className="w-12 h-12 mx-auto mb-4 text-stone-300" />
             <h3 className="text-lg font-medium text-stone-800 mb-2">No budget items yet</h3>
             <p className="text-stone-500 text-sm mb-6">
               Start tracking your wedding costs, from the venue to the tithe.

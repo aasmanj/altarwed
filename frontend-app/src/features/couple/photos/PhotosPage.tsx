@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { Camera, ExternalLink } from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
@@ -95,8 +96,8 @@ export default function PhotosPage() {
         subtitle="Share your memories with guests"
         action={
           <a href={publicUrl} target="_blank" rel="noopener noreferrer"
-            className="text-sm text-gold hover:underline">
-            View public page ↗
+            className="inline-flex items-center gap-1 text-sm text-gold hover:underline">
+            View public page <ExternalLink size={14} />
           </a>
         }
       />
@@ -137,7 +138,7 @@ export default function PhotosPage() {
         {/* Photo grid */}
         {photos.length === 0 ? (
           <div className="bg-white rounded-xl border border-stone-200 p-16 text-center">
-            <div className="text-5xl mb-4">📷</div>
+            <Camera className="w-12 h-12 mx-auto mb-4 text-stone-300" />
             <h3 className="text-lg font-medium text-stone-800 mb-2">No photos yet</h3>
             <p className="text-stone-500 text-sm mb-6">Upload your first photo to share your journey with guests.</p>
             <button

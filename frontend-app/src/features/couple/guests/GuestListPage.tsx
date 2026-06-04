@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import confetti from 'canvas-confetti'
 import Papa from 'papaparse'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
+import { FileSpreadsheet, UserPlus, X, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import {
@@ -464,9 +465,11 @@ export default function GuestListPage() {
         <div className="mb-4">
           <button
             onClick={() => setShowAnalytics(v => !v)}
-            className="text-sm text-gold hover:underline"
+            className="inline-flex items-center gap-1 text-sm text-gold hover:underline"
           >
-            {showAnalytics ? 'Hide analytics ▲' : 'Show analytics ▼'}
+            {showAnalytics
+              ? <>Hide analytics <ChevronUp size={14} /></>
+              : <>Show analytics <ChevronDown size={14} /></>}
           </button>
         </div>
 
@@ -504,10 +507,10 @@ export default function GuestListPage() {
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-brown-light hover:text-brown text-sm"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-brown-light hover:text-brown"
                 aria-label="Clear search"
               >
-                ✕
+                <X size={16} />
               </button>
             )}
           </div>
@@ -738,21 +741,21 @@ function AddGuestModal({
       <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
         <div className="flex items-center justify-between mb-5">
           <h3 className="font-serif text-lg font-semibold text-brown">Add Guests</h3>
-          <button onClick={onClose} className="text-brown-light hover:text-brown text-xl leading-none">✕</button>
+          <button onClick={onClose} aria-label="Close" className="text-brown-light hover:text-brown leading-none"><X size={20} /></button>
         </div>
         <div className="space-y-3">
           <button
             onClick={onSheetSync}
             className="w-full rounded-xl border-2 border-gold/40 hover:border-gold bg-ivory/50 hover:bg-gold/5 px-5 py-4 text-left transition"
           >
-            <p className="font-semibold text-brown text-sm">📋 Sync Google Sheet</p>
+            <p className="flex items-center gap-2 font-semibold text-brown text-sm"><FileSpreadsheet size={16} className="text-gold" /> Sync Google Sheet</p>
             <p className="text-xs text-brown-light mt-1">Connect your Google Sheet and we'll keep your guest list in sync automatically.</p>
           </button>
           <button
             onClick={onManual}
             className="w-full rounded-xl border-2 border-gold/40 hover:border-gold bg-ivory/50 hover:bg-gold/5 px-5 py-4 text-left transition"
           >
-            <p className="font-semibold text-brown text-sm">✏️ Add Guest Manually</p>
+            <p className="flex items-center gap-2 font-semibold text-brown text-sm"><UserPlus size={16} className="text-gold" /> Add Guest Manually</p>
             <p className="text-xs text-brown-light mt-1">Add one guest at a time with name, email, address and RSVP details.</p>
           </button>
         </div>
@@ -1071,9 +1074,9 @@ function SortableTh<K extends string>({
         title={`Sort by ${label}`}
       >
         {label}
-        <span className="text-[10px] leading-none">
-          {isActive ? (sortDir === 'asc' ? '▲' : '▼') : '↕'}
-        </span>
+        {isActive
+          ? (sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />)
+          : <ChevronsUpDown size={12} className="opacity-50" />}
       </button>
     </th>
   )

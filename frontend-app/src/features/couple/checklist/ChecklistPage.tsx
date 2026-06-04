@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import confetti from 'canvas-confetti'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import {
+  ChevronDown, ChevronRight,
+  Cross, Gem, Landmark, Camera, ClipboardList, Shirt, Users, PartyPopper, Plane,
+  type LucideIcon,
+} from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import TipCallout from '@/components/TipCallout'
@@ -12,15 +16,29 @@ import {
 } from './usePlanningTasks'
 
 const CATEGORY_LABEL: Record<TaskCategory, string> = {
-  FAITH:     '✝️  Faith & Spiritual',
-  CEREMONY:  '💍 Ceremony',
-  VENUE:     '🏛️  Venue',
-  VENDORS:   '📸 Vendors',
-  LEGAL:     '📋 Legal',
-  ATTIRE:    '👗 Attire',
-  GUESTS:    '💌 Guests',
-  RECEPTION: '🎉 Reception',
-  HONEYMOON: '✈️  Honeymoon',
+  FAITH:     'Faith & Spiritual',
+  CEREMONY:  'Ceremony',
+  VENUE:     'Venue',
+  VENDORS:   'Vendors',
+  LEGAL:     'Legal',
+  ATTIRE:    'Attire',
+  GUESTS:    'Guests',
+  RECEPTION: 'Reception',
+  HONEYMOON: 'Honeymoon',
+}
+
+// Icons render in the section headers. The <select> below uses the plain text
+// label only, since <option> cannot render a component.
+const CATEGORY_ICON: Record<TaskCategory, LucideIcon> = {
+  FAITH:     Cross,
+  CEREMONY:  Gem,
+  VENUE:     Landmark,
+  VENDORS:   Camera,
+  LEGAL:     ClipboardList,
+  ATTIRE:    Shirt,
+  GUESTS:    Users,
+  RECEPTION: PartyPopper,
+  HONEYMOON: Plane,
 }
 
 const CATEGORY_ORDER: TaskCategory[] = [
@@ -166,10 +184,12 @@ export default function ChecklistPage() {
               const catTasks = grouped[cat]
               if (catTasks.length === 0) return null
               const catDone = catTasks.filter(t => t.isCompleted).length
+              const CatIcon = CATEGORY_ICON[cat]
               return (
                 <div key={cat}>
                   <div className="flex items-center justify-between mb-3">
-                    <h2 className="font-serif text-base font-semibold text-brown">
+                    <h2 className="flex items-center gap-2 font-serif text-base font-semibold text-brown">
+                      <CatIcon className="w-4 h-4 text-gold" aria-hidden="true" />
                       {CATEGORY_LABEL[cat]}
                     </h2>
                     <span className="text-xs text-brown-light">{catDone}/{catTasks.length}</span>

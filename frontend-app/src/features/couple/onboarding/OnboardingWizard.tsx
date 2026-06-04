@@ -531,6 +531,9 @@ function Step5Hero({
             Choose a photo (JPEG, PNG, WebP up to 15 MB)
           </span>
         </label>
+        <p className="mt-2 text-xs text-[#a08060] leading-snug">
+          A wide landscape photo works best. Tall portrait shots get cropped top and bottom in the banner.
+        </p>
       </div>
 
       <Nav onBack={onBack} onNext={onNext} nextLabel={picked ? 'Continue →' : 'Skip for now →'} />
