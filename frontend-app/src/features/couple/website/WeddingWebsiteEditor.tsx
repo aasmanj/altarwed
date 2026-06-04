@@ -4,6 +4,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import confetti from 'canvas-confetti'
 import { useUpdateWeddingWebsite, usePublishWeddingWebsite, type WeddingWebsite } from './useWeddingWebsite'
 import { useHotels, useAddHotel, useUpdateHotel, useDeleteHotel, type WeddingHotelPayload, type WeddingHotel } from './useHotels'
+import { MapPin, DollarSign } from 'lucide-react'
 import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { apiClient } from '@/core/api/client'
@@ -535,10 +536,10 @@ function HotelTab({ hotels, onAdd, onUpdate, onDelete, isAddPending, isUpdatePen
               {hotel.address && <p className="text-xs text-brown-light mt-0.5">{hotel.address}</p>}
               <div className="flex flex-wrap gap-3 mt-2">
                 {hotel.distanceFromVenue && (
-                  <span className="text-xs text-brown-light">📍 {hotel.distanceFromVenue}</span>
+                  <span className="inline-flex items-center gap-1 text-xs text-brown-light"><MapPin size={12} className="text-gold" aria-hidden="true" /> {hotel.distanceFromVenue}</span>
                 )}
                 {hotel.blockRate && (
-                  <span className="text-xs text-brown-light">💰 {hotel.blockRate}</span>
+                  <span className="inline-flex items-center gap-1 text-xs text-brown-light"><DollarSign size={12} className="text-gold" aria-hidden="true" /> {hotel.blockRate}</span>
                 )}
                 {hotel.bookingUrl && (
                   <a href={hotel.bookingUrl} target="_blank" rel="noopener noreferrer"

@@ -120,7 +120,7 @@ export default function WeddingPartyPage() {
         ) : displayed.length === 0 && !showAdd ? (
           <div className="text-center py-16">
             <p className="text-brown font-medium mb-1">No members yet</p>
-            <p className="text-sm text-brown-light">Add your wedding party and family.</p>
+            <p className="text-sm text-brown-light">Add your wedding party. Members you add here can be included in your ceremony builder and printed program.</p>
           </div>
         ) : (
           <div className="space-y-4">

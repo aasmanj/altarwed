@@ -684,7 +684,7 @@ function Step8Confirm({
         >
           {submitting
             ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating…</>
-            : <>Create my site ✨</>
+            : <>Create my site</>
           }
         </button>
       </div>

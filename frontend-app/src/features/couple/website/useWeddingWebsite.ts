@@ -62,6 +62,13 @@ export function useWeddingWebsite(coupleId: string) {
       const status = (err as { response?: { status?: number } })?.response?.status
       return status !== 404 && count < 2
     },
+    // A website's existence does not change while the couple is filling out the
+    // onboarding wizard. Refetching on window focus re-throws the 404, which
+    // (because an errored query has no cached data) flips isLoading back to true,
+    // unmounts the wizard, and resets it to step 1 when the couple tabs away and
+    // back. Disabling focus refetch keeps the wizard mounted and its progress intact.
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
   })
 }
 

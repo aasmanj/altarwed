@@ -182,8 +182,8 @@ export default function CommunicationsPage() {
         <section className="rounded-xl border border-stone-200 bg-white p-6">
           <h2 className="font-serif text-xl font-bold text-brown mb-1">Order physical postcards</h2>
           <p className="text-sm text-stone-500 mb-6">
-            Printed and mailed via Lob. First-class postage included. We charge a flat estimate of $1.50 per
-            postcard at submit time; actual provider cost is billed monthly.
+            Printed postcards are mailed to your guests via a third-party service. First-class postage included.
+            We charge a flat estimate of $1.50 per postcard at submit time; actual provider cost is billed monthly.
           </p>
 
           {/* 1. Order type */}

@@ -92,7 +92,7 @@ export default function CoupleDashboard() {
           <RegistryCard website={website} />
         </PhaseSection>
 
-        <PhaseSection number={2} title="Tell your guests" description="Send save-the-dates and invitations. Digital is free; printed postcards go out via Lob.">
+        <PhaseSection number={2} title="Tell your guests" description="Send save-the-dates and invitations. Digital is free; printed postcards are mailed to your guests via a third-party service.">
           <DashboardCard title="Communications" description="Save-the-dates, RSVP invitations, and printed postcards in one place" href="/dashboard/communications" live />
         </PhaseSection>
 
