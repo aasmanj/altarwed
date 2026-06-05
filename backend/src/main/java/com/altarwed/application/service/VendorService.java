@@ -39,6 +39,7 @@ public class VendorService {
 
     @Transactional
     public Vendor update(UUID vendorId, UpdateVendorRequest req) {
+        log.info("vendor listing update started, vendorId={}", vendorId);
         Vendor existing = getById(vendorId);
         Vendor updated = new Vendor(
                 existing.id(),
@@ -52,7 +53,11 @@ public class VendorService {
                 req.denominationIds() != null ? req.denominationIds() : existing.denominationIds(),
                 existing.isActive(),
                 existing.isVerified(),
-                req.priceTier()       != null ? blankToNull(req.priceTier()) : existing.priceTier(),
+                req.priceTier()       != null ? blankToNull(req.priceTier())       : existing.priceTier(),
+                req.bio()             != null ? blankToNull(req.bio())             : existing.bio(),
+                req.description()     != null ? blankToNull(req.description())     : existing.description(),
+                req.websiteUrl()      != null ? blankToNull(req.websiteUrl())      : existing.websiteUrl(),
+                req.phone()           != null ? blankToNull(req.phone())           : existing.phone(),
                 existing.createdAt(),
                 LocalDateTime.now()
         );

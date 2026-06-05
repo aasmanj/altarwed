@@ -15,5 +15,9 @@ public record UpdateVendorRequest(
         Boolean isChristianOwned,
         List<UUID> denominationIds,
         // Validation echoes the DB CHECK constraint added in V25.
-        @Pattern(regexp = "^(\\$|\\$\\$|\\$\\$\\$)?$") String priceTier
+        @Pattern(regexp = "^(\\$|\\$\\$|\\$\\$\\$)?$") String priceTier,
+        @Size(max = 1000) String bio,
+        @Size(max = 2000) String description,
+        @Size(max = 500) @Pattern(regexp = "^(https?://.*)?$") String websiteUrl,
+        @Size(max = 30) String phone
 ) {}

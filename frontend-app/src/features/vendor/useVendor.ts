@@ -7,10 +7,14 @@ export interface VendorProfile {
   category: string
   city: string
   state: string
-  email: string
   isChristianOwned: boolean
   denominationIds: string[]
   isVerified: boolean
+  priceTier: string | null
+  bio: string | null
+  description: string | null
+  websiteUrl: string | null
+  phone: string | null
 }
 
 export interface UpdateVendorPayload {
@@ -19,6 +23,12 @@ export interface UpdateVendorPayload {
   city?: string
   state?: string
   isChristianOwned?: boolean
+  denominationIds?: string[]
+  priceTier?: string
+  bio?: string
+  description?: string
+  websiteUrl?: string
+  phone?: string
 }
 
 const ME_KEY = ['vendor', 'me']

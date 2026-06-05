@@ -11,9 +11,12 @@ public record VendorResponse(
         VendorCategory category,
         String city,
         String state,
-        String email,
-        boolean isChristianOwned,
+        Boolean isChristianOwned,
         List<UUID> denominationIds,
-        boolean isVerified,
-        String priceTier
+        Boolean isVerified,
+        String priceTier,
+        String bio,
+        String description,
+        String websiteUrl,
+        String phone
 ) {}

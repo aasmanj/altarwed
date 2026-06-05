@@ -42,23 +42,25 @@ public class VendorRepositoryAdapter implements VendorRepository {
 
     @Override
     public List<Vendor> findByCity(String city) {
-        return jpaRepository.findByCityIgnoreCase(city).stream().map(this::toDomain).toList();
+        return jpaRepository.findByCityIgnoreCaseAndIsActiveTrueAndIsVerifiedTrue(city)
+                .stream().map(this::toDomain).toList();
     }
 
     @Override
     public List<Vendor> findByCityAndCategory(String city, VendorCategory category) {
-        return jpaRepository.findByCityIgnoreCaseAndCategory(city, category)
+        return jpaRepository.findByCityIgnoreCaseAndCategoryAndIsActiveTrueAndIsVerifiedTrue(city, category)
                 .stream().map(this::toDomain).toList();
     }
 
     @Override
     public List<Vendor> findByCategory(VendorCategory category) {
-        return jpaRepository.findByCategory(category).stream().map(this::toDomain).toList();
+        return jpaRepository.findByCategoryAndIsActiveTrueAndIsVerifiedTrue(category)
+                .stream().map(this::toDomain).toList();
     }
 
     @Override
     public List<Vendor> findAllActive() {
-        return jpaRepository.findAllByIsActiveTrue().stream().map(this::toDomain).toList();
+        return jpaRepository.findAllByIsActiveTrueAndIsVerifiedTrue().stream().map(this::toDomain).toList();
     }
 
     @Override
@@ -84,6 +86,10 @@ public class VendorRepositoryAdapter implements VendorRepository {
                 e.isActive(),
                 e.isVerified(),
                 e.getPriceTier(),
+                e.getBio(),
+                e.getDescription(),
+                e.getWebsiteUrl(),
+                e.getPhone(),
                 e.getCreatedAt(),
                 e.getUpdatedAt()
         );
@@ -103,6 +109,10 @@ public class VendorRepositoryAdapter implements VendorRepository {
                 .isActive(v.isActive())
                 .isVerified(v.isVerified())
                 .priceTier(v.priceTier())
+                .bio(v.bio())
+                .description(v.description())
+                .websiteUrl(v.websiteUrl())
+                .phone(v.phone())
                 .createdAt(v.createdAt())
                 .updatedAt(v.updatedAt())
                 .build();

@@ -14,11 +14,14 @@ public class VendorMapper {
                 vendor.category(),
                 vendor.city(),
                 vendor.state(),
-                vendor.email(),
                 vendor.isChristianOwned(),
                 vendor.denominationIds(),
                 vendor.isVerified(),
-                vendor.priceTier()
+                vendor.priceTier(),
+                vendor.bio(),
+                vendor.description(),
+                vendor.websiteUrl(),
+                vendor.phone()
         );
     }
 }

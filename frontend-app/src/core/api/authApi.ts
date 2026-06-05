@@ -65,6 +65,7 @@ export interface RegisterVendorPayload {
   email: string
   password: string
   isChristianOwned: boolean
+  denominationIds?: string[]
 }
 
 export const authApi = {

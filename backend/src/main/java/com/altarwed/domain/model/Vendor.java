@@ -19,16 +19,23 @@ public record Vendor(
         // V25: rough price indicator. Nullable; valid values are "$", "$$", "$$$"
         // enforced by a DB CHECK constraint.
         String priceTier,
+        // V49: profile-enrichment fields, all nullable at registration
+        String bio,
+        String description,
+        String websiteUrl,
+        String phone,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
     public Vendor withVerified() {
         return new Vendor(id, businessName, category, city, state, email, passwordHash,
-                isChristianOwned, denominationIds, isActive, true, priceTier, createdAt, LocalDateTime.now());
+                isChristianOwned, denominationIds, isActive, true, priceTier,
+                bio, description, websiteUrl, phone, createdAt, LocalDateTime.now());
     }
 
     public Vendor deactivated() {
         return new Vendor(id, businessName, category, city, state, email, passwordHash,
-                isChristianOwned, denominationIds, false, isVerified, priceTier, createdAt, LocalDateTime.now());
+                isChristianOwned, denominationIds, false, isVerified, priceTier,
+                bio, description, websiteUrl, phone, createdAt, LocalDateTime.now());
     }
 }

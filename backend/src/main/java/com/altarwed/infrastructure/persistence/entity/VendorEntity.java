@@ -68,6 +68,18 @@ public class VendorEntity {
     @Column(name = "price_tier", length = 3)
     private String priceTier;
 
+    @Column(name = "bio", length = 1000)
+    private String bio;
+
+    @Column(name = "description", length = 2000)
+    private String description;
+
+    @Column(name = "website_url", length = 500)
+    private String websiteUrl;
+
+    @Column(name = "phone", length = 30)
+    private String phone;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

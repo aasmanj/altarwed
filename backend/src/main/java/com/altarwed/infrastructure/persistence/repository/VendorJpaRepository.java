@@ -14,11 +14,11 @@ public interface VendorJpaRepository extends JpaRepository<VendorEntity, UUID> {
 
     boolean existsByEmail(String email);
 
-    List<VendorEntity> findByCityIgnoreCase(String city);
+    List<VendorEntity> findByCityIgnoreCaseAndIsActiveTrueAndIsVerifiedTrue(String city);
 
-    List<VendorEntity> findByCityIgnoreCaseAndCategory(String city, VendorCategory category);
+    List<VendorEntity> findByCityIgnoreCaseAndCategoryAndIsActiveTrueAndIsVerifiedTrue(String city, VendorCategory category);
 
-    List<VendorEntity> findByCategory(VendorCategory category);
+    List<VendorEntity> findByCategoryAndIsActiveTrueAndIsVerifiedTrue(VendorCategory category);
 
-    List<VendorEntity> findAllByIsActiveTrue();
+    List<VendorEntity> findAllByIsActiveTrueAndIsVerifiedTrue();
 }

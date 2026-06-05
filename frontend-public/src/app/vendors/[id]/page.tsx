@@ -13,6 +13,11 @@ interface Vendor {
   state: string
   isChristianOwned: boolean
   isVerified: boolean
+  priceTier: string | null
+  bio: string | null
+  description: string | null
+  websiteUrl: string | null
+  phone: string | null
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -51,13 +56,15 @@ export async function generateMetadata(
   if (!vendor) return { title: 'Vendor Not Found | AltarWed' }
   const category = CATEGORY_LABELS[vendor.category] ?? vendor.category
   const url = `https://www.altarwed.com/vendors/${id}`
+  const metaDesc = vendor.bio
+    ?? `${vendor.businessName} is a ${category.toLowerCase()} serving ${vendor.city}, ${vendor.state}${vendor.isChristianOwned ? ', a Christian-owned business' : ''}.`
   return {
     title: `${vendor.businessName}: ${category} in ${vendor.city} | AltarWed`,
-    description: `${vendor.businessName} is a ${category.toLowerCase()} serving ${vendor.city}, ${vendor.state}${vendor.isChristianOwned ? ', a Christian-owned business' : ''}.`,
+    description: metaDesc,
     alternates: { canonical: url },
     openGraph: {
       title: `${vendor.businessName}: ${category} in ${vendor.city}`,
-      description: `${vendor.businessName} is a ${category.toLowerCase()} serving ${vendor.city}, ${vendor.state}${vendor.isChristianOwned ? ', a Christian-owned business' : ''}.`,
+      description: metaDesc,
       url,
       siteName: 'AltarWed',
       type: 'website',
@@ -73,9 +80,29 @@ export default async function VendorDetailPage(
   if (!vendor) notFound()
 
   const category = CATEGORY_LABELS[vendor.category] ?? vendor.category
+  const url = `https://www.altarwed.com/vendors/${id}`
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'LocalBusiness',
+    name: vendor.businessName,
+    description: vendor.bio ?? vendor.description ?? undefined,
+    url: vendor.websiteUrl ?? url,
+    telephone: vendor.phone ?? undefined,
+    address: {
+      '@type': 'PostalAddress',
+      addressLocality: vendor.city,
+      addressRegion: vendor.state,
+      addressCountry: 'US',
+    },
+  }
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <SiteHeader />
 
       <main className="max-w-3xl mx-auto px-6 py-12">
@@ -109,6 +136,19 @@ export default async function VendorDetailPage(
           </div>
         </div>
 
+        {/* About section — only shown when vendor has filled in their bio or description */}
+        {(vendor.bio || vendor.description) && (
+          <div className="mb-8 rounded-2xl border border-[#e8dcc8] bg-white p-6">
+            <h2 className="font-serif text-lg font-semibold text-[#3b2f2f] mb-3">About</h2>
+            {vendor.bio && (
+              <p className="text-[#3b2f2f] font-medium mb-3">{vendor.bio}</p>
+            )}
+            {vendor.description && (
+              <p className="text-[#6b5344] text-sm whitespace-pre-line">{vendor.description}</p>
+            )}
+          </div>
+        )}
+
         {/* Inquiry form, couples can contact vendors without an account.
             Persistence is deferred (Phase 8); email handles the round-trip. */}
         <div className="mb-8">
@@ -127,6 +167,35 @@ export default async function VendorDetailPage(
               <dt className="text-sm text-[#a08060] w-24 shrink-0">Location</dt>
               <dd className="text-sm text-[#3b2f2f]">{vendor.city}, {vendor.state}</dd>
             </div>
+            {vendor.priceTier && (
+              <div className="flex gap-4">
+                <dt className="text-sm text-[#a08060] w-24 shrink-0">Price range</dt>
+                <dd className="text-sm text-[#3b2f2f]">{vendor.priceTier}</dd>
+              </div>
+            )}
+            {vendor.phone && (
+              <div className="flex gap-4">
+                <dt className="text-sm text-[#a08060] w-24 shrink-0">Phone</dt>
+                <dd className="text-sm text-[#3b2f2f]">
+                  <a href={`tel:${vendor.phone}`} className="hover:text-[#d4af6a] transition">{vendor.phone}</a>
+                </dd>
+              </div>
+            )}
+            {vendor.websiteUrl && (
+              <div className="flex gap-4">
+                <dt className="text-sm text-[#a08060] w-24 shrink-0">Website</dt>
+                <dd className="text-sm text-[#3b2f2f]">
+                  <a
+                    href={vendor.websiteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#d4af6a] hover:underline break-all"
+                  >
+                    {vendor.websiteUrl.replace(/^https?:\/\//, '')}
+                  </a>
+                </dd>
+              </div>
+            )}
             <div className="flex gap-4">
               <dt className="text-sm text-[#a08060] w-24 shrink-0">Faith</dt>
               <dd className="text-sm text-[#3b2f2f]">

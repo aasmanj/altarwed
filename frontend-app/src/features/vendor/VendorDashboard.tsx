@@ -21,9 +21,9 @@ export default function VendorDashboard() {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-10">
-        <h2 className="font-serif text-2xl font-bold text-[#3b2f2f] mb-1">
+        <h1 className="font-serif text-2xl font-bold text-[#3b2f2f] mb-1">
           Welcome, {displayName}
-        </h2>
+        </h1>
         <p className="text-[#a08060] text-sm mb-8">Your vendor dashboard</p>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -33,10 +33,10 @@ export default function VendorDashboard() {
             href="/vendor/listing"
             live
           />
-          <DashboardCard title="Inquiries" description="View and respond to couple inquiries" href="#" />
-          <DashboardCard title="Reviews" description="See what couples are saying" href="#" />
-          <DashboardCard title="Analytics" description="Profile views and inquiry trends" href="#" />
-          <DashboardCard title="Subscription" description="Manage your vendor plan" href="#" />
+          <DashboardCard title="Inquiries" description="View and respond to couple inquiries" href="#" comingSoon />
+          <DashboardCard title="Reviews" description="See what couples are saying" href="#" comingSoon />
+          <DashboardCard title="Analytics" description="Profile views and inquiry trends" href="#" comingSoon />
+          <DashboardCard title="Subscription" description="Manage your vendor plan" href="#" comingSoon />
         </div>
 
         <div className="mt-10 rounded-2xl border border-[#e8dcc8] bg-white p-6">
@@ -59,27 +59,31 @@ export default function VendorDashboard() {
   )
 }
 
-function DashboardCard({ title, description, href, live }: {
-  title: string; description: string; href: string; live?: boolean
+function DashboardCard({ title, description, href, live, comingSoon }: {
+  title: string; description: string; href: string; live?: boolean; comingSoon?: boolean
 }) {
-  const cls = 'block rounded-xl border bg-white p-6 transition ' +
+  const cardCls = 'block rounded-xl border bg-white p-6 transition ' +
     (live && href !== '#'
       ? 'border-[#d4af6a] hover:shadow-md cursor-pointer'
       : 'border-[#e8dcc8] opacity-60 cursor-not-allowed')
 
+  const inner = (
+    <>
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <h3 className="font-serif text-lg font-semibold text-[#3b2f2f]">{title}</h3>
+        {comingSoon && (
+          <span className="shrink-0 text-xs font-medium text-[#a08060] bg-[#f5ede0] px-2 py-0.5 rounded-full">
+            Soon
+          </span>
+        )}
+      </div>
+      <p className="text-sm text-[#a08060]">{description}</p>
+    </>
+  )
+
   if (live && href !== '#') {
-    return (
-      <Link to={href} className={cls}>
-        <h3 className="font-serif text-lg font-semibold text-[#3b2f2f] mb-1">{title}</h3>
-        <p className="text-sm text-[#a08060]">{description}</p>
-      </Link>
-    )
+    return <Link to={href} className={cardCls}>{inner}</Link>
   }
 
-  return (
-    <div className={cls}>
-      <h3 className="font-serif text-lg font-semibold text-[#3b2f2f] mb-1">{title}</h3>
-      <p className="text-sm text-[#a08060]">{description}</p>
-    </div>
-  )
+  return <div className={cardCls}>{inner}</div>
 }
