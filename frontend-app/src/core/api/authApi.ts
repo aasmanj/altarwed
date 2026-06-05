@@ -13,6 +13,7 @@ interface BackendAuthResponse {
   partnerOneName: string | null
   partnerTwoName: string | null
   weddingDate: string | null
+  marketingConsent: boolean
 }
 
 // Shape AuthContext expects
@@ -26,6 +27,7 @@ export interface AuthResponse {
     partnerOneName: string | null
     partnerTwoName: string | null
     weddingDate: string | null
+    marketingConsent: boolean
   }
 }
 
@@ -40,6 +42,7 @@ function mapResponse(data: BackendAuthResponse): AuthResponse {
       partnerOneName: data.partnerOneName ?? null,
       partnerTwoName: data.partnerTwoName ?? null,
       weddingDate: data.weddingDate ?? null,
+      marketingConsent: data.marketingConsent ?? false,
     },
   }
 }
@@ -50,9 +53,8 @@ export interface RegisterCouplePayload {
   email: string
   password: string
   weddingDate?: string | null
-  // First-touch marketing attribution; field names match the backend
-  // AcquisitionInfo DTO so it serialises straight into the request body.
   acquisition?: Acquisition | null
+  marketingConsent?: boolean
 }
 
 export interface RegisterVendorPayload {

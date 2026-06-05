@@ -1,11 +1,22 @@
 'use client'
 
 import Script from 'next/script'
+import { useEffect, useState } from 'react'
+import { hasConsented } from '@/lib/consent'
 
 const PIXEL_ID = process.env.NEXT_PUBLIC_FB_PIXEL_ID
 
 export default function FacebookPixel() {
-  if (!PIXEL_ID) return null
+  const [consented, setConsented] = useState(false)
+
+  useEffect(() => {
+    setConsented(hasConsented())
+    const handler = () => setConsented(hasConsented())
+    window.addEventListener('altarwed_consent_change', handler)
+    return () => window.removeEventListener('altarwed_consent_change', handler)
+  }, [])
+
+  if (!PIXEL_ID || !consented) return null
 
   return (
     <>

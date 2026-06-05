@@ -74,6 +74,7 @@ public class AuthService {
                 request.weddingDate(),
                 request.denominationId(),
                 acquisition,
+                Boolean.TRUE.equals(request.marketingConsent()),
                 true,
                 null,
                 null
@@ -97,7 +98,7 @@ public class AuthService {
         log.info("welcome email queued, coupleId={}", saved.id());
 
         return AuthResponse.of(accessToken, rawRefresh, saved.id(), saved.email(),
-                saved.partnerOneName(), saved.partnerTwoName(), saved.weddingDate());
+                saved.partnerOneName(), saved.partnerTwoName(), saved.weddingDate(), saved.marketingConsent());
     }
 
     @Transactional
@@ -125,7 +126,7 @@ public class AuthService {
 
         log.info("login succeeded, role=COUPLE, coupleId={}, email={}", couple.id(), maskedEmail);
         return AuthResponse.of(accessToken, rawRefresh, couple.id(), couple.email(),
-                couple.partnerOneName(), couple.partnerTwoName(), couple.weddingDate());
+                couple.partnerOneName(), couple.partnerTwoName(), couple.weddingDate(), couple.marketingConsent());
     }
 
     @Transactional
@@ -157,13 +158,14 @@ public class AuthService {
         persistRefreshToken(newRawRefresh, userId, role);
         log.info("token refresh succeeded, userId={}, role={}", userId, role);
 
-        // Load couple to return partner names, needed so the frontend can display them after a token refresh
+        // Load couple to return partner names and consent flag, needed so the frontend can display them after a token refresh
         Couple couple = coupleRepository.findByEmail(email).orElse(null);
         String partnerOneName = couple != null ? couple.partnerOneName() : null;
         String partnerTwoName = couple != null ? couple.partnerTwoName() : null;
         var weddingDate = couple != null ? couple.weddingDate() : null;
+        boolean marketingConsent = couple != null && couple.marketingConsent();
 
-        return AuthResponse.of(newAccessToken, newRawRefresh, userId, email, partnerOneName, partnerTwoName, weddingDate);
+        return AuthResponse.of(newAccessToken, newRawRefresh, userId, email, partnerOneName, partnerTwoName, weddingDate, marketingConsent);
     }
 
     @Transactional

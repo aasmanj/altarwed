@@ -65,6 +65,7 @@ public class CoupleRepositoryAdapter implements CoupleRepository {
                 new AcquisitionSource(
                         e.getUtmSource(), e.getUtmMedium(), e.getUtmCampaign(),
                         e.getUtmTerm(), e.getUtmContent(), e.getReferrer(), e.getLandingPath()),
+                e.isMarketingConsent(),
                 e.isActive(),
                 e.getCreatedAt(),
                 e.getUpdatedAt()
@@ -91,6 +92,7 @@ public class CoupleRepositoryAdapter implements CoupleRepository {
                 .utmContent(a.utmContent())
                 .referrer(a.referrer())
                 .landingPath(a.landingPath())
+                .marketingConsent(c.marketingConsent())
                 .isActive(c.isActive())
                 .createdAt(c.createdAt())
                 .updatedAt(c.updatedAt())

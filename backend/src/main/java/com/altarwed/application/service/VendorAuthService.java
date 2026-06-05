@@ -75,7 +75,7 @@ public class VendorAuthService {
         persistRefreshToken(rawRefresh, saved.id(), ROLE_VENDOR);
 
         log.info("vendor registration succeeded, vendorId={}, email={}", saved.id(), maskedEmail);
-        return AuthResponse.of(accessToken, rawRefresh, saved.id(), saved.email(), null, null, null);
+        return AuthResponse.of(accessToken, rawRefresh, saved.id(), saved.email(), null, null, null, false);
     }
 
     // -------------------------------------------------------------------------

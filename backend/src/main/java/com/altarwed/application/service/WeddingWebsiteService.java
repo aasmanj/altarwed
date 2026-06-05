@@ -7,6 +7,8 @@ import com.altarwed.domain.exception.SlugAlreadyTakenException;
 import com.altarwed.domain.exception.WeddingWebsiteAlreadyExistsException;
 import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
 import com.altarwed.domain.model.WeddingWebsite;
+import com.altarwed.domain.port.ConversionEventPort;
+import com.altarwed.domain.port.CoupleRepository;
 import com.altarwed.domain.port.RevalidationPort;
 import com.altarwed.domain.port.WeddingWebsiteRepository;
 import org.slf4j.Logger;
@@ -48,13 +50,19 @@ public class WeddingWebsiteService {
 
     private final WeddingWebsiteRepository websiteRepository;
     private final RevalidationPort revalidationPort;
+    private final CoupleRepository coupleRepository;
+    private final ConversionEventPort conversionEventPort;
 
     public WeddingWebsiteService(
             WeddingWebsiteRepository websiteRepository,
-            RevalidationPort revalidationPort
+            RevalidationPort revalidationPort,
+            CoupleRepository coupleRepository,
+            ConversionEventPort conversionEventPort
     ) {
         this.websiteRepository = websiteRepository;
         this.revalidationPort = revalidationPort;
+        this.coupleRepository = coupleRepository;
+        this.conversionEventPort = conversionEventPort;
     }
 
     @Transactional
@@ -207,7 +215,17 @@ public class WeddingWebsiteService {
         log.info("wedding website published, coupleId={}, websiteId={}, slug={}",
                  coupleId, saved.id(), saved.slug());
         revalidationPort.revalidateWeddingPage(saved.slug());
+        fireLeadEventIfConsented(coupleId, saved.slug());
         return saved;
+    }
+
+    private void fireLeadEventIfConsented(UUID coupleId, String slug) {
+        coupleRepository.findById(coupleId).ifPresent(couple -> {
+            if (!couple.marketingConsent()) return;
+            String emailHash = EmailSuppressionService.emailHash(couple.email());
+            String eventUrl = "https://www.altarwed.com/wedding/" + slug;
+            conversionEventPort.reportLead(emailHash, eventUrl, coupleId.toString());
+        });
     }
 
     @Transactional

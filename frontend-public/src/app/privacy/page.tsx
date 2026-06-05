@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://www.altarwed.com/privacy' },
 }
 
-const EFFECTIVE_DATE = 'May 11, 2026'
+const EFFECTIVE_DATE = 'June 5, 2026'
 const CONTACT_EMAIL = 'hello@altarwed.com'
 
 export default function PrivacyPage() {
@@ -24,44 +24,54 @@ export default function PrivacyPage() {
           <div className="prose prose-stone max-w-none text-[#3b2f2f] space-y-8">
 
             <Section title="1. Who We Are">
-              <p>AltarWed (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;) operates the website altarwed.com and the application at app.altarwed.com. We are a faith-based wedding planning platform connecting Christian couples with wedding vendors. Our mailing address and primary contact is <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#d4af6a] hover:underline">{CONTACT_EMAIL}</a>.</p>
+              <p>AltarWed (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;) operates altarwed.com and app.altarwed.com. We are a faith-based wedding planning platform connecting Christian couples with wedding vendors. Contact us at <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#d4af6a] hover:underline">{CONTACT_EMAIL}</a>.</p>
             </Section>
 
             <Section title="2. Information We Collect">
               <p>We collect information you provide directly to us, including:</p>
               <ul>
-                <li><strong>Account information:</strong> Name(s), email address, and password when you register as a couple or vendor.</li>
-                <li><strong>Wedding information:</strong> Partner names, wedding date, venue details, guest list, RSVP responses, photos, and other content you add to your wedding website.</li>
-                <li><strong>Guest information:</strong> Names, email addresses, meal preferences, and RSVP details for guests you invite through the platform.</li>
+                <li><strong>Account information:</strong> Partner names, email address, and password when you register as a couple or vendor.</li>
+                <li><strong>Wedding information:</strong> Wedding date, venue details, story, photos, and other content you add to your wedding website.</li>
+                <li><strong>Guest information:</strong> Names, email addresses, mailing addresses, phone numbers, meal preferences, dietary restrictions, and RSVP details for guests you invite through the platform.</li>
                 <li><strong>Vendor information:</strong> Business name, category, location, photos, and contact details.</li>
-                <li><strong>Communications:</strong> Email addresses and any messages submitted through contact forms or to our support email.</li>
+                <li><strong>Marketing consent:</strong> At registration, you may choose to allow AltarWed to use your information for advertising measurement and outreach. This is optional and defaults to off.</li>
               </ul>
-              <p>We also collect certain information automatically when you use our services, including IP address, browser type, device identifiers, pages visited, and referring URLs, via standard server logs and cookies.</p>
+              <p>We also collect certain information automatically when you use our services, including IP address, browser type, device identifiers, pages visited, and referring URLs, via server logs, cookies, and similar technologies described in Section 8 below.</p>
             </Section>
 
             <Section title="3. How We Use Your Information">
               <p>We use the information we collect to:</p>
               <ul>
                 <li>Create and manage your account and wedding website</li>
-                <li>Send RSVP invitations and save-the-date emails to guests you designate</li>
+                <li>Send RSVP invitations and save-the-date emails to guests you designate (every such email includes an unsubscribe link)</li>
                 <li>Send transactional emails (password reset, account notifications)</li>
                 <li>Display your public wedding website to visitors you share it with</li>
+                <li>Measure how couples discover and use AltarWed (product analytics and acquisition attribution)</li>
                 <li>Improve our platform and develop new features</li>
-                <li>Respond to your support requests</li>
-                <li>Comply with legal obligations</li>
+                <li>Where you have given explicit consent at registration, report conversion events to Meta (Facebook) through the Meta Conversions API to measure the effectiveness of our advertising campaigns</li>
+                <li>Respond to support requests and comply with legal obligations</li>
               </ul>
-              <p>We do <strong>not</strong> sell your personal information to third parties. We do not use your information for behavioral advertising.</p>
+              <p>We do not sell your personal information to third parties. If you have not opted in to advertising measurement, your data is not shared with Meta for advertising purposes.</p>
             </Section>
 
             <Section title="4. Public Wedding Websites">
-              <p>When you publish your wedding website, certain information becomes publicly accessible at altarwed.com/wedding/[your-slug], including partner names, wedding date, venue, wedding party details, photos you upload, and registry links. You control which content is published. You may unpublish or delete your website at any time from your dashboard.</p>
-              <p>Guest information collected through your RSVP form (names, contact details, dietary preferences, notes left for the couple) is private to you and is never displayed publicly on the wedding website.</p>
+              <p>When you publish your wedding website, certain information becomes publicly accessible at altarwed.com/wedding/[your-slug], including partner names, wedding date, venue, wedding party details, photos you upload, and registry links. You control what is published. You may unpublish or delete your website at any time from your dashboard.</p>
+              <p>Guest information collected through your RSVP form is private to you and is never displayed publicly.</p>
             </Section>
 
-            <Section title="5. Sharing of Information">
+            <Section title="5. Sharing of Information and Subprocessors">
               <p>We share your information only in the following circumstances:</p>
               <ul>
-                <li><strong>Service providers:</strong> We use Resend (email delivery), Microsoft Azure (cloud infrastructure, database, file storage), and similar vendors to operate our platform. These providers process data on our behalf under data processing agreements.</li>
+                <li><strong>Service providers (subprocessors):</strong> We use third-party vendors who process data on our behalf:
+                  <ul style={{ marginTop: '0.5rem' }}>
+                    <li><strong>Microsoft Azure</strong> &mdash; cloud infrastructure, database, and file storage (US)</li>
+                    <li><strong>Resend</strong> &mdash; email delivery (US)</li>
+                    <li><strong>Google</strong> &mdash; OAuth authentication and Google Sheets integration (US/EU)</li>
+                    <li><strong>PostHog</strong> &mdash; product analytics, used only within the authenticated dashboard (US)</li>
+                    <li><strong>Meta (Facebook)</strong> &mdash; advertising measurement via the Meta Pixel and Meta Conversions API, only for users who have consented to advertising measurement</li>
+                    <li><strong>Lob</strong> &mdash; physical print-and-mail service for save-the-date postcards (US)</li>
+                  </ul>
+                </li>
                 <li><strong>Legal requirements:</strong> We may disclose information if required by law, court order, or to protect the safety and rights of our users.</li>
                 <li><strong>Business transfers:</strong> If AltarWed is acquired or merged, your information may be transferred as part of that transaction. We will notify you via email before this occurs.</li>
               </ul>
@@ -77,39 +87,50 @@ export default function PrivacyPage() {
                 <li><strong>Access:</strong> Request a copy of the personal data we hold about you.</li>
                 <li><strong>Correction:</strong> Update or correct inaccurate information through your account settings or by contacting us.</li>
                 <li><strong>Deletion:</strong> Request deletion of your account and associated data.</li>
-                <li><strong>Portability:</strong> Request an export of your data in a machine-readable format.</li>
-                <li><strong>Opt-out:</strong> Unsubscribe from marketing emails at any time via the unsubscribe link in the email.</li>
+                <li><strong>Opt-out of advertising measurement:</strong> If you previously consented to advertising measurement at registration, you may withdraw consent at any time by emailing us. California residents may also use the &ldquo;Do Not Sell or Share My Personal Information&rdquo; link in our site footer.</li>
+                <li><strong>Opt-out of email communications:</strong> Every save-the-date and welcome email includes an unsubscribe link. You may also email us to be removed from all future outreach.</li>
               </ul>
               <p>To exercise any of these rights, email <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#d4af6a] hover:underline">{CONTACT_EMAIL}</a>. We will respond within 30 days.</p>
             </Section>
 
-            <Section title="8. Cookies">
-              <p>We use a single authentication cookie (httpOnly, Secure, SameSite=Strict) to keep you logged in. We do not use advertising or tracking cookies. You can disable cookies in your browser settings; however, this will prevent you from staying logged in.</p>
+            <Section title="8. Cookies and Tracking Technologies">
+              <p>We use the following cookies and similar technologies:</p>
+              <ul>
+                <li><strong>Authentication cookie:</strong> A single httpOnly, Secure, SameSite=Strict cookie to keep you logged in to the dashboard at app.altarwed.com. This is strictly necessary and cannot be disabled.</li>
+                <li><strong>Meta Pixel (Facebook Pixel):</strong> A third-party JavaScript tag that sets cookies (<code>_fbp</code>, <code>_fbc</code>) and sends pageview data to Meta. This is used for measuring the effectiveness of our Facebook and Instagram advertising. It is only loaded after you accept cookies in our consent banner or, for EU/California visitors, is off by default. You may opt out at any time via the &ldquo;Do Not Sell or Share My Personal Information&rdquo; link in our footer.</li>
+                <li><strong>PostHog product analytics:</strong> A product analytics tool running within the authenticated dashboard (app.altarwed.com) only. It uses localStorage (not cookies), does not record sessions, and does not receive your email address. It is gated on your cookie consent preference.</li>
+              </ul>
+              <p>If you reject cookies in our consent banner, or if your browser sends a Global Privacy Control (GPC) signal, the Meta Pixel and PostHog analytics will not load. You can withdraw or change your consent at any time via the &ldquo;<Link href="/do-not-sell" className="text-[#d4af6a] hover:underline">Do Not Sell or Share My Personal Information</Link>&rdquo; link in our footer.</p>
             </Section>
 
-            <Section title="9. Children's Privacy">
-              <p>AltarWed is not directed at children under 13. We do not knowingly collect personal information from children under 13. If we learn that we have inadvertently collected such information, we will delete it promptly.</p>
+            <Section title="9. California Residents (CCPA/CPRA)">
+              <p>If you are a California resident, you have the right to opt out of the &ldquo;sale&rdquo; or &ldquo;sharing&rdquo; of your personal information for cross-context behavioral advertising. The Meta Pixel constitutes &ldquo;sharing&rdquo; under CPRA when it is active.</p>
+              <p>To opt out, click the &ldquo;<Link href="/do-not-sell" className="text-[#d4af6a] hover:underline">Do Not Sell or Share My Personal Information</Link>&rdquo; link in our footer, use our cookie consent banner, or email <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#d4af6a] hover:underline">{CONTACT_EMAIL}</a>. We also honor the Global Privacy Control (GPC) browser signal automatically.</p>
             </Section>
 
-            <Section title="10. Affiliate Disclosure">
-              <p>Our /resources page contains affiliate links to Amazon and other retailers. When you purchase through these links, AltarWed may earn a small commission at no additional cost to you. We only recommend products we genuinely believe will help couples build strong, faith-based marriages.</p>
+            <Section title="10. Children's Privacy">
+              <p>AltarWed is not directed at children under 18. We do not knowingly collect personal information from anyone under 18. If we learn that we have inadvertently collected such information, we will delete it promptly.</p>
             </Section>
 
-            <Section title="11. Security">
-              <p>We use industry-standard security measures including encrypted passwords (bcrypt), HTTPS throughout, JWT tokens with short expiry, and Azure cloud security controls. No method of transmission over the internet is 100% secure. We will notify you promptly if a data breach occurs that affects your information.</p>
+            <Section title="11. Affiliate Disclosure">
+              <p>AltarWed participates in affiliate programs including the Amazon Associates Program. As an Amazon Associate we earn from qualifying purchases. Our /resources page contains affiliate links. When you purchase through these links, AltarWed may earn a small commission at no additional cost to you. We only recommend products we genuinely believe will help couples build strong, faith-based marriages.</p>
             </Section>
 
-            <Section title="12. Changes to This Policy">
+            <Section title="12. Security">
+              <p>We use industry-standard security measures including encrypted passwords (bcrypt), HTTPS throughout, short-lived JWT tokens, and Azure cloud security controls. No method of transmission over the internet is 100% secure. We will notify you promptly if a data breach occurs that affects your information.</p>
+            </Section>
+
+            <Section title="13. Changes to This Policy">
               <p>We may update this Privacy Policy from time to time. We will notify you of material changes by posting the new policy on this page with an updated effective date and, for significant changes, by sending an email to your registered address.</p>
             </Section>
 
-            <Section title="13. Contact Us">
+            <Section title="14. Contact Us">
               <p>If you have questions about this Privacy Policy or our data practices, contact us at <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#d4af6a] hover:underline">{CONTACT_EMAIL}</a>.</p>
             </Section>
           </div>
 
           <div className="mt-10 pt-6 border-t border-[#e8dcc8] flex gap-6 text-sm">
-            <Link href="/terms" className="text-[#d4af6a] hover:underline">Terms of Service →</Link>
+            <Link href="/terms" className="text-[#d4af6a] hover:underline">Terms of Service &rarr;</Link>
           </div>
         </div>
       </main>

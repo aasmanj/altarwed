@@ -78,10 +78,13 @@ export default function ResourcesPage() {
 
           {/* Books */}
           <section>
-            <div className="text-center mb-10">
+            <div className="text-center mb-6">
               <h2 className="font-serif text-3xl font-bold text-[#3b2f2f] mb-2">Books We Recommend</h2>
               <p className="text-sm text-[#a08060]">Faith-rooted reads to prepare your hearts for marriage.</p>
             </div>
+            <p className="text-xs text-center text-[#a08060] mb-8">
+              AltarWed participates in the Amazon Associates Program. As an Amazon Associate we earn from qualifying purchases. Links below are affiliate links.
+            </p>
             <div className="grid sm:grid-cols-2 gap-6">
               {BOOKS.map(book => (
                 <a
@@ -111,9 +114,6 @@ export default function ResourcesPage() {
                 </a>
               ))}
             </div>
-            <p className="mt-4 text-xs text-center text-[#a08060]">
-              Affiliate disclosure: AltarWed earns a small commission on Amazon purchases at no extra cost to you.
-            </p>
           </section>
 
           {/* Registries */}

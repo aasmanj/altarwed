@@ -65,6 +65,9 @@ public class CoupleEntity {
     @Column(name = "landing_path", length = 255)
     private String landingPath;
 
+    @Column(name = "marketing_consent", nullable = false)
+    private boolean marketingConsent;
+
     @Column(name = "is_active", nullable = false)
     private boolean isActive;
 

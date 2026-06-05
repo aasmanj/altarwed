@@ -48,6 +48,7 @@ export default function SiteFooter() {
         <Link href="/find-wedding" className="text-xs text-[#a08060] hover:text-[#3b2f2f] transition">Find a Wedding</Link>
         <Link href="/privacy" className="text-xs text-[#a08060] hover:text-[#3b2f2f] transition">Privacy Policy</Link>
         <Link href="/terms" className="text-xs text-[#a08060] hover:text-[#3b2f2f] transition">Terms of Service</Link>
+        <Link href="/do-not-sell" className="text-xs text-[#a08060] hover:text-[#3b2f2f] transition">Do Not Sell or Share My Personal Information</Link>
       </div>
 
       <div className="border-t border-[#e8dcc8] py-4 text-center text-xs text-[#a08060]">

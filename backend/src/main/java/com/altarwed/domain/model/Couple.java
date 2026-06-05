@@ -13,27 +13,28 @@ public record Couple(
         LocalDate weddingDate,
         UUID denominationId,
         AcquisitionSource acquisition,
+        boolean marketingConsent,
         boolean isActive,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
     public Couple withWeddingDate(LocalDate newDate) {
         return new Couple(id, partnerOneName, partnerTwoName, email, passwordHash,
-                newDate, denominationId, acquisition, isActive, createdAt, LocalDateTime.now());
+                newDate, denominationId, acquisition, marketingConsent, isActive, createdAt, LocalDateTime.now());
     }
 
     public Couple withDenomination(UUID newDenominationId) {
         return new Couple(id, partnerOneName, partnerTwoName, email, passwordHash,
-                weddingDate, newDenominationId, acquisition, isActive, createdAt, LocalDateTime.now());
+                weddingDate, newDenominationId, acquisition, marketingConsent, isActive, createdAt, LocalDateTime.now());
     }
 
     public Couple deactivated() {
         return new Couple(id, partnerOneName, partnerTwoName, email, passwordHash,
-                weddingDate, denominationId, acquisition, false, createdAt, LocalDateTime.now());
+                weddingDate, denominationId, acquisition, marketingConsent, false, createdAt, LocalDateTime.now());
     }
 
     public Couple withPasswordHash(String newPasswordHash) {
         return new Couple(id, partnerOneName, partnerTwoName, email, newPasswordHash,
-                weddingDate, denominationId, acquisition, isActive, createdAt, LocalDateTime.now());
+                weddingDate, denominationId, acquisition, marketingConsent, isActive, createdAt, LocalDateTime.now());
     }
 }

@@ -11,11 +11,13 @@ public record AuthResponse(
         String email,
         String partnerOneName,
         String partnerTwoName,
-        LocalDate weddingDate
+        LocalDate weddingDate,
+        Boolean marketingConsent
 ) {
     public static AuthResponse of(String accessToken, String refreshToken, UUID userId, String email,
-                                   String partnerOneName, String partnerTwoName, LocalDate weddingDate) {
+                                   String partnerOneName, String partnerTwoName, LocalDate weddingDate,
+                                   boolean marketingConsent) {
         return new AuthResponse(accessToken, refreshToken, "Bearer", userId, email,
-                partnerOneName, partnerTwoName, weddingDate);
+                partnerOneName, partnerTwoName, weddingDate, marketingConsent);
     }
 }

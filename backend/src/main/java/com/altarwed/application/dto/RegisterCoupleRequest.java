@@ -33,5 +33,10 @@ public record RegisterCoupleRequest(
         // Optional marketing attribution captured by the signup form. @Valid so the
         // nested @Size limits are enforced; absent in most payloads (null is fine).
         @Valid
-        AcquisitionInfo acquisition
+        AcquisitionInfo acquisition,
+
+        // Explicit opt-in for behavioral advertising (Meta CAPI) and marketing
+        // communications. Defaults to false (opt-in model). MUST NOT default to
+        // true server-side; the absence of the field means "did not consent."
+        Boolean marketingConsent
 ) {}

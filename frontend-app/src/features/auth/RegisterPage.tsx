@@ -22,6 +22,7 @@ export default function RegisterPage() {
     confirmPassword: '',
     weddingDate: '',
   })
+  const [marketingConsent, setMarketingConsent] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -63,6 +64,7 @@ export default function RegisterPage() {
         password: form.password,
         weddingDate: form.weddingDate || null,
         acquisition: acquisition ?? null,
+        marketingConsent,
       })
       // Funnel conversion event. The couple is identified by AuthContext's effect
       // the moment register() sets the user, so this capture is attached to the
@@ -200,6 +202,21 @@ export default function RegisterPage() {
               onChange={set('confirmPassword')}
               className="w-full rounded-lg border border-gold-light px-4 py-2.5 text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
             />
+          </div>
+
+          <div className="mb-5">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                id="marketingConsent"
+                type="checkbox"
+                checked={marketingConsent}
+                onChange={e => setMarketingConsent(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gold-light text-gold focus:ring-gold"
+              />
+              <span className="text-sm text-brown-light leading-snug">
+                I agree to analytics tracking and to allow AltarWed to measure ad effectiveness using Meta (Facebook). This enables more relevant ads and product tips. Optional, defaults to off.
+              </span>
+            </label>
           </div>
 
           <button

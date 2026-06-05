@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter, Playfair_Display } from 'next/font/google'
 import './globals.css'
 import FacebookPixel from '@/components/FacebookPixel'
+import CookieConsentBanner from '@/components/CookieConsentBanner'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -91,6 +92,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
         />
         <FacebookPixel />
+        <CookieConsentBanner />
         {children}
       </body>
     </html>

@@ -77,9 +77,8 @@ public class LobPrintMailAdapter implements PrintMailPort {
             log.info("lob accepted postcard, lobId={}, templateKey={}", lobId, req.templateKey());
             return lobId;
         } catch (RestClientResponseException ex) {
-            // PII guard: do NOT log req.to().name(), guest name. Use status + body for diagnosis.
-            log.warn("lob rejected postcard, status={}, body={}", ex.getStatusCode(), ex.getResponseBodyAsString());
-            throw new PrintMailException("Lob rejected postcard: " + ex.getStatusCode() + " " + ex.getResponseBodyAsString(), ex);
+            log.warn("lob rejected postcard, status={}", ex.getStatusCode());
+            throw new PrintMailException("Lob rejected postcard: " + ex.getStatusCode(), ex);
         } catch (org.springframework.web.client.RestClientException ex) {
             // Network / transport errors only. Let runtime exceptions (NPE, etc.) propagate
             // so they surface as 500s rather than being mis-attributed as Lob failures.

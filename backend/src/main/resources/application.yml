@@ -87,6 +87,18 @@ altarwed:
   lob:
     api-key: ${LOB_API_KEY:}
 
+  unsubscribe:
+    secret: ${UNSUBSCRIBE_SECRET}
+
+  postal-address: ${POSTAL_ADDRESS}
+
+  api:
+    base-url: ${API_BASE_URL:https://altarwed-prod-api.azurewebsites.net}
+
+  meta:
+    pixel-id: ${META_PIXEL_ID:}
+    access-token: ${META_CAPI_ACCESS_TOKEN:}
+
   azure:
     storage:
       connection-string: ${AZURE_STORAGE_CONNECTION_STRING}

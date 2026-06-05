@@ -1,6 +1,8 @@
 package com.altarwed.infrastructure.email;
 
+import com.altarwed.application.service.EmailSuppressionService;
 import com.altarwed.domain.port.EmailPort;
+import com.altarwed.domain.port.EmailSuppressionPort;
 import com.altarwed.infrastructure.observability.LogSanitizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +14,14 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -23,18 +33,75 @@ public class ResendEmailAdapter implements EmailPort {
     private final RestClient restClient;
     private final String fromEmail;
     private final String appBaseUrl;
+    private final String publicBaseUrl;
+    private final String apiBaseUrl;
+    private final String unsubscribeSecret;
+    private final String postalAddress;
+    private final EmailSuppressionPort suppressionPort;
 
     public ResendEmailAdapter(
             @Value("${altarwed.resend.api-key}") String apiKey,
             @Value("${altarwed.resend.from-email}") String fromEmail,
-            @Value("${altarwed.app.base-url}") String appBaseUrl
+            @Value("${altarwed.app.base-url}") String appBaseUrl,
+            @Value("${altarwed.api.base-url}") String apiBaseUrl,
+            @Value("${altarwed.unsubscribe.secret}") String unsubscribeSecret,
+            @Value("${altarwed.postal-address}") String postalAddress,
+            EmailSuppressionPort suppressionPort
     ) {
         this.fromEmail = fromEmail;
         this.appBaseUrl = appBaseUrl;
+        this.publicBaseUrl = appBaseUrl.replace("app.", "www.");
+        this.apiBaseUrl = apiBaseUrl;
+        this.unsubscribeSecret = unsubscribeSecret;
+        this.postalAddress = postalAddress;
+        this.suppressionPort = suppressionPort;
         this.restClient = RestClient.builder()
                 .baseUrl("https://api.resend.com")
                 .defaultHeader("Authorization", "Bearer " + apiKey)
                 .build();
+    }
+
+    // Produces two URLs for each unsubscribe link:
+    // - displayUrl: the Next.js /unsubscribe page (human-readable, shown in email footer)
+    // - oneClickUrl: the backend API endpoint (RFC 8058 one-click POST target for Gmail/Yahoo)
+    // The List-Unsubscribe header must point at the backend because email clients POST
+    // directly to it with no browser; Next.js page routes only handle GET.
+    private String unsubscribeDisplayUrl(String toEmail) {
+        String hash = emailHash(toEmail);
+        return publicBaseUrl + "/unsubscribe?h=" + hash + "&tok=" + hmacToken(hash);
+    }
+
+    private String unsubscribeOneClickUrl(String toEmail) {
+        String hash = emailHash(toEmail);
+        return apiBaseUrl + "/api/v1/unsubscribe?h=" + hash + "&tok=" + hmacToken(hash);
+    }
+
+    private static String emailHash(String email) {
+        return EmailSuppressionService.emailHash(email);
+    }
+
+    private String hmacToken(String emailHash) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(unsubscribeSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            return Base64.getUrlEncoder().withoutPadding()
+                    .encodeToString(mac.doFinal(emailHash.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException | InvalidKeyException ex) {
+            throw new IllegalStateException("HmacSHA256 not available", ex);
+        }
+    }
+
+    private String unsubscribeFooterHtml(String unsubUrl) {
+        return """
+                <div style="margin-top:32px;border-top:1px solid #e8dcc8;padding-top:16px;text-align:center;color:#a08060;font-size:11px;font-family:sans-serif;">
+                  You received this because you were added to an AltarWed wedding.<br>
+                  <a href="%s" style="color:#a08060;">Unsubscribe</a> &nbsp;|&nbsp; %s
+                </div>
+                """.formatted(unsubUrl, postalAddress);
+    }
+
+    private String unsubscribeFooterText(String unsubUrl) {
+        return "\n\nTo unsubscribe: " + unsubUrl + "\n" + postalAddress;
     }
 
     @Override
@@ -110,6 +177,8 @@ public class ResendEmailAdapter implements EmailPort {
                 """.formatted(coupleNames.replace(" & ", "</h1><p style=\"text-align:center; color:#d4af6a; font-size:22px; margin:0 0 8px;\">&amp;</p><h1 style=\"text-align:center; color:#3b2f2f; font-size:36px; margin:0 0 24px;\">"),
                 weddingDate, guestName, weddingUrl);
 
+        String displayUnsubUrl = unsubscribeDisplayUrl(toEmail);
+        String oneClickUnsubUrl = unsubscribeOneClickUrl(toEmail);
         String text = """
                 Save the Date
 
@@ -120,17 +189,21 @@ public class ResendEmailAdapter implements EmailPort {
                 Visit their wedding website: %s
 
                 "And over all these virtues put on love, which binds them all together in perfect unity." (Colossians 3:14)
-                """.formatted(coupleNames, weddingDate, guestName, weddingUrl);
+                """.formatted(coupleNames, weddingDate, guestName, weddingUrl)
+                + unsubscribeFooterText(displayUnsubUrl);
 
-        Map<String, Object> body = Map.of(
-                "from", coupleNames + " <" + fromEmail + ">",
-                "to", List.of(toEmail),
-                "subject", "Save the Date: " + coupleNames + " are getting married!",
-                "html", html,
-                "text", text
-        );
+        Map<String, Object> body = new HashMap<>();
+        body.put("from", coupleNames + " <" + fromEmail + ">");
+        body.put("to", List.of(toEmail));
+        body.put("subject", "Save the Date: " + coupleNames + " are getting married!");
+        body.put("html", html + unsubscribeFooterHtml(displayUnsubUrl));
+        body.put("text", text);
+        body.put("headers", Map.of(
+                "List-Unsubscribe", "<" + oneClickUnsubUrl + ">",
+                "List-Unsubscribe-Post", "List-Unsubscribe=One-Click"
+        ));
 
-        postEmail("save-the-date", toEmail, body);
+        postMarketingEmail("save-the-date", toEmail, body);
     }
 
     @Override
@@ -434,6 +507,8 @@ public class ResendEmailAdapter implements EmailPort {
                 </div>
                 """.formatted(coupleNames, dashboardUrl);
 
+        String displayUnsubUrl = unsubscribeDisplayUrl(toEmail);
+        String oneClickUnsubUrl = unsubscribeOneClickUrl(toEmail);
         String text = """
                 Welcome to AltarWed
 
@@ -445,17 +520,21 @@ public class ResendEmailAdapter implements EmailPort {
                 %s
 
                 "Therefore what God has joined together, let no one separate." (Mark 10:9)
-                """.formatted(partnerOneName, partnerTwoName, dashboardUrl);
+                """.formatted(partnerOneName, partnerTwoName, dashboardUrl)
+                + unsubscribeFooterText(displayUnsubUrl);
 
-        Map<String, Object> body = Map.of(
-                "from", "AltarWed <" + fromEmail + ">",
-                "to", List.of(toEmail),
-                "subject", "Welcome to AltarWed, let's build your wedding website",
-                "html", html,
-                "text", text
-        );
+        Map<String, Object> body = new HashMap<>();
+        body.put("from", "AltarWed <" + fromEmail + ">");
+        body.put("to", List.of(toEmail));
+        body.put("subject", "Welcome to AltarWed, let's build your wedding website");
+        body.put("html", html + unsubscribeFooterHtml(displayUnsubUrl));
+        body.put("text", text);
+        body.put("headers", Map.of(
+                "List-Unsubscribe", "<" + oneClickUnsubUrl + ">",
+                "List-Unsubscribe-Post", "List-Unsubscribe=One-Click"
+        ));
 
-        postEmail("welcome", toEmail, body);
+        postMarketingEmail("welcome", toEmail, body);
     }
 
     @Override
@@ -511,19 +590,19 @@ public class ResendEmailAdapter implements EmailPort {
         postEmail("account-deleted", toEmail, body);
     }
 
-    /**
-     * Single entry point for all outbound Resend calls.
-     *
-     * Log volume policy (per CLAUDE.md Observability rule 9):
-     * - DEBUG before each send and DEBUG on per-recipient success. The batch
-     *   wrappers in GuestService already emit aggregate INFO ("save-the-date
-     *   batch queued, count=N"), so per-recipient INFO would multiply log
-     *   volume by N for no incremental operational value.
-     * - WARN on provider rejection: keep at WARN since rejections need
-     *   per-recipient attention (bounce, suppressed, malformed).
-     * - ERROR on transport failure with the exception so the stack trace
-     *   reaches App Insights.
-     */
+    // Marketing emails (save-the-date, welcome) check the suppression list first.
+    // Transactional emails (password-reset, rsvp, vendor-inquiry, account-deleted)
+    // bypass suppression: a user who opted out of marketing still needs to receive
+    // their password reset and RSVP confirmations.
+    private void postMarketingEmail(String emailType, String toEmail, Map<String, Object> body) {
+        String hash = emailHash(toEmail);
+        if (suppressionPort.isSuppressed(hash)) {
+            log.info("marketing email suppressed, skipping send, type={}", emailType);
+            return;
+        }
+        postEmail(emailType, toEmail, body);
+    }
+
     private void postEmail(String emailType, String toEmail, Map<String, Object> body) {
         String maskedTo = LogSanitizer.maskEmail(toEmail);
         log.debug("sending email via resend, type={}, to={}", emailType, maskedTo);
@@ -537,8 +616,7 @@ public class ResendEmailAdapter implements EmailPort {
             Object id = response.getBody() == null ? null : response.getBody().get("id");
             log.debug("resend accepted email, type={}, to={}, resendId={}", emailType, maskedTo, id);
         } catch (RestClientResponseException ex) {
-            log.warn("resend rejected email, type={}, to={}, status={}, body={}",
-                    emailType, maskedTo, ex.getStatusCode(), ex.getResponseBodyAsString());
+            log.warn("resend rejected email, type={}, to={}, status={}", emailType, maskedTo, ex.getStatusCode());
             throw ex;
         } catch (RestClientException ex) {
             log.error("resend call failed, type={}, to={}", emailType, maskedTo, ex);
