@@ -18,6 +18,7 @@ interface Vendor {
   description: string | null
   websiteUrl: string | null
   phone: string | null
+  logoUrl: string | null
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -112,8 +113,11 @@ export default async function VendorDetailPage(
 
         {/* Profile header */}
         <div className="flex items-start gap-6 mb-8">
-          <div className="h-20 w-20 rounded-full bg-[#f5ede0] border-2 border-[#e8dcc8] flex items-center justify-center shrink-0">
-            <span className="font-serif text-3xl text-[#a08060]">{vendor.businessName.charAt(0)}</span>
+          <div className="h-20 w-20 rounded-full bg-[#f5ede0] border-2 border-[#e8dcc8] flex items-center justify-center shrink-0 overflow-hidden">
+            {vendor.logoUrl
+              ? <img src={vendor.logoUrl} alt={`${vendor.businessName} logo`} className="h-full w-full object-cover" />
+              : <span className="font-serif text-3xl text-[#a08060]">{vendor.businessName.charAt(0)}</span>
+            }
           </div>
           <div className="flex-1 pt-1">
             <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#3b2f2f] mb-1">

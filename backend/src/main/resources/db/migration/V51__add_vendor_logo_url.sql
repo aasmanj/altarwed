@@ -1,0 +1,1 @@
+ALTER TABLE vendors ADD logo_url NVARCHAR(500) NULL;

@@ -1,6 +1,8 @@
 package com.altarwed.application.service;
 
 import com.altarwed.domain.port.BlobStoragePort;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -11,6 +13,7 @@ import java.util.UUID;
 @Service
 public class MediaUploadService {
 
+    private static final Logger log = LoggerFactory.getLogger(MediaUploadService.class);
     private static final Set<String> ALLOWED_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
     private static final long MAX_BYTES = 15 * 1024 * 1024; // 15 MB
 
@@ -48,6 +51,21 @@ public class MediaUploadService {
         String ext = getExtension(file.getContentType());
         String blobName = "hero/" + websiteId + "/" + UUID.randomUUID() + ext;
         return blobStorage.upload(blobName, file.getInputStream(), file.getSize(), file.getContentType());
+    }
+
+    public String uploadVendorLogo(UUID vendorId, MultipartFile file) throws IOException {
+        validate(file);
+        String ext = getExtension(file.getContentType());
+        String blobName = "vendor-logos/" + vendorId + "/" + UUID.randomUUID() + ext;
+        log.info("submitting vendor logo to blob storage, vendorId={}", vendorId);
+        try {
+            String url = blobStorage.upload(blobName, file.getInputStream(), file.getSize(), file.getContentType());
+            log.info("vendor logo stored in blob, vendorId={}", vendorId);
+            return url;
+        } catch (Exception ex) {
+            log.error("blob storage upload failed for vendor logo, vendorId={}", vendorId, ex);
+            throw ex;
+        }
     }
 
     private void validate(MultipartFile file) {

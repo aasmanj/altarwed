@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { useVendorProfile, useUpdateVendorProfile } from './useVendor'
+import { useVendorProfile, useUpdateVendorProfile, useUploadVendorLogo } from './useVendor'
 import { useDenominations } from './useDenominations'
 
 const CATEGORIES = [
@@ -34,8 +34,11 @@ export default function VendorListingPage() {
   const { data: vendor, isLoading } = useVendorProfile()
   const { data: denominations } = useDenominations()
   const update = useUpdateVendorProfile()
+  const uploadLogo = useUploadVendorLogo()
+  const logoInputRef = useRef<HTMLInputElement>(null)
   const [saved, setSaved] = useState<boolean | null>(null)
   const [saveError, setSaveError] = useState('')
+  const [logoError, setLogoError] = useState('')
 
   const [form, setForm] = useState({
     businessName: '',
@@ -89,6 +92,17 @@ export default function VendorListingPage() {
     }))
     setSaved(false)
     setSaveError('')
+  }
+
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLogoError('')
+    try {
+      await uploadLogo.mutateAsync(file)
+    } catch {
+      setLogoError('Logo upload failed. Please try again.')
+    }
   }
 
   const handleSave = async () => {
@@ -148,6 +162,40 @@ export default function VendorListingPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-[#e8dcc8] p-5 sm:p-8 space-y-6">
+
+          {/* Logo */}
+          <div>
+            <p className={labelCls}>Business logo</p>
+            <div className="flex items-center gap-4">
+              <div className="h-16 w-16 rounded-full bg-[#f5ede0] border border-[#e8dcc8] flex items-center justify-center shrink-0 overflow-hidden">
+                {vendor?.logoUrl
+                  ? <img src={vendor.logoUrl} alt={`${form.businessName} logo`} className="h-full w-full object-cover" />
+                  : <span className="font-serif text-2xl text-[#a08060]">{form.businessName.charAt(0) || '?'}</span>
+                }
+              </div>
+              <div>
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleLogoChange}
+                  className="sr-only"
+                  id="logoUpload"
+                  aria-label="Upload business logo"
+                />
+                <button
+                  type="button"
+                  onClick={() => logoInputRef.current?.click()}
+                  disabled={uploadLogo.isPending}
+                  className="text-sm font-medium text-[#d4af6a] hover:text-[#a08060] transition disabled:opacity-50"
+                >
+                  {uploadLogo.isPending ? 'Uploading…' : vendor?.logoUrl ? 'Change logo' : 'Upload logo'}
+                </button>
+                <p className="text-xs text-[#a08060] mt-0.5">JPEG, PNG, or WebP, max 15 MB</p>
+                {logoError && <p role="alert" className="text-xs text-red-600 mt-1">{logoError}</p>}
+              </div>
+            </div>
+          </div>
 
           {/* Business name */}
           <div>

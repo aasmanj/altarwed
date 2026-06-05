@@ -12,6 +12,7 @@ import CoupleDashboard from '@/features/couple/CoupleDashboard'
 import VendorDashboard from '@/features/vendor/VendorDashboard'
 import RegisterVendorPage from '@/features/vendor/RegisterVendorPage'
 import VendorListingPage from '@/features/vendor/VendorListingPage'
+import InquiriesPage from '@/features/vendor/InquiriesPage'
 import WeddingWebsitePage from '@/features/couple/website/WeddingWebsitePage'
 import SideBySideEditor from '@/features/couple/website/blocks/SideBySideEditor'
 import GuestListPage from '@/features/couple/guests/GuestListPage'
@@ -195,6 +196,14 @@ function AnimatedRoutes() {
             element={
               <ProtectedRoute role="VENDOR">
                 <VendorListingPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/vendor/inquiries"
+            element={
+              <ProtectedRoute role="VENDOR">
+                <InquiriesPage />
               </ProtectedRoute>
             }
           />

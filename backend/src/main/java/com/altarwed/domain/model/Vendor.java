@@ -24,18 +24,38 @@ public record Vendor(
         String description,
         String websiteUrl,
         String phone,
+        // V51: optional logo, stored in Azure Blob
+        String logoUrl,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
     public Vendor withVerified() {
         return new Vendor(id, businessName, category, city, state, email, passwordHash,
                 isChristianOwned, denominationIds, isActive, true, priceTier,
-                bio, description, websiteUrl, phone, createdAt, LocalDateTime.now());
+                bio, description, websiteUrl, phone, logoUrl, createdAt, LocalDateTime.now());
+    }
+
+    public Vendor withUnverified() {
+        return new Vendor(id, businessName, category, city, state, email, passwordHash,
+                isChristianOwned, denominationIds, isActive, false, priceTier,
+                bio, description, websiteUrl, phone, logoUrl, createdAt, LocalDateTime.now());
+    }
+
+    public Vendor withPasswordHash(String newHash) {
+        return new Vendor(id, businessName, category, city, state, email, newHash,
+                isChristianOwned, denominationIds, isActive, isVerified, priceTier,
+                bio, description, websiteUrl, phone, logoUrl, createdAt, LocalDateTime.now());
+    }
+
+    public Vendor withLogoUrl(String url) {
+        return new Vendor(id, businessName, category, city, state, email, passwordHash,
+                isChristianOwned, denominationIds, isActive, isVerified, priceTier,
+                bio, description, websiteUrl, phone, url, createdAt, LocalDateTime.now());
     }
 
     public Vendor deactivated() {
         return new Vendor(id, businessName, category, city, state, email, passwordHash,
                 isChristianOwned, denominationIds, false, isVerified, priceTier,
-                bio, description, websiteUrl, phone, createdAt, LocalDateTime.now());
+                bio, description, websiteUrl, phone, logoUrl, createdAt, LocalDateTime.now());
     }
 }

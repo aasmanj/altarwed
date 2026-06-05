@@ -15,6 +15,7 @@ export interface VendorProfile {
   description: string | null
   websiteUrl: string | null
   phone: string | null
+  logoUrl: string | null
 }
 
 export interface UpdateVendorPayload {
@@ -46,5 +47,21 @@ export function useUpdateVendorProfile() {
     mutationFn: (payload: UpdateVendorPayload) =>
       apiClient.patch('/api/v1/vendors/me', payload).then(r => r.data),
     onSuccess: (updated: VendorProfile) => qc.setQueryData(ME_KEY, updated),
+  })
+}
+
+export function useUploadVendorLogo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      return apiClient.post('/api/v1/vendors/me/logo', fd).then(r => r.data as { logoUrl: string })
+    },
+    onSuccess: ({ logoUrl }) => {
+      qc.setQueryData<VendorProfile>(ME_KEY, prev =>
+        prev ? { ...prev, logoUrl } : prev
+      )
+    },
   })
 }

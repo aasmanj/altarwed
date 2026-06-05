@@ -58,11 +58,35 @@ public class VendorService {
                 req.description()     != null ? blankToNull(req.description())     : existing.description(),
                 req.websiteUrl()      != null ? blankToNull(req.websiteUrl())      : existing.websiteUrl(),
                 req.phone()           != null ? blankToNull(req.phone())           : existing.phone(),
+                existing.logoUrl(),
                 existing.createdAt(),
                 LocalDateTime.now()
         );
         Vendor saved = vendorRepository.save(updated);
         log.info("vendor listing updated, vendorId={}", vendorId);
+        return saved;
+    }
+
+    @Transactional
+    public Vendor verify(UUID vendorId) {
+        log.info("vendor verify started, vendorId={}", vendorId);
+        Vendor saved = vendorRepository.save(getById(vendorId).withVerified());
+        log.info("vendor verified, vendorId={}", vendorId);
+        return saved;
+    }
+
+    @Transactional
+    public Vendor unverify(UUID vendorId) {
+        log.info("vendor unverify started, vendorId={}", vendorId);
+        Vendor saved = vendorRepository.save(getById(vendorId).withUnverified());
+        log.info("vendor unverified, vendorId={}", vendorId);
+        return saved;
+    }
+
+    @Transactional
+    public Vendor updateLogoUrl(UUID vendorId, String logoUrl) {
+        Vendor saved = vendorRepository.save(getById(vendorId).withLogoUrl(logoUrl));
+        log.info("vendor logo updated, vendorId={}", vendorId);
         return saved;
     }
 

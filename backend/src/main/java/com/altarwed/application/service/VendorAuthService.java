@@ -64,12 +64,13 @@ public class VendorAuthService {
                 request.isChristianOwned(),
                 request.denominationIds() != null ? request.denominationIds() : List.of(),
                 true,
-                false,
+                true,   // auto-verify on registration; admin can unverify bad actors
                 null,   // priceTier
                 null,   // bio
                 null,   // description
                 null,   // websiteUrl
                 null,   // phone
+                null,   // logoUrl
                 null,
                 null
         );

@@ -1,12 +1,15 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import { useVendorProfile } from './useVendor'
+import { useVendorInquiries } from './useInquiries'
 
 export default function VendorDashboard() {
   const { user, logout } = useAuth()
   const { data: vendor } = useVendorProfile()
+  const { data: inquiries = [] } = useVendorInquiries()
 
   const displayName = vendor?.businessName ?? user?.email ?? ''
+  const unreadCount = inquiries.filter(i => !i.isRead).length
 
   return (
     <div className="min-h-screen bg-[#fdfaf6]">
@@ -33,7 +36,17 @@ export default function VendorDashboard() {
             href="/vendor/listing"
             live
           />
-          <DashboardCard title="Inquiries" description="View and respond to couple inquiries" href="#" comingSoon />
+          <DashboardCard
+            title="Inquiries"
+            description={
+              unreadCount > 0
+                ? `${unreadCount} unread ${unreadCount === 1 ? 'message' : 'messages'}`
+                : 'View and respond to couple inquiries'
+            }
+            href="/vendor/inquiries"
+            live
+            badge={unreadCount > 0 ? String(unreadCount) : undefined}
+          />
           <DashboardCard title="Reviews" description="See what couples are saying" href="#" comingSoon />
           <DashboardCard title="Analytics" description="Profile views and inquiry trends" href="#" comingSoon />
           <DashboardCard title="Subscription" description="Manage your vendor plan" href="#" comingSoon />
@@ -59,11 +72,17 @@ export default function VendorDashboard() {
   )
 }
 
-function DashboardCard({ title, description, href, live, comingSoon }: {
-  title: string; description: string; href: string; live?: boolean; comingSoon?: boolean
+function DashboardCard({ title, description, href, live, comingSoon, badge }: {
+  title: string
+  description: string
+  href: string
+  live?: boolean
+  comingSoon?: boolean
+  badge?: string
 }) {
+  const isLive = live && href !== '#'
   const cardCls = 'block rounded-xl border bg-white p-6 transition ' +
-    (live && href !== '#'
+    (isLive
       ? 'border-[#d4af6a] hover:shadow-md cursor-pointer'
       : 'border-[#e8dcc8] opacity-60 cursor-not-allowed')
 
@@ -76,12 +95,17 @@ function DashboardCard({ title, description, href, live, comingSoon }: {
             Soon
           </span>
         )}
+        {badge && (
+          <span className="shrink-0 text-xs font-bold text-white bg-[#d4af6a] px-2 py-0.5 rounded-full min-w-[1.25rem] text-center">
+            {badge}
+          </span>
+        )}
       </div>
       <p className="text-sm text-[#a08060]">{description}</p>
     </>
   )
 
-  if (live && href !== '#') {
+  if (isLive) {
     return <Link to={href} className={cardCls}>{inner}</Link>
   }
 

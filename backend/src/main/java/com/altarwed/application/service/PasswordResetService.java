@@ -3,8 +3,8 @@ package com.altarwed.application.service;
 import com.altarwed.domain.exception.InvalidPasswordResetTokenException;
 import com.altarwed.domain.model.PasswordResetToken;
 import com.altarwed.domain.port.CoupleRepository;
-import com.altarwed.application.service.AsyncEmailService;
 import com.altarwed.domain.port.PasswordResetTokenRepository;
+import com.altarwed.domain.port.VendorRepository;
 import com.altarwed.infrastructure.observability.LogSanitizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,17 +28,20 @@ public class PasswordResetService {
 
     private final PasswordResetTokenRepository tokenRepository;
     private final CoupleRepository coupleRepository;
+    private final VendorRepository vendorRepository;
     private final PasswordEncoder passwordEncoder;
     private final AsyncEmailService emailPort;
 
     public PasswordResetService(
             PasswordResetTokenRepository tokenRepository,
             CoupleRepository coupleRepository,
+            VendorRepository vendorRepository,
             PasswordEncoder passwordEncoder,
             AsyncEmailService emailPort
     ) {
         this.tokenRepository = tokenRepository;
         this.coupleRepository = coupleRepository;
+        this.vendorRepository = vendorRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailPort = emailPort;
     }
@@ -50,14 +53,15 @@ public class PasswordResetService {
     public void requestReset(String email) {
         String maskedEmail = LogSanitizer.maskEmail(email);
         log.info("password reset requested, email={}", maskedEmail);
-        if (!coupleRepository.existsByEmail(email)) {
-            // Deliberately silent to the caller to prevent account enumeration, but
-            // we log so support can see attempted-but-no-account events.
+
+        boolean isCouple = coupleRepository.existsByEmail(email);
+        boolean isVendor = !isCouple && vendorRepository.existsByEmail(email);
+
+        if (!isCouple && !isVendor) {
             log.info("password reset skipped, no account, email={}", maskedEmail);
             return;
         }
 
-        // Invalidate any outstanding tokens for this email before issuing a new one.
         tokenRepository.deleteAllByEmail(email);
 
         String rawToken = UUID.randomUUID().toString();
@@ -93,15 +97,23 @@ public class PasswordResetService {
             throw new InvalidPasswordResetTokenException();
         }
 
-        var couple = coupleRepository.findByEmail(token.email())
+        String newHash = passwordEncoder.encode(newPassword);
+
+        var couple = coupleRepository.findByEmail(token.email());
+        if (couple.isPresent()) {
+            coupleRepository.save(couple.get().withPasswordHash(newHash));
+            tokenRepository.markUsed(tokenHash);
+            log.info("password reset succeeded, coupleId={}, email={}",
+                     couple.get().id(), LogSanitizer.maskEmail(token.email()));
+            return;
+        }
+
+        var vendor = vendorRepository.findByEmail(token.email())
                 .orElseThrow(InvalidPasswordResetTokenException::new);
-
-        coupleRepository.save(couple.withPasswordHash(passwordEncoder.encode(newPassword)));
-
-        // Mark token consumed so replay attempts are rejected.
+        vendorRepository.save(vendor.withPasswordHash(newHash));
         tokenRepository.markUsed(tokenHash);
-        log.info("password reset succeeded, coupleId={}, email={}",
-                 couple.id(), LogSanitizer.maskEmail(token.email()));
+        log.info("password reset succeeded, vendorId={}, email={}",
+                 vendor.id(), LogSanitizer.maskEmail(token.email()));
     }
 
     private String hash(String value) {

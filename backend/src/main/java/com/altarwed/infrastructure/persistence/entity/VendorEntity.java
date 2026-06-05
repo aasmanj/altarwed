@@ -80,6 +80,9 @@ public class VendorEntity {
     @Column(name = "phone", length = 30)
     private String phone;
 
+    @Column(name = "logo_url", length = 500)
+    private String logoUrl;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

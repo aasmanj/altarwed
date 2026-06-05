@@ -1,34 +1,55 @@
 package com.altarwed.web.controller;
 
 import com.altarwed.application.dto.AuthResponse;
+import com.altarwed.application.dto.InquiryResponse;
 import com.altarwed.application.dto.RegisterVendorRequest;
 import com.altarwed.application.dto.UpdateVendorRequest;
 import com.altarwed.application.dto.VendorResponse;
+import com.altarwed.application.service.MediaUploadService;
 import com.altarwed.application.service.VendorAuthService;
+import com.altarwed.application.service.VendorInquiryService;
 import com.altarwed.application.service.VendorService;
 import com.altarwed.domain.model.VendorCategory;
 import com.altarwed.web.mapper.VendorMapper;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/vendors")
 public class VendorController {
 
+    private static final Logger log = LoggerFactory.getLogger(VendorController.class);
+
     private final VendorService vendorService;
     private final VendorAuthService vendorAuthService;
     private final VendorMapper vendorMapper;
+    private final VendorInquiryService inquiryService;
+    private final MediaUploadService mediaUploadService;
 
-    public VendorController(VendorService vendorService, VendorAuthService vendorAuthService, VendorMapper vendorMapper) {
+    public VendorController(
+            VendorService vendorService,
+            VendorAuthService vendorAuthService,
+            VendorMapper vendorMapper,
+            VendorInquiryService inquiryService,
+            MediaUploadService mediaUploadService
+    ) {
         this.vendorService = vendorService;
         this.vendorAuthService = vendorAuthService;
         this.vendorMapper = vendorMapper;
+        this.inquiryService = inquiryService;
+        this.mediaUploadService = mediaUploadService;
     }
 
     @PostMapping("/register")
@@ -46,6 +67,42 @@ public class VendorController {
     public ResponseEntity<VendorResponse> updateMe(Authentication auth, @Valid @RequestBody UpdateVendorRequest req) {
         var vendor = vendorService.getByEmail(auth.getName());
         return ResponseEntity.ok(vendorMapper.toResponse(vendorService.update(vendor.id(), req)));
+    }
+
+    @PostMapping(value = "/me/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, String>> uploadLogo(
+            Authentication auth,
+            @RequestParam("file") MultipartFile file
+    ) throws IOException {
+        var vendor = vendorService.getByEmail(auth.getName());
+        log.info("vendor logo upload started, vendorId={}", vendor.id());
+        String logoUrl = mediaUploadService.uploadVendorLogo(vendor.id(), file);
+        vendorService.updateLogoUrl(vendor.id(), logoUrl);
+        log.info("vendor logo upload completed, vendorId={}", vendor.id());
+        return ResponseEntity.ok(Map.of("logoUrl", logoUrl));
+    }
+
+    @GetMapping("/me/inquiries")
+    public ResponseEntity<List<InquiryResponse>> listInquiries(Authentication auth) {
+        var vendor = vendorService.getByEmail(auth.getName());
+        var inquiries = inquiryService.listForVendor(vendor.id()).stream()
+                .map(i -> new InquiryResponse(i.id(), i.coupleName(), i.weddingDate(),
+                        i.message(), i.isRead(), i.createdAt()))
+                .toList();
+        return ResponseEntity.ok(inquiries);
+    }
+
+    @PatchMapping("/me/inquiries/{id}/read")
+    public ResponseEntity<Void> markRead(Authentication auth, @PathVariable UUID id) {
+        var vendor = vendorService.getByEmail(auth.getName());
+        log.info("inquiry mark-read requested, vendorId={}, inquiryId={}", vendor.id(), id);
+        if (!inquiryService.ownsInquiry(vendor.id(), id)) {
+            log.warn("inquiry ownership check failed, vendorId={}, inquiryId={}", vendor.id(), id);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        inquiryService.markRead(id);
+        log.info("inquiry marked read, vendorId={}, inquiryId={}", vendor.id(), id);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping

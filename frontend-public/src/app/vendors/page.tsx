@@ -25,6 +25,7 @@ interface Vendor {
   isChristianOwned: boolean
   isVerified: boolean
   priceTier: string | null
+  logoUrl: string | null
 }
 
 const PRICE_TIERS = ['$', '$$', '$$$'] as const
@@ -130,6 +131,7 @@ export default async function VendorsPage({
             name="city"
             defaultValue={city}
             placeholder="Filter by city…"
+            aria-label="Filter by city"
             className="flex-1 rounded-lg border border-[#e8dcc8] px-4 py-2 text-sm text-[#3b2f2f] focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
           />
           {category && <input type="hidden" name="category" value={category} />}
@@ -165,8 +167,11 @@ export default async function VendorsPage({
                 className="rounded-2xl border border-[#e8dcc8] bg-white p-6 hover:border-[#d4af6a] hover:shadow-sm transition block"
               >
                 <div className="flex items-start justify-between gap-2 mb-3">
-                  <div className="h-12 w-12 rounded-full bg-[#f5ede0] border border-[#e8dcc8] flex items-center justify-center shrink-0">
-                    <span className="font-serif text-xl text-[#a08060]">{vendor.businessName.charAt(0)}</span>
+                  <div className="h-12 w-12 rounded-full bg-[#f5ede0] border border-[#e8dcc8] flex items-center justify-center shrink-0 overflow-hidden">
+                    {vendor.logoUrl
+                      ? <img src={vendor.logoUrl} alt={`${vendor.businessName} logo`} className="h-full w-full object-cover" />
+                      : <span className="font-serif text-xl text-[#a08060]">{vendor.businessName.charAt(0)}</span>
+                    }
                   </div>
                   <div className="flex flex-col gap-1 items-end">
                     {vendor.isChristianOwned && (

@@ -90,6 +90,7 @@ public class VendorRepositoryAdapter implements VendorRepository {
                 e.getDescription(),
                 e.getWebsiteUrl(),
                 e.getPhone(),
+                e.getLogoUrl(),
                 e.getCreatedAt(),
                 e.getUpdatedAt()
         );
@@ -113,6 +114,7 @@ public class VendorRepositoryAdapter implements VendorRepository {
                 .description(v.description())
                 .websiteUrl(v.websiteUrl())
                 .phone(v.phone())
+                .logoUrl(v.logoUrl())
                 .createdAt(v.createdAt())
                 .updatedAt(v.updatedAt())
                 .build();

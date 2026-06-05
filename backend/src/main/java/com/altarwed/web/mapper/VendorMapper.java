@@ -21,7 +21,8 @@ public class VendorMapper {
                 vendor.bio(),
                 vendor.description(),
                 vendor.websiteUrl(),
-                vendor.phone()
+                vendor.phone(),
+                vendor.logoUrl()
         );
     }
 }
