@@ -2,7 +2,7 @@ import { useGuests } from '@/features/couple/guests/useGuests'
 import { useBudget } from '@/features/couple/budget/useBudget'
 import { usePlanningTasks } from '@/features/couple/checklist/usePlanningTasks'
 import type { WeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
-import { daysUntilDate, formatShortDate } from '@/lib/date'
+import { daysUntilDate, formatShortDate, dueDateBefore } from '@/lib/date'
 
 interface Props {
   coupleId: string
@@ -31,6 +31,17 @@ export default function AtAGlanceCard({ coupleId, website }: Props) {
   const totalTasks = tasks?.length ?? 0
   const doneTasks = tasks?.filter(t => t.isCompleted).length ?? 0
   const checklistPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0
+  const overdueTasks = website?.weddingDate
+    ? (tasks?.filter(t =>
+        !t.isCompleted && t.dueMonthsBefore != null &&
+        dueDateBefore(website.weddingDate!, t.dueMonthsBefore).getTime() < Date.now(),
+      ).length ?? 0)
+    : 0
+  const checklistSub =
+    totalTasks === 0 ? 'Getting started'
+      : checklistPct === 100 ? 'All done!'
+      : overdueTasks > 0 ? `${overdueTasks} need${overdueTasks === 1 ? 's' : ''} attention`
+      : 'On track'
 
   return (
     <div className="mb-8 rounded-2xl border border-gold-light bg-gradient-to-br from-white to-ivory p-6 shadow-sm">
@@ -58,7 +69,7 @@ export default function AtAGlanceCard({ coupleId, website }: Props) {
           label="Checklist"
           primary={`${checklistPct}%`}
           suffix={`${doneTasks} of ${totalTasks} done`}
-          sub={checklistPct === 100 ? 'All done!' : `${totalTasks - doneTasks} remaining`}
+          sub={checklistSub}
           bar={totalTasks > 0 ? { pct: checklistPct, color: 'bg-emerald-500' } : undefined}
         />
       </div>
