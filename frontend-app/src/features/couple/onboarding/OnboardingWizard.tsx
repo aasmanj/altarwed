@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useQuery, useMutation } from '@tanstack/react-query'
@@ -356,6 +356,22 @@ function Step1Names({
   )
 }
 
+function useSlugAvailability(slug: string) {
+  const [debouncedSlug, setDebouncedSlug] = useState(slug)
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSlug(slug), 400)
+    return () => clearTimeout(t)
+  }, [slug])
+
+  return useQuery<unknown, { response?: { status?: number } }>({
+    queryKey: ['slug-check', debouncedSlug],
+    queryFn: () => apiClient.get(`/api/v1/wedding-websites/slug/${encodeURIComponent(debouncedSlug)}`),
+    enabled: debouncedSlug.length >= 3,
+    retry: false,
+    staleTime: 30_000,
+  })
+}
+
 function Step2UrlDate({
   slug, onSlug, weddingDate, onWeddingDate, dateLocked, onBack, onNext,
 }: {
@@ -364,12 +380,17 @@ function Step2UrlDate({
   dateLocked: boolean
   onBack: () => void; onNext: () => void
 }) {
+  const { isFetching, isSuccess, isError, error } = useSlugAvailability(slug)
+  const isTaken = isSuccess // 200 = slug exists = taken
+  const isAvailable = isError && (error as { response?: { status?: number } })?.response?.status === 404
+  const showStatus = slug.length >= 3
+
   return (
     <div className="space-y-6">
       <Header title="Your wedding URL" subtitle="This is the link you'll share with guests" />
       <div>
         <label className="block text-sm font-medium text-[#3b2f2f] mb-1">Website URL</label>
-        <div className="flex items-center rounded-lg border border-[#e8dcc8] overflow-hidden focus-within:border-[#d4af6a] focus-within:ring-1 focus-within:ring-[#d4af6a]">
+        <div className={`flex items-center rounded-lg border overflow-hidden focus-within:ring-1 ${isTaken ? 'border-rose-400 focus-within:ring-rose-400' : isAvailable ? 'border-emerald-400 focus-within:ring-emerald-400' : 'border-[#e8dcc8] focus-within:border-[#d4af6a] focus-within:ring-[#d4af6a]'}`}>
           <span className="px-3 py-3 bg-[#f5ede0] text-[#a08060] text-sm whitespace-nowrap border-r border-[#e8dcc8]">
             altarwed.com/wedding/
           </span>
@@ -378,9 +399,27 @@ function Step2UrlDate({
             onChange={e => onSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
             className="flex-1 px-3 py-3 text-sm text-[#3b2f2f] focus:outline-none bg-white"
             placeholder="caleb-and-grace"
+            aria-describedby="slug-status"
           />
+          {showStatus && (
+            <span className="px-3 shrink-0">
+              {isFetching
+                ? <Loader2 className="w-4 h-4 animate-spin text-[#a08060]" />
+                : isAvailable
+                ? <Check className="w-4 h-4 text-emerald-500" />
+                : isTaken
+                ? <span className="text-rose-500 text-xs font-medium">Taken</span>
+                : null}
+            </span>
+          )}
         </div>
-        <p className="text-xs text-[#a08060] mt-1">Lowercase letters, numbers, and hyphens only</p>
+        <p id="slug-status" className={`text-xs mt-1 ${isTaken ? 'text-rose-600' : isAvailable ? 'text-emerald-600' : 'text-[#a08060]'}`}>
+          {isTaken
+            ? 'That URL is already taken. Try adding your wedding date or location.'
+            : isAvailable
+            ? 'That URL is available!'
+            : 'Lowercase letters, numbers, and hyphens only'}
+        </p>
       </div>
       {!dateLocked && (
         <div>
@@ -396,7 +435,7 @@ function Step2UrlDate({
           <span className="block text-xs mt-0.5">You can change this any time in your dashboard.</span>
         </div>
       )}
-      <Nav onBack={onBack} onNext={onNext} disableNext={!slug.trim()} />
+      <Nav onBack={onBack} onNext={onNext} disableNext={!slug.trim() || isTaken} />
     </div>
   )
 }

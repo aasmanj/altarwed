@@ -109,6 +109,8 @@ public class ResendEmailAdapter implements EmailPort {
                                     String weddingDate, String rsvpToken) {
         String rsvpUrl = appBaseUrl.replace("app.", "www.") + "/rsvp/" + rsvpToken;
 
+        String viralCtaUrl = publicBaseUrl + "?utm_source=rsvp_email&utm_medium=email&utm_campaign=viral_invite&utm_content=footer";
+
         String html = """
                 <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto;">
                   <h2 style="color: #4a1942; font-family: Georgia, serif;">You're invited!</h2>
@@ -123,8 +125,12 @@ public class ResendEmailAdapter implements EmailPort {
                     If you have any questions, reply to this email.<br>
                     This RSVP link expires in 30 days.
                   </p>
+                  <div style="margin-top:28px;border-top:1px solid #e8dcc8;padding-top:14px;text-align:center;color:#a08060;font-size:11px;font-family:sans-serif;">
+                    Planning your own wedding?
+                    <a href="%s" style="color:#d4af6a;text-decoration:none;">Create a free faith-based wedding website at AltarWed</a>
+                  </div>
                 </div>
-                """.formatted(guestName, coupleNames, weddingDate, rsvpUrl);
+                """.formatted(guestName, coupleNames, weddingDate, rsvpUrl, viralCtaUrl);
 
         String text = """
                 You're invited!
@@ -138,7 +144,11 @@ public class ResendEmailAdapter implements EmailPort {
 
                 This link expires in 30 days.
                 If you have any questions, reply to this email.
-                """.formatted(guestName, coupleNames, weddingDate, rsvpUrl);
+
+                ---
+                Planning your own wedding? Create a free faith-based wedding website at AltarWed:
+                %s
+                """.formatted(guestName, coupleNames, weddingDate, rsvpUrl, viralCtaUrl);
 
         Map<String, Object> body = Map.of(
                 "from", coupleNames + " <" + fromEmail + ">",

@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { Link2 } from 'lucide-react'
 import { useGuests } from '@/features/couple/guests/useGuests'
 import { useBudget } from '@/features/couple/budget/useBudget'
 import { usePlanningTasks } from '@/features/couple/checklist/usePlanningTasks'
@@ -10,6 +12,7 @@ interface Props {
 }
 
 export default function AtAGlanceCard({ coupleId, website }: Props) {
+  const [copied, setCopied] = useState(false)
   const { data: guests } = useGuests(coupleId)
   const { data: budget } = useBudget(coupleId)
   const { data: tasks } = usePlanningTasks(coupleId)
@@ -43,8 +46,55 @@ export default function AtAGlanceCard({ coupleId, website }: Props) {
       : overdueTasks > 0 ? `${overdueTasks} need${overdueTasks === 1 ? 's' : ''} attention`
       : 'On track'
 
+  const publicUrl = website?.slug ? `https://www.altarwed.com/wedding/${website.slug}` : null
+  const copyLink = async () => {
+    if (!publicUrl) return
+    await navigator.clipboard.writeText(publicUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
     <div className="mb-8 rounded-2xl border border-gold-light bg-gradient-to-br from-white to-ivory p-6 shadow-sm">
+      {website?.isPublished && publicUrl && (
+        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+          <span className="inline-block w-2 h-2 rounded-full bg-green-500 shrink-0" aria-hidden="true" />
+          <a
+            href={publicUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 min-w-0 text-sm font-medium text-green-800 hover:underline truncate"
+            aria-label={`View live wedding website at ${publicUrl}`}
+          >
+            {publicUrl.replace('https://', '')}
+          </a>
+          <button
+            onClick={copyLink}
+            aria-label="Copy wedding website link"
+            className="shrink-0 flex items-center gap-1.5 rounded-lg border border-green-300 bg-white px-3 py-1.5 text-xs font-semibold text-green-800 hover:bg-green-100 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
+          >
+            <Link2 className="w-3 h-3" />
+            {copied ? 'Copied!' : 'Copy link'}
+          </button>
+          <a
+            href="/dashboard/website/editor"
+            className="shrink-0 text-xs font-semibold text-green-700 hover:text-green-900 hover:underline transition"
+          >
+            Share ↗
+          </a>
+        </div>
+      )}
+      {!website?.isPublished && website?.slug && (
+        <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3">
+          <span className="text-sm text-yellow-800">Your wedding website is a draft. Publish it so guests can visit.</span>
+          <a
+            href="/dashboard/website/editor"
+            className="shrink-0 rounded-lg bg-[#d4af6a] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#c49d55] transition"
+          >
+            Publish →
+          </a>
+        </div>
+      )}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <Metric
           label="Wedding day"

@@ -8,6 +8,7 @@ import { MapPin, DollarSign } from 'lucide-react'
 import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { apiClient } from '@/core/api/client'
+import ShareModal from './ShareModal'
 
 interface Props {
   website: WeddingWebsite
@@ -24,6 +25,7 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
 
   const [searchParams] = useSearchParams()
   const [saved, setSaved] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
   // Honour ?tab=registry (or any valid tab name) so external links can deep-link
   // to a specific section (e.g. the Registry dashboard tile). Unknown values fall
   // back to 'story' so a typo in the URL doesn't break the editor.
@@ -90,6 +92,7 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
       onSuccess: () => {
         if (publishing) {
           confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 }, colors: ['#d4af6a', '#3b2f2f', '#f5ede0'] })
+          setShowShareModal(true)
         }
       },
     })
@@ -100,8 +103,16 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
   // route until the site is published.
   const viewUrl = website.isPublished ? publicUrl : `https://www.altarwed.com/preview/${website.slug}/home`
 
+  const coupleNames = `${website.partnerOneName} & ${website.partnerTwoName}`
+
   return (
     <div>
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        slug={website.slug}
+        coupleNames={coupleNames}
+      />
       <PageHeader
         title="Wedding Website"
         subtitle={publicUrl}
