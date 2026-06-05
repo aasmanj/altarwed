@@ -37,6 +37,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final AsyncEmailService asyncEmailService;
+    private final VendorAuthService vendorAuthService;
 
     public AuthService(
             CoupleRepository coupleRepository,
@@ -44,7 +45,8 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             AuthenticationManager authenticationManager,
-            AsyncEmailService asyncEmailService
+            AsyncEmailService asyncEmailService,
+            VendorAuthService vendorAuthService
     ) {
         this.coupleRepository = coupleRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -52,6 +54,7 @@ public class AuthService {
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
         this.asyncEmailService = asyncEmailService;
+        this.vendorAuthService = vendorAuthService;
     }
 
     @Transactional
@@ -103,6 +106,13 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
+        // Delegate to vendor login when the email isn't a couple account.
+        // AuthenticationManager is wired to the couples UserDetailsService;
+        // using it for vendor credentials would always fail.
+        if (!coupleRepository.existsByEmail(request.email())) {
+            return vendorAuthService.login(request);
+        }
+
         String maskedEmail = LogSanitizer.maskEmail(request.email());
         log.info("login attempt, role=COUPLE, email={}", maskedEmail);
         try {

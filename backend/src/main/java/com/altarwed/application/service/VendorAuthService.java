@@ -1,6 +1,7 @@
 package com.altarwed.application.service;
 
 import com.altarwed.application.dto.AuthResponse;
+import com.altarwed.application.dto.LoginRequest;
 import com.altarwed.application.dto.RegisterVendorRequest;
 import com.altarwed.domain.exception.EmailAlreadyExistsException;
 import com.altarwed.domain.model.RefreshToken;
@@ -11,6 +12,7 @@ import com.altarwed.infrastructure.observability.LogSanitizer;
 import com.altarwed.infrastructure.security.JwtService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -80,6 +82,33 @@ public class VendorAuthService {
 
         log.info("vendor registration succeeded, vendorId={}, email={}", saved.id(), maskedEmail);
         return AuthResponse.of(accessToken, rawRefresh, saved.id(), saved.email(), null, null, null, false);
+    }
+
+    @Transactional
+    public AuthResponse login(LoginRequest request) {
+        String maskedEmail = LogSanitizer.maskEmail(request.email());
+        log.info("login attempt, role=VENDOR, email={}", maskedEmail);
+
+        Vendor vendor = vendorRepository.findByEmail(request.email())
+                .orElseThrow(() -> {
+                    log.warn("login failed, email={}, reason=no account found", maskedEmail);
+                    return new BadCredentialsException("Invalid email or password");
+                });
+
+        if (!passwordEncoder.matches(request.password(), vendor.passwordHash())) {
+            log.warn("login failed, role=VENDOR, email={}, reason=BadCredentialsException", maskedEmail);
+            throw new BadCredentialsException("Invalid email or password");
+        }
+
+        // Rotate refresh tokens on every login
+        refreshTokenRepository.deleteAllByUserId(vendor.id());
+
+        String accessToken = jwtService.generateAccessToken(vendor.email(), ROLE_VENDOR, vendor.id());
+        String rawRefresh = jwtService.generateRefreshToken(vendor.email(), ROLE_VENDOR, vendor.id());
+        persistRefreshToken(rawRefresh, vendor.id(), ROLE_VENDOR);
+
+        log.info("login succeeded, role=VENDOR, vendorId={}, email={}", vendor.id(), maskedEmail);
+        return AuthResponse.of(accessToken, rawRefresh, vendor.id(), vendor.email(), null, null, null, false);
     }
 
     // -------------------------------------------------------------------------
