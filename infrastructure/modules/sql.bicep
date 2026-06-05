@@ -30,20 +30,22 @@ resource database 'Microsoft.Sql/servers/databases@2023-08-01-preview' = {
   parent: sqlServer
   name: databaseName
   location: location
-  // Standard S3 (100 DTU). Basic (5 DTU / 2 GB) was a hard launch ceiling for the
-  // "thousands of sites at launch" goal. S3 gives ~20x the throughput at a flat
-  // ~$147/mo, and with ISR caching absorbing public reads it carries low-tens-of-
-  // thousands of sites. Always-on App Service means serverless auto-pause never
+  // Standard S2 (50 DTU). Basic (5 DTU / 2 GB) was a hard launch ceiling. S2 is the
+  // disciplined pre-revenue choice: ~10x Basic at ~$75/mo, and with ISR caching
+  // absorbing public reads (only revalidation queries hit SQL) it carries a quiet
+  // launch comfortably. Always-on App Service means serverless auto-pause never
   // fires, so the DTU model is cheaper here than GP_Serverless.
-  // Upgrade path: S4 -> S6 -> S9 -> Premium -> Hyperscale (vCore) for the millions endgame.
+  // Scaling up is an ONLINE operation (brief failover): when the DTU-utilization
+  // metric sits above ~75-80%, bump S3 (100) -> S4 (200); past that, migrate to the
+  // vCore General Purpose model -> Hyperscale for the millions endgame.
   sku: {
-    name: 'S3'
+    name: 'S2'
     tier: 'Standard'
-    capacity: 100  // DTU
+    capacity: 50  // DTU
   }
   properties: {
     collation: 'SQL_Latin1_General_CP1_CI_AS'
-    maxSizeBytes: 268435456000  // 250 GB (S3 ceiling)
+    maxSizeBytes: 268435456000  // 250 GB (S2 storage ceiling; media lives in Blob, not SQL)
   }
 }
 
