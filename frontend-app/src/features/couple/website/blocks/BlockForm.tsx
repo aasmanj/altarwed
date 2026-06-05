@@ -27,10 +27,15 @@ export default function BlockForm({ block, onSave }: Props) {
   const timerRef = useRef<number | null>(null)
   const pendingRef = useRef<string | null>(null)
 
-  // If the upstream block changes from elsewhere (e.g. a server refetch), sync.
+  // Sync draft when the user navigates to a different block. We deliberately
+  // omit block.contentJson from the deps: the mutation's optimistic update +
+  // onSettled refetch cycle changes contentJson mid-keystroke, which resets
+  // the controlled input and moves the cursor backward. Switching blocks
+  // (block.id changes) is the only case that should reset the draft.
   useEffect(() => {
     setDraft(block.contentJson || '{}')
-  }, [block.id, block.contentJson])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [block.id])
 
   const scheduleSave = (next: string) => {
     setDraft(next)

@@ -27,7 +27,7 @@ export default async function WeddingPartyPage(
 ) {
   const { slug } = await params
   const wedding = await getWedding(slug)
-  if (!wedding || !wedding.isPublished) notFound()
+  if (!wedding) notFound()
 
   const party = await getWeddingParty(wedding.id)
   const bride = party.filter(m => m.side === 'BRIDE')

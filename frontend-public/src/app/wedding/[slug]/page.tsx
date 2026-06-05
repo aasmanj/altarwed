@@ -9,7 +9,7 @@ export default async function WeddingHomePage(
 ) {
   const { slug } = await params
   const wedding = await getWedding(slug)
-  if (!wedding || !wedding.isPublished) notFound()
+  if (!wedding) notFound()
 
   const countdown = wedding.weddingDate ? daysUntilDate(wedding.weddingDate) : null
   const base = `/wedding/${slug}`

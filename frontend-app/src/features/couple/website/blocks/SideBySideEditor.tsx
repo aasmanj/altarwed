@@ -570,6 +570,9 @@ export default function SideBySideEditor() {
               // forward-looking no-op until HeroLive grows photo handling.
               updateWebsite.mutate({ heroPhotoUrl: url }, { onSuccess: bumpPreview })
             }}
+            onScriptureClear={() => {
+              updateWebsite.mutate({ scriptureText: null, scriptureReference: null }, { onSuccess: bumpPreview })
+            }}
           />
           <input
             ref={heroInputRef}
@@ -868,8 +871,9 @@ function HeroSettings({
   onNameSave,
   onNameLive,
   onDefaultPhotoSelect,
+  onScriptureClear,
 }: {
-  website: { heroPhotoUrl?: string | null; heroTagline?: string | null; partnerOneName?: string; partnerTwoName?: string }
+  website: { heroPhotoUrl?: string | null; heroTagline?: string | null; partnerOneName?: string; partnerTwoName?: string; scriptureReference?: string | null; scriptureText?: string | null }
   websiteId: string
   heroUploading: boolean
   onHeroUploadClick: () => void
@@ -888,6 +892,7 @@ function HeroSettings({
   // Fires on every keystroke. Updates the iframe preview live via postMessage.
   onNameLive: (field: 'partnerOneName' | 'partnerTwoName', value: string) => void
   onDefaultPhotoSelect: (url: string) => void
+  onScriptureClear: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [tagline, setTagline] = useState(website.heroTagline ?? '')
@@ -1105,6 +1110,43 @@ function HeroSettings({
             <p className="mt-1.5 text-[10px] text-stone-400 leading-snug">
               JPEG, PNG, or WebP. Up to 15 MB.
             </p>
+          </div>
+
+          {/* Wedding scripture */}
+          <div>
+            <label className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-1.5">
+              Wedding scripture
+            </label>
+            {(website.scriptureReference || website.scriptureText) ? (
+              <div className="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  {website.scriptureReference && (
+                    <p className="text-xs font-medium text-brown truncate">{website.scriptureReference}</p>
+                  )}
+                  {website.scriptureText && (
+                    <p className="text-[11px] text-stone-500 leading-snug line-clamp-2 mt-0.5">
+                      &ldquo;{website.scriptureText}&rdquo;
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={onScriptureClear}
+                  className="shrink-0 text-[10px] text-red-400 hover:text-red-600 transition"
+                  title="Remove the scripture banner from your public page"
+                >
+                  Clear
+                </button>
+              </div>
+            ) : (
+              <p className="text-[10px] text-stone-400 leading-snug">
+                No verse selected. Browse and set one in the{' '}
+                <Link to="/dashboard/scripture" className="text-amber-700 underline hover:text-amber-900">
+                  Scripture tab
+                </Link>
+                .
+              </p>
+            )}
           </div>
         </div>
       )}

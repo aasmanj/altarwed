@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import confetti from 'canvas-confetti'
 import {
   ChevronDown, ChevronRight, AlertTriangle, CalendarClock, CalendarRange, CalendarDays, CheckCircle2,
@@ -104,8 +104,6 @@ export default function ChecklistPage() {
   const deleteTask = useDeleteTask(coupleId)
 
   const [showAdd, setShowAdd] = useState(false)
-  const [newTitle, setNewTitle] = useState('')
-  const [newCategory, setNewCategory] = useState<TaskCategory>('FAITH')
   const [filterDone, setFilterDone] = useState<'all' | 'todo' | 'done'>('all')
   // Timeline is the default view: it answers "are we on track?" at a glance.
   // Category stays available for couples who think in terms of areas.
@@ -174,13 +172,10 @@ export default function ChecklistPage() {
     return true
   })
 
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newTitle.trim()) return
-    await addTask.mutateAsync({ title: newTitle.trim(), category: newCategory })
-    setNewTitle('')
+  const handleAdd = useCallback(async (title: string, category: TaskCategory) => {
+    await addTask.mutateAsync({ title, category })
     setShowAdd(false)
-  }
+  }, [addTask])
 
   // Timeline view only makes sense once we know the wedding date. Without it,
   // fall back to the category view and nudge the couple to set the date.
@@ -240,47 +235,12 @@ export default function ChecklistPage() {
           )}
         </div>
 
-        {/* Add task form */}
         {showAdd && (
-          <form onSubmit={handleAdd} className="mb-6 rounded-xl border border-gold bg-white p-5 space-y-4">
-            <p className="font-medium text-brown text-sm">New custom task</p>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="new-task-title" className="block text-xs font-medium text-brown-light mb-1">Task name *</label>
-                <input
-                  id="new-task-title"
-                  required
-                  value={newTitle}
-                  onChange={e => setNewTitle(e.target.value)}
-                  placeholder="e.g. Book rehearsal dinner"
-                  className="w-full rounded-lg border border-gold-light px-3 py-2 text-brown text-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
-                />
-              </div>
-              <div>
-                <label htmlFor="new-task-category" className="block text-xs font-medium text-brown-light mb-1">Category</label>
-                <select
-                  id="new-task-category"
-                  value={newCategory}
-                  onChange={e => setNewCategory(e.target.value as TaskCategory)}
-                  className="w-full rounded-lg border border-gold-light px-3 py-2 text-brown text-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
-                >
-                  {ALL_CATEGORIES.map(c => (
-                    <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button type="submit" disabled={addTask.isPending}
-                className="rounded-lg bg-gold px-5 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-60 transition">
-                {addTask.isPending ? 'Adding…' : 'Add task'}
-              </button>
-              <button type="button" onClick={() => setShowAdd(false)}
-                className="rounded-lg border border-gold-light px-5 py-2 text-sm font-medium text-brown hover:bg-ivory transition">
-                Cancel
-              </button>
-            </div>
-          </form>
+          <AddTaskModal
+            onClose={() => setShowAdd(false)}
+            onSubmit={handleAdd}
+            isPending={addTask.isPending}
+          />
         )}
 
         {/* View toggle + filter */}
@@ -342,6 +302,100 @@ export default function ChecklistPage() {
           />
         )}
       </main>
+    </div>
+  )
+}
+
+function AddTaskModal({ onClose, onSubmit, isPending }: {
+  onClose: () => void
+  onSubmit: (title: string, category: TaskCategory) => Promise<void>
+  isPending: boolean
+}) {
+  const [title, setTitle] = useState('')
+  const [category, setCategory] = useState<TaskCategory>('FAITH')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { inputRef.current?.focus() }, [])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!title.trim()) return
+    await onSubmit(title.trim(), category)
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-task-dialog-title"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-5"
+      >
+        <div className="flex items-center justify-between">
+          <h2 id="add-task-dialog-title" className="font-serif text-lg font-semibold text-brown">
+            Add a custom task
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-brown-light hover:text-brown text-xl leading-none"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="add-task-title" className="block text-xs font-medium text-brown-light mb-1">Task name *</label>
+            <input
+              ref={inputRef}
+              id="add-task-title"
+              required
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="e.g. Book rehearsal dinner"
+              className="w-full rounded-lg border border-gold-light px-3 py-2 text-brown text-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+            />
+          </div>
+          <div>
+            <label htmlFor="add-task-category" className="block text-xs font-medium text-brown-light mb-1">Category</label>
+            <select
+              id="add-task-category"
+              value={category}
+              onChange={e => setCategory(e.target.value as TaskCategory)}
+              className="w-full rounded-lg border border-gold-light px-3 py-2 text-brown text-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+            >
+              {ALL_CATEGORIES.map(c => (
+                <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button
+              type="submit"
+              disabled={isPending}
+              className="rounded-lg bg-gold px-5 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-60 transition"
+            >
+              {isPending ? 'Adding…' : 'Add task'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-gold-light px-5 py-2 text-sm font-medium text-brown hover:bg-ivory transition"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

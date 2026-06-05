@@ -6,7 +6,7 @@ export default async function RegistryPage(
 ) {
   const { slug } = await params
   const wedding = await getWedding(slug)
-  if (!wedding || !wedding.isPublished) notFound()
+  if (!wedding) notFound()
 
   const items = [
     { label: wedding.registryLabel1 ?? 'Registry', url: wedding.registryUrl1 },

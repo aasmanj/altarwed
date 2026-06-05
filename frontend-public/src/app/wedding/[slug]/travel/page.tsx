@@ -30,7 +30,7 @@ export default async function TravelPage(
 ) {
   const { slug } = await params
   const wedding = await getWedding(slug)
-  if (!wedding || !wedding.isPublished) notFound()
+  if (!wedding) notFound()
 
   // Prefer multi-hotel table; fall back to legacy scalar fields for existing couples
   const hotels = await getHotels(wedding.id)

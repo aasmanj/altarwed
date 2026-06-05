@@ -11,8 +11,11 @@ import {
 import { cropToSquare } from '@/lib/imageCrop'
 
 const SUGGESTED_ROLES = [
-  'Officiant / Pastor', 'Maid of Honor', 'Best Man',
-  'Bridesmaid', 'Groomsman', 'Flower Girl', 'Ring Bearer',
+  'Bride', 'Groom',
+  'Maid of Honor', 'Best Man',
+  'Bridesmaid', 'Groomsman',
+  'Officiant / Pastor',
+  'Flower Girl', 'Ring Bearer',
   'Mother of the Bride', 'Father of the Bride',
   'Mother of the Groom', 'Father of the Groom',
 ]

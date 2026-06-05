@@ -1,19 +1,18 @@
 import Link from 'next/link'
 
-// Rendered when /wedding/[slug] calls notFound(), either the slug does not
-// exist OR the couple has not published yet. We don't distinguish the two
-// to avoid leaking which slugs are taken; the helpful nudge below covers
-// the most common case (couple opens their own URL before clicking
-// "Publish" in the dashboard).
+// Rendered when /wedding/[slug] calls notFound(): the slug does not exist or the
+// site was removed. Unpublished-but-existing sites no longer land here, they show
+// the friendlier <ComingSoon> page instead (see the page/layout gates). The owner
+// nudge below stays as a safety net in case someone reaches this by other means.
 export default function WeddingNotFound() {
   return (
     <main className="min-h-screen bg-[#fdfaf6] flex flex-col items-center justify-center px-6 text-center text-[#3b2f2f]">
       <p className="text-xs uppercase tracking-[0.3em] text-[#a08060] mb-4">AltarWed</p>
       <h1 className="font-serif text-3xl sm:text-4xl font-bold mb-3">
-        This wedding site is not available yet
+        This wedding site isn&rsquo;t available
       </h1>
       <p className="text-[#6b5b4a] max-w-xl mb-8">
-        Either the link is mistyped, or the couple has not published their site.
+        The link may be mistyped, or this site has been removed.
       </p>
 
       <div className="rounded-2xl border border-[#e8dcc8] bg-white px-6 py-5 max-w-md text-left">

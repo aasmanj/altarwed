@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import WeddingNav from './WeddingNav'
+import ComingSoon from './ComingSoon'
 import { parseTabCustomisation } from './data'
 import FloatingEditButton from '@/components/FloatingEditButton'
 import { getWedding } from '@/app/wedding/[slug]/data'
@@ -13,6 +14,17 @@ export async function generateMetadata(
   const { slug } = await params
   const wedding = await getWedding(slug)
   if (!wedding) return { title: 'Wedding Not Found | AltarWed' }
+
+  // Unpublished sites render a "coming soon" page (200), so they must be marked
+  // noindex, otherwise Google could index a draft slug that returns 200 instead
+  // of the old 404. The site becomes indexable automatically once published.
+  if (!wedding.isPublished) {
+    return {
+      title: `${wedding.partnerTwoName} & ${wedding.partnerOneName} | Coming Soon`,
+      description: 'This wedding website is coming soon on AltarWed.',
+      robots: { index: false, follow: false },
+    }
+  }
 
   // Display convention: bride (partnerTwoName) first per Jordan's wife-first preference.
   // DB convention is unchanged (partnerOneName = Groom, partnerTwoName = Bride).
@@ -54,8 +66,8 @@ export default async function WeddingLayout({
 }) {
   const { slug } = await params
   const wedding = await getWedding(slug)
-  if (!wedding || !wedding.isPublished) notFound()
-
+  if (!wedding) notFound()
+  if (!wedding.isPublished) return <ComingSoon wedding={wedding} />
 
   const heroImage = wedding.heroPhotoUrl ?? '/hero-wedding.jpg'
   const countdown = wedding.weddingDate ? daysUntilDate(wedding.weddingDate) : null

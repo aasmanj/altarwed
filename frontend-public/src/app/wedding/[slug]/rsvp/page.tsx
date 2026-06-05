@@ -8,7 +8,7 @@ export default async function RsvpTabPage(
 ) {
   const { slug } = await params
   const wedding = await getWedding(slug)
-  if (!wedding || !wedding.isPublished) notFound()
+  if (!wedding) notFound()
 
   return (
     <div className="space-y-10">

@@ -6,7 +6,7 @@ export default async function StoryPage(
 ) {
   const { slug } = await params
   const wedding = await getWedding(slug)
-  if (!wedding || !wedding.isPublished) notFound()
+  if (!wedding) notFound()
 
   if (!wedding.ourStory) {
     return (

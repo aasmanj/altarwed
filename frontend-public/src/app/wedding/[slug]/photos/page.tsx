@@ -25,7 +25,7 @@ export default async function PhotosPage(
 ) {
   const { slug } = await params
   const [wedding, photos] = await Promise.all([getWedding(slug), getPhotos(slug)])
-  if (!wedding || !wedding.isPublished) notFound()
+  if (!wedding) notFound()
 
   return (
     <div className="space-y-10">
