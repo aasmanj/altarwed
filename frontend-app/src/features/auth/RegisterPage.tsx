@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import confetti from 'canvas-confetti'
 import { useAuth } from '@/core/auth/AuthContext'
+import { captureEvent } from '@/core/analytics/analytics'
+import { getStoredAcquisition, clearStoredAcquisition } from '@/core/analytics/utm'
 
 export default function RegisterPage() {
   const { register, user } = useAuth()
@@ -53,13 +55,27 @@ export default function RegisterPage() {
 
     setLoading(true)
     try {
+      const acquisition = getStoredAcquisition()
       await register({
         partnerOneName: groomName,
         partnerTwoName: brideName,
         email: form.email.trim(),
         password: form.password,
         weddingDate: form.weddingDate || null,
+        acquisition: acquisition ?? null,
       })
+      // Funnel conversion event. The couple is identified by AuthContext's effect
+      // the moment register() sets the user, so this capture is attached to the
+      // right person. UTM props let PostHog break the funnel down by campaign;
+      // they mirror what the backend just persisted on the couples row.
+      captureEvent('signed_up', {
+        has_wedding_date: !!form.weddingDate,
+        utm_source: acquisition?.utmSource ?? null,
+        utm_campaign: acquisition?.utmCampaign ?? null,
+      })
+      // One signup per stored attribution: clear it so a second account made on
+      // this browser isn't credited to the same campaign.
+      clearStoredAcquisition()
       // Celebrate the new account. canvas-confetti paints its own fixed canvas on
       // document.body, so the burst persists across the navigate() below and lands
       // the couple on their dashboard mid-celebration. Skip it for users who have

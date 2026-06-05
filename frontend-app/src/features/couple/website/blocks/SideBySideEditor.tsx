@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2, ImagePlus, Smartphone, Monitor, Settings2, Pencil } from 'lucide-react'
 import { apiClient } from '@/core/api/client'
+import { captureEvent } from '@/core/analytics/analytics'
 import { useWeddingWebsite, usePublishWeddingWebsite, useUpdateWeddingWebsite, type WeddingWebsite } from '../useWeddingWebsite'
 import {
   useBackfillBlocks,
@@ -315,7 +316,18 @@ export default function SideBySideEditor() {
   const handleReorder = (orderedBlockIds: string[]) => {
     reorder.mutate({ tab: activeTab, orderedBlockIds }, { onSuccess: markSaved })
   }
-  const togglePublish = () => publish.mutate(!website.isPublished, { onSuccess: bumpPreview })
+  const togglePublish = () => {
+    const publishing = !website.isPublished
+    publish.mutate(publishing, {
+      onSuccess: () => {
+        bumpPreview()
+        // Fire only on the publish transition (not unpublish): this is the
+        // bottom-of-funnel "a live wedding site now exists" conversion, the event
+        // that closes signup -> created -> published.
+        if (publishing) captureEvent('website_published', { slug: website.slug })
+      },
+    })
+  }
 
   const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]

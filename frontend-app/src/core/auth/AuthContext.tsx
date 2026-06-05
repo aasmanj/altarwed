@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { authApi } from '@/core/api/authApi'
 import type { RegisterCouplePayload, RegisterVendorPayload } from '@/core/api/authApi'
 import { setupAuthInterceptor } from '@/core/api/client'
+import { identifyUser, resetAnalytics } from '@/core/analytics/analytics'
 
 export type UserRole = 'COUPLE' | 'VENDOR'
 
@@ -79,6 +80,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await authApi.logout(state.refreshToken).catch(() => {})
     saveRefreshToken(null)
     setState({ user: null, accessToken: null, refreshToken: null })
+    // Unlink the analytics identity so the next person on a shared browser is a
+    // fresh anonymous visitor, not a continuation of this couple's session.
+    resetAnalytics()
   }, [state.refreshToken])
 
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
@@ -118,6 +122,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshAccessToken,
     )
   }, [state.accessToken, refreshAccessToken])
+
+  // Tie analytics events to the authenticated couple. Keyed on the user id so a
+  // token refresh (new user object, same id) doesn't re-identify, and logout
+  // (id goes undefined) is a no-op here, handled by resetAnalytics() in logout().
+  useEffect(() => {
+    if (state.user) identifyUser(state.user.id, { role: state.user.role })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.user?.id])
 
   const value = useMemo<AuthContextValue>(
     () => ({

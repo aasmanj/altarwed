@@ -1,5 +1,6 @@
 import { apiClient } from './client'
 import type { UserRole } from '@/core/auth/AuthContext'
+import type { Acquisition } from '@/core/analytics/utm'
 
 // Shape the backend actually returns
 interface BackendAuthResponse {
@@ -49,6 +50,9 @@ export interface RegisterCouplePayload {
   email: string
   password: string
   weddingDate?: string | null
+  // First-touch marketing attribution; field names match the backend
+  // AcquisitionInfo DTO so it serialises straight into the request body.
+  acquisition?: Acquisition | null
 }
 
 export interface RegisterVendorPayload {

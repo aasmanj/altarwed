@@ -9,6 +9,11 @@ interface DailyCount {
   count: number
 }
 
+interface SourceCount {
+  source: string
+  count: number
+}
+
 interface WebsiteAdminRow {
   coupleId: string
   email: string
@@ -45,6 +50,7 @@ interface MetricsSnapshot {
   totalPlanningTasks: number
   totalWeddingPhotos: number
   coupleSignupsLast30Days: DailyCount[]
+  topAcquisitionSources: SourceCount[]
 }
 
 const PAGE_SIZE = 20
@@ -107,6 +113,20 @@ export default function AdminMetricsPage() {
               <Stat label="Published (public)" value={data.publishedWebsites} accent />
               <Stat label="Photos uploaded" value={data.totalWeddingPhotos} />
             </Section>
+
+            <div className="mb-8">
+              <h3 className="font-serif text-lg font-semibold text-brown mb-3">Conversion funnel</h3>
+              <Funnel
+                signups={data.totalCouples}
+                created={data.totalWebsites}
+                published={data.publishedWebsites}
+              />
+            </div>
+
+            <div className="mb-8">
+              <h3 className="font-serif text-lg font-semibold text-brown mb-3">Acquisition sources</h3>
+              <AcquisitionBreakdown sources={data.topAcquisitionSources} total={data.totalCouples} />
+            </div>
 
             <Section title="Guest engagement">
               <Stat label="Guests invited" value={data.totalGuests} />
@@ -242,6 +262,74 @@ function Stat({ label, value, accent }: { label: string; value: number; accent?:
     <div className={`rounded-xl border bg-white p-5 ${accent ? 'border-gold' : 'border-gold-light'}`}>
       <div className="text-xs font-medium uppercase tracking-wide text-brown-light">{label}</div>
       <div className="mt-1 font-serif text-3xl font-bold text-brown">{value.toLocaleString()}</div>
+    </div>
+  )
+}
+
+// Signup -> created -> published, with the conversion rate between each stage.
+// Each stage's bar is scaled to the top of the funnel (signups) so the drop-off
+// is visible at a glance; the percentage under each later stage is relative to
+// the stage immediately before it (the actionable conversion number).
+function Funnel({ signups, created, published }: { signups: number; created: number; published: number }) {
+  const pct = (n: number, of: number) => (of > 0 ? Math.round((n / of) * 100) : 0)
+  const width = (n: number) => (signups > 0 ? Math.max((n / signups) * 100, n > 0 ? 4 : 0) : 0)
+  const stages = [
+    { label: 'Signed up', value: signups, rate: null as number | null, sub: 'top of funnel' },
+    { label: 'Created a website', value: created, rate: pct(created, signups), sub: 'of signups' },
+    { label: 'Published (public)', value: published, rate: pct(published, created), sub: 'of created' },
+  ]
+  return (
+    <div className="rounded-xl border border-gold-light bg-white p-5 space-y-3">
+      {stages.map(stage => (
+        <div key={stage.label}>
+          <div className="flex items-baseline justify-between mb-1">
+            <span className="text-sm font-medium text-brown">{stage.label}</span>
+            <span className="text-sm text-brown-light">
+              {stage.value.toLocaleString()}
+              {stage.rate !== null && (
+                <span className="ml-2 font-semibold text-gold">{stage.rate}% {stage.sub}</span>
+              )}
+            </span>
+          </div>
+          <div className="h-3 w-full rounded-full bg-ivory overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gold transition-all duration-500"
+              style={{ width: `${width(stage.value)}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Where couples came from, by utm_source. "direct" collapses organic + typed-URL
+// + pre-attribution signups. Empty until UTM-tagged traffic arrives, so show a
+// helpful placeholder rather than a bare empty box.
+function AcquisitionBreakdown({ sources, total }: { sources: SourceCount[]; total: number }) {
+  if (!sources || sources.length === 0) {
+    return (
+      <div className="rounded-xl border border-gold-light bg-white p-5 text-sm text-brown-light">
+        No attribution data yet. Signups will appear here grouped by campaign once
+        UTM-tagged links start driving traffic.
+      </div>
+    )
+  }
+  const max = Math.max(1, ...sources.map(s => s.count))
+  return (
+    <div className="rounded-xl border border-gold-light bg-white p-5 space-y-2.5">
+      {sources.map(s => (
+        <div key={s.source} className="flex items-center gap-3">
+          <span className="w-28 shrink-0 truncate text-sm text-brown" title={s.source}>{s.source}</span>
+          <div className="flex-1 h-3 rounded-full bg-ivory overflow-hidden">
+            <div className="h-full rounded-full bg-gold" style={{ width: `${(s.count / max) * 100}%` }} />
+          </div>
+          <span className="w-24 shrink-0 text-right text-sm text-brown-light">
+            {s.count.toLocaleString()}
+            {total > 0 && <span className="text-brown-light/70"> · {Math.round((s.count / total) * 100)}%</span>}
+          </span>
+        </div>
+      ))}
     </div>
   )
 }

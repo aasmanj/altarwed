@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { motion } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import {
   ChevronDown, ChevronRight, AlertTriangle, CalendarClock, CalendarRange, CalendarDays, CheckCircle2,
@@ -313,14 +314,35 @@ function AddTaskModal({ onClose, onSubmit, isPending }: {
 }) {
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState<TaskCategory>('FAITH')
+  const dialogRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => { inputRef.current?.focus() }, [])
+  // Element focused before the modal opened (the "+ Add task" button), restored
+  // on close so keyboard focus doesn't jump to the top of the page.
+  const triggerRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    triggerRef.current = document.activeElement as HTMLElement | null
+    inputRef.current?.focus()
+    return () => { triggerRef.current?.focus?.() }
+  }, [])
+
+  // Escape closes; Tab is trapped inside the dialog (project modal a11y rule),
+  // mirroring the focus management in ConfirmDialog.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') { e.preventDefault(); onClose(); return }
+      if (e.key !== 'Tab') return
+      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      )
+      if (!focusable || focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
   }, [onClose])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -330,15 +352,22 @@ function AddTaskModal({ onClose, onSubmit, isPending }: {
   }
 
   return (
-    <div
+    <motion.div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.12 }}
       onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div
+      <motion.div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-task-dialog-title"
         className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-5"
+        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.14, ease: 'easeOut' }}
       >
         <div className="flex items-center justify-between">
           <h2 id="add-task-dialog-title" className="font-serif text-lg font-semibold text-brown">
@@ -395,8 +424,8 @@ function AddTaskModal({ onClose, onSubmit, isPending }: {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 
