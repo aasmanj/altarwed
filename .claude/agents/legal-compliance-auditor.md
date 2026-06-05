@@ -64,11 +64,11 @@ Exposure scales with volume, and the founder is targeting thousands of couples a
 
 **8. Payments & subscriptions (Phase 8, audit before wiring Stripe)**
 - PCI-DSS: using Stripe-hosted checkout/Elements keeps you in SAQ-A (never touch card numbers), confirm the design never posts raw PAN to your backend.
-- Auto-renewing subscriptions: FTC "click-to-cancel" + California/state auto-renewal laws require clear renewal terms, affirmative consent, easy cancellation, and renewal reminders. Vendor tiers and the couple Covenant plan all auto-renew, flag the disclosure + cancel-flow requirements now so they are designed in, not bolted on.
+- Auto-renewing subscriptions: FTC "click-to-cancel" + California/state auto-renewal laws require clear renewal terms, affirmative consent, easy cancellation, and renewal reminders. The vendor subscription tiers auto-renew (couples are free, no couple billing), flag the disclosure + cancel-flow requirements now so they are designed in, not bolted on.
 - Sales tax / economic nexus on SaaS subscriptions varies by state, flag for an accountant.
 
 **9. Sector specifics**
-- Marketing to "Christian couples" is fine; making religious *eligibility* claims or implying endorsement/affiliation with churches you don't have agreements with is not. Church-partnership tier ($99/mo) needs real agreements.
+- Marketing to "Christian couples" is fine; making religious *eligibility* claims or implying endorsement/affiliation with churches you don't have agreements with is not.
 - Vendor directory: if you publish vendor info, get it from the vendor or public sources; defamation/accuracy risk on reviews if added.
 
 ## How to report

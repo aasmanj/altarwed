@@ -469,11 +469,10 @@ plaintiff's scanner would actually hit.
 - Never use primitive types in DTO Records (use boxed: Integer not int, Boolean not boolean)
 
 ## Monetization Context (affects data model decisions)
-- Vendors pay monthly subscriptions (BASIC $29, FEATURED $79, PREMIUM $149)
-- Couples have free and paid tiers (Covenant Plan $9/mo)
-- Church partnerships: churches pay $99/mo for congregation access
+- **Revenue is vendor-side only.** Vendors pay monthly subscriptions (placeholder tiers BASIC $29, FEATURED $79, PREMIUM $149, under review, see the vendor pricing analysis in memory)
+- **Couples are free** for the foreseeable future. No couple paid tier and no church-partnership tier; both were dropped from the revenue model. A couple paid tier is revisited only when there are couple features genuinely worth charging for
 - Stripe is the payment processor, VendorSubscription entity tracks this
-- **Payments are Phase 8, do NOT add Stripe until vendor + couple usage is established**
+- **Payments are Phase 8, do NOT add Stripe until couple demand is established** (couple liquidity is the upstream gate on vendor revenue)
 - Affiliate links: Amazon and Target (registry product links), "The Meaning of Marriage" by Timothy Keller, "The Five Love Languages" by Gary Chapman, add to a /resources page (Phase 6c)
 
 ## Build Phases, Current Status
@@ -521,9 +520,10 @@ sitemap.xml, RSVP reminders (hourly poll).
 - **Phase 2 (editor polish), RSVP "find your invitation"**, public endpoint
   `GET /api/v1/guests/rsvp/find?slug={slug}&name={name}` returning masked guest
   name + token. No auth, Bucket4j rate-limited. UI on the public RSVP tab.
-- **Phase 8, Stripe billing**, VendorSubscription wired to Stripe (BASIC $29 /
-  FEATURED $79 / PREMIUM $149 / couple Covenant $9). Webhook handler, portal UI.
-  Gated until vendor + couple usage is established (see Monetization Context).
+- **Phase 8, Stripe billing**, VendorSubscription wired to Stripe (vendor tiers
+  only, placeholder BASIC $29 / FEATURED $79 / PREMIUM $149, under review). Webhook
+  handler, portal UI. Couples are free, no couple billing. Gated until couple demand
+  is established (see Monetization Context + the vendor pricing analysis in memory).
 
 ### Known minor issues
 
@@ -551,7 +551,7 @@ These are intentional deferments, build simple now, upgrade when traffic justifi
 
 ### Physical mail / print invitations (currently: mailAddress field captured, nothing wired)
 - MVP: Couples export addresses manually or take to a print shop.
-- Enterprise upgrade: Lob.com API integration. POST to Lob with guest addresses + design template → Lob prints and mails postcards. ~$0.85/postcard. Bundle as a Covenant Plan paid feature.
+- Enterprise upgrade: Lob.com API integration. POST to Lob with guest addresses + design template → Lob prints and mails postcards. ~$0.85/postcard. Offer as a paid per-order add-on for couples (a-la-carte couple monetization, not a subscription, since couples are otherwise free).
 
 ## When You Are Unsure
 - Follow hexagonal architecture over convenience
