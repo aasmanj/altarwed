@@ -1,8 +1,10 @@
 package com.altarwed.application.service;
 
+import com.altarwed.application.dto.AcquisitionInfo;
 import com.altarwed.application.dto.AuthResponse;
 import com.altarwed.application.dto.LoginRequest;
 import com.altarwed.application.dto.RegisterCoupleRequest;
+import com.altarwed.domain.model.AcquisitionSource;
 import com.altarwed.domain.exception.EmailAlreadyExistsException;
 import com.altarwed.domain.exception.InvalidRefreshTokenException;
 import com.altarwed.domain.model.Couple;
@@ -61,6 +63,8 @@ public class AuthService {
             throw new EmailAlreadyExistsException(request.email());
         }
 
+        AcquisitionSource acquisition = toAcquisitionSource(request.acquisition());
+
         var couple = new Couple(
                 null,
                 request.partnerOneName(),
@@ -69,6 +73,7 @@ public class AuthService {
                 passwordEncoder.encode(request.password()),
                 request.weddingDate(),
                 request.denominationId(),
+                acquisition,
                 true,
                 null,
                 null
@@ -80,7 +85,11 @@ public class AuthService {
         String rawRefresh = jwtService.generateRefreshToken(saved.email(), ROLE_COUPLE, saved.id());
         persistRefreshToken(rawRefresh, saved.id(), ROLE_COUPLE);
 
-        log.info("couple registration succeeded, coupleId={}, email={}", saved.id(), maskedEmail);
+        // Attribution at INFO so the first paid-campaign signups are visible in App
+        // Insights immediately, without waiting for the daily /admin/metrics roll-up.
+        // utm_* values are campaign labels we authored, not PII.
+        log.info("couple registration succeeded, coupleId={}, email={}, utmSource={}, utmCampaign={}",
+                saved.id(), maskedEmail, acquisition.utmSource(), acquisition.utmCampaign());
 
         // Fire-and-forget welcome email on its own thread. A delivery failure must
         // never fail registration, so this runs async and is not part of this tx.
@@ -167,6 +176,16 @@ public class AuthService {
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    // Map the optional wire DTO to the domain value object, normalising blanks to
+    // null and truncating over-long values. A missing acquisition block (the common
+    // case: organic/direct signups) becomes AcquisitionSource.empty(), never null.
+    private AcquisitionSource toAcquisitionSource(AcquisitionInfo info) {
+        if (info == null) return AcquisitionSource.empty();
+        return AcquisitionSource.of(
+                info.utmSource(), info.utmMedium(), info.utmCampaign(),
+                info.utmTerm(), info.utmContent(), info.referrer(), info.landingPath());
+    }
 
     private void persistRefreshToken(String rawToken, java.util.UUID userId, String role) {
         long expiryMs = jwtService.getRefreshTokenExpiryMs();

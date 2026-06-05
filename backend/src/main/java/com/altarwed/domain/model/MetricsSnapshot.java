@@ -20,7 +20,11 @@ public record MetricsSnapshot(
         long totalCeremonySections,
         long totalPlanningTasks,
         long totalWeddingPhotos,
-        List<DailyCount> coupleSignupsLast30Days
+        List<DailyCount> coupleSignupsLast30Days,
+        List<SourceCount> topAcquisitionSources
 ) {
     public record DailyCount(LocalDate date, long count) {}
+
+    /** A single acquisition channel and how many couples it brought in. */
+    public record SourceCount(String source, long count) {}
 }

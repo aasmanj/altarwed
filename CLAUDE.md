@@ -143,7 +143,7 @@ If you find yourself importing springframework.* in domain/, STOP and restructur
 
 ## Domain Entities, Built and Live
 All entities below have Flyway migrations in production (V1–V15):
-- **Couple**, partnerOneName, partnerTwoName, email, weddingDate, denominationId
+- **Couple**, partnerOneName, partnerTwoName, email, weddingDate, denominationId. **Acquisition columns** (V46): utm_source/medium/campaign/term/content, referrer, landing_path, all nullable, captured once at registration (first-touch), modeled as an `AcquisitionSource` value object on the domain `Couple` record; read only by founder /admin/metrics.
 - **Vendor**, businessName, category, city, state, isChristianOwned, denominationIds, isActive, isVerified
 - **Denomination**, 10 seeded (Baptist, Catholic, Presbyterian, etc.)
 - **RefreshToken**, tokenHash, userId, userRole, expiresAt, revoked
@@ -199,7 +199,7 @@ All entities below have Flyway migrations in production (V1–V15):
 - NEVER use spring.jpa.hibernate.ddl-auto=create or update in any environment
 - ALL schema changes go through Flyway migrations in db/migration/
 - Migration naming: V{number}__{description}.sql (e.g. V1__create_couples_table.sql)
-- Next migration number: V43
+- Next migration number: V47
 - UUID primary keys on all tables
 
 ## Security Rules

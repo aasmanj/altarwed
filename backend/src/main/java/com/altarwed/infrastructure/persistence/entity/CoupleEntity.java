@@ -43,6 +43,28 @@ public class CoupleEntity {
     @Column(name = "denomination_id")
     private UUID denominationId;
 
+    // Marketing attribution captured once at registration (V46). All nullable.
+    @Column(name = "utm_source", length = 255)
+    private String utmSource;
+
+    @Column(name = "utm_medium", length = 255)
+    private String utmMedium;
+
+    @Column(name = "utm_campaign", length = 255)
+    private String utmCampaign;
+
+    @Column(name = "utm_term", length = 255)
+    private String utmTerm;
+
+    @Column(name = "utm_content", length = 255)
+    private String utmContent;
+
+    @Column(name = "referrer", length = 255)
+    private String referrer;
+
+    @Column(name = "landing_path", length = 255)
+    private String landingPath;
+
     @Column(name = "is_active", nullable = false)
     private boolean isActive;
 

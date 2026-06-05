@@ -59,7 +59,29 @@ public class MetricsJpaAdapter implements MetricsRepository {
                 guests, attending, declining,
                 vendors, activeVendors, verifiedVendors,
                 blogPosts, budgetItems, ceremonySections, planningTasks, photos,
-                signupsByDay(30));
+                signupsByDay(30),
+                topAcquisitionSources(8));
+    }
+
+    // Couples grouped by their utm_source, busiest channel first. A null/blank
+    // utm_source (organic, direct, or pre-V46 signups) collapses into "direct" so
+    // the founder sees one honest bucket instead of a missing slice. Capped to
+    // `limit` rows; the breakdown is a glance, not an export.
+    private List<MetricsSnapshot.SourceCount> topAcquisitionSources(int limit) {
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = em.createQuery(
+                        "SELECT c.utmSource, COUNT(c) FROM CoupleEntity c "
+                                + "GROUP BY c.utmSource ORDER BY COUNT(c) DESC")
+                .setMaxResults(limit)
+                .getResultList();
+
+        List<MetricsSnapshot.SourceCount> out = new ArrayList<>();
+        for (Object[] row : rows) {
+            String source = (String) row[0];
+            if (source == null || source.isBlank()) source = "direct";
+            out.add(new MetricsSnapshot.SourceCount(source, ((Number) row[1]).longValue()));
+        }
+        return out;
     }
 
     private List<MetricsSnapshot.DailyCount> signupsByDay(int days) {

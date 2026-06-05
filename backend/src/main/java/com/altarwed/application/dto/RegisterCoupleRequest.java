@@ -1,5 +1,6 @@
 package com.altarwed.application.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -27,5 +28,10 @@ public record RegisterCoupleRequest(
 
         LocalDate weddingDate,
 
-        UUID denominationId
+        UUID denominationId,
+
+        // Optional marketing attribution captured by the signup form. @Valid so the
+        // nested @Size limits are enforced; absent in most payloads (null is fine).
+        @Valid
+        AcquisitionInfo acquisition
 ) {}

@@ -1,5 +1,6 @@
 package com.altarwed.infrastructure.persistence;
 
+import com.altarwed.domain.model.AcquisitionSource;
 import com.altarwed.domain.model.Couple;
 import com.altarwed.domain.port.CoupleRepository;
 import com.altarwed.infrastructure.persistence.entity.CoupleEntity;
@@ -61,6 +62,9 @@ public class CoupleRepositoryAdapter implements CoupleRepository {
                 e.getPasswordHash(),
                 e.getWeddingDate(),
                 e.getDenominationId(),
+                new AcquisitionSource(
+                        e.getUtmSource(), e.getUtmMedium(), e.getUtmCampaign(),
+                        e.getUtmTerm(), e.getUtmContent(), e.getReferrer(), e.getLandingPath()),
                 e.isActive(),
                 e.getCreatedAt(),
                 e.getUpdatedAt()
@@ -68,6 +72,10 @@ public class CoupleRepositoryAdapter implements CoupleRepository {
     }
 
     private CoupleEntity toEntity(Couple c) {
+        // acquisition is never null on a domain Couple (AcquisitionSource.empty()
+        // stands in for "no attribution"), but guard anyway so a hand-built Couple
+        // can't NPE the mapper.
+        AcquisitionSource a = c.acquisition() != null ? c.acquisition() : AcquisitionSource.empty();
         return CoupleEntity.builder()
                 .id(c.id())
                 .partnerOneName(c.partnerOneName())
@@ -76,6 +84,13 @@ public class CoupleRepositoryAdapter implements CoupleRepository {
                 .passwordHash(c.passwordHash())
                 .weddingDate(c.weddingDate())
                 .denominationId(c.denominationId())
+                .utmSource(a.utmSource())
+                .utmMedium(a.utmMedium())
+                .utmCampaign(a.utmCampaign())
+                .utmTerm(a.utmTerm())
+                .utmContent(a.utmContent())
+                .referrer(a.referrer())
+                .landingPath(a.landingPath())
                 .isActive(c.isActive())
                 .createdAt(c.createdAt())
                 .updatedAt(c.updatedAt())
