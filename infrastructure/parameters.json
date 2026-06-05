@@ -34,6 +34,38 @@
         },
         "secretName": "resend-api-key"
       }
+    },
+    "revalidationSecret": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
+        },
+        "secretName": "revalidation-secret"
+      }
+    },
+    "googleOauthClientId": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
+        },
+        "secretName": "google-oauth-client-id"
+      }
+    },
+    "googleOauthClientSecret": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
+        },
+        "secretName": "google-oauth-client-secret"
+      }
+    },
+    "lobApiKey": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
+        },
+        "secretName": "lob-api-key"
+      }
     }
   }
 }

@@ -11,6 +11,14 @@ param resendApiKey string
 @secure()
 param storageAccountKey string
 param storageAccountName string
+@secure()
+param revalidationSecret string
+@secure()
+param googleOauthClientId string
+@secure()
+param googleOauthClientSecret string
+@secure()
+param lobApiKey string = ''
 
 resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: name
@@ -64,6 +72,34 @@ resource secretStorage 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: kv
   name: 'AZURE-STORAGE-CONNECTION-STRING'
   properties: { value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};AccountKey=${storageAccountKey};EndpointSuffix=core.windows.net' }
+}
+
+// Next.js ISR revalidation HMAC secret (shared with frontend-public).
+resource secretRevalidation 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: 'REVALIDATION-SECRET'
+  properties: { value: revalidationSecret }
+}
+
+// Google OAuth (Sheets guest sync). Client id is not strictly a secret, but kept
+// in Key Vault so the full OAuth credential set lives in one audited place.
+resource secretGoogleClientId 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: 'GOOGLE-OAUTH-CLIENT-ID'
+  properties: { value: googleOauthClientId }
+}
+
+resource secretGoogleClientSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: 'GOOGLE-OAUTH-CLIENT-SECRET'
+  properties: { value: googleOauthClientSecret }
+}
+
+// Lob print-mail API key. Live feature; empty default keeps non-prod deploys clean.
+resource secretLob 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: 'LOB-API-KEY'
+  properties: { value: lobApiKey }
 }
 
 output name string = kv.name

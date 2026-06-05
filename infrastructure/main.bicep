@@ -22,8 +22,40 @@ param jwtSecret string
 @secure()
 param resendApiKey string
 
+@description('Next.js ISR revalidation HMAC secret')
+@secure()
+param revalidationSecret string
+
+@description('Google OAuth client id (Sheets guest sync)')
+@secure()
+param googleOauthClientId string
+
+@description('Google OAuth client secret (Sheets guest sync)')
+@secure()
+param googleOauthClientSecret string
+
+@description('Lob print-mail API key (optional)')
+@secure()
+param lobApiKey string = ''
+
+@description('Comma-separated admin emails')
+param adminEmails string = 'aasmanj@gmail.com'
+
+@description('Email address that receives monitoring alerts')
+param alertEmail string = 'aasmanj@gmail.com'
+
+@description('Base URL of the authenticated SPA')
+param appBaseUrl string = 'https://app.altarwed.com'
+
+@description('Base URL of the public Next.js site')
+param nextjsBaseUrl string = 'https://www.altarwed.com'
+
 var appName = 'altarwed'
 var prefix = '${appName}-${environment}'
+// Derived from the App Service name pattern below, so observability can reference
+// the API host without creating a dependency cycle on the appService module.
+var apiBaseUrl = 'https://${prefix}-api.azurewebsites.net'
+var googleOauthRedirectUri = '${apiBaseUrl}/api/v1/integrations/google-sheets/callback'
 
 // ── App Service Plan ────────────────────────────────────────────────────────
 module appServicePlan 'modules/app-service-plan.bicep' = {
@@ -59,6 +91,21 @@ module keyVault 'modules/keyvault.bicep' = {
     resendApiKey: resendApiKey
     storageAccountKey: storage.outputs.accountKey
     storageAccountName: storage.outputs.accountName
+    revalidationSecret: revalidationSecret
+    googleOauthClientId: googleOauthClientId
+    googleOauthClientSecret: googleOauthClientSecret
+    lobApiKey: lobApiKey
+  }
+}
+
+// ── Observability (App Insights + Log Analytics + alerts) ────────────────────
+module observability 'modules/observability.bicep' = {
+  name: 'observability'
+  params: {
+    prefix: prefix
+    location: location
+    alertEmail: alertEmail
+    apiBaseUrl: apiBaseUrl
   }
 }
 
@@ -79,6 +126,11 @@ module appService 'modules/app-service.bicep' = {
     location: location
     planId: appServicePlan.outputs.planId
     keyVaultName: keyVault.outputs.name
+    appInsightsConnectionString: observability.outputs.connectionString
+    adminEmails: adminEmails
+    appBaseUrl: appBaseUrl
+    nextjsBaseUrl: nextjsBaseUrl
+    googleOauthRedirectUri: googleOauthRedirectUri
   }
 }
 
@@ -108,6 +160,7 @@ output appServiceUrl string = appService.outputs.url
 output sqlServerFqdn string = sql.outputs.serverFqdn
 output keyVaultUri string = keyVault.outputs.uri
 output storageAccountName string = storage.outputs.accountName
+output appInsightsName string = observability.outputs.appInsightsName
 output frontendAppUrl string = 'https://${frontendApp.outputs.defaultHostname}'
 @description('Add this value as GitHub secret: AZURE_STATIC_WEB_APPS_APP_API_TOKEN')
 output frontendAppDeployToken string = frontendApp.outputs.deployToken

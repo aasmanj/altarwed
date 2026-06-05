@@ -2,6 +2,11 @@ param name string
 param location string
 param planId string
 param keyVaultName string
+param appInsightsConnectionString string
+param adminEmails string
+param appBaseUrl string
+param nextjsBaseUrl string
+param googleOauthRedirectUri string
 
 resource appService 'Microsoft.Web/sites@2023-12-01' = {
   name: name
@@ -53,6 +58,57 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'WEBSITES_PORT'
           value: '8080'
+        }
+        // ── Secrets reconciled into IaC as Key Vault references ──────────────
+        {
+          name: 'RESEND_API_KEY'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=RESEND-API-KEY)'
+        }
+        {
+          name: 'REVALIDATION_SECRET'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=REVALIDATION-SECRET)'
+        }
+        {
+          name: 'GOOGLE_OAUTH_CLIENT_ID'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=GOOGLE-OAUTH-CLIENT-ID)'
+        }
+        {
+          name: 'GOOGLE_OAUTH_CLIENT_SECRET'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=GOOGLE-OAUTH-CLIENT-SECRET)'
+        }
+        {
+          name: 'LOB_API_KEY'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=LOB-API-KEY)'
+        }
+        // ── Non-secret config reconciled into IaC ───────────────────────────
+        {
+          name: 'ADMIN_EMAILS'
+          value: adminEmails
+        }
+        {
+          name: 'APP_BASE_URL'
+          value: appBaseUrl
+        }
+        {
+          name: 'NEXTJS_BASE_URL'
+          value: nextjsBaseUrl
+        }
+        {
+          name: 'GOOGLE_OAUTH_REDIRECT_URI'
+          value: googleOauthRedirectUri
+        }
+        // ── Application Insights (Java 3.x agent auto-instrumentation) ───────
+        {
+          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+          value: appInsightsConnectionString
+        }
+        {
+          name: 'ApplicationInsightsAgent_EXTENSION_VERSION'
+          value: '~3'
+        }
+        {
+          name: 'XDT_MicrosoftApplicationInsights_Mode'
+          value: 'recommended'
         }
       ]
     }
