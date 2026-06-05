@@ -81,6 +81,26 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           name: 'LOB_API_KEY'
           value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=LOB-API-KEY)'
         }
+        {
+          name: 'UNSUBSCRIBE_SECRET'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=UNSUBSCRIBE-SECRET)'
+        }
+        {
+          name: 'POSTAL_ADDRESS'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=POSTAL-ADDRESS)'
+        }
+        {
+          name: 'META_PIXEL_ID'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=META-PIXEL-ID)'
+        }
+        {
+          name: 'META_CAPI_ACCESS_TOKEN'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=META-CAPI-ACCESS-TOKEN)'
+        }
+        {
+          name: 'API_BASE_URL'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=API-BASE-URL)'
+        }
         // ── Non-secret config reconciled into IaC ───────────────────────────
         {
           name: 'ADMIN_EMAILS'
