@@ -4,6 +4,7 @@ param planId string
 param keyVaultName string
 param appInsightsConnectionString string
 param adminEmails string
+param resendFromEmail string
 param appBaseUrl string
 param nextjsBaseUrl string
 param googleOauthRedirectUri string
@@ -84,6 +85,10 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'ADMIN_EMAILS'
           value: adminEmails
+        }
+        {
+          name: 'RESEND_FROM_EMAIL'
+          value: resendFromEmail
         }
         {
           name: 'APP_BASE_URL'

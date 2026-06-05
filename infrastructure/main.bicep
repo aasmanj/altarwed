@@ -41,6 +41,9 @@ param lobApiKey string = ''
 @description('Comma-separated admin emails')
 param adminEmails string = 'aasmanj@gmail.com'
 
+@description('From-address for transactional email (matches live prod)')
+param resendFromEmail string = 'hello@altarwed.com'
+
 @description('Email address that receives monitoring alerts')
 param alertEmail string = 'aasmanj@gmail.com'
 
@@ -129,6 +132,7 @@ module appService 'modules/app-service.bicep' = {
     keyVaultName: keyVault.outputs.name
     appInsightsConnectionString: observability.outputs.connectionString
     adminEmails: adminEmails
+    resendFromEmail: resendFromEmail
     appBaseUrl: appBaseUrl
     nextjsBaseUrl: nextjsBaseUrl
     googleOauthRedirectUri: googleOauthRedirectUri
