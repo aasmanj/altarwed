@@ -106,6 +106,7 @@ module observability 'modules/observability.bicep' = {
     location: location
     alertEmail: alertEmail
     apiBaseUrl: apiBaseUrl
+    sqlDatabaseId: sql.outputs.databaseId
   }
 }
 

@@ -53,3 +53,4 @@ var jdbcUrl = 'jdbc:sqlserver://${sqlServer.properties.fullyQualifiedDomainName}
 
 output serverFqdn string = sqlServer.properties.fullyQualifiedDomainName
 output connectionString string = jdbcUrl
+output databaseId string = database.id

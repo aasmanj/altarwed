@@ -8,6 +8,7 @@ param prefix string            // e.g. altarwed-prod
 param location string
 param alertEmail string        // founder email for the action group
 param apiBaseUrl string        // https host of the API, for the availability ping
+param sqlDatabaseId string     // resource id of the Azure SQL database, for the DTU alert
 
 // ── Log Analytics workspace (the data store App Insights writes to) ──────────
 resource workspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
@@ -130,6 +131,41 @@ resource exceptionAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
           // 'Total' sums the exception counts over the window. 'Count' would count
           // the number of metric samples, not exceptions, and the alert would never fire.
           timeAggregation: 'Total'
+          criterionType: 'StaticThresholdCriterion'
+        }
+      ]
+    }
+    actions: [
+      { actionGroupId: actionGroup.id }
+    ]
+  }
+}
+
+// ── SQL DTU utilization: warn before the database tier saturates ─────────────
+// On S2 (50 DTU) the saturation headroom is thin. Alert when average DTU sits high
+// over 30 minutes (sustained, not a brief spike) so there is time to scale the
+// tier (an online operation) before couples feel it. Tune threshold/window as real
+// load is observed; raise the threshold once on a larger tier.
+resource sqlDtuAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
+  name: '${prefix}-sql-dtu'
+  location: 'global'
+  properties: {
+    description: 'Azure SQL DTU consumption sustained high; consider scaling the tier.'
+    severity: 2
+    enabled: true
+    scopes: [ sqlDatabaseId ]
+    evaluationFrequency: 'PT15M'
+    windowSize: 'PT30M'
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [
+        {
+          name: 'DtuConsumption'
+          metricNamespace: 'Microsoft.Sql/servers/databases'
+          metricName: 'dtu_consumption_percent'
+          operator: 'GreaterThan'
+          threshold: 80
+          timeAggregation: 'Average'
           criterionType: 'StaticThresholdCriterion'
         }
       ]
