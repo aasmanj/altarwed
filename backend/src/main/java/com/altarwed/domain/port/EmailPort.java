@@ -19,6 +19,12 @@ public interface EmailPort {
                                       String noteForCouple,
                                       String dashboardUrl);
 
+    // Internal admin alert, sent to the platform owner when a new vendor registers
+    // so they can review the listing and unverify bad actors.
+    void sendVendorRegistrationAlert(String businessName, String category,
+                                     String city, String state, String vendorEmail,
+                                     String vendorId, String adminListingUrl);
+
     // Vendor inquiry: the couple sends a question/booking inquiry to a vendor.
     // The vendor receives a formatted email with the couple's contact info and
     // can hit reply to respond (reply-to is set to coupleEmail). The couple

@@ -12,6 +12,7 @@ import com.altarwed.infrastructure.observability.LogSanitizer;
 import com.altarwed.infrastructure.security.JwtService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -31,17 +32,23 @@ public class VendorAuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final AsyncEmailService asyncEmailService;
+    private final String publicBaseUrl;
 
     public VendorAuthService(
             VendorRepository vendorRepository,
             RefreshTokenRepository refreshTokenRepository,
             PasswordEncoder passwordEncoder,
-            JwtService jwtService
+            JwtService jwtService,
+            AsyncEmailService asyncEmailService,
+            @Value("${altarwed.nextjs.base-url:https://www.altarwed.com}") String publicBaseUrl
     ) {
         this.vendorRepository = vendorRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.asyncEmailService = asyncEmailService;
+        this.publicBaseUrl = publicBaseUrl;
     }
 
     @Transactional
@@ -82,6 +89,19 @@ public class VendorAuthService {
         persistRefreshToken(rawRefresh, saved.id(), ROLE_VENDOR);
 
         log.info("vendor registration succeeded, vendorId={}, email={}", saved.id(), maskedEmail);
+
+        String listingUrl = publicBaseUrl + "/vendors/" + saved.id();
+        asyncEmailService.sendVendorRegistrationAlert(
+                saved.businessName(),
+                saved.category() != null ? saved.category().name() : "UNKNOWN",
+                saved.city(),
+                saved.state(),
+                saved.email(),
+                saved.id().toString(),
+                listingUrl
+        );
+        log.info("vendor registration alert queued, vendorId={}", saved.id());
+
         return AuthResponse.of(accessToken, rawRefresh, saved.id(), saved.email(), null, null, null, false);
     }
 

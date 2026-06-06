@@ -70,4 +70,12 @@ public class AsyncEmailService {
         emailPort.sendVendorInquiryConfirmation(coupleEmail, coupleName,
                 vendorBusinessName, vendorProfileUrl);
     }
+
+    @Async("emailExecutor")
+    public void sendVendorRegistrationAlert(String businessName, String category,
+                                             String city, String state, String vendorEmail,
+                                             String vendorId, String adminListingUrl) {
+        emailPort.sendVendorRegistrationAlert(businessName, category,
+                city, state, vendorEmail, vendorId, adminListingUrl);
+    }
 }

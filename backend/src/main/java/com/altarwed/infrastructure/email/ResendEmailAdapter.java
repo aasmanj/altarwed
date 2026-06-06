@@ -37,6 +37,7 @@ public class ResendEmailAdapter implements EmailPort {
     private final String apiBaseUrl;
     private final String unsubscribeSecret;
     private final String postalAddress;
+    private final String adminAlertEmail;
     private final EmailSuppressionPort suppressionPort;
 
     public ResendEmailAdapter(
@@ -46,6 +47,7 @@ public class ResendEmailAdapter implements EmailPort {
             @Value("${altarwed.api.base-url}") String apiBaseUrl,
             @Value("${altarwed.unsubscribe.secret}") String unsubscribeSecret,
             @Value("${altarwed.postal-address}") String postalAddress,
+            @Value("${altarwed.admin.alert-email:hello@altarwed.com}") String adminAlertEmail,
             EmailSuppressionPort suppressionPort
     ) {
         this.fromEmail = fromEmail;
@@ -54,6 +56,7 @@ public class ResendEmailAdapter implements EmailPort {
         this.apiBaseUrl = apiBaseUrl;
         this.unsubscribeSecret = unsubscribeSecret;
         this.postalAddress = postalAddress;
+        this.adminAlertEmail = adminAlertEmail;
         this.suppressionPort = suppressionPort;
         this.restClient = RestClient.builder()
                 .baseUrl("https://api.resend.com")
@@ -432,6 +435,66 @@ public class ResendEmailAdapter implements EmailPort {
         );
 
         postEmail("vendor-inquiry-confirmation", coupleEmail, body);
+    }
+
+    @Override
+    public void sendVendorRegistrationAlert(String businessName, String category,
+                                             String city, String state, String vendorEmail,
+                                             String vendorId, String adminListingUrl) {
+        String html = """
+                <div style="font-family:Georgia,serif;max-width:520px;margin:0 auto;background:#fdfaf6;padding:32px;border-radius:8px;border:1px solid #e8dcc8;">
+                  <p style="text-align:center;color:#a08060;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">AltarWed Admin</p>
+                  <h2 style="text-align:center;color:#3b2f2f;font-size:22px;margin:0 0 24px;">New vendor registered</h2>
+                  <table style="width:100%%;border-collapse:collapse;font-size:14px;margin-bottom:24px;">
+                    <tr><td style="color:#6b5344;padding:5px 0;width:120px;">Business</td><td style="color:#3b2f2f;font-weight:600;">%s</td></tr>
+                    <tr><td style="color:#6b5344;padding:5px 0;">Category</td><td style="color:#3b2f2f;">%s</td></tr>
+                    <tr><td style="color:#6b5344;padding:5px 0;">Location</td><td style="color:#3b2f2f;">%s, %s</td></tr>
+                    <tr><td style="color:#6b5344;padding:5px 0;">Email</td><td style="color:#3b2f2f;">%s</td></tr>
+                    <tr><td style="color:#6b5344;padding:5px 0;">Vendor ID</td><td style="color:#a08060;font-size:11px;">%s</td></tr>
+                  </table>
+                  <p style="color:#6b5344;font-size:13px;margin-bottom:20px;">
+                    This vendor is <strong>auto-verified</strong> and visible in the directory. If the listing looks like spam or a non-faith-based business, you can unverify it:
+                  </p>
+                  <div style="text-align:center;">
+                    <a href="%s"
+                       style="display:inline-block;padding:10px 24px;background:#3b2f2f;color:#d4af6a;text-decoration:none;border-radius:4px;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">
+                      View listing
+                    </a>
+                  </div>
+                </div>
+                """.formatted(
+                escapeHtml(businessName), escapeHtml(category),
+                escapeHtml(city), escapeHtml(state),
+                escapeHtml(vendorEmail), escapeHtml(vendorId),
+                adminListingUrl
+        );
+
+        String text = """
+                New vendor registered on AltarWed
+
+                Business: %s
+                Category: %s
+                Location: %s, %s
+                Email: %s
+                Vendor ID: %s
+
+                This vendor is auto-verified. To unverify:
+                PATCH %s (requires admin auth)
+
+                Public listing: %s
+                """.formatted(businessName, category, city, state, vendorEmail, vendorId,
+                apiBaseUrl + "/api/v1/admin/vendors/" + vendorId + "/unverify",
+                adminListingUrl);
+
+        Map<String, Object> body = Map.of(
+                "from", "AltarWed <" + fromEmail + ">",
+                "to", List.of(adminAlertEmail),
+                "subject", "New vendor: " + businessName + " (" + category + ", " + city + ")",
+                "html", html,
+                "text", text
+        );
+
+        postEmail("vendor-registration-alert", adminAlertEmail, body);
     }
 
     // Minimal HTML escape for fields we interpolate into email markup. We do

@@ -74,6 +74,7 @@ altarwed:
 
   admin:
     emails: ${ADMIN_EMAILS:aasmanj@gmail.com}
+    alert-email: ${ADMIN_ALERT_EMAIL:hello@altarwed.com}
 
   nextjs:
     base-url: ${NEXTJS_BASE_URL:https://www.altarwed.com}
