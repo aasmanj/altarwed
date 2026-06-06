@@ -144,7 +144,7 @@ If you find yourself importing springframework.* in domain/, STOP and restructur
 ## Domain Entities, Built and Live
 All entities below have Flyway migrations in production (V1–V15):
 - **Couple**, partnerOneName, partnerTwoName, email, weddingDate, denominationId. **Acquisition columns** (V46): utm_source/medium/campaign/term/content, referrer, landing_path, all nullable, captured once at registration (first-touch), modeled as an `AcquisitionSource` value object on the domain `Couple` record; read only by founder /admin/metrics.
-- **Vendor**, businessName, category, city, state, isChristianOwned, denominationIds, isActive, isVerified
+- **Vendor**, businessName, category, city, state, isChristianOwned, denominationIds, isActive, isVerified. **Profile-enrichment fields** (V49): bio (1000), description (2000), websiteUrl (500), phone (30), all nullable. **Logo** (V51): logoUrl (500), nullable, stored in Azure Blob under `vendor-logos/{vendorId}/`. **Auth:** Vendors auto-verify on registration (isVerified=true); admin can unverify via `PATCH /api/v1/admin/vendors/{id}/unverify`. **Password reset** shares the same PasswordResetToken flow as couples (email-keyed, 15-min expiry). Admin notification email fires to `hello@altarwed.com` on every registration (property: `altarwed.admin.alert-email`)
 - **Denomination**, 10 seeded (Baptist, Catholic, Presbyterian, etc.)
 - **RefreshToken**, tokenHash, userId, userRole, expiresAt, revoked
 - **VendorSubscription**, vendorId, planTier, status, stripeCustomerId (Stripe not yet wired)
@@ -163,6 +163,9 @@ All entities below have Flyway migrations in production (V1–V15):
 - **WeddingHotel** (V30), normalized hotel block table (name, address, booking_url, block_rate, distance_from_venue, sort_order). Multiple rows per website. Replaces scalar hotel fields on WeddingWebsite for new UI; old fields retained.
 - **GoogleSheetSync** (V31), one row per couple; sheet_url, last_synced, last_error, row_count, is_active. Scheduled job polls every 15 min and upserts guests.
 - **Guest party fields** (V29), guests gain party_id (UUID grouping), party_name (display label), party_contact (bool, which guest in the party gets the invite email).
+- **Vendor profile enrichment** (V49), bio (1000), description (2000), website_url (500), phone (30), all nullable, added to vendors table.
+- **Inquiry** (V50), vendorId FK, couple_name, couple_email, wedding_date (nullable), message, is_read (default 0), created_at. Persisted when a couple submits the inquiry form on a vendor's public page. Vendor inbox: `GET /api/v1/vendors/me/inquiries`; mark-read: `PATCH /api/v1/vendors/me/inquiries/{id}/read` (ownership via `EXISTS` query, not full load). Public submit still at `POST /api/v1/inquiries`.
+- **Vendor logo** (V51), logo_url NVARCHAR(500) nullable on vendors table. Uploaded via `POST /api/v1/vendors/me/logo` (multipart, 15 MB limit), stored in Azure Blob under `vendor-logos/{vendorId}/`. Shown on public vendor cards and detail page; falls back to letter avatar.
 
 ## User Roles
 - COUPLE → can manage their wedding, guests, ceremony, vendor messaging
@@ -199,7 +202,7 @@ All entities below have Flyway migrations in production (V1–V15):
 - NEVER use spring.jpa.hibernate.ddl-auto=create or update in any environment
 - ALL schema changes go through Flyway migrations in db/migration/
 - Migration naming: V{number}__{description}.sql (e.g. V1__create_couples_table.sql)
-- Next migration number: V47
+- Next migration number: V52
 - UUID primary keys on all tables
 
 ## Security Rules
@@ -207,11 +210,17 @@ All entities below have Flyway migrations in production (V1–V15):
 - JWT signed with HS256
 - JWT principal is email string; userId is a custom claim extracted via JwtService.extractUserId()
 - Public endpoints (whitelist): POST /api/v1/auth/**, POST /api/v1/couples/register,
-  GET /api/v1/vendors/**, GET /api/v1/denominations/**,
+  POST /api/v1/vendors/register, GET /api/v1/vendors/**,
+  GET /api/v1/denominations/**,
   GET /api/v1/wedding-websites/slug/**, GET /api/v1/wedding-websites/published,
   GET /api/v1/wedding-websites/search,
   GET /api/v1/guests/rsvp/**, POST /api/v1/guests/rsvp,
   GET /api/v1/wedding-party/website/**,
+  GET /api/v1/wedding-photos/website/slug/**,
+  GET /api/v1/wedding-page-blocks/slug/**,
+  GET /api/v1/wedding-websites/*/hotels,
+  GET /api/v1/blog/**,
+  POST /api/v1/inquiries,
   GET /api/v1/scripture/**
 - All other endpoints require authentication
 - CSRF disabled (stateless REST API)
@@ -472,7 +481,7 @@ plaintiff's scanner would actually hit.
 - **Revenue is vendor-side only.** Vendors pay monthly subscriptions (placeholder tiers BASIC $29, FEATURED $79, PREMIUM $149, under review, see the vendor pricing analysis in memory)
 - **Couples are free** for the foreseeable future. No couple paid tier and no church-partnership tier; both were dropped from the revenue model. A couple paid tier is revisited only when there are couple features genuinely worth charging for
 - Stripe is the payment processor, VendorSubscription entity tracks this
-- **Payments are Phase 8, do NOT add Stripe until couple demand is established** (couple liquidity is the upstream gate on vendor revenue)
+- **Payments are Phase 8, the next engineering priority.** Jordan explicitly moved this up: wire Stripe before onboarding lots of vendors so payments are ready when volume arrives. VendorSubscription entity already exists and tracks planTier, status, stripeCustomerId.
 - Affiliate links: Amazon and Target (registry product links), "The Meaning of Marriage" by Timothy Keller, "The Five Love Languages" by Gary Chapman, add to a /resources page (Phase 6c)
 
 ## Build Phases, Current Status
@@ -481,17 +490,32 @@ Schema state is captured in the Domain Entities list above. Anything that shippe
 is recoverable from `git log` + the live DB. Only load-bearing facts and active
 work are listed here.
 
-### Shipped (Phases 1 through 7b), couples can fully self-serve
+### Shipped (Phases 1 through 7c), couples and vendors can fully self-serve
 
-Live in prod: auth (JWT + refresh), couple signup + onboarding wizard, wedding
+**Couple side:** auth (JWT + refresh), couple signup + onboarding wizard, wedding
 website (altarwed.com/wedding/[slug]) with side-by-side block editor (14 block
 types incl. STORY_ENTRY/IMAGE/HERO), guest list + RSVP flow (custom fields,
-remind-me, party grouping, invite cap), seating chart (drag-drop), budget,
-checklist, wedding party, photo album, vow builder, ceremony builder, scripture
-browser, Google Sheets guest sync (15-min poll), multiple hotel blocks (V30),
-save-the-date emails (async, Resend), vendor portal + public directory, blog
-(4 posts seeded, Article JSON-LD), legal pages, resources/affiliate page,
-sitemap.xml, RSVP reminders (hourly poll).
+remind-me, party grouping, invite cap, "find your invitation" by name on public
+RSVP tab), seating chart (drag-drop), budget tracker, planning checklist, wedding
+party, photo album, vow builder, ceremony builder, scripture browser, Google Sheets
+guest sync (15-min poll), multiple hotel blocks (V30), save-the-date emails (async,
+Resend), RSVP reminders (hourly poll), couple password reset.
+
+**Vendor side:** vendor signup/auth/login (separate from couple accounts; shared
+email is detected and rejected), vendor profile management (bio, description, phone,
+website URL, price tier, logo upload to Azure Blob at `vendor-logos/{vendorId}/`),
+public vendor directory with filters (city, category, Christian-owned), vendor
+public listing page, inquiry form (couple sends → vendor gets email + DB record +
+confirmation back to couple, reply-to set to couple email), vendor inquiry inbox in
+dashboard (unread count badge, mark-read, O(1) ownership check), vendor password
+reset (shared reset flow, tries couple table then vendor table), auto-verify on
+registration (cold-start tradeoff; admin can unverify bad actors via
+`PATCH /api/v1/admin/vendors/{id}/unverify`), admin email alert to
+`hello@altarwed.com` on every new vendor signup.
+
+**Platform:** blog (7 posts seeded, Article JSON-LD), legal pages, resources/
+affiliate page, sitemap.xml, admin/metrics founder dashboard, PostHog event
+tracking, first-touch UTM attribution on couple signups.
 
 ### Active conventions established by earlier phases (still load-bearing)
 
@@ -517,13 +541,13 @@ sitemap.xml, RSVP reminders (hourly poll).
 
 ### Next up
 
-- **Phase 2 (editor polish), RSVP "find your invitation"**, public endpoint
-  `GET /api/v1/guests/rsvp/find?slug={slug}&name={name}` returning masked guest
-  name + token. No auth, Bucket4j rate-limited. UI on the public RSVP tab.
-- **Phase 8, Stripe billing**, VendorSubscription wired to Stripe (vendor tiers
-  only, placeholder BASIC $29 / FEATURED $79 / PREMIUM $149, under review). Webhook
-  handler, portal UI. Couples are free, no couple billing. Gated until couple demand
-  is established (see Monetization Context + the vendor pricing analysis in memory).
+- **Phase 8, Stripe billing** (current engineering priority). Wire VendorSubscription
+  to Stripe: checkout session creation, subscription webhooks (invoice.paid,
+  customer.subscription.updated, customer.subscription.deleted), VendorSubscription
+  status updates in DB, Stripe Customer Portal link for self-serve billing. Vendor
+  tiers only (BASIC $29 / FEATURED $79 / PREMIUM $149, under review). Couples are
+  free. Jordan moved this before full vendor onboarding: wire payments first so no
+  gap when volume arrives. See vendor pricing analysis in memory.
 
 ### Known minor issues
 
