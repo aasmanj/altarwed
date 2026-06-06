@@ -1,2 +1,9 @@
 bin/
 *.zip
+
+# Local bootRun / boot-test verification logs. Build artifacts, never commit.
+*.log
+
+# Generated at build time by CI (Stamp git.properties step). Never commit;
+# a stale local copy would mislead the post-deploy smoke test's SHA gate.
+src/main/resources/git.properties

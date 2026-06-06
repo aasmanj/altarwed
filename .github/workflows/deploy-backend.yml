@@ -63,6 +63,24 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x backend/gradlew
 
+      # Stamp the exact commit SHA into the jar. Spring Boot's
+      # ProjectInfoAutoConfiguration auto-loads classpath:git.properties into a
+      # GitProperties bean and exposes it at /actuator/info. The post-deploy smoke
+      # test polls that endpoint to confirm the NEW container is running before it
+      # probes, because Azure reports deploy-success on jar UPLOAD, not on the
+      # container swap that follows minutes later.
+      - name: Stamp git.properties with deploy commit
+        working-directory: backend
+        run: |
+          printf 'git.commit.id=%s\ngit.commit.id.abbrev=%s\ngit.branch=%s\ngit.build.time=%s\n' \
+            "${{ github.sha }}" \
+            "${GITHUB_SHA:0:7}" \
+            "${{ github.ref_name }}" \
+            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            > src/main/resources/git.properties
+          echo "Wrote git.properties:"
+          cat src/main/resources/git.properties
+
       - name: Build JAR
         working-directory: backend
         run: ./gradlew build -x test
@@ -128,42 +146,53 @@ jobs:
           package: jar/
 
   # ── Job 3 ─────────────────────────────────────────────────────────────────
-  # Step 1: Poll /actuator/health until UP (HTTP 200). Catches startup
-  # failures the schema test cannot see: a missing Key Vault secret, a bad
-  # env var, OOM.
+  # Step 1: SHA gate. Azure's webapps-deploy reports success when the jar
+  # finishes UPLOADING, not when the new container is running, and the old
+  # container keeps serving (and passing /actuator/health) for minutes after.
+  # Polling health alone tested OLD code and produced false failures. So instead
+  # poll /actuator/info until it reports the exact commit SHA we just deployed,
+  # which only the NEW container returns. This also covers liveness: curl fails
+  # until the app is reachable.
   #
-  # Step 2: Probe one endpoint per controller family without a token and
-  # assert HTTP 401, NOT 404, NOT 500. 401 proves the controller is
-  # registered and Security is running; 404 means the JAR name mismatch
-  # returned (old app.jar still in use); 500 means the controller mapped
-  # but a bean wiring blew up at request time.
-  #
-  # Fails the workflow (and notifies via GitHub) if the app isn't healthy
-  # within 6 minutes of deployment completing.
+  # Step 2: Probe one endpoint per controller family. Secured endpoints (no
+  # token) must return 401/403 (mapped + secured); public endpoints must return
+  # 200. 404 means the wrong app.jar is running; 5xx means a bean wiring failure.
+  # Because step 1 guarantees the new code is live, these probes never race the
+  # deploy swap.
   # ──────────────────────────────────────────────────────────────────────────
   smoke-test:
     needs: deploy
     runs-on: ubuntu-latest
     name: Smoke test, verify Azure is healthy after deploy
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
-      - name: Wait for app to become healthy
+      - name: Wait for the deployed commit to go live
         run: |
-          URL="https://altarwed-prod-api.azurewebsites.net/actuator/health"
-          echo "Polling $URL ..."
-          for i in $(seq 1 24); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
-            echo "Attempt $i/24: HTTP $STATUS"
-            if [ "$STATUS" = "200" ]; then
-              echo "App is healthy, deployment succeeded."
-              exit 0
+          EXPECTED="${{ github.sha }}"
+          # Match the 7-char short SHA: it appears in both 'simple' mode
+          # (commit.id is abbreviated) and 'full' mode (commit.id.abbrev, and as a
+          # prefix of commit.id.full), so the gate is robust to the info mode.
+          SHORT="${EXPECTED:0:7}"
+          INFO_URL="https://altarwed-prod-api.azurewebsites.net/actuator/info"
+          echo "Waiting for commit $SHORT to go live at $INFO_URL ..."
+          LIVE=0
+          for i in $(seq 1 40); do
+            BODY=$(curl -s --max-time 10 "$INFO_URL" || true)
+            if echo "$BODY" | grep -q "$SHORT"; then
+              echo "New code is live: commit $SHORT confirmed after ~$((i*15))s."
+              LIVE=1
+              break
             fi
+            echo "Attempt $i/40: new commit not serving yet (got: $BODY), waiting 15s..."
             sleep 15
           done
-          echo "ERROR: app did not return HTTP 200 within 6 minutes."
-          echo "Check Azure App Service logs for startup errors."
-          exit 1
+          if [ "$LIVE" != "1" ]; then
+            echo "ERROR: commit $SHORT did not go live within 10 minutes."
+            echo "The jar uploaded but Azure never started the new container, or"
+            echo "/actuator/info stopped exposing git info. Check App Service logs."
+            exit 1
+          fi
 
       - name: Verify controller registration (expect 4xx, not 404/500)
         # Calls each secured endpoint without a token and asserts the response

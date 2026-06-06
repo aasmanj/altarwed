@@ -125,6 +125,12 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+  # Expose the full commit SHA at /actuator/info so the post-deploy smoke test
+  # can confirm the NEW container is live before probing (CI stamps git.properties
+  # into the jar). 'full' dumps every key so the exact deployed SHA is greppable.
+  info:
+    git:
+      mode: full
 
 ---
 # Local development profile, override with: -Dspring.profiles.active=local

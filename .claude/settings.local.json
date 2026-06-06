@@ -9,7 +9,8 @@
       "Glob(*)",
       "Grep(*)",
       "WebSearch",
-      "WebFetch(*)"
+      "WebFetch(*)",
+      "Skill(code-review)"
     ]
   },
   "hooks": {
