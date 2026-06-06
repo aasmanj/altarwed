@@ -132,9 +132,11 @@ management:
   endpoint:
     health:
       show-details: when-authorized
-  # Expose the full commit SHA at /actuator/info so the post-deploy smoke test
-  # can confirm the NEW container is live before probing (CI stamps git.properties
-  # into the jar). 'full' dumps every key so the exact deployed SHA is greppable.
+  # The deployed commit is exposed at /actuator/info under the `deploy` key by
+  # DeployInfoContributor (reads the CI-stamped git.properties directly), which is
+  # what the post-deploy smoke test gates on. Spring's built-in git contributor
+  # renders empty under SB4, so we do not rely on it; this mode setting is left as
+  # a harmless best-effort in case it starts populating.
   info:
     git:
       mode: full

@@ -170,9 +170,10 @@ jobs:
       - name: Wait for the deployed commit to go live
         run: |
           EXPECTED="${{ github.sha }}"
-          # Match the 7-char short SHA: it appears in both 'simple' mode
-          # (commit.id is abbreviated) and 'full' mode (commit.id.abbrev, and as a
-          # prefix of commit.id.full), so the gate is robust to the info mode.
+          # DeployInfoContributor exposes the full commit at /actuator/info under
+          # deploy.commit (it reads the CI-stamped git.properties directly; Spring's
+          # built-in git contributor renders empty under SB4). The 7-char short SHA
+          # is a prefix of that full id, so a substring match is robust.
           SHORT="${EXPECTED:0:7}"
           INFO_URL="https://altarwed-prod-api.azurewebsites.net/actuator/info"
           echo "Waiting for commit $SHORT to go live at $INFO_URL ..."
@@ -190,7 +191,7 @@ jobs:
           if [ "$LIVE" != "1" ]; then
             echo "ERROR: commit $SHORT did not go live within 10 minutes."
             echo "The jar uploaded but Azure never started the new container, or"
-            echo "/actuator/info stopped exposing git info. Check App Service logs."
+            echo "/actuator/info stopped exposing deploy.commit. Check App Service logs."
             exit 1
           fi
 
