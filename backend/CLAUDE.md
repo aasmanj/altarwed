@@ -6,7 +6,7 @@
 - Test: `./gradlew test`
 - Build: `./gradlew build`
 - New migration: create `V{N+1}__{description}.sql` in `src/main/resources/db/migration/`
-- Next migration number: **V52**
+- Next migration number: **V53**
 
 ## Key Files
 - `build.gradle.kts` → all dependencies

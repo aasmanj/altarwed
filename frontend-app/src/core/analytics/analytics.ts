@@ -13,7 +13,7 @@ import posthog from 'posthog-js'
 //     and addresses; recording it is a PII liability until masking + consent
 //     ship in Session 3. Do not flip this on without configuring input masking.
 const KEY = import.meta.env.VITE_POSTHOG_KEY as string | undefined
-const HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) ?? 'https://us.i.posthog.com'
+const HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) || 'https://us.i.posthog.com'
 
 let enabled = false
 

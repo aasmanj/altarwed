@@ -166,6 +166,7 @@ All entities below have Flyway migrations in production (V1–V15):
 - **Vendor profile enrichment** (V49), bio (1000), description (2000), website_url (500), phone (30), all nullable, added to vendors table.
 - **Inquiry** (V50), vendorId FK, couple_name, couple_email, wedding_date (nullable), message, is_read (default 0), created_at. Persisted when a couple submits the inquiry form on a vendor's public page. Vendor inbox: `GET /api/v1/vendors/me/inquiries`; mark-read: `PATCH /api/v1/vendors/me/inquiries/{id}/read` (ownership via `EXISTS` query, not full load). Public submit still at `POST /api/v1/inquiries`.
 - **Vendor logo** (V51), logo_url NVARCHAR(500) nullable on vendors table. Uploaded via `POST /api/v1/vendors/me/logo` (multipart, 15 MB limit), stored in Azure Blob under `vendor-logos/{vendorId}/`. Shown on public vendor cards and detail page; falls back to letter avatar.
+- **Vendor verification backfill** (V52), one-time UPDATE: sets `is_verified = 1` for all active vendors created before auto-verify was added to the registration flow. No schema change.
 
 ## User Roles
 - COUPLE → can manage their wedding, guests, ceremony, vendor messaging
@@ -202,7 +203,7 @@ All entities below have Flyway migrations in production (V1–V15):
 - NEVER use spring.jpa.hibernate.ddl-auto=create or update in any environment
 - ALL schema changes go through Flyway migrations in db/migration/
 - Migration naming: V{number}__{description}.sql (e.g. V1__create_couples_table.sql)
-- Next migration number: V52
+- Next migration number: V53
 - UUID primary keys on all tables
 
 ## Security Rules
@@ -388,11 +389,12 @@ The reviewer flags:
   `app-service.bicep` (or an explicit comment explaining why it is local-only)
 
 ## Azure Configuration
-- App Service: backend Spring Boot JAR (B2 tier)
-- Static Web Apps: frontend-public (Next.js) and frontend-app (React)
+- App Service: backend Spring Boot JAR (B2 tier) — `altarwed-prod-api` in `altarwed-rg`
+- Static Web App (frontend-public, Next.js): `altarwed-landing` in `altarwed-landing_group` — **NOT in main.bicep**, managed separately. Runtime Application Settings: `REVALIDATION_SECRET`, `RESEND_API_KEY`, `RESEND_AUDIENCE_ID`, `NEXT_PUBLIC_FB_PIXEL_ID` (all set). Deployed by `deploy-landing.yml` using `AZURE_STATIC_WEB_APPS_API_TOKEN` GitHub secret.
+- Static Web App (frontend-app, React/Vite): `altarwed-prod-app` in `altarwed-rg` — in main.bicep. Deployed by `deploy-app.yml` using `AZURE_STATIC_WEB_APPS_APP_API_TOKEN` GitHub secret.
 - Azure SQL: primary database
 - Azure Blob Storage: media files, connection string via AZURE_STORAGE_CONNECTION_STRING, container: altarwed-media. Set container public access to "Blob" for image URLs to be publicly readable.
-- Azure Key Vault: all secrets (never hardcode secrets)
+- Azure Key Vault: all secrets (never hardcode secrets) — `altarwed-prod-kv` in `altarwed-rg`. All 16 secrets confirmed present.
 - Azure CDN: static assets and media delivery
 - Azure Application Insights: observability
 
