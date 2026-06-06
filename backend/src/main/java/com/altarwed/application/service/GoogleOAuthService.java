@@ -3,6 +3,7 @@ package com.altarwed.application.service;
 import com.altarwed.application.dto.GoogleAuthUrlResponse;
 import com.altarwed.application.dto.GoogleOAuthStatusResponse;
 import com.altarwed.domain.model.Couple;
+import com.altarwed.domain.exception.GoogleAuthRevokedException;
 import com.altarwed.domain.model.GoogleOAuthToken;
 import com.altarwed.domain.port.CoupleRepository;
 import com.altarwed.domain.port.GoogleOAuthTokenRepository;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -342,13 +344,28 @@ public class GoogleOAuthService {
         form.add("client_secret", clientSecret);
         form.add("grant_type", "refresh_token");
 
-        @SuppressWarnings("unchecked")
-        Map<String, Object> resp = restClient.post()
-                .uri(GOOGLE_TOKEN_URL)
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body(form)
-                .retrieve()
-                .body(Map.class);
+        Map<String, Object> resp;
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> body = restClient.post()
+                    .uri(GOOGLE_TOKEN_URL)
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(form)
+                    .retrieve()
+                    .body(Map.class);
+            resp = body;
+        } catch (HttpClientErrorException ex) {
+            // invalid_grant = the refresh token is revoked or expired (Google
+            // "Testing" tokens die after 7 days). Unrecoverable here: re-throw as
+            // a typed domain signal so the caller can deactivate the sync and
+            // prompt the couple to reconnect, instead of retrying every poll.
+            if (ex.getResponseBodyAsString().contains("invalid_grant")) {
+                log.warn("google oauth refresh rejected, token revoked or expired, coupleId={}", coupleId);
+                throw new GoogleAuthRevokedException(coupleId);
+            }
+            log.warn("google oauth refresh failed, coupleId={}, status={}", coupleId, ex.getStatusCode().value());
+            throw ex;
+        }
 
         String newAccessToken = (String) resp.get("access_token");
         Integer expiresIn     = (Integer) resp.get("expires_in");

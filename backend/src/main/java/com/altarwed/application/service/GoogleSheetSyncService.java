@@ -2,6 +2,7 @@ package com.altarwed.application.service;
 
 import com.altarwed.application.dto.GoogleSheetSyncResponse;
 import com.altarwed.application.dto.SetGoogleSheetSyncRequest;
+import com.altarwed.domain.exception.GoogleAuthRevokedException;
 import com.altarwed.domain.model.GoogleSheetSync;
 import com.altarwed.domain.model.Guest;
 import com.altarwed.domain.port.GoogleSheetSyncRepository;
@@ -160,8 +161,17 @@ public class GoogleSheetSyncService {
         int failed = 0;
         for (GoogleSheetSync sync : active) {
             try {
-                runSync(sync);
-                succeeded++;
+                // runSync handles its own errors and records them on the persisted
+                // row (lastError != null), so a non-null lastError is the source of
+                // truth for "this run failed", not whether runSync threw. The
+                // try/catch below only guards against an unexpected throw (e.g. the
+                // error-path save() itself failing).
+                SyncResult result = runSync(sync);
+                if (result.updatedSync().lastError() != null) {
+                    failed++;
+                } else {
+                    succeeded++;
+                }
             } catch (Exception ex) {
                 failed++;
                 log.warn("google sheet sync failed for couple, coupleId={}", sync.coupleId(), ex);
@@ -207,6 +217,21 @@ public class GoogleSheetSyncService {
             log.info("google sheet sync succeeded, coupleId={}, added={}, updated={}, seen={}",
                      sync.coupleId(), counts.added(), counts.updated(), counts.seen());
             return new SyncResult(saved, counts.added(), counts.updated());
+        } catch (GoogleAuthRevokedException e) {
+            // Terminal: the refresh token is dead and will never recover on its
+            // own. Deactivate so the 15-min poller stops hammering Google and
+            // stops spamming the logs; surface an actionable reconnect message.
+            // setSync() and a manual "Sync now" both write isActive=true again,
+            // so this is recoverable the moment the couple reconnects.
+            log.warn("google sheet sync deactivated, google access revoked, coupleId={}", sync.coupleId());
+            GoogleSheetSync deactivated = new GoogleSheetSync(
+                    sync.id(), sync.coupleId(), sync.sheetUrl(),
+                    sync.lastSynced(),
+                    "Google connection expired. Reconnect your Google account in the Sheets Sync panel to resume syncing.",
+                    sync.rowCount(),
+                    false, sync.createdAt(), null
+            );
+            return new SyncResult(syncRepository.save(deactivated), null, null);
         } catch (Exception e) {
             String errorMsg = e.getMessage() != null
                     ? e.getMessage().substring(0, Math.min(e.getMessage().length(), 990))
