@@ -348,6 +348,45 @@ Current output is a console pattern with `%X{requestId}` interpolated. App Insig
 - A scheduled job that does not log start + finish + outcome counts.
 - A WARN logged for something that is actually working as designed (warning fatigue erodes signal).
 
+## Environment Variable Rules (enforced by code-reviewer)
+
+A missing env var with no default in `application.yml` causes a hard startup crash before
+the JVM finishes initializing — no logs, no health endpoint, instant 503. This happened in
+prod on 2026-06-05 with `UNSUBSCRIBE_SECRET` and `POSTAL_ADDRESS`. The rule is:
+
+### 1. Every `@Value` must have a safe default unless the missing value is truly fatal
+```yaml
+# WRONG — app crashes at startup if the var is absent:
+altarwed:
+  some:
+    secret: ${SOME_SECRET}
+
+# RIGHT — app degrades gracefully; feature fails at runtime, not at startup:
+altarwed:
+  some:
+    secret: ${SOME_SECRET:}
+```
+
+**When no default is correct:** DB URL, DB credentials, JWT secret. If those are missing
+the app cannot function at all, so failing fast is right.
+
+**When a default is required:** anything whose absence only breaks one feature (email
+footer text, analytics pixel IDs, integration API keys, webhook secrets). Use an empty
+string `${X:}` or a safe placeholder. Log a WARN at startup if a critical-but-not-fatal
+var is empty.
+
+### 2. Every new env var must be in `app-service.bicep` on the same PR
+If the Java code references a new env var (`@Value`, `System.getenv`, `application.yml`),
+`infrastructure/modules/app-service.bicep` must add the corresponding `appSettings` entry
+in the same PR. A code change that adds an env var without updating the Bicep will silently
+work locally and crash in prod on the next deployment.
+
+The reviewer flags:
+- Any new `@Value("${X}")` without a default where `X` is not already in `app-service.bicep`
+- Any new entry in `application.yml` that references `${X}` (no default) where `X` is new
+- Any new application property added to `application.yml` without a matching entry in
+  `app-service.bicep` (or an explicit comment explaining why it is local-only)
+
 ## Azure Configuration
 - App Service: backend Spring Boot JAR (B2 tier)
 - Static Web Apps: frontend-public (Next.js) and frontend-app (React)
