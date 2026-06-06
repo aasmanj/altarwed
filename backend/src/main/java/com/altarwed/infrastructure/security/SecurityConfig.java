@@ -57,8 +57,12 @@ public class SecurityConfig {
                                 "/api/v1/couples/register",
                                 "/api/v1/vendors/register"
                         ).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/vendors/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/denominations/**").permitAll()
+                        // Spring Security 7 path matching: "/**" does not match the bare base
+                        // path (e.g. "/vendors/**" does not match "/vendors"). Any public endpoint
+                        // that can be called without a path variable needs both the exact path and
+                        // the wildcard listed explicitly.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/vendors", "/api/v1/vendors/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/denominations", "/api/v1/denominations/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/wedding-websites/slug/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/wedding-websites/published").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/guests/rsvp/**").permitAll()
