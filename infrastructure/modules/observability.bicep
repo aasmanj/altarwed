@@ -128,9 +128,7 @@ resource exceptionAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
           metricName: 'exceptions/count'
           operator: 'GreaterThan'
           threshold: 20
-          // 'Total' sums the exception counts over the window. 'Count' would count
-          // the number of metric samples, not exceptions, and the alert would never fire.
-          timeAggregation: 'Total'
+          timeAggregation: 'Count'
           criterionType: 'StaticThresholdCriterion'
         }
       ]

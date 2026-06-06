@@ -33,7 +33,7 @@ resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
     enableSoftDelete: true
     softDeleteRetentionInDays: 90
     enabledForDeployment: false
-    enabledForTemplateDeployment: false
+    enabledForTemplateDeployment: true  // required so ARM can resolve KV parameter references
     enabledForDiskEncryption: false
   }
 }

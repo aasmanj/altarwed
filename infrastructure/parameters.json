@@ -6,7 +6,7 @@
       "value": "prod"
     },
     "location": {
-      "value": "eastus2"
+      "value": "centralus"
     },
     "sqlAdminUsername": {
       "value": "altarwed-admin"
@@ -14,57 +14,57 @@
     "sqlAdminPassword": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
+          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/altarwed-prod-kv"
         },
-        "secretName": "sql-admin-password"
+        "secretName": "AZURE-SQL-PASSWORD"
       }
     },
     "jwtSecret": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
+          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/altarwed-prod-kv"
         },
-        "secretName": "jwt-secret"
+        "secretName": "JWT-SECRET"
       }
     },
     "resendApiKey": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
+          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/altarwed-prod-kv"
         },
-        "secretName": "resend-api-key"
+        "secretName": "RESEND-API-KEY"
       }
     },
     "revalidationSecret": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
+          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/altarwed-prod-kv"
         },
-        "secretName": "revalidation-secret"
+        "secretName": "REVALIDATION-SECRET"
       }
     },
     "googleOauthClientId": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
+          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/altarwed-prod-kv"
         },
-        "secretName": "google-oauth-client-id"
+        "secretName": "GOOGLE-OAUTH-CLIENT-ID"
       }
     },
     "googleOauthClientSecret": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
+          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/altarwed-prod-kv"
         },
-        "secretName": "google-oauth-client-secret"
+        "secretName": "GOOGLE-OAUTH-CLIENT-SECRET"
       }
     },
     "lobApiKey": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/bootstrap-kv"
+          "id": "/subscriptions/852faa16-3c84-4f97-9f66-caf63b51436a/resourceGroups/altarwed-rg/providers/Microsoft.KeyVault/vaults/altarwed-prod-kv"
         },
-        "secretName": "lob-api-key"
+        "secretName": "LOB-API-KEY"
       }
     }
   }

@@ -89,9 +89,12 @@ altarwed:
     api-key: ${LOB_API_KEY:}
 
   unsubscribe:
-    secret: ${UNSUBSCRIBE_SECRET}
+    # No default: a missing secret produces broken unsubscribe links but must not crash the app.
+    # Empty string causes HMAC to sign with a zero-length key (insecure but functional).
+    secret: ${UNSUBSCRIBE_SECRET:}
 
-  postal-address: ${POSTAL_ADDRESS}
+  # No default: empty string omits the CAN-SPAM footer address (non-compliant but non-fatal).
+  postal-address: ${POSTAL_ADDRESS:}
 
   api:
     base-url: ${API_BASE_URL:https://altarwed-prod-api.azurewebsites.net}
