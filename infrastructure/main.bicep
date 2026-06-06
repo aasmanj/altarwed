@@ -56,6 +56,9 @@ param appBaseUrl string = 'https://app.altarwed.com'
 @description('Base URL of the public Next.js site')
 param nextjsBaseUrl string = 'https://www.altarwed.com'
 
+@description('Numeric Google Cloud project number, used as the Picker app id (not a secret)')
+param googlePickerAppId string = ''
+
 var appName = 'altarwed'
 var prefix = '${appName}-${environment}'
 // Derived from the App Service name pattern below, so observability can reference
@@ -140,6 +143,7 @@ module appService 'modules/app-service.bicep' = {
     appBaseUrl: appBaseUrl
     nextjsBaseUrl: nextjsBaseUrl
     googleOauthRedirectUri: googleOauthRedirectUri
+    googlePickerAppId: googlePickerAppId
   }
 }
 

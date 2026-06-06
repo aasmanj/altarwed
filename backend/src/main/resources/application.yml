@@ -84,6 +84,13 @@ altarwed:
     client-id: ${GOOGLE_OAUTH_CLIENT_ID}
     client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET}
     redirect-uri: ${GOOGLE_OAUTH_REDIRECT_URI:https://altarwed-prod-api.azurewebsites.net/api/v1/integrations/google-sheets/callback}
+    # Google Picker browser config. Empty defaults: a missing value degrades the
+    # sheet-picker feature (frontend shows "not configured"), never crashes startup.
+    # api-key = browser API key restricted to our referrers + Picker/Sheets APIs.
+    # app-id  = numeric Cloud project number (ties Picker selections to our OAuth client).
+    picker:
+      api-key: ${GOOGLE_PICKER_API_KEY:}
+      app-id: ${GOOGLE_PICKER_APP_ID:}
 
   lob:
     api-key: ${LOB_API_KEY:}

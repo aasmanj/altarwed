@@ -4,6 +4,7 @@ import com.altarwed.domain.exception.BlogPostNotFoundException;
 import com.altarwed.domain.exception.BudgetItemNotFoundException;
 import com.altarwed.domain.exception.SeatingTableNotFoundException;
 import com.altarwed.domain.exception.CoupleNotFoundException;
+import com.altarwed.domain.exception.GoogleAuthRevokedException;
 import com.altarwed.domain.exception.GuestNotFoundException;
 import com.altarwed.domain.exception.WeddingPageBlockNotFoundException;
 import com.altarwed.domain.exception.WeddingPartyMemberNotFoundException;
@@ -102,6 +103,17 @@ public class GlobalExceptionHandler {
         pd.setType(URI.create("https://altarwed.com/problems/invalid-password-reset-token"));
         pd.setTitle("Invalid Password Reset Token");
         pd.setDetail(ex.getMessage());
+        return pd;
+    }
+
+    @ExceptionHandler(GoogleAuthRevokedException.class)
+    public ProblemDetail handleGoogleAuthRevoked(GoogleAuthRevokedException ex) {
+        // 409 Conflict: the connection is in a state the user must resolve by
+        // reconnecting. Message is safe to show; it carries no PII (coupleId only).
+        var pd = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+        pd.setType(URI.create("https://altarwed.com/problems/google-auth-revoked"));
+        pd.setTitle("Google Connection Expired");
+        pd.setDetail("Your Google connection has expired. Reconnect your Google account to continue.");
         return pd;
     }
 

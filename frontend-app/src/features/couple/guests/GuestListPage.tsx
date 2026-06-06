@@ -17,7 +17,9 @@ import { TIPS } from '@/lib/tips'
 import {
   useGoogleSheetSync, useSetGoogleSheetSync, useDeleteGoogleSheetSync,
   useTriggerGoogleSheetSync, useGoogleOAuthStatus, useGoogleDisconnect, relativeTime,
+  fetchPickerConfig,
 } from './useGoogleSheetSync'
+import { openSheetPicker, canonicalSheetUrl } from './googlePicker'
 import { apiClient } from '@/core/api/client'
 
 const STATUS_LABEL: Record<RsvpStatus, string> = {
@@ -118,6 +120,39 @@ export default function GuestListPage() {
       // toast already announced the failure; leave the panel open for retry
     }
   }, [sheetUrlInput, setSheetSync])
+
+  // Connected (drive.file) path: pick the sheet via the Google Picker instead of
+  // pasting a URL. The Picker both selects the file and grants our OAuth client
+  // access to it, then we persist the canonical URL through the same setSync call.
+  const [pickerBusy, setPickerBusy] = useState(false)
+  const handlePickSheet = useCallback(async () => {
+    setPickerBusy(true)
+    try {
+      const config = await fetchPickerConfig()
+      if (!config.configured) {
+        toast.error('Google Sheet picker is not set up yet. Please try again later.')
+        return
+      }
+      const picked = await openSheetPicker(config)
+      if (!picked) return // user cancelled
+      const promise = setSheetSync.mutateAsync(canonicalSheetUrl(picked.id))
+      toast.promise(promise, {
+        loading: `Connecting "${picked.name}"…`,
+        success: 'Sheet connected. We will sync every 15 minutes.',
+        error: 'Could not connect that sheet. Try again.',
+      })
+      await promise
+      setShowSheetSync(false)
+    } catch (err: any) {
+      if (err?.response?.status === 409) {
+        toast.error('Your Google connection expired. Reconnect your Google account and try again.')
+      } else {
+        toast.error('Could not open the Google Sheet picker. Try again.')
+      }
+    } finally {
+      setPickerBusy(false)
+    }
+  }, [setSheetSync])
 
   const handleRemoveSheet = useCallback(async () => {
     if (!await confirm({
@@ -328,7 +363,7 @@ export default function GuestListPage() {
                     <span className="ml-1 text-blue-600">({oauthStatus.googleEmail})</span>
                   )}
                   <p className="text-xs text-blue-600 mt-0.5">
-                    Paste any Google Sheet URL below. No need to publish it publicly.
+                    Choose your Google Sheet below. Your sheet stays private; we only see the one you pick.
                   </p>
                 </div>
                 <button
@@ -343,7 +378,7 @@ export default function GuestListPage() {
               <div className="mb-3 rounded-lg bg-ivory border border-gold-light px-4 py-3">
                 <p className="text-sm font-medium text-brown mb-1">Connect your Google account</p>
                 <p className="text-xs text-brown-light mb-3">
-                  Connect once, then paste any Google Sheet URL below. Your sheet stays private.
+                  Connect once, then choose your sheet, no publishing required. Or skip connecting and paste a published CSV URL below.
                 </p>
                 <button
                   onClick={async () => {
@@ -359,7 +394,7 @@ export default function GuestListPage() {
 
             {googleJustConnected && (
               <div className="mb-3 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">
-                Google account connected! Paste your sheet URL below and click Save.
+                Google account connected! Click &ldquo;Choose Google Sheet&rdquo; below to pick your guest list.
               </div>
             )}
 
@@ -384,33 +419,56 @@ export default function GuestListPage() {
               </div>
             )}
 
-            <div className="flex gap-2">
-              <input
-                type="url"
-                value={sheetUrlInput}
-                onChange={e => setSheetUrlInput(e.target.value)}
-                placeholder={oauthStatus?.connected
-                  ? 'https://docs.google.com/spreadsheets/d/...'
-                  : 'Publish URL: https://docs.google.com/spreadsheets/d/.../pub?output=csv'}
-                className="flex-1 rounded-lg border border-gold-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40"
-              />
-              <button
-                onClick={handleSaveSheetUrl}
-                disabled={setSheetSync.isPending || !sheetUrlInput.trim()}
-                className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-50 transition"
-              >
-                {setSheetSync.isPending ? 'Saving…' : 'Save'}
-              </button>
-              {sheetSync && (
+            {oauthStatus?.connected ? (
+              // Connected: pick the sheet via the Google Picker (drive.file scope).
+              <div className="flex gap-2">
                 <button
-                  onClick={handleRemoveSheet}
-                  disabled={deleteSheetSync.isPending}
-                  className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 transition"
+                  onClick={handlePickSheet}
+                  disabled={pickerBusy || setSheetSync.isPending}
+                  className="flex-1 rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-50 transition"
                 >
-                  {deleteSheetSync.isPending ? 'Removing…' : 'Remove'}
+                  {pickerBusy || setSheetSync.isPending
+                    ? 'Opening…'
+                    : sheetSync ? 'Choose a different sheet' : 'Choose Google Sheet'}
                 </button>
-              )}
-            </div>
+                {sheetSync && (
+                  <button
+                    onClick={handleRemoveSheet}
+                    disabled={deleteSheetSync.isPending}
+                    className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 transition"
+                  >
+                    {deleteSheetSync.isPending ? 'Removing…' : 'Remove'}
+                  </button>
+                )}
+              </div>
+            ) : (
+              // Not connected: paste a published CSV URL (no Google account needed).
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={sheetUrlInput}
+                  onChange={e => setSheetUrlInput(e.target.value)}
+                  placeholder="Publish URL: https://docs.google.com/spreadsheets/d/.../pub?output=csv"
+                  className="flex-1 rounded-lg border border-gold-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40"
+                />
+                <button
+                  onClick={handleSaveSheetUrl}
+                  disabled={setSheetSync.isPending || !sheetUrlInput.trim()}
+                  className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-50 transition"
+                >
+                  {setSheetSync.isPending ? 'Saving…' : 'Save'}
+                </button>
+                {sheetSync && (
+                  <button
+                    onClick={handleRemoveSheet}
+                    disabled={deleteSheetSync.isPending}
+                    className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 transition"
+                  >
+                    {deleteSheetSync.isPending ? 'Removing…' : 'Remove'}
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Column template tip */}
             <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-stone-700">

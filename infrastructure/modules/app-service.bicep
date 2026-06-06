@@ -9,6 +9,7 @@ param resendFromEmail string
 param appBaseUrl string
 param nextjsBaseUrl string
 param googleOauthRedirectUri string
+param googlePickerAppId string
 
 resource appService 'Microsoft.Web/sites@2023-12-01' = {
   name: name
@@ -83,6 +84,12 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=LOB-API-KEY)'
         }
         {
+          // Browser API key for the Google Picker (restricted to our referrers +
+          // Picker/Sheets APIs). Low-sensitivity but kept in Key Vault for parity.
+          name: 'GOOGLE_PICKER_API_KEY'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=GOOGLE-PICKER-API-KEY)'
+        }
+        {
           name: 'UNSUBSCRIBE_SECRET'
           value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=UNSUBSCRIBE-SECRET)'
         }
@@ -126,6 +133,11 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'GOOGLE_OAUTH_REDIRECT_URI'
           value: googleOauthRedirectUri
+        }
+        {
+          // Numeric Cloud project number, not a secret.
+          name: 'GOOGLE_PICKER_APP_ID'
+          value: googlePickerAppId
         }
         // ── Application Insights (Java 3.x agent auto-instrumentation) ───────
         {

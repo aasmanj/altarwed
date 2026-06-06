@@ -90,6 +90,21 @@ export function useGoogleDisconnect(coupleId: string) {
   })
 }
 
+// Fetched on demand (when the couple clicks "Choose Google Sheet"), not as a
+// standing query: the access token it returns is short-lived, so we want a fresh
+// one at the moment the Picker opens rather than a cached one.
+export interface PickerConfigResponse {
+  accessToken: string
+  apiKey: string
+  appId: string
+  configured: boolean
+}
+
+export async function fetchPickerConfig(): Promise<PickerConfigResponse> {
+  const res = await apiClient.get('/api/v1/integrations/google-sheets/picker-config')
+  return res.data
+}
+
 // -----------------------------------------------------------------------
 // Utility: human-readable relative time
 // -----------------------------------------------------------------------

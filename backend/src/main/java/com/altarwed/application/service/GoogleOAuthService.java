@@ -2,6 +2,7 @@ package com.altarwed.application.service;
 
 import com.altarwed.application.dto.GoogleAuthUrlResponse;
 import com.altarwed.application.dto.GoogleOAuthStatusResponse;
+import com.altarwed.application.dto.GooglePickerConfigResponse;
 import com.altarwed.domain.model.Couple;
 import com.altarwed.domain.exception.GoogleAuthRevokedException;
 import com.altarwed.domain.model.GoogleOAuthToken;
@@ -44,10 +45,21 @@ public class GoogleOAuthService {
     private static final List<String> SCOPES = List.of(
             "openid",
             "email",
-            // Full spreadsheets scope (read + write) is required for UUID write-back.
-            // Couples who authorized with the old spreadsheets.readonly scope will
-            // continue to sync read-only until they disconnect and re-authorize.
-            "https://www.googleapis.com/auth/spreadsheets"
+            // drive.file is a NON-SENSITIVE scope: it grants per-file access only to
+            // files the user explicitly hands us via the Google Picker, so the app
+            // never needs Google's OAuth verification review (no warning screen, no
+            // 100-user cap). It is full read+write on those files, so UUID write-back
+            // still works. The grant is recorded at the OAuth-client+user+file level
+            // (that is why the Picker must be opened with setAppId = our project
+            // number), so the server's refresh-token-derived tokens can keep syncing
+            // the picked sheet on the 15-min schedule without the user present.
+            //
+            // Migrated away from the SENSITIVE auth/spreadsheets scope: under
+            // drive.file a pasted-URL sheet is NOT accessible (the user never granted
+            // that specific file), so connected couples MUST select via the Picker.
+            // Couples still holding old spreadsheets-scoped tokens must disconnect and
+            // reconnect to move onto drive.file.
+            "https://www.googleapis.com/auth/drive.file"
     );
 
     private static final Pattern SHEET_ID_PATTERN =
@@ -68,6 +80,17 @@ public class GoogleOAuthService {
 
     @Value("${altarwed.app.base-url:https://app.altarwed.com}")
     private String appBaseUrl;
+
+    // Google Picker browser config. Empty defaults so a missing value degrades the
+    // sheet-picker feature gracefully (frontend shows "not configured") instead of
+    // crashing startup. The API key is a browser key restricted to our referrers;
+    // the app id is the numeric Cloud project number (ties Picker selections to our
+    // OAuth client so the drive.file grant persists for server-side sync).
+    @Value("${altarwed.google.picker.api-key:}")
+    private String pickerApiKey;
+
+    @Value("${altarwed.google.picker.app-id:}")
+    private String pickerAppId;
 
     // In-memory state store: state token -> coupleId, expires after 10 minutes.
     // Single-instance app (Azure App Service B2), so in-memory is fine.
@@ -191,6 +214,26 @@ public class GoogleOAuthService {
         return tokenRepository.findByCoupleId(coupleId)
                 .map(t -> new GoogleOAuthStatusResponse(true, t.googleEmail()))
                 .orElse(new GoogleOAuthStatusResponse(false, null));
+    }
+
+    /**
+     * Returns the config the browser needs to open the Google Picker: a fresh
+     * drive.file access token (refreshed here if near expiry), the browser API
+     * key, and the numeric app id. The token is the couple's own, drive.file
+     * scoped and short-lived; it is safe to hand to their browser over HTTPS.
+     *
+     * Throws GoogleAuthRevokedException if the stored token is dead (mapped to
+     * 409 by the GlobalExceptionHandler so the frontend prompts a reconnect).
+     * {@code configured} is false until the Cloud project's Picker API key and
+     * app id are wired, so the frontend can show a clear message instead of
+     * opening a Picker that will fail.
+     */
+    @Transactional
+    public GooglePickerConfigResponse getPickerConfig(UUID coupleId) {
+        String accessToken = getValidAccessToken(coupleId);
+        boolean configured = !pickerApiKey.isBlank() && !pickerAppId.isBlank();
+        log.info("google picker config issued, coupleId={}, configured={}", coupleId, configured);
+        return new GooglePickerConfigResponse(accessToken, pickerApiKey, pickerAppId, configured);
     }
 
     @Transactional

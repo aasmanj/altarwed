@@ -2,6 +2,7 @@ package com.altarwed.web.controller;
 
 import com.altarwed.application.dto.GoogleAuthUrlResponse;
 import com.altarwed.application.dto.GoogleOAuthStatusResponse;
+import com.altarwed.application.dto.GooglePickerConfigResponse;
 import com.altarwed.application.service.GoogleOAuthService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,6 +61,19 @@ public class GoogleSheetsIntegrationController {
     ) {
         UUID coupleId = googleOAuthService.getCoupleIdByEmail(email);
         return ResponseEntity.ok(googleOAuthService.getStatus(coupleId));
+    }
+
+    /**
+     * Returns the config (fresh access token + API key + app id) the browser needs
+     * to open the Google Picker for selecting a sheet. Requires a connected account;
+     * a dead token surfaces as 409 (reconnect) via the GlobalExceptionHandler.
+     */
+    @GetMapping("/picker-config")
+    public ResponseEntity<GooglePickerConfigResponse> getPickerConfig(
+            @AuthenticationPrincipal String email
+    ) {
+        UUID coupleId = googleOAuthService.getCoupleIdByEmail(email);
+        return ResponseEntity.ok(googleOAuthService.getPickerConfig(coupleId));
     }
 
     /** Revokes and deletes the stored Google OAuth tokens. */
