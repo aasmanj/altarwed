@@ -14,6 +14,7 @@ public record WeddingWebsiteResponse(
         String partnerOneName,
         String partnerTwoName,
         LocalDate weddingDate,
+        LocalDate engagementDate,
 
         String heroPhotoUrl,
         String heroTagline,

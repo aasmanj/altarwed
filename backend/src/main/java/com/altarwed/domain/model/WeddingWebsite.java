@@ -14,6 +14,10 @@ public record WeddingWebsite(
         String partnerOneName,
         String partnerTwoName,
         LocalDate weddingDate,
+        // V53: when the couple got engaged. Used to scale the planning checklist
+        // timeline into their actual runway (engagement -> wedding) instead of a
+        // fixed 12-month assumption. Optional.
+        LocalDate engagementDate,
 
         String heroPhotoUrl,
         String heroTagline,
@@ -65,7 +69,7 @@ public record WeddingWebsite(
 ) {
     public WeddingWebsite published() {
         return new WeddingWebsite(id, coupleId, slug, true,
-                partnerOneName, partnerTwoName, weddingDate,
+                partnerOneName, partnerTwoName, weddingDate, engagementDate,
                 heroPhotoUrl, heroTagline, ourStory,
                 scriptureReference, scriptureText,
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
@@ -78,7 +82,7 @@ public record WeddingWebsite(
 
     public WeddingWebsite unpublished() {
         return new WeddingWebsite(id, coupleId, slug, false,
-                partnerOneName, partnerTwoName, weddingDate,
+                partnerOneName, partnerTwoName, weddingDate, engagementDate,
                 heroPhotoUrl, heroTagline, ourStory,
                 scriptureReference, scriptureText,
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
@@ -91,7 +95,7 @@ public record WeddingWebsite(
 
     public WeddingWebsite deleted() {
         return new WeddingWebsite(id, coupleId, slug, false,
-                partnerOneName, partnerTwoName, weddingDate,
+                partnerOneName, partnerTwoName, weddingDate, engagementDate,
                 heroPhotoUrl, heroTagline, ourStory,
                 scriptureReference, scriptureText,
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,

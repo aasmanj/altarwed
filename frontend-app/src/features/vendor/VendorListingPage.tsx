@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useVendorProfile, useUpdateVendorProfile, useUploadVendorLogo } from './useVendor'
 import { useDenominations } from './useDenominations'
+import { normalizeImageFile } from '@/lib/normalizeImageFile'
 
 const CATEGORIES = [
   { value: 'PHOTOGRAPHER',    label: 'Photographer' },
@@ -95,11 +96,12 @@ export default function VendorListingPage() {
   }
 
   const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const picked = e.target.files?.[0]
+    if (!picked) return
     setLogoError('')
     try {
-      await uploadLogo.mutateAsync(file)
+      // Convert HEIC (iPhone / Google Photos) to JPEG before upload.
+      await uploadLogo.mutateAsync(await normalizeImageFile(picked))
     } catch {
       setLogoError('Logo upload failed. Please try again.')
     }
@@ -177,7 +179,7 @@ export default function VendorListingPage() {
                 <input
                   ref={logoInputRef}
                   type="file"
-                  accept="image/jpeg,image/png,image/webp"
+                  accept="image/jpeg,image/png,image/webp,.heic,.heif"
                   onChange={handleLogoChange}
                   className="sr-only"
                   id="logoUpload"

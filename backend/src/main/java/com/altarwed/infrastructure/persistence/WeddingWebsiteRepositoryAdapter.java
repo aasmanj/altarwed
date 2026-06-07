@@ -65,7 +65,7 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
     private WeddingWebsite toDomain(WeddingWebsiteEntity e) {
         return new WeddingWebsite(
                 e.getId(), e.getCoupleId(), e.getSlug(), e.isPublished(),
-                e.getPartnerOneName(), e.getPartnerTwoName(), e.getWeddingDate(),
+                e.getPartnerOneName(), e.getPartnerTwoName(), e.getWeddingDate(), e.getEngagementDate(),
                 e.getHeroPhotoUrl(), e.getHeroTagline(), e.getOurStory(),
                 e.getScriptureReference(), e.getScriptureText(),
                 e.getVenueName(), e.getVenueAddress(), e.getVenueCity(), e.getVenueState(),
@@ -92,6 +92,7 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 .partnerOneName(w.partnerOneName())
                 .partnerTwoName(w.partnerTwoName())
                 .weddingDate(w.weddingDate())
+                .engagementDate(w.engagementDate())
                 .heroPhotoUrl(w.heroPhotoUrl())
                 .heroTagline(w.heroTagline())
                 .ourStory(w.ourStory())

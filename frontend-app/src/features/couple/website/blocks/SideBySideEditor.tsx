@@ -16,6 +16,7 @@ import {
 import SortableBlockList from './SortableBlockList'
 import WebsiteSectionDrawer from './WebsiteSectionDrawer'
 import { BlockEditContext, type WebsiteSection } from './blockEditContext'
+import { normalizeImageFile } from '@/lib/normalizeImageFile'
 import {
   ALLOWED_TYPES_PER_TAB,
   BLOCK_TABS,
@@ -330,8 +331,9 @@ export default function SideBySideEditor() {
   }
 
   const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !websiteId) return
+    const picked = e.target.files?.[0]
+    if (!picked || !websiteId) return
+    const file = await normalizeImageFile(picked)
     const form = new FormData()
     form.append('file', file)
     setHeroUploading(true)
@@ -550,8 +552,9 @@ export default function SideBySideEditor() {
             websiteId={websiteId ?? ''}
             heroUploading={heroUploading}
             onHeroUploadClick={() => heroInputRef.current?.click()}
-            onHeroDrop={async (file) => {
+            onHeroDrop={async (dropped) => {
               if (!websiteId) return
+              const file = await normalizeImageFile(dropped)
               const form = new FormData()
               form.append('file', file)
               setHeroUploading(true)
@@ -589,7 +592,7 @@ export default function SideBySideEditor() {
           <input
             ref={heroInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp,.heic,.heif"
             className="hidden"
             onChange={handleHeroUpload}
           />

@@ -40,6 +40,9 @@ public class WeddingWebsiteEntity {
     @Column(name = "wedding_date")
     private LocalDate weddingDate;
 
+    @Column(name = "engagement_date")
+    private LocalDate engagementDate;
+
     @Column(name = "hero_photo_url", length = 500)
     private String heroPhotoUrl;
 

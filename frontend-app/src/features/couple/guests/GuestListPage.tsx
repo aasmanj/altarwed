@@ -23,7 +23,7 @@ import { openSheetPicker, canonicalSheetUrl } from './googlePicker'
 import { apiClient } from '@/core/api/client'
 
 const STATUS_LABEL: Record<RsvpStatus, string> = {
-  PENDING: 'Remind me', ATTENDING: 'Attending', DECLINING: 'Declining',
+  PENDING: 'Pending', ATTENDING: 'Attending', DECLINING: 'Declining',
 }
 const STATUS_COLOR: Record<RsvpStatus, string> = {
   PENDING:   'bg-yellow-50 text-yellow-700',
@@ -62,8 +62,11 @@ export default function GuestListPage() {
   })
 
   const [copiedHeaders, setCopiedHeaders] = useState(false)
+  // Guest Name(s) is intentionally the FIRST column so couples don't type names
+  // into "Side" by mistake. Header wording is matched (case-insensitive) by
+  // GoogleSheetSyncService, keep these in sync with the aliases there.
   const SHEET_TEMPLATE_COLUMNS =
-    'Side\tNames of all guests in Party (separated by , if multiple)\tPhone Number\tEmail Address\t' +
+    'Guest Name(s)\tSide (Bride or Groom)\tPhone Number\tEmail Address\t' +
     'Street Address\tCity\tState\tZip Code\tAllowed Plus One?\tPlus One Name\t' +
     'RSVP Status\tTable #\tDietary Restriction\tNotes\tAltarWed ID (do not modify)'
   const copyHeaders = useCallback(() => {
@@ -249,8 +252,8 @@ export default function GuestListPage() {
 
   function exportCsv() {
     const rows = guests.map(g => ({
-      'Side':                         g.side ?? '',
-      'Names of all guests in Party': g.name,
+      'Guest Name(s)':                g.name,
+      'Side (Bride or Groom)':        g.side ?? '',
       'Phone Number':                 g.phone ?? '',
       'Email Address':                g.email ?? '',
       'Street Address':               g.mailLine1 ?? '',
@@ -292,22 +295,12 @@ export default function GuestListPage() {
         title="Guest List"
         subtitle="Manage invites and track RSVPs"
         action={
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={exportCsv}
-              disabled={guests.length === 0}
-              className="rounded-lg border border-gold px-3 py-2 text-sm font-medium text-brown hover:bg-gold/10 disabled:opacity-50 transition min-h-[44px]"
-              title="Downloads as CSV"
-            >
-              Export<span className="hidden sm:inline"> Guest List</span>
-            </button>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="rounded-lg bg-gold px-3 py-2 text-sm font-semibold text-white hover:bg-gold-dark transition min-h-[44px]"
-            >
-              + Add Guest
-            </button>
-          </div>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="rounded-lg bg-gold px-3 py-2 text-sm font-semibold text-white hover:bg-gold-dark transition min-h-[44px]"
+          >
+            + Add Guest
+          </button>
         }
       />
 
@@ -470,36 +463,57 @@ export default function GuestListPage() {
               </div>
             )}
 
-            {/* Column template tip */}
+            {/* Numbered setup steps. A real first-time couple skipped the old
+                paragraph version ("just a bunch of words, didn't read"), so this
+                is a short, scannable 1-2-3 with the copy action as step 1. */}
             <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-stone-700">
-              <p className="font-semibold text-stone-800 mb-1">Column template</p>
-              <p className="mb-2 text-stone-600">
-                Starting a new sheet? Copy these headers into row 1 and AltarWed will map all your data automatically.
-              </p>
-              <div className="flex flex-wrap gap-1 mb-2">
-                {['Side', 'Names of all guests in Party (separated by , if multiple)', 'Phone Number', 'Email Address',
-                  'Street Address', 'City', 'State', 'Zip Code', 'Allowed Plus One?',
-                  'Plus One Name', 'RSVP Status', 'Table #', 'Dietary Restriction', 'Notes',
-                  'AltarWed ID (do not modify)'].map(col => (
-                  <span key={col} className="rounded bg-amber-100 border border-amber-200 px-1.5 py-0.5 text-[10px] font-mono text-amber-900">
-                    {col}
-                  </span>
-                ))}
-              </div>
-              <p className="text-stone-500 mb-2">
-                AltarWed will fill in the last column automatically, it's how we keep your sheet in sync even if you rename guests.
-              </p>
-              <button
-                onClick={copyHeaders}
-                className="rounded-md bg-amber-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-amber-700 transition"
-              >
-                {copiedHeaders ? 'Copied!' : 'Copy headers'}
-              </button>
-              {oauthStatus?.connected && (
-                <p className="mt-2 text-stone-500">
-                  Paste your sheet URL from the browser address bar above.
+              <p className="font-semibold text-stone-800 mb-2.5">New sheet? Set it up in 3 steps</p>
+              <ol className="space-y-3">
+                <li className="flex gap-2.5">
+                  <StepNum n={1} />
+                  <div className="flex-1">
+                    <p className="text-stone-700 mb-1.5">Copy the column headers.</p>
+                    <button
+                      onClick={copyHeaders}
+                      className="rounded-md bg-amber-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-amber-700 transition"
+                    >
+                      {copiedHeaders ? 'Copied!' : 'Copy headers'}
+                    </button>
+                  </div>
+                </li>
+                <li className="flex gap-2.5">
+                  <StepNum n={2} />
+                  <p className="flex-1 text-stone-700 pt-0.5">
+                    Open a blank Google Sheet and paste into the first cell
+                    (<span className="font-mono">A1</span>) so the headers fill row 1.
+                  </p>
+                </li>
+                <li className="flex gap-2.5">
+                  <StepNum n={3} />
+                  <p className="flex-1 text-stone-700 pt-0.5">
+                    Type each guest on their own row. Put names under{' '}
+                    <span className="font-semibold">Guest Name(s)</span> (not Side),
+                    then connect your sheet above.
+                  </p>
+                </li>
+              </ol>
+              <details className="mt-3">
+                <summary className="cursor-pointer text-stone-500 hover:text-stone-700">See all columns</summary>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {['Guest Name(s)', 'Side (Bride or Groom)', 'Phone Number', 'Email Address',
+                    'Street Address', 'City', 'State', 'Zip Code', 'Allowed Plus One?',
+                    'Plus One Name', 'RSVP Status', 'Table #', 'Dietary Restriction', 'Notes',
+                    'AltarWed ID (do not modify)'].map(col => (
+                    <span key={col} className="rounded bg-amber-100 border border-amber-200 px-1.5 py-0.5 text-[10px] font-mono text-amber-900">
+                      {col}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-stone-500 mt-2">
+                  AltarWed fills in the last column (AltarWed ID) automatically. It keeps your sheet
+                  in sync even if you rename guests.
                 </p>
-              )}
+              </details>
             </div>
           </div>
         )}
@@ -519,8 +533,10 @@ export default function GuestListPage() {
           ))}
         </div>
 
-        {/* Analytics toggle */}
-        <div className="mb-4">
+        {/* Analytics toggle + low-emphasis export. Export lives here, not next to
+            "+ Add Guest", so it doesn't read as a required step (it confused a
+            real first-time couple in the prominent header slot). */}
+        <div className="mb-4 flex items-center justify-between gap-3">
           <button
             onClick={() => setShowAnalytics(v => !v)}
             className="inline-flex items-center gap-1 text-sm text-gold hover:underline"
@@ -528,6 +544,14 @@ export default function GuestListPage() {
             {showAnalytics
               ? <>Hide analytics <ChevronUp size={14} /></>
               : <>Show analytics <ChevronDown size={14} /></>}
+          </button>
+          <button
+            onClick={exportCsv}
+            disabled={guests.length === 0}
+            className="inline-flex items-center gap-1 text-sm text-brown-light hover:text-brown disabled:opacity-40 transition"
+            title="Download your guest list as a CSV spreadsheet"
+          >
+            Export CSV
           </button>
         </div>
 
@@ -727,6 +751,9 @@ function GuestRow({ guest, onEdit, onRemove, onInvite, sendInvitePending }: {
           {guest.partyName && (
             <span className="block text-xs text-brown-light/80 mt-0.5 italic truncate">{guest.partyName}</span>
           )}
+          {guest.phone && (
+            <span className="block text-xs text-brown-light/80 mt-0.5">{guest.phone}</span>
+          )}
         </td>
         <td className="px-4 py-3 text-brown-light hidden sm:table-cell">{guest.email ?? '-'}</td>
         <td className="px-4 py-3 text-brown-light hidden md:table-cell capitalize">
@@ -925,6 +952,7 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
 }) {
   const [name, setName]               = useState(guest.name)
   const [email, setEmail]             = useState(guest.email ?? '')
+  const [phone, setPhone]             = useState(guest.phone ?? '')
   const [side, setSide]               = useState<GuestSide | ''>(guest.side ?? '')
   const [status, setStatus]           = useState(guest.rsvpStatus)
   const [table, setTable]             = useState(guest.tableNumber?.toString() ?? '')
@@ -939,6 +967,7 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
     e.preventDefault()
     onSave({
       name, email: email || undefined,
+      phone: phone || undefined,
       side: side || undefined,
       rsvpStatus: status,
       tableNumber: table ? parseInt(table) : undefined,
@@ -960,6 +989,9 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
           </Field>
           <Field label="Email">
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} className={inputCls} />
+          </Field>
+          <Field label="Phone">
+            <input value={phone} onChange={e => setPhone(e.target.value)} className={inputCls} placeholder="Optional" />
           </Field>
           <Field label="Side">
             <select value={side} onChange={e => setSide(e.target.value as GuestSide | '')} className={inputCls}>
@@ -1107,6 +1139,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <label className="block text-xs font-medium text-brown-light mb-1">{label}</label>
       {children}
     </div>
+  )
+}
+
+// Numbered badge for the Google Sheet setup stepper.
+function StepNum({ n }: { n: number }) {
+  return (
+    <span className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-amber-600 text-white text-[11px] font-bold">
+      {n}
+    </span>
   )
 }
 

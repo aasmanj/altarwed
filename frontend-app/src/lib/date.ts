@@ -42,3 +42,26 @@ export function dueDateBefore(weddingIso: string, months: number): Date {
 export function formatMonthYear(d: Date): string {
   return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
+
+const DAY_MS = 86_400_000
+// The seeded checklist assumes the longest lead task is ~12 months before the
+// wedding. We scale relative to that span.
+const PLAN_SPAN_MONTHS = 12
+// Approx length of the full 12-month plan in ms (avg month = 30.4375 days).
+const FULL_PLAN_MS = PLAN_SPAN_MONTHS * 30.4375 * DAY_MS
+
+// The date a task is "due", scaled to the couple's actual planning runway.
+// Without scaling, a couple engaged for less than a year sees every long-lead
+// task ("book venue 12 months before") land ~a year in the past. Anchoring on
+// the engagement date and compressing the plan into engagement -> wedding fixes
+// that: the longest-lead task sits at the engagement date, the shortest near the
+// wedding. When the runway is >= the full 12-month plan (or no engagement date
+// is set), we keep the natural month offsets via dueDateBefore.
+export function scaledDueDate(weddingIso: string, startIso: string | null, monthsBefore: number): Date {
+  if (!startIso) return dueDateBefore(weddingIso, monthsBefore)
+  const wedding = parseLocal(weddingIso)
+  const windowMs = wedding.getTime() - parseLocal(startIso).getTime()
+  if (windowMs <= 0 || windowMs >= FULL_PLAN_MS) return dueDateBefore(weddingIso, monthsBefore)
+  const fraction = Math.min(monthsBefore, PLAN_SPAN_MONTHS) / PLAN_SPAN_MONTHS
+  return new Date(wedding.getTime() - fraction * windowMs)
+}

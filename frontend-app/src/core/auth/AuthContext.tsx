@@ -30,6 +30,10 @@ interface AuthContextValue extends AuthState {
   logout: () => Promise<void>
   refreshAccessToken: () => Promise<string | null>
   isAuthenticated: boolean
+  // True while the one-time silent refresh on app load is in flight. Protected
+  // routes wait on this so a stored session is restored before we decide whether
+  // to bounce the user to /login.
+  isBootstrapping: boolean
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -58,6 +62,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshToken: typeof window !== 'undefined' ? localStorage.getItem(REFRESH_TOKEN_KEY) : null,
   }))
   const refreshPromise = useRef<Promise<string | null> | null>(null)
+
+  // Bootstrap: if a refresh token was persisted (new tab, reopened tab, hard
+  // refresh), restore the session once on mount before any protected route
+  // renders. Starts true only when there is actually a token to redeem, so a
+  // logged-out visitor isn't held behind a spinner.
+  const [bootstrapping, setBootstrapping] = useState<boolean>(
+    () => typeof window !== 'undefined' && !!localStorage.getItem(REFRESH_TOKEN_KEY),
+  )
+  const bootstrapped = useRef(false)
 
   const login = useCallback(async (email: string, password: string) => {
     const { accessToken, refreshToken, user } = await authApi.login(email, password)
@@ -124,6 +137,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     )
   }, [state.accessToken, refreshAccessToken])
 
+  // One-time silent refresh on mount to rehydrate a persisted session. The ref
+  // guard makes this run exactly once even under React StrictMode's double-invoke,
+  // and refreshAccessToken is itself single-flight, so a rotated refresh token is
+  // never spent twice (which previously could log a returning user out).
+  useEffect(() => {
+    if (bootstrapped.current) return
+    bootstrapped.current = true
+    if (state.refreshToken && !state.user) {
+      refreshAccessToken().finally(() => setBootstrapping(false))
+    } else {
+      setBootstrapping(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Gate analytics on the couple's explicit marketing consent (captured at
   // registration). Only couples who opted in get PostHog loaded and identified.
   // Vendors and couples who declined get zero telemetry in the app.
@@ -144,8 +172,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       refreshAccessToken,
       isAuthenticated: state.user !== null,
+      isBootstrapping: bootstrapping,
     }),
-    [state, login, register, registerVendor, logout, refreshAccessToken],
+    [state, login, register, registerVendor, logout, refreshAccessToken, bootstrapping],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -2,10 +2,11 @@ import { createContext, useContext } from 'react'
 
 // Which structured-data section a block wants to edit. These map to the
 // scalar/relational data behind the data-driven card blocks:
-//   'details'  -> venue, ceremony time, dress code, wedding date, RSVP deadline
-//   'travel'   -> hotel blocks
-//   'registry' -> registry slots
-export type WebsiteSection = 'details' | 'travel' | 'registry'
+//   'details'      -> venue, ceremony time, dress code, wedding date, RSVP deadline
+//   'travel'       -> hotel blocks
+//   'registry'     -> registry slots
+//   'weddingParty' -> wedding party members (add/edit/reorder, without leaving the builder)
+export type WebsiteSection = 'details' | 'travel' | 'registry' | 'weddingParty'
 
 // Lets a deeply-nested BlockForm open the in-editor section drawer without prop
 // drilling through SortableBlockList. SideBySideEditor provides the setter;
