@@ -242,48 +242,22 @@ add them deliberately, not "just in case." These rules are enforced by the
 - **DEBUG** is fine in code but disabled in prod by default. Never rely on it for incident response.
 
 ### 2. Structured args, never string concatenation
-SLF4J's `{}` placeholders are parsed by App Insights into typed, indexable, queryable columns. Strings concatenated with `+` become opaque text that can only be `LIKE`-searched.
-
-```java
-// WRONG: App Insights cannot index this
-log.info("Order " + orderId + " for couple " + coupleId + " failed");
-
-// RIGHT: orderId and coupleId become searchable columns in App Insights
-log.info("print order submission failed, orderId={}, coupleId={}", orderId, coupleId);
-```
+SLF4J's `{}` placeholders are parsed by App Insights into typed, indexable, queryable columns; strings concatenated with `+` become opaque text that can only be `LIKE`-searched. Always `log.info("print order submission failed, orderId={}, coupleId={}", orderId, coupleId)`, never `log.info("Order " + orderId + " failed")`.
 
 ### 3. Message style
 Start with `noun verb [state]` in lowercase: `"print order submitted"`, `"guest invite issued"`, `"resend rejected email"`. Consistent prefixes make Kusto/KQL prefix-search useful (`| where message startswith "print order"`).
 
 ### 4. Required correlation IDs (MDC)
-Every HTTP request gets a `requestId` automatically (from `RequestIdFilter` in `infrastructure/observability/`). It is in MDC for the life of the request, included on every log line, and returned to clients in the `X-Request-Id` response header so users can quote it in support tickets.
-
-When you write a log line in a request-scoped path you do NOT need to pass the requestId. It is already there. You DO need to add the domain-scoped ID as a structured arg:
+Every HTTP request auto-gets a `requestId` (`RequestIdFilter` in `infrastructure/observability/`): in MDC for the request's life, on every log line, and returned in the `X-Request-Id` header so users can quote it in support tickets. In request-scoped paths you don't pass it, it's already there, but you DO add the domain-scoped ID as a structured arg:
 - HTTP write endpoints: `coupleId` or `vendorId` (whichever owns the resource)
 - Scheduled jobs: a `jobRunId = UUID.randomUUID()` per invocation
-- `@Async` tasks: MDC propagates automatically via `MdcTaskDecorator` wired on `emailExecutor` in `AsyncConfig`. Any new executor bean MUST also call `setTaskDecorator(new MdcTaskDecorator())`, or correlation IDs will vanish on its threads.
+- `@Async` tasks: MDC propagates via `MdcTaskDecorator` on `emailExecutor` (AsyncConfig). Any new executor bean MUST call `setTaskDecorator(new MdcTaskDecorator())` or correlation IDs vanish on its threads.
 
 ### 5. External integrations: the contract
-Every call to Lob, Resend, Stripe (when added), Azure Blob, Next.js revalidate, bible-api.com, Google Sheets, or any future provider MUST log:
-
-```java
-log.info("submitting postcard to lob, orderId={}, guestId={}", orderId, guestId);
-try {
-    String lobId = client.send(...);
-    log.info("lob accepted postcard, orderId={}, guestId={}, lobId={}", orderId, guestId, lobId);
-} catch (ProviderRejectionException ex) {
-    log.warn("lob rejected postcard, orderId={}, guestId={}, status={}", orderId, guestId, ex.status());
-    // ... handle, do NOT rethrow as ERROR
-} catch (Exception ex) {
-    log.error("lob call failed unexpectedly, orderId={}, guestId={}", orderId, guestId, ex);
-    throw ex;
-}
-```
-
-Three rules:
-1. INFO **before** the call. Proves we got that far when the response never comes back.
-2. INFO **after** success. Includes the provider's ID for cross-referencing in their dashboard. In high-throughput batch contexts (sending invites to 200 guests), downgrade the per-item success INFO to DEBUG and emit one aggregate INFO at the batch level instead. See rule 9.
-3. ERROR catches the **exception** as the last arg (not just `.getMessage()`), so the stack trace lands in App Insights.
+Every call to Lob, Resend, Stripe (when added), Azure Blob, Next.js revalidate, bible-api.com, Google Sheets, or any future provider MUST log a triplet:
+1. **INFO before** the call (e.g. `log.info("submitting postcard to lob, orderId={}, guestId={}", orderId, guestId)`). Proves we got that far when the response never comes back.
+2. **INFO after** success, including the provider's ID for cross-referencing in their dashboard. In high-throughput batches (200 invites), downgrade per-item success to DEBUG and emit one aggregate INFO at the batch level (see rule 9).
+3. **WARN** on expected provider rejection (handle, do NOT rethrow as ERROR); **ERROR** on unexpected failure, passing the **exception as the last arg** (not `.getMessage()`) so the stack trace lands in App Insights, then rethrow.
 
 ### 6. Auth and security events (always log, always at INFO or WARN)
 - INFO: login success (masked email, role, userId), token refresh (userId), password reset request (masked email), logout, vendor approval state change
@@ -292,24 +266,10 @@ Three rules:
 - IP addresses are allowed (and required) ONLY in security-audit log lines: rate-limit-exceeded, brute-force lockout, IDOR attempts. Anywhere else they count as PII per rule 8.
 
 ### 7. Scheduled jobs and async tasks
-Every `@Scheduled` method MUST bracket itself:
-
-```java
-@Scheduled(fixedRate = 15 * 60_000)
-public void poll() {
-    UUID runId = UUID.randomUUID();
-    log.info("google sheet poll started, runId={}", runId);
-    int processed = 0, failed = 0;
-    try {
-        // ... work ...
-        log.info("google sheet poll finished, runId={}, processed={}, failed={}, durationMs={}",
-                 runId, processed, failed, ...);
-    } catch (Exception ex) {
-        log.error("google sheet poll crashed, runId={}, processed={}", runId, processed, ex);
-        throw ex; // let Spring's scheduler logging catch it too
-    }
-}
-```
+Every `@Scheduled` method MUST bracket itself with a per-invocation `runId = UUID.randomUUID()`:
+- INFO **start** with `runId`.
+- INFO **finish** with `runId`, outcome counts (`processed`, `failed`), and `durationMs`.
+- ERROR **crash** with `runId` + partial counts + the **exception as last arg**, then rethrow so Spring's scheduler logging also catches it.
 
 Same shape for `@Async` methods: log entry with the IDs you got passed, exit with the outcome.
 
@@ -322,32 +282,16 @@ Same shape for `@Async` methods: log entry with the IDs you got passed, exit wit
 If you genuinely need an email address for an audit log (e.g., a login-failure event), log only the *prefix before @* (`j***@altarwed.com`) using a helper, never the full address.
 
 ### 9. Cost of logging
-App Insights bills per GB ingested. Two anti-patterns burn the budget fast:
-- Logging inside a tight loop (per-row, per-pixel, per-byte). Log the aggregate, not the iteration.
-- Verbose INFO on hot paths (every GET to a polled endpoint). Use DEBUG, or count once and emit one INFO per minute.
-
-The reviewer flags any new log line inside a `for`/`while` loop unless it is a per-item WARN/ERROR (failure path) or batched.
+App Insights bills per GB. Don't log inside tight loops (log the aggregate, not the iteration) or put verbose INFO on hot paths (use DEBUG, or count and emit one INFO/minute). The reviewer flags any new log line inside a `for`/`while` loop unless it's a per-item WARN/ERROR or batched.
 
 ### 10. Exception logging contract
-- Pass the exception as the last arg (no format specifier needed): `log.error("payment failed, orderId={}", id, ex);`. SLF4J finds it and prints the stack trace.
-- NEVER `log.error(ex.getMessage())`. Loses the stack trace, makes debugging impossible.
-- NEVER `log.error("...", ex.getMessage())`. Same problem.
-- Do not log AND rethrow the same exception unless you are adding context. The handler above you will log it.
+Pass the exception as the **last arg**, no format specifier: `log.error("payment failed, orderId={}", id, ex)`, SLF4J prints the stack trace. NEVER `log.error(ex.getMessage())` or `log.error("...", ex.getMessage())` (both lose the trace). Don't log AND rethrow the same exception unless adding context, the handler above will log it.
 
 ### 11. Logback configuration
-Logback config lives in `backend/src/main/resources/logback-spring.xml`. It is the single source of truth for log format, MDC field inclusion, async appender for non-blocking writes, and per-package level overrides. Do not put logging config in `application.yml` beyond the bare minimum (root level + spring-specific tuning).
-
-Current output is a console pattern with `%X{requestId}` interpolated. App Insights' Java agent parses MDC fields from stdout into searchable columns. If/when we want true JSON-structured ingest, add `logstash-logback-encoder` and swap the encoder element. The MDC fields are already populated.
+Logback config lives in `backend/src/main/resources/logback-spring.xml`, the single source of truth for log format, MDC field inclusion, async appender, and per-package level overrides. Keep logging config out of `application.yml` beyond root level + spring tuning. Output is a console pattern with `%X{requestId}`; App Insights' Java agent parses MDC fields from stdout into searchable columns. For true JSON ingest later, add `logstash-logback-encoder` and swap the encoder.
 
 ### 12. Anti-patterns the reviewer will flag
-- A new service method, controller, adapter, or scheduled job with **zero log lines**.
-- `log.info("entering method")` / `log.info("exiting method")` style noise.
-- String concatenation in the log message (`"order " + id`).
-- Logging `ex.getMessage()` only without passing the exception itself.
-- PII in any log argument.
-- New external integration without the INFO-before / INFO-after-success / ERROR-with-exception triplet.
-- A scheduled job that does not log start + finish + outcome counts.
-- A WARN logged for something that is actually working as designed (warning fatigue erodes signal).
+Zero log lines in a new service/controller/adapter/scheduled job; `entering`/`exiting` method noise; string concatenation in the message; logging `ex.getMessage()` instead of passing the exception; PII in any arg; an external integration missing the INFO-before / INFO-after / ERROR-with-exception triplet; a scheduled job missing start + finish + outcome counts; a WARN for something working as designed (warning fatigue).
 
 ## Environment Variable Rules (enforced by code-reviewer)
 
@@ -409,16 +353,13 @@ The reviewer flags:
 
 ## Accessibility Rules (WCAG 2.1 AA baseline, lawsuit prevention)
 
-The ADA doesn't (yet) have website-specific regulations, but US courts apply
-Title III by analogy and plaintiffs' law firms cite WCAG 2.1 AA as the de
-facto standard. Drive-by ADA lawsuits target sites with **obvious** failures:
-no alt text, no form labels, no keyboard nav, no contrast. The rules below
-keep AltarWed well clear of that target zone. They are not a claim of full
-compliance, that requires periodic manual audits with a screen reader.
-
-These rules apply to BOTH frontends but matter most on `frontend-public/`
-(homepage, wedding pages, vendor directory, blog), the public surfaces a
-plaintiff's scanner would actually hit.
+US courts apply ADA Title III to websites by analogy and plaintiffs' firms
+cite WCAG 2.1 AA as the de facto standard. Drive-by lawsuits target **obvious**
+failures: no alt text, no form labels, no keyboard nav, no contrast. These
+rules keep AltarWed clear of that target zone (not a claim of full compliance,
+which needs periodic manual screen-reader audits). They apply to both
+frontends but matter most on `frontend-public/` (homepage, wedding pages,
+vendor directory, blog), the surfaces a plaintiff's scanner actually hits.
 
 ### 1. Images
 - Every `<img>` and `<Image>` needs an `alt`. Descriptive for content images
@@ -487,14 +428,7 @@ plaintiff's scanner would actually hit.
   audio.
 
 ### 8. Anti-patterns the reviewer should flag
-- `<div onClick={...}>` without role + tabIndex + keyboard handler
-- `<img>` without `alt`
-- Form input without a label
-- `focus:outline-none` without a replacement focus indicator
-- Placeholder used as the only label
-- `<a>` used as a button (or vice versa)
-- Color-only error/success indication
-- Modal without focus trap or Escape-to-close
+`<div onClick>` without role + tabIndex + keyboard handler; `<img>` without `alt`; input without a label; `focus:outline-none` without a replacement indicator; placeholder as the only label; `<a>` used as a button (or vice versa); color-only error/success; modal without focus trap or Escape-to-close.
 
 ### Tooling status
 - `frontend-public/`: `next lint` runs `eslint-plugin-jsx-a11y` rules
@@ -519,11 +453,10 @@ plaintiff's scanner would actually hit.
 - Never use primitive types in DTO Records (use boxed: Integer not int, Boolean not boolean)
 
 ## Monetization Context (affects data model decisions)
-- **Revenue is vendor-side only.** Vendors pay monthly subscriptions (placeholder tiers BASIC $29, FEATURED $79, PREMIUM $149, under review, see the vendor pricing analysis in memory)
-- **Couples are free** for the foreseeable future. No couple paid tier and no church-partnership tier; both were dropped from the revenue model. A couple paid tier is revisited only when there are couple features genuinely worth charging for
-- Stripe is the payment processor, VendorSubscription entity tracks this
-- **Payments are Phase 8, the next engineering priority.** Jordan explicitly moved this up: wire Stripe before onboarding lots of vendors so payments are ready when volume arrives. VendorSubscription entity already exists and tracks planTier, status, stripeCustomerId.
-- Affiliate links: Amazon and Target (registry product links), "The Meaning of Marriage" by Timothy Keller, "The Five Love Languages" by Gary Chapman, add to a /resources page (Phase 6c)
+- **Revenue is vendor-side only.** Vendors pay monthly subscriptions (placeholder BASIC $29 / FEATURED $79 / PREMIUM $149, under review, see vendor pricing analysis in memory).
+- **Couples are free** for the foreseeable future. No couple paid tier and no church-partnership tier (both dropped); revisit only when couple features are genuinely worth charging for.
+- Stripe is the processor; `VendorSubscription` tracks planTier/status/stripeCustomerId. **Payments are Phase 8, the next engineering priority** (wire Stripe before onboarding lots of vendors so it's ready when volume arrives).
+- Affiliate links: Amazon + Target (registry), "The Meaning of Marriage" (Keller), "The Five Love Languages" (Chapman), on a /resources page (Phase 6c)
 
 ## Build Phases, Current Status
 
@@ -533,30 +466,11 @@ work are listed here.
 
 ### Shipped (Phases 1 through 7c), couples and vendors can fully self-serve
 
-**Couple side:** auth (JWT + refresh), couple signup + onboarding wizard, wedding
-website (altarwed.com/wedding/[slug]) with side-by-side block editor (14 block
-types incl. STORY_ENTRY/IMAGE/HERO), guest list + RSVP flow (custom fields,
-remind-me, party grouping, invite cap, "find your invitation" by name on public
-RSVP tab), seating chart (drag-drop), budget tracker, planning checklist, wedding
-party, photo album, vow builder, ceremony builder, scripture browser, Google Sheets
-guest sync (15-min poll), multiple hotel blocks (V30), save-the-date emails (async,
-Resend), RSVP reminders (hourly poll), couple password reset.
+**Couple side:** auth (JWT + refresh), signup + onboarding wizard, wedding website (altarwed.com/wedding/[slug]) with side-by-side block editor (14 block types incl. STORY_ENTRY/IMAGE/HERO), guest list + RSVP flow (custom fields, remind-me, party grouping, invite cap, "find your invitation" by name), drag-drop seating chart, budget tracker, planning checklist, wedding party, photo album, vow + ceremony builders, scripture browser, Google Sheets guest sync (15-min poll), multiple hotel blocks (V30), save-the-date emails (async Resend), RSVP reminders (hourly poll), password reset.
 
-**Vendor side:** vendor signup/auth/login (separate from couple accounts; shared
-email is detected and rejected), vendor profile management (bio, description, phone,
-website URL, price tier, logo upload to Azure Blob at `vendor-logos/{vendorId}/`),
-public vendor directory with filters (city, category, Christian-owned), vendor
-public listing page, inquiry form (couple sends → vendor gets email + DB record +
-confirmation back to couple, reply-to set to couple email), vendor inquiry inbox in
-dashboard (unread count badge, mark-read, O(1) ownership check), vendor password
-reset (shared reset flow, tries couple table then vendor table), auto-verify on
-registration (cold-start tradeoff; admin can unverify bad actors via
-`PATCH /api/v1/admin/vendors/{id}/unverify`), admin email alert to
-`hello@altarwed.com` on every new vendor signup.
+**Vendor side:** signup/auth/login (separate from couple accounts; shared email rejected), profile management (bio, description, phone, website URL, price tier, logo upload to Blob at `vendor-logos/{vendorId}/`), public directory with filters (city, category, Christian-owned), public listing page, inquiry form (couple → vendor email + DB record + confirmation back, reply-to = couple email), inquiry inbox (unread badge, mark-read, O(1) ownership check), shared password reset, auto-verify on registration (admin can unverify via `PATCH /api/v1/admin/vendors/{id}/unverify`), admin alert to `hello@altarwed.com` on signup.
 
-**Platform:** blog (7 posts seeded, Article JSON-LD), legal pages, resources/
-affiliate page, sitemap.xml, admin/metrics founder dashboard, PostHog event
-tracking, first-touch UTM attribution on couple signups.
+**Platform:** blog (7 posts, Article JSON-LD), legal pages, resources/affiliate page, sitemap.xml, admin/metrics founder dashboard, PostHog tracking, first-touch UTM attribution on couple signups.
 
 ### Active conventions established by earlier phases (still load-bearing)
 
@@ -586,37 +500,22 @@ tracking, first-touch UTM attribution on couple signups.
   to Stripe: checkout session creation, subscription webhooks (invoice.paid,
   customer.subscription.updated, customer.subscription.deleted), VendorSubscription
   status updates in DB, Stripe Customer Portal link for self-serve billing. Vendor
-  tiers only (BASIC $29 / FEATURED $79 / PREMIUM $149, under review). Couples are
-  free. Jordan moved this before full vendor onboarding: wire payments first so no
-  gap when volume arrives. See vendor pricing analysis in memory.
+  tiers only (see Monetization Context above).
 
 ### Known minor issues
 
 - Blog post `revalidate = 60s` (should be 3600s per SEO rules above). Not urgent.
 
 ## Wedding Website Feature, Live Details
-- URL pattern: altarwed.com/wedding/[slug]
-- Dashboard: app.altarwed.com/dashboard/website
-- Hero photo upload: POST /api/v1/uploads/wedding-websites/{websiteId}/hero
-- Wedding party photo upload: POST /api/v1/uploads/wedding-party/{websiteId}/{memberId}/photo
-- Photo album upload: POST /api/v1/uploads/wedding-websites/{websiteId}/photos (⚠️ verify exists)
-- All upload endpoints require authentication and validate file type + 15 MB size limit
+- Public URL: altarwed.com/wedding/[slug]; dashboard: app.altarwed.com/dashboard/website
+- Upload endpoints (all require auth, validate file type + 15 MB limit), `POST /api/v1/uploads/`: `wedding-websites/{websiteId}/hero`, `wedding-party/{websiteId}/{memberId}/photo`, `wedding-websites/{websiteId}/photos` (album)
 - Soft delete: website data preserved, public page returns 404
 
 ## Scale-Up Path (MVP → Enterprise)
-These are intentional deferments, build simple now, upgrade when traffic justifies it.
-
-### Couple search (currently: JPQL LIKE query)
-- MVP: `WHERE partner_one_name LIKE :name OR partner_two_name LIKE :name`, fine for thousands of couples
-- Enterprise upgrade: Azure Cognitive Search (full-text, fuzzy matching, facets). Wire when LIKE queries get slow or couples complain search doesn't find their names.
-
-### Email delivery (currently: synchronous Resend via @Async thread pool)
-- MVP: Resend API called on a Spring @Async thread pool (4–10 threads, queue 200). Handles thousands of emails per day.
-- Enterprise upgrade: Azure Service Bus queue. GuestService publishes a message; a separate EmailWorker service consumes it. Decouples email failures from the main request, enables retry, dead-letter queue for failures, and horizontal scale. Wire when email volume or failure handling becomes a bottleneck.
-
-### Physical mail / print invitations (currently: mailAddress field captured, nothing wired)
-- MVP: Couples export addresses manually or take to a print shop.
-- Enterprise upgrade: Lob.com API integration. POST to Lob with guest addresses + design template → Lob prints and mails postcards. ~$0.85/postcard. Offer as a paid per-order add-on for couples (a-la-carte couple monetization, not a subscription, since couples are otherwise free).
+Intentional deferments: build simple now, upgrade when traffic justifies it.
+- **Couple search** (now: JPQL `LIKE` on partner names, fine for thousands) → Azure Cognitive Search (full-text, fuzzy, facets) when LIKE gets slow.
+- **Email delivery** (now: Resend on a Spring `@Async` pool, 4–10 threads, queue 200, thousands/day) → Azure Service Bus queue + separate EmailWorker (retry, dead-letter, horizontal scale) when volume/failure handling bottlenecks.
+- **Physical mail / print invitations** (now: `mailAddress` captured, nothing wired) → Lob.com (~$0.85/postcard), offered as a paid per-order add-on for couples (a-la-carte, not a subscription).
 
 ## When You Are Unsure
 - Follow hexagonal architecture over convenience
