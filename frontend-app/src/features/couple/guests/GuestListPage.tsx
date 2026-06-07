@@ -32,6 +32,44 @@ const STATUS_COLOR: Record<RsvpStatus, string> = {
 }
 const SIDES: GuestSide[] = ['BRIDE', 'GROOM', 'BOTH']
 
+// Single source of truth for the guest-sheet columns. These header strings are
+// matched case-insensitively by GoogleSheetSyncService on the backend (see its
+// NAME_ALIASES / SIDE_ALIASES); rename one here and you must update the aliases
+// there too. The "Copy headers" template, the "See all columns" chip list, and
+// the CSV export all derive from this list so they can never silently drift
+// apart, drift is exactly what breaks a couple's sheet sync.
+// Guest Name(s) is intentionally FIRST so couples don't type names into "Side".
+const GUEST_SHEET_COLUMNS: { header: string; value: (g: Guest) => string }[] = [
+  { header: 'Guest Name(s)',         value: g => g.name },
+  { header: 'Side (Bride or Groom)', value: g => g.side ?? '' },
+  { header: 'Phone Number',          value: g => g.phone ?? '' },
+  { header: 'Email Address',         value: g => g.email ?? '' },
+  { header: 'Street Address',        value: g => g.mailLine1 ?? '' },
+  { header: 'City',                  value: g => g.mailCity ?? '' },
+  { header: 'State',                 value: g => g.mailState ?? '' },
+  { header: 'Zip Code',              value: g => g.mailZip ?? '' },
+  { header: 'Allowed Plus One?',     value: g => (g.plusOneAllowed ? 'Yes' : 'No') },
+  { header: 'Plus One Name',         value: g => g.plusOneName ?? '' },
+  { header: 'RSVP Status',           value: g => g.rsvpStatus },
+  { header: 'Table #',               value: g => (g.tableNumber != null ? String(g.tableNumber) : '') },
+  { header: 'Dietary Restriction',   value: g => g.dietaryRestrictions ?? '' },
+  { header: 'Notes',                 value: g => g.notes ?? '' },
+]
+
+// Read-only round-trip key, appended to the paste-in template and the chip list
+// (but never imported): it lets the sync match an existing guest to its row.
+const SHEET_ID_COLUMN = 'AltarWed ID (do not modify)'
+
+// Audit columns added to the CSV export only (read-only, never imported).
+const EXPORT_ONLY_COLUMNS: { header: string; value: (g: Guest) => string }[] = [
+  { header: 'Invitation Sent', value: g => (g.inviteSentAt ? new Date(g.inviteSentAt).toLocaleDateString() : '') },
+  { header: 'Responded At',    value: g => (g.respondedAt ? new Date(g.respondedAt).toLocaleDateString() : '') },
+]
+
+// The full header set a couple pastes into row 1 of their sheet.
+const SHEET_TEMPLATE_HEADERS = [...GUEST_SHEET_COLUMNS.map(c => c.header), SHEET_ID_COLUMN]
+const SHEET_TEMPLATE_COLUMNS = SHEET_TEMPLATE_HEADERS.join('\t')
+
 export default function GuestListPage() {
   const { user } = useAuth()
   const coupleId = user?.id ?? ''
@@ -62,19 +100,12 @@ export default function GuestListPage() {
   })
 
   const [copiedHeaders, setCopiedHeaders] = useState(false)
-  // Guest Name(s) is intentionally the FIRST column so couples don't type names
-  // into "Side" by mistake. Header wording is matched (case-insensitive) by
-  // GoogleSheetSyncService, keep these in sync with the aliases there.
-  const SHEET_TEMPLATE_COLUMNS =
-    'Guest Name(s)\tSide (Bride or Groom)\tPhone Number\tEmail Address\t' +
-    'Street Address\tCity\tState\tZip Code\tAllowed Plus One?\tPlus One Name\t' +
-    'RSVP Status\tTable #\tDietary Restriction\tNotes\tAltarWed ID (do not modify)'
   const copyHeaders = useCallback(() => {
     navigator.clipboard.writeText(SHEET_TEMPLATE_COLUMNS).then(() => {
       setCopiedHeaders(true)
       setTimeout(() => setCopiedHeaders(false), 2000)
     })
-  }, [SHEET_TEMPLATE_COLUMNS])
+  }, [])
 
   // Wrapper around triggerSheetSync that shows a toast summarising what the sync
   // actually did. The backend returns { added, updated } so we can say "3 new,
@@ -251,24 +282,14 @@ export default function GuestListPage() {
   }, [guests, coupleId])
 
   function exportCsv() {
-    const rows = guests.map(g => ({
-      'Guest Name(s)':                g.name,
-      'Side (Bride or Groom)':        g.side ?? '',
-      'Phone Number':                 g.phone ?? '',
-      'Email Address':                g.email ?? '',
-      'Street Address':               g.mailLine1 ?? '',
-      'City':                         g.mailCity ?? '',
-      'State':                        g.mailState ?? '',
-      'Zip Code':                     g.mailZip ?? '',
-      'Allowed Plus One?':            g.plusOneAllowed ? 'Yes' : 'No',
-      'Plus One Name':                g.plusOneName ?? '',
-      'RSVP Status':                  g.rsvpStatus,
-      'Table #':                      g.tableNumber ?? '',
-      'Dietary Restriction':          g.dietaryRestrictions ?? '',
-      'Notes':                        g.notes ?? '',
-      'Invitation Sent':              g.inviteSentAt ? new Date(g.inviteSentAt).toLocaleDateString() : '',
-      'Responded At':                 g.respondedAt ? new Date(g.respondedAt).toLocaleDateString() : '',
-    }))
+    // Derived from the same column list as the paste-in template (plus read-only
+    // audit columns), so an export always round-trips back through sheet sync.
+    const exportColumns = [...GUEST_SHEET_COLUMNS, ...EXPORT_ONLY_COLUMNS]
+    const rows = guests.map(g => {
+      const row: Record<string, string> = {}
+      for (const col of exportColumns) row[col.header] = col.value(g)
+      return row
+    })
     // BOM prefix so Excel opens the file with correct UTF-8 encoding
     const csv = '﻿' + Papa.unparse(rows)
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -500,10 +521,7 @@ export default function GuestListPage() {
               <details className="mt-3">
                 <summary className="cursor-pointer text-stone-500 hover:text-stone-700">See all columns</summary>
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {['Guest Name(s)', 'Side (Bride or Groom)', 'Phone Number', 'Email Address',
-                    'Street Address', 'City', 'State', 'Zip Code', 'Allowed Plus One?',
-                    'Plus One Name', 'RSVP Status', 'Table #', 'Dietary Restriction', 'Notes',
-                    'AltarWed ID (do not modify)'].map(col => (
+                  {SHEET_TEMPLATE_HEADERS.map(col => (
                     <span key={col} className="rounded bg-amber-100 border border-amber-200 px-1.5 py-0.5 text-[10px] font-mono text-amber-900">
                       {col}
                     </span>
