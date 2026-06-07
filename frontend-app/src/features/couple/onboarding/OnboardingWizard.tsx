@@ -7,7 +7,7 @@ import { useAuth } from '@/core/auth/AuthContext'
 import { apiClient } from '@/core/api/client'
 import { useCreateWeddingWebsite, useUpdateWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { formatShortDate } from '@/lib/date'
-import { normalizeImageFile } from '@/lib/normalizeImageFile'
+import { normalizeImageFile, isAllowedImageType } from '@/lib/normalizeImageFile'
 import ImageDropzone from '@/components/ImageDropzone'
 
 // Wizard collects everything required to render a presentable rough draft of
@@ -109,6 +109,7 @@ export default function OnboardingWizard() {
   const [heroPhotoUrl, setHeroPhotoUrl] = useState<string | null>(draft.heroPhotoUrl || null)
   const [heroFile, setHeroFile] = useState<File | null>(null)
   const [heroFilePreview, setHeroFilePreview] = useState<string | null>(null)
+  const [heroError, setHeroError] = useState<string | null>(null)
 
   // Scripture: reference + text fetched from bible-api.com via our proxy.
   const [scriptureReference, setScriptureReference] = useState(draft.scriptureReference ?? '')
@@ -149,10 +150,19 @@ export default function OnboardingWizard() {
 
   const handleHeroFile = async (picked: File) => {
     // Convert HEIC (iPhone / Google Photos) to JPEG before validating, so the
-    // backend's jpeg/png/webp whitelist accepts it.
+    // backend's jpeg/png/webp whitelist accepts it. Surface a clear message on
+    // failure instead of silently dropping the file (the couple picked a photo
+    // and nothing appearing, with no reason, was a real onboarding dead end).
+    setHeroError(null)
     const file = await normalizeImageFile(picked)
-    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return
-    if (file.size > 15 * 1024 * 1024) return
+    if (!isAllowedImageType(file)) {
+      setHeroError('That image type is not supported. Please use a JPEG, PNG, or WebP (or an iPhone HEIC photo).')
+      return
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      setHeroError('That photo is over 15 MB. Please choose a smaller image.')
+      return
+    }
     setHeroFile(file)
     setHeroFilePreview(URL.createObjectURL(file))
     setHeroPhotoUrl(null)
@@ -321,9 +331,10 @@ export default function OnboardingWizard() {
               {step === 5 && (
                 <Step5Hero
                   heroPhotoUrl={heroPhotoUrl}
-                  onPickDefault={url => { setHeroPhotoUrl(url); setHeroFile(null); setHeroFilePreview(null) }}
+                  onPickDefault={url => { setHeroPhotoUrl(url); setHeroFile(null); setHeroFilePreview(null); setHeroError(null) }}
                   heroFilePreview={heroFilePreview}
                   onPickFile={handleHeroFile}
+                  heroError={heroError}
                   onBack={back} onNext={next}
                 />
               )}
@@ -556,10 +567,11 @@ function Step4Hotel({
 }
 
 function Step5Hero({
-  heroPhotoUrl, onPickDefault, heroFilePreview, onPickFile, onBack, onNext,
+  heroPhotoUrl, onPickDefault, heroFilePreview, onPickFile, heroError, onBack, onNext,
 }: {
   heroPhotoUrl: string | null; onPickDefault: (url: string) => void
   heroFilePreview: string | null; onPickFile: (file: File) => void
+  heroError: string | null
   onBack: () => void; onNext: () => void
 }) {
   const picked = heroFilePreview ?? heroPhotoUrl
@@ -614,6 +626,11 @@ function Step5Hero({
             Drag a photo here, or click to choose (JPEG, PNG, WebP, HEIC up to 15 MB)
           </span>
         </ImageDropzone>
+        {heroError && (
+          <p role="alert" className="mt-2 text-xs text-red-600 leading-snug">
+            {heroError}
+          </p>
+        )}
         <p className="mt-2 text-xs text-[#a08060] leading-snug">
           A wide landscape photo works best. Tall portrait shots get cropped top and bottom in the banner.
         </p>

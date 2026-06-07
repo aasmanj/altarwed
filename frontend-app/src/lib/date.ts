@@ -43,25 +43,28 @@ export function formatMonthYear(d: Date): string {
   return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
-const DAY_MS = 86_400_000
-// The seeded checklist assumes the longest lead task is ~12 months before the
-// wedding. We scale relative to that span.
-const PLAN_SPAN_MONTHS = 12
-// Approx length of the full 12-month plan in ms (avg month = 30.4375 days).
-const FULL_PLAN_MS = PLAN_SPAN_MONTHS * 30.4375 * DAY_MS
-
-// The date a task is "due", scaled to the couple's actual planning runway.
-// Without scaling, a couple engaged for less than a year sees every long-lead
-// task ("book venue 12 months before") land ~a year in the past. Anchoring on
-// the engagement date and compressing the plan into engagement -> wedding fixes
-// that: the longest-lead task sits at the engagement date, the shortest near the
-// wedding. When the runway is >= the full 12-month plan (or no engagement date
-// is set), we keep the natural month offsets via dueDateBefore.
+// The date a task is "due", fitted to the couple's actual planning runway.
+//
+// The naive offset ("book venue 12 months before") lands in the past for a couple
+// engaged less than a year, so every long-lead task shows as overdue on day one.
+// The earlier fix linearly compressed the whole plan into engagement -> wedding,
+// but that pushed *fixed-deadline* near-wedding tasks (mail invitations, RSVP
+// cutoff, final headcount) LATER than physically possible.
+//
+// The model here keeps real deadlines intact and only pulls in what doesn't fit:
+//   - If the natural due date still falls within the runway (>= engagement date),
+//     use it. Near-wedding tasks always fit, so their hard deadlines are preserved.
+//   - If the natural due date is before the engagement date (the task wants more
+//     lead time than the couple has), collapse it to the engagement date: "this is
+//     catch-up work, start it now." Several overflow tasks stacking on the
+//     engagement date is the correct signal, not a bug.
 export function scaledDueDate(weddingIso: string, startIso: string | null, monthsBefore: number): Date {
-  if (!startIso) return dueDateBefore(weddingIso, monthsBefore)
+  const naturalDue = dueDateBefore(weddingIso, monthsBefore)
+  if (!startIso) return naturalDue
+  const start = parseLocal(startIso)
   const wedding = parseLocal(weddingIso)
-  const windowMs = wedding.getTime() - parseLocal(startIso).getTime()
-  if (windowMs <= 0 || windowMs >= FULL_PLAN_MS) return dueDateBefore(weddingIso, monthsBefore)
-  const fraction = Math.min(monthsBefore, PLAN_SPAN_MONTHS) / PLAN_SPAN_MONTHS
-  return new Date(wedding.getTime() - fraction * windowMs)
+  // Guard a fat-fingered engagement date (on/after the wedding): fall back to the
+  // natural offsets rather than collapsing every task onto a post-wedding date.
+  if (wedding.getTime() <= start.getTime()) return naturalDue
+  return naturalDue.getTime() >= start.getTime() ? naturalDue : start
 }

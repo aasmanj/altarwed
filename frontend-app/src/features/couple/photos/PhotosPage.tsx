@@ -6,7 +6,7 @@ import { useConfirm } from '@/components/ConfirmDialog'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
-import { normalizeImageFile } from '@/lib/normalizeImageFile'
+import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 
 interface Photo {
   id: string
@@ -129,7 +129,7 @@ export default function PhotosPage() {
             <input
               ref={fileRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp,.heic,.heif"
+              accept={IMAGE_ACCEPT}
               className="hidden"
               onChange={handleFileChange}
             />

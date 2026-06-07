@@ -7,7 +7,7 @@ import { useAuth } from '@/core/auth/AuthContext'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { defaultContentJson, type BlockType, type WeddingPageBlock } from './types'
 import { useOpenWebsiteSection, type WebsiteSection } from './blockEditContext'
-import { normalizeImageFile } from '@/lib/normalizeImageFile'
+import { normalizeImageFile, isAllowedImageType, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 
 // Debounced autosave: every time `contentJson` changes locally, schedule a save
 // 150ms later. New keystrokes reset the timer (classic debounce). On unmount
@@ -452,7 +452,7 @@ function BlockImageUpload({
     if (!picked || !websiteId) return
     // Convert HEIC (iPhone / Google Photos) to JPEG before validating.
     const file = await normalizeImageFile(picked)
-    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+    if (!isAllowedImageType(file)) {
       setError('Only JPEG, PNG, or WebP images are supported.')
       return
     }
@@ -521,7 +521,7 @@ function BlockImageUpload({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,.heic,.heif"
+        accept={IMAGE_ACCEPT}
         className="hidden"
         onChange={handleFile}
       />

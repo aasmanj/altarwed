@@ -5,7 +5,7 @@ import {
   useWeddingParty, useAddMember, useUpdateMember, useDeleteMember, useUploadMemberPhoto,
   type WeddingPartyMember, type PartySide,
 } from './useWeddingParty'
-import { normalizeImageFile } from '@/lib/normalizeImageFile'
+import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 import { cropToSquare } from '@/lib/imageCrop'
 
 const SUGGESTED_ROLES = [
@@ -205,7 +205,7 @@ function MemberCard({ member, onEdit, onDelete, onPhotoUpload, isUploading, reor
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,.heic,.heif"
+          accept={IMAGE_ACCEPT}
           className="hidden"
           onChange={async e => {
             const file = e.target.files?.[0]
@@ -276,7 +276,12 @@ function MemberForm({ initial, onSubmit, onCancel, isPending, allowPhoto = false
   const [role, setRole]   = useState(initial?.role ?? '')
   const [side, setSide]   = useState<PartySide>(initial?.side ?? 'BRIDE')
   const [bio, setBio]     = useState(initial?.bio ?? '')
-  const [customRole, setCustomRole] = useState(!SUGGESTED_ROLES.includes(initial?.role ?? ''))
+  // A new member defaults to the curated dropdown (the whole point of the picker).
+  // Only an *existing* member whose saved role isn't in the list opens in free-text
+  // so we don't lose the custom value they previously typed.
+  const [customRole, setCustomRole] = useState(
+    initial != null && !SUGGESTED_ROLES.includes(initial.role),
+  )
   const [croppedFile, setCroppedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl]   = useState<string | null>(null)
   const [cropError, setCropError]     = useState<string | null>(null)
@@ -383,7 +388,7 @@ function MemberForm({ initial, onSubmit, onCancel, isPending, allowPhoto = false
             )}
             <label className="text-sm text-gold hover:underline cursor-pointer">
               {isCropping ? 'Processing…' : croppedFile ? 'Change photo' : 'Upload photo'}
-              <input type="file" accept="image/jpeg,image/png,image/webp,.heic,.heif"
+              <input type="file" accept={IMAGE_ACCEPT}
                 className="hidden" onChange={handlePhotoPick} disabled={isCropping} />
             </label>
             {croppedFile && (

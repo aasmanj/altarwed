@@ -116,9 +116,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setState({ user, accessToken, refreshToken })
         return accessToken
       })
-      .catch(() => {
-        saveRefreshToken(null)
-        setState({ user: null, accessToken: null, refreshToken: null })
+      .catch((err: unknown) => {
+        const status = (err as { response?: { status?: number } })?.response?.status
+        // Only destroy the stored session when the server authoritatively rejects
+        // the token (expired/revoked/malformed). A network blip or a 5xx is
+        // transient, so we keep the 7-day refresh token and stay unauthenticated
+        // for now; the next request (or app reload) retries instead of forcing a
+        // full re-login. Without this, a momentary outage on the bootstrap refresh
+        // would silently log a returning couple out.
+        const authoritativeReject = status === 400 || status === 401 || status === 403
+        if (authoritativeReject) {
+          saveRefreshToken(null)
+          setState({ user: null, accessToken: null, refreshToken: null })
+        }
         return null
       })
       .finally(() => {

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { normalizeImageFile } from '@/lib/normalizeImageFile'
+import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 
 // Click-or-drag image picker. Wraps any visual target; on click or drop it opens
 // the file dialog / reads the dropped file, runs it through normalizeImageFile
@@ -55,7 +55,7 @@ export default function ImageDropzone({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,.heic,.heif"
+        accept={IMAGE_ACCEPT}
         className="hidden"
         disabled={disabled}
         onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; deliver(f) }}

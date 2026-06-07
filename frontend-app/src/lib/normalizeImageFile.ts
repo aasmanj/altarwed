@@ -5,6 +5,21 @@
 // (~1.4 MB), so heic-to is dynamically imported only when a HEIC file is actually
 // picked, keeping it out of the main bundle.
 
+// Single source of truth for what the uploaders accept. The `accept` attribute
+// widens the OS file picker to include HEIC/HEIF (which normalizeImageFile then
+// converts to JPEG); isAllowedImageType is the post-conversion validation gate
+// and MUST stay aligned with the backend's jpeg/png/webp whitelist. Keeping both
+// here means a new format is added in one place, not copy-pasted across 7 inputs.
+export const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp,.heic,.heif'
+
+const ALLOWED_IMAGE_TYPE = /^image\/(jpeg|png|webp)$/
+
+// True when the (already-normalized) file is one the backend will store. Call
+// this AFTER normalizeImageFile so a converted HEIC passes as image/jpeg.
+export function isAllowedImageType(file: File): boolean {
+  return ALLOWED_IMAGE_TYPE.test(file.type)
+}
+
 const HEIC_EXT = /\.(heic|heif)$/i
 
 function looksLikeHeic(file: File): boolean {

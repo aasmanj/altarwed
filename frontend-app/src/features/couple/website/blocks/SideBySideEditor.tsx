@@ -16,7 +16,7 @@ import {
 import SortableBlockList from './SortableBlockList'
 import WebsiteSectionDrawer from './WebsiteSectionDrawer'
 import { BlockEditContext, type WebsiteSection } from './blockEditContext'
-import { normalizeImageFile } from '@/lib/normalizeImageFile'
+import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 import {
   ALLOWED_TYPES_PER_TAB,
   BLOCK_TABS,
@@ -592,7 +592,7 @@ export default function SideBySideEditor() {
           <input
             ref={heroInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,.heic,.heif"
+            accept={IMAGE_ACCEPT}
             className="hidden"
             onChange={handleHeroUpload}
           />

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useVendorProfile, useUpdateVendorProfile, useUploadVendorLogo } from './useVendor'
 import { useDenominations } from './useDenominations'
-import { normalizeImageFile } from '@/lib/normalizeImageFile'
+import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 
 const CATEGORIES = [
   { value: 'PHOTOGRAPHER',    label: 'Photographer' },
@@ -179,7 +179,7 @@ export default function VendorListingPage() {
                 <input
                   ref={logoInputRef}
                   type="file"
-                  accept="image/jpeg,image/png,image/webp,.heic,.heif"
+                  accept={IMAGE_ACCEPT}
                   onChange={handleLogoChange}
                   className="sr-only"
                   id="logoUpload"
