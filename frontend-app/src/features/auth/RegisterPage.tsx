@@ -7,6 +7,9 @@ import { getStoredAcquisition, clearStoredAcquisition } from '@/core/analytics/u
 import { usePersistentState, clearPersistentState } from '@/lib/usePersistentState'
 
 const REGISTER_FORM_KEY = 'altarwed.register'
+// Discard an abandoned signup draft after 30 minutes of inactivity so a shared or
+// kiosk browser doesn't prefill one person's name/email for the next visitor.
+const REGISTER_DRAFT_TTL_MS = 30 * 60 * 1000
 
 export default function RegisterPage() {
   const { register, user } = useAuth()
@@ -25,7 +28,7 @@ export default function RegisterPage() {
     brideLastName: '',
     email: '',
     weddingDate: '',
-  })
+  }, { ttlMs: REGISTER_DRAFT_TTL_MS })
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [marketingConsent, setMarketingConsent] = useState(false)

@@ -9,6 +9,7 @@ import { useCreateWeddingWebsite, useUpdateWeddingWebsite } from '@/features/cou
 import { formatShortDate } from '@/lib/date'
 import { normalizeImageFile, isAllowedImageType } from '@/lib/normalizeImageFile'
 import ImageDropzone from '@/components/ImageDropzone'
+import { readPersistedState, writePersistedState, clearPersistentState } from '@/lib/usePersistentState'
 
 // Wizard collects everything required to render a presentable rough draft of
 // the wedding site in one sitting. Steps after #2 are all optional so couples
@@ -39,16 +40,12 @@ const DEFAULT_HERO_PHOTOS = [
 const REGISTRY_SUGGESTIONS = ['Amazon', 'Target', 'Zola', 'Crate & Barrel', 'Honeyfund']
 
 // Persist the wizard's text fields so a mid-flow refresh doesn't reset progress.
-// sessionStorage (clears on tab close) is the right lifetime. The uploaded hero
-// File can't be serialized and is intentionally not persisted.
+// sessionStorage (clears on tab close) is the right lifetime; the 30-minute idle
+// TTL also discards an abandoned draft on a shared device. The uploaded hero File
+// can't be serialized and is intentionally not persisted. Storage is handled by
+// the shared sessionStorage primitives so the format/TTL match RegisterPage.
 const ONBOARDING_KEY = 'altarwed.onboarding'
-function readWizardDraft(): Record<string, string> {
-  try {
-    return JSON.parse(window.sessionStorage.getItem(ONBOARDING_KEY) || '{}')
-  } catch {
-    return {}
-  }
-}
+const ONBOARDING_TTL_MS = 30 * 60 * 1000
 
 interface FeaturedRefs { references: string[] }
 interface VerseResult  { reference: string; text: string }
@@ -75,7 +72,10 @@ export default function OnboardingWizard() {
   const createWebsite = useCreateWeddingWebsite(coupleId)
   const updateWebsite = useUpdateWeddingWebsite(coupleId)
 
-  const draft = useMemo(() => readWizardDraft(), [])
+  const draft = useMemo(
+    () => readPersistedState<Record<string, string>>(ONBOARDING_KEY, {}, ONBOARDING_TTL_MS),
+    [],
+  )
 
   const [step, setStep] = useState<Step>(() => {
     const s = Number(draft.step)
@@ -131,7 +131,7 @@ export default function OnboardingWizard() {
       scriptureReference, scriptureText,
       registryUrl1, registryLabel1,
     }
-    try { window.sessionStorage.setItem(ONBOARDING_KEY, JSON.stringify(snapshot)) } catch { /* ignore */ }
+    writePersistedState(ONBOARDING_KEY, snapshot)
   }, [step, partnerOneName, partnerTwoName, slug, weddingDate,
       venueName, venueAddress, venueCity, venueState, ceremonyTime,
       hotelName, hotelUrl, hotelDetails, heroPhotoUrl,
@@ -243,7 +243,7 @@ export default function OnboardingWizard() {
       }
 
       // Website created: clear the persisted wizard draft.
-      try { window.sessionStorage.removeItem(ONBOARDING_KEY) } catch { /* ignore */ }
+      clearPersistentState(ONBOARDING_KEY)
       navigate('/dashboard/website/editor')
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
