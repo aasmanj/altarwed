@@ -4,6 +4,9 @@ import confetti from 'canvas-confetti'
 import { useAuth } from '@/core/auth/AuthContext'
 import { captureEvent } from '@/core/analytics/analytics'
 import { getStoredAcquisition, clearStoredAcquisition } from '@/core/analytics/utm'
+import { usePersistentState, clearPersistentState } from '@/lib/usePersistentState'
+
+const REGISTER_FORM_KEY = 'altarwed.register'
 
 export default function RegisterPage() {
   const { register, user } = useAuth()
@@ -12,16 +15,19 @@ export default function RegisterPage() {
   // Per CLAUDE.md: partnerOne = Groom, partnerTwo = Bride.
   // We split first/last in the UI and concatenate on submit so the
   // backend column shape doesn't change in Phase 0.
-  const [form, setForm] = useState({
+  // Non-secret fields persist across a refresh (sessionStorage) so a reload
+  // doesn't wipe what the couple typed. Passwords are kept in memory only and
+  // are NEVER written to storage.
+  const [form, setForm] = usePersistentState(REGISTER_FORM_KEY, {
     groomFirstName: '',
     groomLastName: '',
     brideFirstName: '',
     brideLastName: '',
     email: '',
-    password: '',
-    confirmPassword: '',
     weddingDate: '',
   })
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [marketingConsent, setMarketingConsent] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -38,11 +44,11 @@ export default function RegisterPage() {
     e.preventDefault()
     setError('')
 
-    if (form.password !== form.confirmPassword) {
+    if (password !== confirmPassword) {
       setError('Passwords do not match.')
       return
     }
-    if (form.password.length < 8) {
+    if (password.length < 8) {
       setError('Password must be at least 8 characters.')
       return
     }
@@ -61,11 +67,13 @@ export default function RegisterPage() {
         partnerOneName: groomName,
         partnerTwoName: brideName,
         email: form.email.trim(),
-        password: form.password,
+        password,
         weddingDate: form.weddingDate || null,
         acquisition: acquisition ?? null,
         marketingConsent,
       })
+      // Account created: clear the persisted draft so it isn't restored later.
+      clearPersistentState(REGISTER_FORM_KEY)
       // Funnel conversion event. The couple is identified by AuthContext's effect
       // the moment register() sets the user, so this capture is attached to the
       // right person. UTM props let PostHog break the funnel down by campaign;
@@ -183,8 +191,8 @@ export default function RegisterPage() {
               type="password"
               required
               autoComplete="new-password"
-              value={form.password}
-              onChange={set('password')}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
               className="w-full rounded-lg border border-gold-light px-4 py-2.5 text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
             />
           </div>
@@ -198,8 +206,8 @@ export default function RegisterPage() {
               type="password"
               required
               autoComplete="new-password"
-              value={form.confirmPassword}
-              onChange={set('confirmPassword')}
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
               className="w-full rounded-lg border border-gold-light px-4 py-2.5 text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
             />
           </div>

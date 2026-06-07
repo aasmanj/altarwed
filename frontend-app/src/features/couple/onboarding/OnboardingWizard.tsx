@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useQuery, useMutation } from '@tanstack/react-query'
@@ -7,6 +7,8 @@ import { useAuth } from '@/core/auth/AuthContext'
 import { apiClient } from '@/core/api/client'
 import { useCreateWeddingWebsite, useUpdateWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { formatShortDate } from '@/lib/date'
+import { normalizeImageFile, isAllowedImageType } from '@/lib/normalizeImageFile'
+import ImageDropzone from '@/components/ImageDropzone'
 
 // Wizard collects everything required to render a presentable rough draft of
 // the wedding site in one sitting. Steps after #2 are all optional so couples
@@ -31,6 +33,22 @@ const DEFAULT_HERO_PHOTOS = [
   'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=1600&q=80',
   'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=1600&q=80',
 ]
+
+// Common registries couples link. Tapping one fills the label so a non-technical
+// user isn't staring at a blank "Registry name" field wondering what to type.
+const REGISTRY_SUGGESTIONS = ['Amazon', 'Target', 'Zola', 'Crate & Barrel', 'Honeyfund']
+
+// Persist the wizard's text fields so a mid-flow refresh doesn't reset progress.
+// sessionStorage (clears on tab close) is the right lifetime. The uploaded hero
+// File can't be serialized and is intentionally not persisted.
+const ONBOARDING_KEY = 'altarwed.onboarding'
+function readWizardDraft(): Record<string, string> {
+  try {
+    return JSON.parse(window.sessionStorage.getItem(ONBOARDING_KEY) || '{}')
+  } catch {
+    return {}
+  }
+}
 
 interface FeaturedRefs { references: string[] }
 interface VerseResult  { reference: string; text: string }
@@ -57,43 +75,67 @@ export default function OnboardingWizard() {
   const createWebsite = useCreateWeddingWebsite(coupleId)
   const updateWebsite = useUpdateWeddingWebsite(coupleId)
 
-  const [step, setStep] = useState<Step>(1)
+  const draft = useMemo(() => readWizardDraft(), [])
+
+  const [step, setStep] = useState<Step>(() => {
+    const s = Number(draft.step)
+    return (s >= 1 && s <= TOTAL_STEPS ? s : 1) as Step
+  })
   const directionRef = useRef(1)
   const shouldReduce = useReducedMotion()
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   // Required (steps 1-2)
-  const [partnerOneName, setPartnerOneName] = useState(user?.partnerOneName ?? '')
-  const [partnerTwoName, setPartnerTwoName] = useState(user?.partnerTwoName ?? '')
-  const [slug, setSlug] = useState('')
-  const [weddingDate, setWeddingDate] = useState(user?.weddingDate ?? '')
+  const [partnerOneName, setPartnerOneName] = useState(user?.partnerOneName ?? draft.partnerOneName ?? '')
+  const [partnerTwoName, setPartnerTwoName] = useState(user?.partnerTwoName ?? draft.partnerTwoName ?? '')
+  const [slug, setSlug] = useState(draft.slug ?? '')
+  const [weddingDate, setWeddingDate] = useState(user?.weddingDate ?? draft.weddingDate ?? '')
   const dateLocked = !!user?.weddingDate
 
   // Optional (steps 3-7), all skippable
-  const [venueName, setVenueName] = useState('')
-  const [venueAddress, setVenueAddress] = useState('')
-  const [venueCity, setVenueCity] = useState('')
-  const [venueState, setVenueState] = useState('')
-  const [ceremonyTime, setCeremonyTime] = useState('')
+  const [venueName, setVenueName] = useState(draft.venueName ?? '')
+  const [venueAddress, setVenueAddress] = useState(draft.venueAddress ?? '')
+  const [venueCity, setVenueCity] = useState(draft.venueCity ?? '')
+  const [venueState, setVenueState] = useState(draft.venueState ?? '')
+  const [ceremonyTime, setCeremonyTime] = useState(draft.ceremonyTime ?? '')
 
-  const [hotelName, setHotelName] = useState('')
-  const [hotelUrl, setHotelUrl] = useState('')
-  const [hotelDetails, setHotelDetails] = useState('')
+  const [hotelName, setHotelName] = useState(draft.hotelName ?? '')
+  const [hotelUrl, setHotelUrl] = useState(draft.hotelUrl ?? '')
+  const [hotelDetails, setHotelDetails] = useState(draft.hotelDetails ?? '')
 
-  // Hero: either a picked default URL OR a File the user uploaded.
-  const [heroPhotoUrl, setHeroPhotoUrl] = useState<string | null>(null)
+  // Hero: either a picked default URL OR a File the user uploaded. Only the
+  // picked-URL persists; an uploaded File can't be serialized to sessionStorage.
+  const [heroPhotoUrl, setHeroPhotoUrl] = useState<string | null>(draft.heroPhotoUrl || null)
   const [heroFile, setHeroFile] = useState<File | null>(null)
   const [heroFilePreview, setHeroFilePreview] = useState<string | null>(null)
+  const [heroError, setHeroError] = useState<string | null>(null)
 
   // Scripture: reference + text fetched from bible-api.com via our proxy.
-  const [scriptureReference, setScriptureReference] = useState('')
-  const [scriptureText, setScriptureText] = useState('')
+  const [scriptureReference, setScriptureReference] = useState(draft.scriptureReference ?? '')
+  const [scriptureText, setScriptureText] = useState(draft.scriptureText ?? '')
   const featured = useScriptureFeatured()
   const fetchVerse = useScriptureFetch()
 
-  const [registryUrl1, setRegistryUrl1] = useState('')
-  const [registryLabel1, setRegistryLabel1] = useState('')
+  const [registryUrl1, setRegistryUrl1] = useState(draft.registryUrl1 ?? '')
+  const [registryLabel1, setRegistryLabel1] = useState(draft.registryLabel1 ?? '')
+
+  // Persist the draft on every change so a refresh keeps the couple's progress.
+  useEffect(() => {
+    const snapshot = {
+      step: String(step),
+      partnerOneName, partnerTwoName, slug, weddingDate,
+      venueName, venueAddress, venueCity, venueState, ceremonyTime,
+      hotelName, hotelUrl, hotelDetails,
+      heroPhotoUrl: heroPhotoUrl ?? '',
+      scriptureReference, scriptureText,
+      registryUrl1, registryLabel1,
+    }
+    try { window.sessionStorage.setItem(ONBOARDING_KEY, JSON.stringify(snapshot)) } catch { /* ignore */ }
+  }, [step, partnerOneName, partnerTwoName, slug, weddingDate,
+      venueName, venueAddress, venueCity, venueState, ceremonyTime,
+      hotelName, hotelUrl, hotelDetails, heroPhotoUrl,
+      scriptureReference, scriptureText, registryUrl1, registryLabel1])
 
   const suggestSlug = () => {
     if (partnerOneName && partnerTwoName) {
@@ -106,9 +148,21 @@ export default function OnboardingWizard() {
     }
   }
 
-  const handleHeroFile = (file: File) => {
-    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return
-    if (file.size > 15 * 1024 * 1024) return
+  const handleHeroFile = async (picked: File) => {
+    // Convert HEIC (iPhone / Google Photos) to JPEG before validating, so the
+    // backend's jpeg/png/webp whitelist accepts it. Surface a clear message on
+    // failure instead of silently dropping the file (the couple picked a photo
+    // and nothing appearing, with no reason, was a real onboarding dead end).
+    setHeroError(null)
+    const file = await normalizeImageFile(picked)
+    if (!isAllowedImageType(file)) {
+      setHeroError('That image type is not supported. Please use a JPEG, PNG, or WebP (or an iPhone HEIC photo).')
+      return
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      setHeroError('That photo is over 15 MB. Please choose a smaller image.')
+      return
+    }
     setHeroFile(file)
     setHeroFilePreview(URL.createObjectURL(file))
     setHeroPhotoUrl(null)
@@ -188,6 +242,8 @@ export default function OnboardingWizard() {
         }
       }
 
+      // Website created: clear the persisted wizard draft.
+      try { window.sessionStorage.removeItem(ONBOARDING_KEY) } catch { /* ignore */ }
       navigate('/dashboard/website/editor')
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -275,9 +331,10 @@ export default function OnboardingWizard() {
               {step === 5 && (
                 <Step5Hero
                   heroPhotoUrl={heroPhotoUrl}
-                  onPickDefault={url => { setHeroPhotoUrl(url); setHeroFile(null); setHeroFilePreview(null) }}
+                  onPickDefault={url => { setHeroPhotoUrl(url); setHeroFile(null); setHeroFilePreview(null); setHeroError(null) }}
                   heroFilePreview={heroFilePreview}
                   onPickFile={handleHeroFile}
+                  heroError={heroError}
                   onBack={back} onNext={next}
                 />
               )}
@@ -510,10 +567,11 @@ function Step4Hotel({
 }
 
 function Step5Hero({
-  heroPhotoUrl, onPickDefault, heroFilePreview, onPickFile, onBack, onNext,
+  heroPhotoUrl, onPickDefault, heroFilePreview, onPickFile, heroError, onBack, onNext,
 }: {
   heroPhotoUrl: string | null; onPickDefault: (url: string) => void
   heroFilePreview: string | null; onPickFile: (file: File) => void
+  heroError: string | null
   onBack: () => void; onNext: () => void
 }) {
   const picked = heroFilePreview ?? heroPhotoUrl
@@ -558,18 +616,21 @@ function Step5Hero({
 
       <div>
         <label className="block text-sm font-medium text-[#3b2f2f] mb-2">Or upload your own</label>
-        <label className="block">
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) onPickFile(f) }}
-          />
-          <span className="block w-full text-center rounded-lg border-2 border-dashed border-[#e8dcc8] py-4 text-sm text-[#a08060] cursor-pointer hover:border-[#d4af6a] hover:text-[#3b2f2f] transition">
+        <ImageDropzone
+          onPick={onPickFile}
+          ariaLabel="Upload a hero photo"
+          className="block w-full rounded-lg border-2 border-dashed border-[#e8dcc8] hover:border-[#d4af6a] transition"
+        >
+          <span className="block w-full text-center py-4 text-sm text-[#a08060]">
             <ImagePlus className="inline-block w-4 h-4 mr-1" />
-            Choose a photo (JPEG, PNG, WebP up to 15 MB)
+            Drag a photo here, or click to choose (JPEG, PNG, WebP, HEIC up to 15 MB)
           </span>
-        </label>
+        </ImageDropzone>
+        {heroError && (
+          <p role="alert" className="mt-2 text-xs text-red-600 leading-snug">
+            {heroError}
+          </p>
+        )}
         <p className="mt-2 text-xs text-[#a08060] leading-snug">
           A wide landscape photo works best. Tall portrait shots get cropped top and bottom in the banner.
         </p>
@@ -653,7 +714,25 @@ function Step7Registry({
         title="Registry"
         subtitle="One link to start. You can add up to two more in the editor."
       />
-      <LabeledInput label="Registry name" value={registryLabel} onChange={onRegistryLabel} />
+      <div>
+        <LabeledInput label="Registry name" value={registryLabel} onChange={onRegistryLabel} placeholder="e.g. Amazon" />
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {REGISTRY_SUGGESTIONS.map(name => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => onRegistryLabel(name)}
+              className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                registryLabel === name
+                  ? 'border-[#d4af6a] bg-[#d4af6a] text-white'
+                  : 'border-[#e8dcc8] text-[#a08060] hover:border-[#d4af6a] hover:text-[#3b2f2f]'
+              }`}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      </div>
       <LabeledInput label="Link" value={registryUrl} onChange={onRegistryUrl} placeholder="https://amazon.com/wedding/share/..." />
       <Nav onBack={onBack} onNext={onNext} nextLabel={registryUrl ? 'Continue →' : 'Skip for now →'} />
     </div>

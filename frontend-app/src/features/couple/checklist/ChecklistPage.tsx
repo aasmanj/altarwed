@@ -11,8 +11,8 @@ import PageHeader from '@/components/PageHeader'
 import TipCallout from '@/components/TipCallout'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { TIPS } from '@/lib/tips'
-import { dueDateBefore, formatMonthYear } from '@/lib/date'
-import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
+import { scaledDueDate, formatMonthYear } from '@/lib/date'
+import { useWeddingWebsite, useUpdateWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import {
   usePlanningTasks, useToggleTask, useAddTask, useDeleteTask,
   type PlanningTask, type TaskCategory,
@@ -82,12 +82,14 @@ interface DatedTask {
   bucket: Bucket
 }
 
-function classify(task: PlanningTask, weddingDate: string | null): DatedTask {
+function classify(task: PlanningTask, weddingDate: string | null, engagementDate: string | null): DatedTask {
   if (task.isCompleted) return { task, dueDate: null, bucket: 'done' }
   if (weddingDate == null || task.dueMonthsBefore == null) {
     return { task, dueDate: null, bucket: 'noDate' }
   }
-  const dueDate = dueDateBefore(weddingDate, task.dueMonthsBefore)
+  // Scale the target into the couple's real runway (engagement -> wedding) so a
+  // sub-12-month engagement doesn't show every long-lead task a year in the past.
+  const dueDate = scaledDueDate(weddingDate, engagementDate, task.dueMonthsBefore)
   const days = Math.ceil((dueDate.getTime() - Date.now()) / DAY_MS)
   const bucket: Bucket = days < 0 ? 'overdue' : days <= 30 ? 'thisMonth' : days <= 90 ? 'soon' : 'later'
   return { task, dueDate, bucket }
@@ -100,6 +102,8 @@ export default function ChecklistPage() {
   const { data: tasks = [], isLoading } = usePlanningTasks(coupleId)
   const { data: website } = useWeddingWebsite(coupleId)
   const weddingDate = website?.weddingDate ?? null
+  const engagementDate = website?.engagementDate ?? null
+  const updateWebsite = useUpdateWeddingWebsite(coupleId)
   const toggle = useToggleTask(coupleId)
   const addTask = useAddTask(coupleId)
   const deleteTask = useDeleteTask(coupleId)
@@ -114,7 +118,7 @@ export default function ChecklistPage() {
   const completed = tasks.filter(t => t.isCompleted).length
   const progress  = total > 0 ? Math.round((completed / total) * 100) : 0
 
-  const dated = tasks.map(t => classify(t, weddingDate))
+  const dated = tasks.map(t => classify(t, weddingDate, engagementDate))
   const overdueCount = dated.filter(d => d.bucket === 'overdue').length
 
   // Milestone celebration: fire confetti once each time the couple crosses a
@@ -236,6 +240,15 @@ export default function ChecklistPage() {
           )}
         </div>
 
+        {/* Ask for the engagement date so the timeline fits the couple's actual
+            runway instead of assuming a 12-month engagement. */}
+        {weddingDate && !engagementDate && (
+          <EngagementDatePrompt
+            onSave={(d) => updateWebsite.mutate({ engagementDate: d })}
+            pending={updateWebsite.isPending}
+          />
+        )}
+
         {showAdd && (
           <AddTaskModal
             onClose={() => setShowAdd(false)}
@@ -303,6 +316,35 @@ export default function ChecklistPage() {
           />
         )}
       </main>
+    </div>
+  )
+}
+
+function EngagementDatePrompt({ onSave, pending }: { onSave: (date: string) => void; pending: boolean }) {
+  const [date, setDate] = useState('')
+  return (
+    <div className="mb-6 rounded-xl border border-gold-light bg-white p-4 sm:p-5">
+      <p className="text-sm font-medium text-brown">When did you get engaged?</p>
+      <p className="text-xs text-brown-light mt-0.5 mb-3">
+        We will tailor your checklist to the time between your engagement and your wedding.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="sr-only" htmlFor="engagement-date">Engagement date</label>
+        <input
+          id="engagement-date"
+          type="date"
+          value={date}
+          onChange={e => setDate(e.target.value)}
+          className="rounded-lg border border-gold-light px-3 py-2 text-sm text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+        />
+        <button
+          onClick={() => date && onSave(date)}
+          disabled={!date || pending}
+          className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-50 transition"
+        >
+          {pending ? 'Saving…' : 'Save'}
+        </button>
+      </div>
     </div>
   )
 }

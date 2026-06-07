@@ -7,6 +7,7 @@ import { useAuth } from '@/core/auth/AuthContext'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { defaultContentJson, type BlockType, type WeddingPageBlock } from './types'
 import { useOpenWebsiteSection, type WebsiteSection } from './blockEditContext'
+import { normalizeImageFile, isAllowedImageType, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 
 // Debounced autosave: every time `contentJson` changes locally, schedule a save
 // 150ms later. New keystrokes reset the timer (classic debounce). On unmount
@@ -310,8 +311,8 @@ function FieldsFor({
       return (
         <>
           <BlockHint>
-            Members come from your <EditorLink tab="weddingparty">Wedding Party tile</EditorLink>.
-            Add them once there and this block fills in automatically.
+            Shows your wedding party for the chosen side. Add or reorder members
+            right here, no need to leave the editor.
           </BlockHint>
           <div className="mt-3">
             <Field label="Which side to show">
@@ -325,6 +326,7 @@ function FieldsFor({
               </select>
             </Field>
           </div>
+          <SectionEditButton section="weddingParty" fallbackTab="weddingparty">Add or edit members</SectionEditButton>
         </>
       )
 
@@ -446,9 +448,11 @@ function BlockImageUpload({
   // the same validation + endpoint. Uses the upload-immediately pattern: the
   // moment we have a File the POST fires; the caller's onUploaded writes the
   // returned URL into contentJson and the autosave fires from there.
-  const uploadFile = async (file: File | undefined) => {
-    if (!file || !websiteId) return
-    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+  const uploadFile = async (picked: File | undefined) => {
+    if (!picked || !websiteId) return
+    // Convert HEIC (iPhone / Google Photos) to JPEG before validating.
+    const file = await normalizeImageFile(picked)
+    if (!isAllowedImageType(file)) {
       setError('Only JPEG, PNG, or WebP images are supported.')
       return
     }
@@ -517,7 +521,7 @@ function BlockImageUpload({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept={IMAGE_ACCEPT}
         className="hidden"
         onChange={handleFile}
       />

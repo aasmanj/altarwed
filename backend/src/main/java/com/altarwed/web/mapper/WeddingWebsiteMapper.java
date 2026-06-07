@@ -10,7 +10,7 @@ public class WeddingWebsiteMapper {
     public WeddingWebsiteResponse toResponse(WeddingWebsite w) {
         return new WeddingWebsiteResponse(
                 w.id(), w.coupleId(), w.slug(), w.isPublished(),
-                w.partnerOneName(), w.partnerTwoName(), w.weddingDate(),
+                w.partnerOneName(), w.partnerTwoName(), w.weddingDate(), w.engagementDate(),
                 w.heroPhotoUrl(), w.heroTagline(), w.ourStory(),
                 w.scriptureReference(), w.scriptureText(),
                 w.venueName(), w.venueAddress(), w.venueCity(), w.venueState(),

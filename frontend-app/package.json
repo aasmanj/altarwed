@@ -21,6 +21,7 @@
     "axios": "^1.7.9",
     "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.40.0",
+    "heic-to": "^1.5.2",
     "lucide-react": "^1.14.0",
     "papaparse": "^5.5.3",
     "posthog-js": "^1.380.1",

@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { useUpdateWeddingWebsite, type WeddingWebsite } from '../useWeddingWebsite'
 import { useHotels, useAddHotel, useUpdateHotel, useDeleteHotel } from '../useHotels'
 import { HotelTab } from '../WeddingWebsiteEditor'
+import WeddingPartyManager from '@/features/couple/weddingparty/WeddingPartyManager'
 import type { WebsiteSection } from './blockEditContext'
 
 // In-editor slide-over for editing the structured data behind a data-driven
@@ -21,7 +22,24 @@ const SECTION_TITLES: Record<WebsiteSection, string> = {
   details: 'Event details',
   travel: 'Hotels for guests',
   registry: 'Registry links',
+  weddingParty: 'Wedding party',
 }
+
+// Common registries, offered as one-tap chips so the Label field is never a
+// blank prompt. Mirrors the onboarding wizard's list.
+const REGISTRY_SUGGESTIONS = ['Amazon', 'Target', 'Zola', 'Crate & Barrel', 'Honeyfund']
+
+// Standard wedding dress codes, surfaced as datalist suggestions (couples can
+// still type their own). The blog guide explains which fits which venue + time.
+const DRESS_CODE_OPTIONS = [
+  'Black tie',
+  'Formal / Black tie optional',
+  'Cocktail attire',
+  'Semi-formal',
+  'Dressy casual',
+  'Beach formal',
+  'Casual',
+]
 
 export default function WebsiteSectionDrawer({ section, website, coupleId, onClose }: Props) {
   const panelRef = useRef<HTMLDivElement>(null)
@@ -86,6 +104,7 @@ export default function WebsiteSectionDrawer({ section, website, coupleId, onClo
           {section === 'details' && <DetailsSection website={website} coupleId={coupleId} onSaved={onClose} />}
           {section === 'registry' && <RegistrySection website={website} coupleId={coupleId} onSaved={onClose} />}
           {section === 'travel' && <TravelSection websiteId={website.id} />}
+          {section === 'weddingParty' && <WeddingPartyManager websiteId={website.id} />}
         </div>
       </div>
     </div>
@@ -136,6 +155,7 @@ function DetailsSection({ website, coupleId, onSaved }: { website: WeddingWebsit
     venueState: website.venueState ?? '',
     dressCode: website.dressCode ?? '',
     weddingDate: website.weddingDate ?? '',
+    engagementDate: website.engagementDate ?? '',
     rsvpDeadline: website.rsvpDeadline ?? '',
   })
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -145,6 +165,7 @@ function DetailsSection({ website, coupleId, onSaved }: { website: WeddingWebsit
     await update.mutateAsync({
       ...form,
       weddingDate: form.weddingDate || null,
+      engagementDate: form.engagementDate || null,
       rsvpDeadline: form.rsvpDeadline || null,
     } as Parameters<typeof update.mutateAsync>[0])
     onSaved()
@@ -169,11 +190,31 @@ function DetailsSection({ website, coupleId, onSaved }: { website: WeddingWebsit
           <input value={form.venueState} onChange={set('venueState')} className={inputCls} />
         </LabeledField>
       </div>
-      <LabeledField label="Dress code" hint='e.g. "Black tie optional"'>
-        <input value={form.dressCode} onChange={set('dressCode')} className={inputCls} />
+      <LabeledField label="Dress code" hint="Type your own or pick a standard one. Not sure? Use the guide below.">
+        <input
+          value={form.dressCode}
+          onChange={set('dressCode')}
+          className={inputCls}
+          list="dresscode-options"
+          placeholder="e.g. Cocktail attire"
+        />
+        <datalist id="dresscode-options">
+          {DRESS_CODE_OPTIONS.map(o => <option key={o} value={o} />)}
+        </datalist>
+        <a
+          href="https://www.altarwed.com/blog/wedding-dress-code-guide"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-1 inline-block text-xs text-gold hover:underline"
+        >
+          Not sure what to pick? Read our dress code guide by venue and time of day →
+        </a>
       </LabeledField>
       <LabeledField label="Wedding date">
         <input type="date" value={form.weddingDate} onChange={set('weddingDate')} className={inputCls} />
+      </LabeledField>
+      <LabeledField label="Engagement date" hint="Used to tailor your planning checklist timeline.">
+        <input type="date" value={form.engagementDate} onChange={set('engagementDate')} className={inputCls} />
       </LabeledField>
       <LabeledField label="RSVP deadline">
         <input type="date" value={form.rsvpDeadline} onChange={set('rsvpDeadline')} className={inputCls} />
@@ -195,6 +236,7 @@ function RegistrySection({ website, coupleId, onSaved }: { website: WeddingWebsi
   })
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(prev => ({ ...prev, [k]: e.target.value }))
+  const pick = (k: keyof typeof form, v: string) => setForm(prev => ({ ...prev, [k]: v }))
 
   const save = async () => {
     await update.mutateAsync(form as Parameters<typeof update.mutateAsync>[0])
@@ -207,17 +249,36 @@ function RegistrySection({ website, coupleId, onSaved }: { website: WeddingWebsi
         Add the registries you'd like guests to see. Most couples link one or two
         (Amazon, Target, Zola).
       </p>
-      {([1, 2, 3] as const).map(n => (
+      {([1, 2, 3] as const).map(n => {
+        const labelKey = `registryLabel${n}` as const
+        return (
         <div key={n} className="rounded-xl border border-gold-light p-4 mb-3 space-y-3">
           <p className="text-xs font-medium text-brown">Registry {n}</p>
           <LabeledField label="Label" hint='e.g. "Amazon"'>
-            <input value={form[`registryLabel${n}`]} onChange={set(`registryLabel${n}`)} className={inputCls} />
+            <input value={form[labelKey]} onChange={set(labelKey)} className={inputCls} placeholder="Amazon" />
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {REGISTRY_SUGGESTIONS.map(name => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => pick(labelKey, name)}
+                  className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                    form[labelKey] === name
+                      ? 'border-gold bg-gold text-white'
+                      : 'border-gold-light text-brown-light hover:border-gold hover:text-brown'
+                  }`}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
           </LabeledField>
           <LabeledField label="Link">
             <input type="url" value={form[`registryUrl${n}`]} onChange={set(`registryUrl${n}`)} className={inputCls} placeholder="https://" />
           </LabeledField>
         </div>
-      ))}
+        )
+      })}
       <SaveButton onClick={save} pending={update.isPending} />
     </>
   )

@@ -9,6 +9,7 @@ export interface WeddingWebsite {
   partnerOneName: string
   partnerTwoName: string
   weddingDate: string | null
+  engagementDate: string | null
   heroPhotoUrl: string | null
   heroTagline: string | null
   ourStory: string | null

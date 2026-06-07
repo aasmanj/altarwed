@@ -6,6 +6,7 @@ import { useConfirm } from '@/components/ConfirmDialog'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
+import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 
 interface Photo {
   id: string
@@ -71,10 +72,11 @@ export default function PhotosPage() {
   const [caption, setCaption] = useState('')
   const [editingCaption, setEditingCaption] = useState<{ id: string; value: string } | null>(null)
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file || !websiteId) return
-    upload.mutate({ file, caption })
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = e.target.files?.[0]
+    if (!picked || !websiteId) return
+    // Convert HEIC (iPhone / Google Photos) to JPEG before upload.
+    upload.mutate({ file: await normalizeImageFile(picked), caption })
     setCaption('')
     e.target.value = ''
   }
@@ -127,12 +129,12 @@ export default function PhotosPage() {
             <input
               ref={fileRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept={IMAGE_ACCEPT}
               className="hidden"
               onChange={handleFileChange}
             />
           </div>
-          <p className="text-xs text-stone-400 mt-2">JPEG, PNG, or WebP · Max 15 MB · Photos appear on your public wedding page</p>
+          <p className="text-xs text-stone-400 mt-2">JPEG, PNG, WebP, or HEIC · Max 15 MB · Photos appear on your public wedding page</p>
         </div>
 
         {/* Photo grid */}

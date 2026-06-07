@@ -62,6 +62,20 @@ public class GoogleSheetSyncService {
     private static final Pattern SHEET_ID_PATTERN =
             Pattern.compile("/spreadsheets/d/([a-zA-Z0-9_-]+)");
 
+    // Accepted header spellings for the (required) guest-name column, lowercased.
+    // "Guest Name(s)" is the current template header (and is listed first in the UI
+    // so couples don't type names into Side). The verbose legacy headers stay for
+    // backward compat with sheets created before the rename. Keep in sync with
+    // SHEET_TEMPLATE_COLUMNS in GuestListPage.tsx.
+    private static final String[] NAME_ALIASES = {
+            "guest name(s)", "guest names", "guest name", "full name", "name",
+            "names of all guests in party",
+            "names of all guests in party (separated by , if multiple)"
+    };
+
+    // Accepted header spellings for the Side column, lowercased.
+    private static final String[] SIDE_ALIASES = { "side (bride or groom)", "bride or groom", "side" };
+
     private final GoogleSheetSyncRepository syncRepository;
     private final GuestRepository guestRepository;
     private final GoogleOAuthService googleOAuthService;
@@ -369,10 +383,7 @@ public class GoogleSheetSyncService {
             int sheetRowNumber = i + 1; // sheet row 1 = header, data starts at row 2
             String[] cols = rows.get(i);
 
-            String name = getAny(cols, colIndex,
-                    "names of all guests in party",
-                    "names of all guests in party (separated by , if multiple)",
-                    "name");
+            String name = getAny(cols, colIndex, NAME_ALIASES);
             if (name == null || name.isBlank()) continue;
             seen++;
 
@@ -390,7 +401,7 @@ public class GoogleSheetSyncService {
             }
 
             // Parse all columns (same logic as the CSV path)
-            String side        = getAny(cols, colIndex, "side");
+            String side        = getAny(cols, colIndex, SIDE_ALIASES);
             String phone       = getAny(cols, colIndex, "phone number", "phone");
             String emailVal    = getAny(cols, colIndex, "email address", "email");
             String street      = getAny(cols, colIndex, "street address", "address line 1");
@@ -519,16 +530,13 @@ public class GoogleSheetSyncService {
 
         for (int i = 1; i < rows.size(); i++) {
             String[] cols = rows.get(i);
-            String name = getAny(cols, colIndex,
-                    "names of all guests in party",
-                    "names of all guests in party (separated by , if multiple)",
-                    "name");
+            String name = getAny(cols, colIndex, NAME_ALIASES);
             if (name == null || name.isBlank()) continue;
             seen++;
 
             Guest g = byName.get(name.toLowerCase().trim());
 
-            String side        = getAny(cols, colIndex, "side");
+            String side        = getAny(cols, colIndex, SIDE_ALIASES);
             String phone       = getAny(cols, colIndex, "phone number", "phone");
             String emailVal    = getAny(cols, colIndex, "email address", "email");
             String street      = getAny(cols, colIndex, "street address", "address line 1");
@@ -607,15 +615,15 @@ public class GoogleSheetSyncService {
     // -----------------------------------------------------------------------
 
     private void validateRequiredColumns(Map<String, Integer> colIndex, String[] headers) {
-        boolean hasNameCol = colIndex.containsKey("names of all guests in party")
-                || colIndex.containsKey("names of all guests in party (separated by , if multiple)")
-                || colIndex.containsKey("name");
+        boolean hasNameCol = false;
+        for (String alias : NAME_ALIASES) {
+            if (colIndex.containsKey(alias)) { hasNameCol = true; break; }
+        }
         if (!hasNameCol) {
             throw new IllegalArgumentException(
-                "Sheet does not contain a 'Name' or 'Names of all guests in Party' column " +
-                "(also accepted: 'Names of all guests in Party (separated by , if multiple)'). " +
-                "Ensure the first row contains column headers. " +
-                "Expected: Side, Names of all guests in Party, Phone Number, Email Address, " +
+                "Sheet does not contain a 'Guest Name(s)' column. " +
+                "Make sure the first row contains the column headers (use the Copy headers button). " +
+                "Expected, in order: Guest Name(s), Side (Bride or Groom), Phone Number, Email Address, " +
                 "Street Address, City, State, Zip Code, Allowed Plus One?, Plus One Name, RSVP Status, " +
                 "Table #, Dietary Restriction, Notes. " +
                 "Actual headers: " + String.join(", ", headers));
@@ -640,8 +648,8 @@ public class GoogleSheetSyncService {
     private com.altarwed.domain.model.GuestSide parseSide(String raw) {
         if (raw == null) return null;
         String s = raw.trim().toUpperCase();
-        if (s.equals("BRIDE") || s.equals("BRIDE SIDE")) return com.altarwed.domain.model.GuestSide.BRIDE;
-        if (s.equals("GROOM") || s.equals("GROOM SIDE")) return com.altarwed.domain.model.GuestSide.GROOM;
+        if (s.equals("BRIDE") || s.equals("BRIDE SIDE") || s.equals("B")) return com.altarwed.domain.model.GuestSide.BRIDE;
+        if (s.equals("GROOM") || s.equals("GROOM SIDE") || s.equals("G")) return com.altarwed.domain.model.GuestSide.GROOM;
         if (s.equals("BOTH")) return com.altarwed.domain.model.GuestSide.BOTH;
         return null;
     }

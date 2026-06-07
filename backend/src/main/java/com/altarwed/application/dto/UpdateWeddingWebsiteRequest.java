@@ -11,6 +11,7 @@ public record UpdateWeddingWebsiteRequest(
         @Size(max = 100) String partnerOneName,
         @Size(max = 100) String partnerTwoName,
         LocalDate weddingDate,
+        LocalDate engagementDate,
 
         @Size(max = 500) String heroPhotoUrl,
         @Size(max = 200) String heroTagline,

@@ -79,6 +79,7 @@ public class WeddingWebsiteService {
         WeddingWebsite website = new WeddingWebsite(
                 null, coupleId, slug, false,
                 request.partnerOneName(), request.partnerTwoName(), request.weddingDate(),
+                null,                                      // engagementDate (set later via Details/checklist)
                 null, null, null,                          // heroPhotoUrl, heroTagline, ourStory
                 null, null,                                // scriptureReference, scriptureText
                 null, null, null, null, null, null,        // venue + ceremonyTime + dressCode
@@ -135,6 +136,7 @@ public class WeddingWebsiteService {
                 req.partnerOneName()    != null ? req.partnerOneName()    : existing.partnerOneName(),
                 req.partnerTwoName()    != null ? req.partnerTwoName()    : existing.partnerTwoName(),
                 req.weddingDate()       != null ? req.weddingDate()       : existing.weddingDate(),
+                req.engagementDate()    != null ? req.engagementDate()    : existing.engagementDate(),
 
                 req.heroPhotoUrl()      != null ? req.heroPhotoUrl()      : existing.heroPhotoUrl(),
                 req.heroTagline()       != null ? req.heroTagline()       : existing.heroTagline(),
@@ -189,6 +191,7 @@ public class WeddingWebsiteService {
         WeddingWebsite updated = new WeddingWebsite(
                 existing.id(), existing.coupleId(), existing.slug(), existing.isPublished(),
                 existing.partnerOneName(), existing.partnerTwoName(), existing.weddingDate(),
+                existing.engagementDate(),
                 photoUrl, existing.heroTagline(),
                 existing.ourStory(),
                 existing.scriptureReference(), existing.scriptureText(),
