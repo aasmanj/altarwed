@@ -78,7 +78,7 @@ altarwed:
 
   nextjs:
     base-url: ${NEXTJS_BASE_URL:https://www.altarwed.com}
-    revalidation-secret: ${REVALIDATION_SECRET}
+    revalidation-secret: ${REVALIDATION_SECRET:}
 
   google:
     client-id: ${GOOGLE_OAUTH_CLIENT_ID}

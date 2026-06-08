@@ -23,6 +23,9 @@ public class NextjsRevalidationAdapter implements RevalidationPort {
         this.restClient = RestClient.builder()
                 .baseUrl(nextjsBaseUrl)
                 .build();
+        if (secret == null || secret.isBlank()) {
+            log.warn("nextjs revalidation secret is not configured -- revalidation calls will be rejected by Next.js");
+        }
     }
 
     // Fire-and-forget: revalidation failure must never fail the user's save operation.
@@ -32,7 +35,8 @@ public class NextjsRevalidationAdapter implements RevalidationPort {
         log.info("nextjs revalidation requested, path=/wedding/{}", slug);
         try {
             restClient.post()
-                    .uri("/api/revalidate?secret={secret}&slug={slug}", secret, slug)
+                    .uri("/api/revalidate?slug={slug}", slug)
+                    .header("x-revalidate-secret", secret)
                     .retrieve()
                     .toBodilessEntity();
             log.info("nextjs revalidation succeeded, path=/wedding/{}", slug);
