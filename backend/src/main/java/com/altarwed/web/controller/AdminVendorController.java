@@ -59,6 +59,15 @@ public class AdminVendorController {
         return ResponseEntity.ok(response);
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable UUID id, Authentication auth) {
+        checkAdmin(auth);
+        log.info("vendor hard delete requested by admin, vendorId={}, adminEmail={}", id,
+                LogSanitizer.maskEmail(auth.getName()));
+        vendorService.deleteVendor(id);
+        return ResponseEntity.noContent().build();
+    }
+
     private void checkAdmin(Authentication auth) {
         String callerEmail = auth == null ? null : auth.getName();
         if (callerEmail == null || !adminEmails.contains(callerEmail.toLowerCase())) {

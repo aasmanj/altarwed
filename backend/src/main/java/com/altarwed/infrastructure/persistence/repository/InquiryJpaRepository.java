@@ -22,4 +22,6 @@ public interface InquiryJpaRepository extends JpaRepository<InquiryEntity, UUID>
     @Modifying
     @Query("UPDATE InquiryEntity i SET i.isRead = true WHERE i.id = :id")
     void markReadById(@Param("id") UUID id);
+
+    void deleteByVendorId(UUID vendorId);
 }

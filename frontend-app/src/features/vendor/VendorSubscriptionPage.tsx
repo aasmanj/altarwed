@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useEffect } from 'react'
 import {
@@ -6,6 +6,7 @@ import {
   useCreateCheckoutSession,
   useCreatePortalSession,
 } from './useSubscription'
+import PageHeader from '@/components/PageHeader'
 
 export default function VendorSubscriptionPage() {
   const [searchParams] = useSearchParams()
@@ -24,13 +25,7 @@ export default function VendorSubscriptionPage() {
 
   return (
     <div className="min-h-screen bg-[#fdfaf6]">
-      <header className="border-b border-[#e8dcc8] bg-white px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3">
-        <Link to="/vendor" className="text-sm text-[#a08060] hover:text-[#3b2f2f] transition">
-          &larr; Dashboard
-        </Link>
-        <span className="text-[#e8dcc8]">|</span>
-        <span className="font-serif text-lg font-semibold text-[#3b2f2f]">Subscription</span>
-      </header>
+      <PageHeader title="Subscription" backTo="/vendor" backLabel="Back to dashboard" maxWidth="max-w-2xl" />
 
       <main className="mx-auto max-w-2xl px-4 sm:px-6 py-8 sm:py-12">
         {isLoading ? (
@@ -122,7 +117,7 @@ function UpgradePanel({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-serif text-2xl font-bold text-[#3b2f2f] mb-1">Upgrade to Pro</h1>
+        <h2 className="font-serif text-2xl font-bold text-[#3b2f2f] mb-1">Upgrade to Pro</h2>
         <p className="text-[#a08060] text-sm">
           Get in front of more couples with priority placement and analytics.
         </p>

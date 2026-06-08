@@ -47,6 +47,11 @@ public class InquiryRepositoryAdapter implements InquiryRepository {
         jpaRepository.markReadById(inquiryId);
     }
 
+    @Override
+    public void deleteByVendorId(UUID vendorId) {
+        jpaRepository.deleteByVendorId(vendorId);
+    }
+
     // -------------------------------------------------------------------------
     // Mapping
     // -------------------------------------------------------------------------

@@ -22,6 +22,7 @@ public class VendorMapper {
                 vendor.description(),
                 vendor.websiteUrl(),
                 vendor.phone(),
+                vendor.contactEmail(),
                 vendor.logoUrl()
         );
     }
