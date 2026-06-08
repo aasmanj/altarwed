@@ -143,9 +143,6 @@ export default function HomePage() {
           </div>
 
           <div className="relative max-w-4xl mx-auto px-6 pt-24 pb-28 sm:pt-32 sm:pb-36 text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/25 text-[#f0dcb4] text-xs font-semibold uppercase tracking-widest mb-8 backdrop-blur-sm">
-              <span>✦</span> Now Live: Free for Couples <span>✦</span>
-            </div>
 
             <h1 className="text-balance font-serif text-5xl sm:text-6xl lg:text-7xl font-bold text-white leading-tight mb-6 drop-shadow-sm">
               Your Christian wedding
