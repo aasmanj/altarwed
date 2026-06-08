@@ -77,6 +77,7 @@ public class VendorAuthService {
                 null,   // description
                 null,   // websiteUrl
                 null,   // phone
+                null,   // contactEmail
                 null,   // logoUrl
                 null,   // viewCount -- DB column has DEFAULT 0
                 null,

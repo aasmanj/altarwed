@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
 import { useVendorProfile, useUpdateVendorProfile, useUploadVendorLogo } from './useVendor'
 import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
+import PageHeader from '@/components/PageHeader'
 
 const CATEGORIES = [
   { value: 'ALTERATIONS',     label: 'Alterations, Tailoring & Dry Cleaning' },
@@ -51,6 +51,7 @@ export default function VendorListingPage() {
     description: '',
     websiteUrl: '',
     phone: '',
+    contactEmail: '',
   })
 
   useEffect(() => {
@@ -66,6 +67,7 @@ export default function VendorListingPage() {
         description: vendor.description ?? '',
         websiteUrl: vendor.websiteUrl ?? '',
         phone: vendor.phone ?? '',
+        contactEmail: vendor.contactEmail ?? '',
       })
     }
   }, [vendor])
@@ -103,6 +105,7 @@ export default function VendorListingPage() {
         description: form.description || undefined,
         websiteUrl: form.websiteUrl || undefined,
         phone: form.phone || undefined,
+        contactEmail: form.contactEmail,
       })
       setSaved(true)
     } catch {
@@ -120,17 +123,11 @@ export default function VendorListingPage() {
 
   return (
     <div className="min-h-screen bg-[#fdfaf6]">
-      <header className="border-b border-[#e8dcc8] bg-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
-        <span className="font-serif text-xl font-bold text-[#3b2f2f] shrink-0">AltarWed</span>
-        <Link to="/vendor" className="shrink-0 text-sm text-[#a08060] hover:text-[#3b2f2f] transition">
-          ← Dashboard
-        </Link>
-      </header>
+      <PageHeader title="My Listing" backTo="/vendor" backLabel="Back to dashboard" maxWidth="max-w-2xl" />
 
       <main className="mx-auto max-w-2xl px-4 sm:px-6 py-6 sm:py-10">
         <div className="mb-8">
-          <h1 className="font-serif text-2xl font-bold text-[#3b2f2f]">My Listing</h1>
-          <p className="text-[#6b5344] text-sm mt-1">
+          <p className="text-[#6b5344] text-sm">
             This is how your business appears to couples on AltarWed
           </p>
           {vendor && (
@@ -279,6 +276,22 @@ export default function VendorListingPage() {
                 maxLength={30}
               />
             </div>
+          </div>
+
+          {/* Contact email */}
+          <div>
+            <label htmlFor="contactEmail" className={labelCls}>
+              Contact email <span className="text-[#a08060] font-normal">(shown on your listing)</span>
+            </label>
+            <input
+              id="contactEmail"
+              type="email"
+              value={form.contactEmail}
+              onChange={set('contactEmail')}
+              className={inputCls}
+              placeholder="inquiries@yourbusiness.com"
+              maxLength={255}
+            />
           </div>
 
           {/* Christian-owned */}

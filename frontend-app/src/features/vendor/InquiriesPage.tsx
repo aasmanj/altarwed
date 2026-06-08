@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom'
 import { useVendorInquiries, useMarkInquiryRead } from './useInquiries'
+import PageHeader from '@/components/PageHeader'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -21,22 +21,14 @@ export default function InquiriesPage() {
 
   return (
     <div className="min-h-screen bg-[#fdfaf6]">
-      <header className="border-b border-[#e8dcc8] bg-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
-        <span className="font-serif text-xl font-bold text-[#3b2f2f] shrink-0">AltarWed</span>
-        <Link to="/vendor" className="shrink-0 text-sm text-[#a08060] hover:text-[#3b2f2f] transition">
-          ← Dashboard
-        </Link>
-      </header>
+      <PageHeader title="Inquiries" backTo="/vendor" backLabel="Back to dashboard" maxWidth="max-w-2xl" />
 
       <main className="mx-auto max-w-2xl px-4 sm:px-6 py-6 sm:py-10">
-        <div className="mb-6">
-          <h1 className="font-serif text-2xl font-bold text-[#3b2f2f]">Inquiries</h1>
-          {unreadCount > 0 && (
-            <p className="text-sm text-[#a08060] mt-1">
-              {unreadCount} unread {unreadCount === 1 ? 'message' : 'messages'}
-            </p>
-          )}
-        </div>
+        {unreadCount > 0 && (
+          <p className="text-sm text-[#a08060] mb-6">
+            {unreadCount} unread {unreadCount === 1 ? 'message' : 'messages'}
+          </p>
+        )}
 
         {inquiries.length === 0 ? (
           <div className="rounded-2xl border border-[#e8dcc8] bg-white p-10 text-center">

@@ -18,4 +18,6 @@ public interface InquiryRepository {
     boolean existsByIdAndVendorId(UUID inquiryId, UUID vendorId);
 
     void markRead(UUID inquiryId);
+
+    void deleteByVendorId(UUID vendorId);
 }

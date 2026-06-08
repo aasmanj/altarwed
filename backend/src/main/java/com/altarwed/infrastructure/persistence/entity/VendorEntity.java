@@ -80,6 +80,9 @@ public class VendorEntity {
     @Column(name = "phone", length = 30)
     private String phone;
 
+    @Column(name = "contact_email", length = 255)
+    private String contactEmail;
+
     @Column(name = "logo_url", length = 500)
     private String logoUrl;
 

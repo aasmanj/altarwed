@@ -95,6 +95,7 @@ public class VendorRepositoryAdapter implements VendorRepository {
                 e.getDescription(),
                 e.getWebsiteUrl(),
                 e.getPhone(),
+                e.getContactEmail(),
                 e.getLogoUrl(),
                 e.getViewCount(),
                 e.getCreatedAt(),
@@ -120,6 +121,7 @@ public class VendorRepositoryAdapter implements VendorRepository {
                 .description(v.description())
                 .websiteUrl(v.websiteUrl())
                 .phone(v.phone())
+                .contactEmail(v.contactEmail())
                 .logoUrl(v.logoUrl())
                 .viewCount(v.viewCount() != null ? v.viewCount() : 0)
                 .createdAt(v.createdAt())

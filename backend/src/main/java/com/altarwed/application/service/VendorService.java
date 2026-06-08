@@ -62,6 +62,7 @@ public class VendorService {
                 req.description()     != null ? blankToNull(req.description())     : existing.description(),
                 req.websiteUrl()      != null ? blankToNull(req.websiteUrl())      : existing.websiteUrl(),
                 req.phone()           != null ? blankToNull(req.phone())           : existing.phone(),
+                req.contactEmail()    != null ? blankToNull(req.contactEmail())    : existing.contactEmail(),
                 existing.logoUrl(),
                 existing.viewCount(),
                 existing.createdAt(),
@@ -107,6 +108,15 @@ public class VendorService {
         long totalInquiries = inquiryRepository.countByVendorId(vendorId);
         long unreadInquiries = inquiryRepository.countUnreadByVendorId(vendorId);
         return new VendorStatsResponse(vendor.viewCount() != null ? vendor.viewCount() : 0, totalInquiries, unreadInquiries);
+    }
+
+    @Transactional
+    public void deleteVendor(UUID vendorId) {
+        log.info("vendor hard delete started, vendorId={}", vendorId);
+        getById(vendorId);
+        inquiryRepository.deleteByVendorId(vendorId);
+        vendorRepository.deleteById(vendorId);
+        log.info("vendor hard deleted, vendorId={}", vendorId);
     }
 
     private String blankToNull(String s) {
