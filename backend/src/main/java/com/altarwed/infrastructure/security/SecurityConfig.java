@@ -79,6 +79,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/inquiries").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/integrations/google-sheets/callback").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/unsubscribe").permitAll()
+                        // Stripe webhook: Stripe-signed, no JWT
+                        .requestMatchers(HttpMethod.POST, "/api/v1/stripe/webhook").permitAll()
                         // OpenAPI / Swagger, dev convenience
                         .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         // Actuator health

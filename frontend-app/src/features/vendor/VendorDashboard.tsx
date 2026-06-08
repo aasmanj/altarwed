@@ -2,12 +2,14 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import { useVendorProfile, useVendorStats } from './useVendor'
 import { useVendorInquiries } from './useInquiries'
+import { useVendorSubscription } from './useSubscription'
 
 export default function VendorDashboard() {
   const { user, logout } = useAuth()
   const { data: vendor } = useVendorProfile()
   const { data: inquiries = [] } = useVendorInquiries()
   const { data: stats } = useVendorStats()
+  const { data: sub } = useVendorSubscription()
 
   const displayName = vendor?.businessName ?? user?.email ?? ''
   const unreadCount = inquiries.filter(i => !i.isRead).length
@@ -59,7 +61,19 @@ export default function VendorDashboard() {
             href="#"
             live={!!stats}
           />
-          <DashboardCard title="Subscription" description="Manage your vendor plan" href="#" comingSoon />
+          <DashboardCard
+            title="Subscription"
+            description={
+              sub?.planTier === 'FEATURED' && sub?.status === 'ACTIVE'
+                ? 'Pro plan active'
+                : sub?.status === 'PAST_DUE'
+                ? 'Payment past due'
+                : 'Upgrade to Pro for $29/mo'
+            }
+            href="/vendor/subscription"
+            live
+            badge={sub?.status === 'PAST_DUE' ? '!' : undefined}
+          />
         </div>
 
         <div className="mt-10 rounded-2xl border border-[#e8dcc8] bg-white p-6">

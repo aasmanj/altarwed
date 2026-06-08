@@ -92,6 +92,13 @@ altarwed:
       api-key: ${GOOGLE_PICKER_API_KEY:}
       app-id: ${GOOGLE_PICKER_APP_ID:}
 
+  stripe:
+    secret-key: ${STRIPE_SECRET_KEY:}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+    prices:
+      pro-monthly: ${STRIPE_PRICE_PRO_MONTHLY:}
+      pro-annual: ${STRIPE_PRICE_PRO_ANNUAL:}
+
   lob:
     api-key: ${LOB_API_KEY:}
 

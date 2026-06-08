@@ -84,6 +84,22 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=LOB-API-KEY)'
         }
         {
+          name: 'STRIPE_SECRET_KEY'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=STRIPE-SECRET-KEY)'
+        }
+        {
+          name: 'STRIPE_WEBHOOK_SECRET'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=STRIPE-WEBHOOK-SECRET)'
+        }
+        {
+          name: 'STRIPE_PRICE_PRO_MONTHLY'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=STRIPE-PRICE-PRO-MONTHLY)'
+        }
+        {
+          name: 'STRIPE_PRICE_PRO_ANNUAL'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=STRIPE-PRICE-PRO-ANNUAL)'
+        }
+        {
           // Browser API key for the Google Picker (restricted to our referrers +
           // Picker/Sheets APIs). Low-sensitivity but kept in Key Vault for parity.
           name: 'GOOGLE_PICKER_API_KEY'

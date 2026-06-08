@@ -29,6 +29,7 @@ val mssqlVersion = "12.8.1.jre11"
 val bucket4jVersion = "8.10.1"
 val azureStorageVersion = "12.29.0"
 val testcontainersVersion = "1.20.4"
+val stripeVersion = "25.12.0"
 
 dependencies {
     // Web
@@ -68,6 +69,9 @@ dependencies {
 
     // Azure Blob Storage, media uploads (wedding photos, wedding party headshots)
     implementation("com.azure:azure-storage-blob:$azureStorageVersion")
+
+    // Stripe, vendor subscription billing
+    implementation("com.stripe:stripe-java:$stripeVersion")
 
     // ---- Test dependencies ----
     testImplementation("org.springframework.boot:spring-boot-starter-test")

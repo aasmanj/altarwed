@@ -3,13 +3,16 @@ package com.altarwed.web.controller;
 import com.altarwed.application.dto.AuthResponse;
 import com.altarwed.application.dto.InquiryResponse;
 import com.altarwed.application.dto.RegisterVendorRequest;
+import com.altarwed.application.dto.SubscriptionResponse;
 import com.altarwed.application.dto.UpdateVendorRequest;
 import com.altarwed.application.dto.VendorResponse;
 import com.altarwed.application.dto.VendorStatsResponse;
 import com.altarwed.application.service.MediaUploadService;
+import com.altarwed.application.service.StripeService;
 import com.altarwed.application.service.VendorAuthService;
 import com.altarwed.application.service.VendorInquiryService;
 import com.altarwed.application.service.VendorService;
+import com.altarwed.domain.model.VendorSubscription;
 import com.altarwed.domain.model.VendorCategory;
 import com.altarwed.web.mapper.VendorMapper;
 import jakarta.validation.Valid;
@@ -38,19 +41,22 @@ public class VendorController {
     private final VendorMapper vendorMapper;
     private final VendorInquiryService inquiryService;
     private final MediaUploadService mediaUploadService;
+    private final StripeService stripeService;
 
     public VendorController(
             VendorService vendorService,
             VendorAuthService vendorAuthService,
             VendorMapper vendorMapper,
             VendorInquiryService inquiryService,
-            MediaUploadService mediaUploadService
+            MediaUploadService mediaUploadService,
+            StripeService stripeService
     ) {
         this.vendorService = vendorService;
         this.vendorAuthService = vendorAuthService;
         this.vendorMapper = vendorMapper;
         this.inquiryService = inquiryService;
         this.mediaUploadService = mediaUploadService;
+        this.stripeService = stripeService;
     }
 
     @PostMapping("/register")
@@ -147,5 +153,21 @@ public class VendorController {
         var vendor = vendorService.getByEmail(authentication.getName());
         log.info("vendor stats fetched, vendorId={}", vendor.id());
         return ResponseEntity.ok(vendorService.getStats(vendor.id()));
+    }
+
+    @GetMapping("/me/subscription")
+    public ResponseEntity<SubscriptionResponse> getMySubscription(Authentication authentication) {
+        var vendor = vendorService.getByEmail(authentication.getName());
+        VendorSubscription sub = stripeService.getSubscription(vendor.id());
+        String planTier = sub != null ? sub.planTier().name() : "BASIC";
+        String status = sub != null ? sub.status().name() : "NONE";
+        var response = new SubscriptionResponse(
+                planTier,
+                status,
+                sub != null ? sub.currentPeriodEnd() : null,
+                stripeService.getPriceProMonthly(),
+                stripeService.getPriceProAnnual()
+        );
+        return ResponseEntity.ok(response);
     }
 }
