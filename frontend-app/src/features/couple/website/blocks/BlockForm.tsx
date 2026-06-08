@@ -221,7 +221,7 @@ function FieldsFor({
               onChange={e => onChange('body', e.target.value)}
               rows={5}
               className={inputClass}
-              placeholder="Tell the story of this moment…"
+              placeholder=""
             />
           </Field>
           <Field label="Photo (optional)">

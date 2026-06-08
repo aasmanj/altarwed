@@ -78,4 +78,10 @@ public class AsyncEmailService {
         emailPort.sendVendorRegistrationAlert(businessName, category,
                 city, state, vendorEmail, vendorId, adminListingUrl);
     }
+
+    @Async("emailExecutor")
+    public void sendWeddingPublishedEmail(String toEmail, String partnerOneName,
+                                          String partnerTwoName, String weddingUrl) {
+        emailPort.sendWeddingPublishedEmail(toEmail, partnerOneName, partnerTwoName, weddingUrl);
+    }
 }

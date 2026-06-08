@@ -52,17 +52,20 @@ public class WeddingWebsiteService {
     private final RevalidationPort revalidationPort;
     private final CoupleRepository coupleRepository;
     private final ConversionEventPort conversionEventPort;
+    private final AsyncEmailService asyncEmailService;
 
     public WeddingWebsiteService(
             WeddingWebsiteRepository websiteRepository,
             RevalidationPort revalidationPort,
             CoupleRepository coupleRepository,
-            ConversionEventPort conversionEventPort
+            ConversionEventPort conversionEventPort,
+            AsyncEmailService asyncEmailService
     ) {
         this.websiteRepository = websiteRepository;
         this.revalidationPort = revalidationPort;
         this.coupleRepository = coupleRepository;
         this.conversionEventPort = conversionEventPort;
+        this.asyncEmailService = asyncEmailService;
     }
 
     @Transactional
@@ -214,11 +217,21 @@ public class WeddingWebsiteService {
 
     @Transactional
     public WeddingWebsite publish(UUID coupleId) {
-        WeddingWebsite saved = websiteRepository.save(getByCoupleId(coupleId).published());
+        WeddingWebsite before = getByCoupleId(coupleId);
+        boolean wasAlreadyPublished = before.isPublished();
+        WeddingWebsite saved = websiteRepository.save(before.published());
         log.info("wedding website published, coupleId={}, websiteId={}, slug={}",
                  coupleId, saved.id(), saved.slug());
         revalidationPort.revalidateWeddingPage(saved.slug());
         fireLeadEventIfConsented(coupleId, saved.slug());
+        // Only send the "your site is live" email on the first publish, not re-publishes.
+        if (!wasAlreadyPublished) {
+            coupleRepository.findById(coupleId).ifPresent(couple -> {
+                String weddingUrl = "https://www.altarwed.com/wedding/" + saved.slug();
+                asyncEmailService.sendWeddingPublishedEmail(
+                        couple.email(), saved.partnerOneName(), saved.partnerTwoName(), weddingUrl);
+            });
+        }
         return saved;
     }
 

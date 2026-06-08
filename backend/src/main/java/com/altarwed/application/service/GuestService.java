@@ -58,7 +58,7 @@ public class GuestService {
                 null, null, null, LocalDateTime.now(), LocalDateTime.now(),
                 req.partyId(), req.partyName(),
                 req.partyContact() != null ? req.partyContact() : false,
-                null  // sheetSyncId, manually added guest
+                null, false  // sheetSyncId, syncedFromSheet: manually added guest
         )).toList();
         return guestRepository.saveAll(guests);
     }
@@ -75,7 +75,7 @@ public class GuestService {
                 null, null, null, LocalDateTime.now(), LocalDateTime.now(),
                 req.partyId(), req.partyName(),
                 req.partyContact() != null ? req.partyContact() : false,
-                null  // sheetSyncId, manually added guest
+                null, false  // sheetSyncId, syncedFromSheet: manually added guest
         );
         return guestRepository.save(guest);
     }
@@ -102,7 +102,7 @@ public class GuestService {
                     null, 0,
                     null, null, null, LocalDateTime.now(), LocalDateTime.now(),
                     partyId, req.partyName(), isContact,
-                    null  // sheetSyncId, manually added guest
+                    null, false  // sheetSyncId, syncedFromSheet: manually added guest
             ));
         }
         return guestRepository.saveAll(members);
@@ -139,7 +139,7 @@ public class GuestService {
                 req.partyId()    != null ? req.partyId()    : existing.partyId(),
                 req.partyName()  != null ? req.partyName()  : existing.partyName(),
                 req.partyContact()!= null ? req.partyContact(): existing.partyContact(),
-                existing.sheetSyncId()  // always preserve, managed by sync, not the couple
+                existing.sheetSyncId(), existing.syncedFromSheet()
         );
         return guestRepository.save(updated);
     }
@@ -251,7 +251,7 @@ public class GuestService {
                 existing.inviteSentAt(), existing.respondedAt(), existing.remindAt(),
                 existing.createdAt(), LocalDateTime.now(),
                 existing.partyId(), existing.partyName(), existing.partyContact(),
-                existing.sheetSyncId()
+                existing.sheetSyncId(), existing.syncedFromSheet()
         );
         return guestRepository.save(updated);
     }
@@ -335,7 +335,7 @@ public class GuestService {
                 guest.inviteSentAt(), LocalDateTime.now(), remindAt,
                 guest.createdAt(), LocalDateTime.now(),
                 guest.partyId(), guest.partyName(), guest.partyContact(),
-                guest.sheetSyncId()
+                guest.sheetSyncId(), guest.syncedFromSheet()
         );
         guestRepository.save(responded);
 
@@ -358,7 +358,7 @@ public class GuestService {
                             member.inviteSentAt(), LocalDateTime.now(), memberRemindAt,
                             member.createdAt(), LocalDateTime.now(),
                             member.partyId(), member.partyName(), member.partyContact(),
-                            member.sheetSyncId()
+                            member.sheetSyncId(), member.syncedFromSheet()
                     );
                     guestRepository.save(memberResponded);
                 });
@@ -449,7 +449,7 @@ public class GuestService {
                 null, // clear remindAt, the reminder was just fulfilled
                 guest.createdAt(), LocalDateTime.now(),
                 guest.partyId(), guest.partyName(), guest.partyContact(),
-                guest.sheetSyncId()
+                guest.sheetSyncId(), guest.syncedFromSheet()
         );
         return guestRepository.save(updated);
     }

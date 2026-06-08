@@ -69,7 +69,7 @@ nudge is now enforced by the pre-push hook, so it is not listed here.
 
 AltarWed is a faith-first Christian wedding planning platform -- a two-sided marketplace
 connecting engaged Christian couples with faith-aligned wedding vendors (think The Knot or
-Zola, built for Christian couples with covenant, scripture, and denomination at the center).
+Zola, built for Christian couples with faith, scripture, and devotion at the center).
 
 **Core differentiator:** every couple gets a shareable public wedding website at
 `altarwed.com/wedding/[slug]`. This is the primary viral/social-sharing surface and SEO engine

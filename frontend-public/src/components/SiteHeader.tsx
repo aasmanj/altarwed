@@ -18,6 +18,9 @@ export default function SiteHeader() {
           <NavLink href="/resources">Resources</NavLink>
         </nav>
 
+        {/* Mobile-only Find a Wedding link (full nav is desktop-only) */}
+        <NavLink href="/find-wedding" className="sm:hidden">Find a Wedding</NavLink>
+
         {/* CTAs */}
         <div className="flex items-center gap-3 shrink-0">
           <a
@@ -44,11 +47,11 @@ export default function SiteHeader() {
   )
 }
 
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+function NavLink({ href, children, className = '' }: { href: string; children: React.ReactNode; className?: string }) {
   return (
     <Link
       href={href}
-      className="px-3 py-2 text-sm font-medium text-[#6b5344] hover:text-[#3b2f2f] rounded-lg hover:bg-[#fdfaf6] transition"
+      className={`px-3 py-2 text-sm font-medium text-[#6b5344] hover:text-[#3b2f2f] rounded-lg hover:bg-[#fdfaf6] transition ${className}`}
     >
       {children}
     </Link>

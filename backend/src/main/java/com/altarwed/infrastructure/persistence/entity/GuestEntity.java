@@ -102,6 +102,9 @@ public class GuestEntity {
     @Column(name = "sheet_sync_id", length = 36)
     private String sheetSyncId;
 
+    @Column(name = "synced_from_sheet", nullable = false)
+    private boolean syncedFromSheet;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

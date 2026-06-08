@@ -663,6 +663,61 @@ public class ResendEmailAdapter implements EmailPort {
         postEmail("account-deleted", toEmail, body);
     }
 
+    @Override
+    public void sendWeddingPublishedEmail(String toEmail, String partnerOneName,
+                                          String partnerTwoName, String weddingUrl) {
+        String coupleNames = escapeHtml(partnerOneName) + " &amp; " + escapeHtml(partnerTwoName);
+
+        String html = """
+                <div style="font-family:Georgia,serif;max-width:540px;margin:0 auto;background:#fdfaf6;padding:40px;border-radius:8px;">
+                  <p style="text-align:center;color:#a08060;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">AltarWed</p>
+                  <h1 style="text-align:center;color:#3b2f2f;font-size:28px;margin:0 0 8px;">Your wedding website is live!</h1>
+                  <p style="text-align:center;color:#d4af6a;font-size:18px;margin:0 0 28px;">%s</p>
+                  <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
+                    Congratulations! Your wedding website is now published and ready to share with your guests. Anyone with the link can view your site, RSVP, and find all the details for your celebration.
+                  </p>
+                  <div style="text-align:center;margin:28px 0;">
+                    <a href="%s"
+                       style="display:inline-block;padding:14px 32px;background:#3b2f2f;color:#d4af6a;text-decoration:none;border-radius:4px;font-size:14px;letter-spacing:0.05em;">
+                      View Your Wedding Website
+                    </a>
+                  </div>
+                  <p style="color:#3b2f2f;font-size:14px;line-height:1.7;text-align:center;">
+                    Share this link with your guests:<br>
+                    <a href="%s" style="color:#d4af6a;word-break:break-all;">%s</a>
+                  </p>
+                  <p style="text-align:center;color:#a08060;font-size:11px;margin-top:32px;">
+                    "May the Lord bless you and keep you." (Numbers 6:24)
+                  </p>
+                </div>
+                """.formatted(coupleNames, weddingUrl, weddingUrl, weddingUrl);
+
+        String text = """
+                Your wedding website is live!
+
+                Congratulations, %s and %s!
+
+                Your wedding website is now published and ready to share with your guests.
+
+                Share this link with everyone:
+                %s
+
+                Anyone with the link can RSVP and find all the details for your celebration.
+
+                "May the Lord bless you and keep you." (Numbers 6:24)
+                """.formatted(partnerOneName, partnerTwoName, weddingUrl);
+
+        Map<String, Object> body = Map.of(
+                "from", "AltarWed <" + fromEmail + ">",
+                "to", List.of(toEmail),
+                "subject", "Your wedding website is live! Share the link with your guests",
+                "html", html,
+                "text", text
+        );
+
+        postEmail("wedding-published", toEmail, body);
+    }
+
     // Marketing emails (save-the-date, welcome) check the suppression list first.
     // Transactional emails (password-reset, rsvp, vendor-inquiry, account-deleted)
     // bypass suppression: a user who opted out of marketing still needs to receive

@@ -12,6 +12,10 @@ public interface EmailPort {
     // permanent (a trust/compliance courtesy) and leaves the door open to return.
     void sendAccountDeletedEmail(String toEmail, String partnerOneName, String partnerTwoName);
 
+    // Sent once when the couple publishes their wedding website for the first time
+    // (and on every re-publish). Congratulates them and surfaces the shareable URL.
+    void sendWeddingPublishedEmail(String toEmail, String partnerOneName, String partnerTwoName, String weddingUrl);
+
     void sendRsvpInviteEmail(String toEmail, String guestName, String coupleNames, String weddingDate, String rsvpToken);
     void sendSaveTheDateEmail(String toEmail, String guestName, String coupleNames, String weddingDate, String weddingUrl);
     void sendRsvpNotificationToCouple(String coupleEmail, String coupleNames,

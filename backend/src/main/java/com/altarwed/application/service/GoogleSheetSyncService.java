@@ -20,10 +20,12 @@ import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -47,11 +49,11 @@ import java.util.stream.Collectors;
  *
  * Old column names are supported as fallbacks for backward compatibility.
  *
- * Sync strategy: upsert by name (case-insensitive). If a guest with that name already
- * exists we update their fields (including email if newly added); otherwise we create
- * a new guest. Name is the stable identifier, email and other columns are enriched
- * on subsequent syncs. We never delete guests automatically (the couple may have
- * manually added notes).
+ * Sync strategy: upsert, then delete stale rows. If a guest already exists we merge
+ * sheet values non-destructively (sheet wins for non-null fields; manual edits survive).
+ * Guests created by this sync job (syncedFromSheet=true) are deleted when their sheet
+ * row disappears, but only when at least one data row was seen in the current run.
+ * Manually added guests (syncedFromSheet=false) are never deleted by the sync.
  */
 @Service
 public class GoogleSheetSyncService {
@@ -228,8 +230,8 @@ public class GoogleSheetSyncService {
                     true, sync.createdAt(), null
             );
             GoogleSheetSync saved = syncRepository.save(updated);
-            log.info("google sheet sync succeeded, coupleId={}, added={}, updated={}, seen={}",
-                     sync.coupleId(), counts.added(), counts.updated(), counts.seen());
+            log.info("google sheet sync succeeded, coupleId={}, added={}, updated={}, deleted={}, seen={}",
+                     sync.coupleId(), counts.added(), counts.updated(), counts.deleted(), counts.seen());
             return new SyncResult(saved, counts.added(), counts.updated());
         } catch (GoogleAuthRevokedException e) {
             // Terminal: the refresh token is dead and will never recover on its
@@ -266,7 +268,8 @@ public class GoogleSheetSyncService {
     //             (NOT a count of every existing row seen, that would always report
     //             "updated" on a no-op sync and erode trust in the toast)
     // `seen`    = every non-blank row in the sheet, persisted as the GoogleSheetSync.rowCount
-    private record UpsertCounts(int added, int updated, int seen) {}
+    // `deleted` = sheet-synced guests deleted because their row is no longer in the sheet
+    private record UpsertCounts(int added, int updated, int seen, int deleted) {}
 
     /**
      * Converts any Google Sheets URL to a CSV export URL.
@@ -331,7 +334,7 @@ public class GoogleSheetSyncService {
      */
     private UpsertCounts upsertGuestsWithWriteBack(UUID coupleId, String spreadsheetId, String sheetUrl) throws Exception {
         List<String[]> rows = googleOAuthService.readSheet(coupleId, sheetUrl);
-        if (rows.isEmpty()) return new UpsertCounts(0, 0, 0);
+        if (rows.isEmpty()) return new UpsertCounts(0, 0, 0, 0);
 
         String[] headers = rows.get(0);
         Map<String, Integer> colIndex = buildColumnIndex(headers);
@@ -375,6 +378,7 @@ public class GoogleSheetSyncService {
         }
 
         List<Guest> toSave = new ArrayList<>();
+        Set<UUID> seenExistingIds = new HashSet<>();
         int added = 0;
         int updated = 0;
         int seen = 0;
@@ -447,13 +451,14 @@ public class GoogleSheetSyncService {
                         null, 0,    // noteForCouple, inviteSendCount
                         null, null, null, null, null,  // inviteSentAt, respondedAt, remindAt, createdAt, updatedAt
                         null, null, null,  // partyId, partyName, partyContact
-                        syncId
+                        syncId, true  // sheetSyncId, syncedFromSheet
                 ));
                 added++;
             } else {
                 // Non-destructive merge: sheet value wins if non-null, else keep manual edits.
                 // We then equals-check against the existing DB row so unchanged rows are NOT
                 // counted as "updated" in the toast (and not re-saved either, small DB win).
+                seenExistingIds.add(g.id());
                 Guest merged = new Guest(
                         g.id(), g.coupleId(), name,
                         emailVal    != null ? emailVal    : g.email(),
@@ -474,7 +479,7 @@ public class GoogleSheetSyncService {
                         g.inviteSendCount(), g.inviteSentAt(), g.respondedAt(), g.remindAt(),
                         g.createdAt(), g.updatedAt(),
                         g.partyId(), g.partyName(), g.partyContact(),
-                        syncId  // stamp UUID even when resolved via name fallback
+                        syncId, g.syncedFromSheet()  // preserve syncedFromSheet flag
                 );
                 // Consume from name map so a second row with the same name creates a new guest.
                 byNameFallback.remove(name.toLowerCase().trim());
@@ -487,6 +492,25 @@ public class GoogleSheetSyncService {
         }
 
         guestRepository.saveAll(toSave);
+
+        // Delete guests that were created by a previous sheet sync but no longer have a row.
+        // Guard: only run when at least one data row was seen. A header-only sheet (rows=1)
+        // or a transient empty API response must not wipe the entire guest list.
+        // Manually added guests (syncedFromSheet=false) are never touched.
+        int deleted = 0;
+        if (seen > 0) {
+            List<UUID> toDelete = existing.stream()
+                    .filter(g -> g.syncedFromSheet() && !seenExistingIds.contains(g.id()))
+                    .map(Guest::id)
+                    .toList();
+            for (UUID id : toDelete) {
+                guestRepository.deleteById(id);
+            }
+            deleted = toDelete.size();
+            if (deleted > 0) {
+                log.info("google sheets sync deleted guests, count={}, coupleId={}", deleted, coupleId);
+            }
+        }
 
         // Write UUIDs back to the sheet, best-effort, non-fatal.
         // Runs even when no guests changed, because newly-generated UUIDs for previously
@@ -501,7 +525,7 @@ public class GoogleSheetSyncService {
             }
         }
 
-        return new UpsertCounts(added, updated, seen);
+        return new UpsertCounts(added, updated, seen, deleted);
     }
 
     /**
@@ -510,7 +534,7 @@ public class GoogleSheetSyncService {
      * is not possible. Name changes will create a new guest; the old one is not deleted.
      */
     private UpsertCounts upsertGuestsByName(UUID coupleId, List<String[]> rows) throws Exception {
-        if (rows.isEmpty()) return new UpsertCounts(0, 0, 0);
+        if (rows.isEmpty()) return new UpsertCounts(0, 0, 0, 0);
 
         String[] headers = rows.get(0);
         Map<String, Integer> colIndex = buildColumnIndex(headers);
@@ -524,6 +548,7 @@ public class GoogleSheetSyncService {
                         (a, b) -> a));
 
         List<Guest> toSave = new ArrayList<>();
+        Set<UUID> seenExistingIds = new HashSet<>();
         int added = 0;
         int updated = 0;
         int seen = 0;
@@ -570,12 +595,14 @@ public class GoogleSheetSyncService {
                         null, 0,
                         null, null, null, null, null,
                         null, null, null,
-                        null  // sheetSyncId, CSV path cannot write-back
+                        null, true  // sheetSyncId (CSV can't write-back), syncedFromSheet
                 ));
                 added++;
             } else {
                 // Build the would-be merged Guest, then equals-check against existing.
                 // Only save + count as "updated" if something actually changed.
+                // CSV path has no stable row identity: a name change looks like delete + add.
+                seenExistingIds.add(g.id());
                 Guest merged = new Guest(
                         g.id(), g.coupleId(), name,
                         emailVal    != null ? emailVal    : g.email(),
@@ -596,7 +623,7 @@ public class GoogleSheetSyncService {
                         g.inviteSendCount(), g.inviteSentAt(), g.respondedAt(), g.remindAt(),
                         g.createdAt(), g.updatedAt(),
                         g.partyId(), g.partyName(), g.partyContact(),
-                        g.sheetSyncId()  // preserve any UUID already stamped
+                        g.sheetSyncId(), g.syncedFromSheet()  // preserve both flags
                 );
                 if (!merged.equals(g)) {
                     toSave.add(merged);
@@ -607,7 +634,28 @@ public class GoogleSheetSyncService {
         }
 
         guestRepository.saveAll(toSave);
-        return new UpsertCounts(added, updated, seen);
+
+        // Delete guests created by the CSV sync path but no longer present in the sheet.
+        // Guard: only run when at least one data row was seen (header-only sheet must not wipe guests).
+        // Only delete guests without a sheetSyncId: those were created by the CSV path.
+        // Guests with a sheetSyncId were stamped by OAuth sync; if the couple later loses OAuth
+        // and falls back to CSV, name mismatches must not delete them.
+        int deleted = 0;
+        if (seen > 0) {
+            List<UUID> toDelete = existing.stream()
+                    .filter(g -> g.syncedFromSheet() && g.sheetSyncId() == null && !seenExistingIds.contains(g.id()))
+                    .map(Guest::id)
+                    .toList();
+            for (UUID id : toDelete) {
+                guestRepository.deleteById(id);
+            }
+            deleted = toDelete.size();
+            if (deleted > 0) {
+                log.info("google sheets sync deleted guests, count={}, coupleId={}", deleted, coupleId);
+            }
+        }
+
+        return new UpsertCounts(added, updated, seen, deleted);
     }
 
     // -----------------------------------------------------------------------

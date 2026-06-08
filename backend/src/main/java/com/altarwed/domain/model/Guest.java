@@ -40,5 +40,8 @@ public record Guest(
         Boolean partyContact,
         // UUID stamped into the couple's Google Sheet so sync can match rows by ID rather than name.
         // Null for guests added manually or synced before write-back was introduced.
-        String sheetSyncId
+        String sheetSyncId,
+        // true when this guest was created by the Google Sheets sync job (not manually added).
+        // Only sheet-synced guests are eligible for automatic deletion when their row is removed.
+        boolean syncedFromSheet
 ) {}

@@ -8,9 +8,10 @@ import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import {
   useGuests, useAddGuest, useUpdateGuest, useRemoveGuest,
-  useSendInvite,
+  useSendInvite, useBulkAddGuests,
   type Guest, type RsvpStatus, type GuestSide,
 } from './useGuests'
+import ImportGuestsModal from './ImportGuestsModal'
 import TipCallout from '@/components/TipCallout'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { TIPS } from '@/lib/tips'
@@ -79,6 +80,7 @@ export default function GuestListPage() {
   const updateGuest = useUpdateGuest(coupleId)
   const removeGuest = useRemoveGuest(coupleId)
   const sendInvite  = useSendInvite(coupleId)
+  const bulkAdd     = useBulkAddGuests(coupleId)
 
   const confirm                 = useConfirm()
   const { data: sheetSync }     = useGoogleSheetSync(coupleId)
@@ -209,6 +211,7 @@ export default function GuestListPage() {
   }, [deleteSheetSync, confirm])
 
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showImport, setShowImport]     = useState(false)
   const [showAdd, setShowAdd]           = useState(false)
   const [filter, setFilter]             = useState<RsvpStatus | 'ALL'>('ALL')
   const [editingId, setEditingId]       = useState<string | null>(null)
@@ -642,6 +645,28 @@ export default function GuestListPage() {
             onClose={() => setShowAddModal(false)}
             onManual={() => { setShowAddModal(false); setShowAdd(true) }}
             onSheetSync={() => { setShowAddModal(false); setShowSheetSync(true); setSheetUrlInput(sheetSync?.sheetUrl ?? '') }}
+            onImport={() => { setShowAddModal(false); setShowImport(true) }}
+          />
+        )}
+
+        {/* Import from spreadsheet modal */}
+        {showImport && (
+          <ImportGuestsModal
+            coupleId={coupleId}
+            onClose={() => setShowImport(false)}
+            isPending={bulkAdd.isPending}
+            onImport={async (guests) => {
+              const promise = bulkAdd.mutateAsync(guests)
+              toast.promise(promise, {
+                loading: 'Importing guests...',
+                success: (added) => {
+                  setShowImport(false)
+                  return `Imported ${added.length} guest${added.length === 1 ? '' : 's'}`
+                },
+                error: 'Import failed. Check your file and try again.',
+              })
+              try { await promise } catch { /* toast.promise handles display */ }
+            }}
           />
         )}
 
@@ -834,10 +859,12 @@ function AddGuestModal({
   onClose,
   onManual,
   onSheetSync,
+  onImport,
 }: {
   onClose: () => void
   onManual: () => void
   onSheetSync: () => void
+  onImport: () => void
 }) {
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
@@ -853,6 +880,13 @@ function AddGuestModal({
           >
             <p className="flex items-center gap-2 font-semibold text-brown text-sm"><FileSpreadsheet size={16} className="text-gold" /> Sync Google Sheet</p>
             <p className="text-xs text-brown-light mt-1">Connect your Google Sheet and we'll keep your guest list in sync automatically.</p>
+          </button>
+          <button
+            onClick={onImport}
+            className="w-full rounded-xl border-2 border-gold/40 hover:border-gold bg-ivory/50 hover:bg-gold/5 px-5 py-4 text-left transition"
+          >
+            <p className="flex items-center gap-2 font-semibold text-brown text-sm"><FileSpreadsheet size={16} className="text-gold" /> Import from Excel or CSV</p>
+            <p className="text-xs text-brown-light mt-1">Upload an .xlsx, .xls, or .csv file to import guests in bulk.</p>
           </button>
           <button
             onClick={onManual}

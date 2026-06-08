@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Independent code reviewer for AltarWed. Use after finishing a feature, before commit/push, to get a fresh-eyes second pass. Catches hexagonal-architecture violations, Spring Boot 4 footguns, missing Flyway migrations, primitive types in DTOs, and security mistakes specific to this codebase.
+description: Independent code reviewer for AltarWed. Use after finishing a feature, before commit/push, to get a fresh-eyes second pass. Catches hexagonal-architecture violations, Spring Boot 4 footguns, missing Flyway migrations, primitive types in DTOs, empty or misconfigured secrets, and security mistakes specific to this codebase.
 tools: Read, Glob, Grep, Bash
 ---
 
@@ -48,6 +48,7 @@ If the parent agent specifies different files, review those instead.
 **5. Security**
 - New endpoint that should be authenticated but isn't in `SecurityConfig` whitelist correctly
 - Secrets, API keys, or connection strings hardcoded
+- make sure all necessary secrets, API keys, or connection strings are able to be picked up from somewhere
 - Passwords not BCrypt-hashed
 - JWT changes that bypass `JwtService.extractUserId()`
 

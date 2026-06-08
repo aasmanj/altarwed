@@ -43,9 +43,13 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
   const displayed    = sideFilter === 'ALL' ? ordered
     : ordered.filter(m => m.side === sideFilter)
 
-  // Reorder is offered only in the "All" view (it operates on the full ordered
-  // list). Members were historically created with sortOrder=0, so the first move
-  // renumbers everyone 0..n-1; later moves only rewrite the two that swapped.
+  const [sideHintDismissed, setSideHintDismissed] = useState(false)
+  const brideCount = members.filter(m => m.side === 'BRIDE').length
+  const groomCount = members.filter(m => m.side === 'GROOM').length
+  const showSideHint = !sideHintDismissed
+    && ((brideCount >= 1 && groomCount === 0) || (groomCount >= 1 && brideCount === 0))
+  const hintMissingSide = groomCount === 0 ? "groom's" : "bride's"
+
   const reorder = async (index: number, dir: -1 | 1) => {
     const target = index + dir
     if (target < 0 || target >= ordered.length) return
@@ -103,6 +107,17 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
         </div>
       )}
 
+      {showSideHint && (
+        <div className="flex items-start justify-between gap-3 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 mb-4 text-sm text-amber-900">
+          <p>Your {hintMissingSide} party members won't appear on your wedding website. Add them here to complete your wedding party.</p>
+          <button
+            onClick={() => setSideHintDismissed(true)}
+            aria-label="Dismiss"
+            className="shrink-0 text-amber-700 hover:text-amber-900 transition"
+          >✕</button>
+        </div>
+      )}
+
       {uploadError && (
         <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 mb-4 text-sm text-red-700">
           {uploadError}
@@ -118,8 +133,9 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
         </div>
       ) : (
         <div className="space-y-4">
-          {displayed.map((member, idx) => (
-            editingId === member.id ? (
+          {displayed.map((member) => {
+            const globalIdx = ordered.findIndex(m => m.id === member.id)
+            return editingId === member.id ? (
               <MemberForm
                 key={member.id}
                 initial={member}
@@ -147,15 +163,15 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
                 onPhotoUpload={(file) => uploadPhoto.mutate({ memberId: member.id, file })}
                 isUploading={uploadPhoto.isPending}
                 reorder={sideFilter === 'ALL' ? {
-                  canUp: idx > 0,
-                  canDown: idx < displayed.length - 1,
-                  onUp: () => reorder(idx, -1),
-                  onDown: () => reorder(idx, 1),
+                  canUp: globalIdx > 0,
+                  canDown: globalIdx < ordered.length - 1,
+                  onUp: () => reorder(globalIdx, -1),
+                  onDown: () => reorder(globalIdx, 1),
                   busy: updateMember.isPending,
                 } : undefined}
               />
             )
-          ))}
+          })}
         </div>
       )}
     </div>
