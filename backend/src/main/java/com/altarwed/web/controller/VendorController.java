@@ -5,6 +5,7 @@ import com.altarwed.application.dto.InquiryResponse;
 import com.altarwed.application.dto.RegisterVendorRequest;
 import com.altarwed.application.dto.UpdateVendorRequest;
 import com.altarwed.application.dto.VendorResponse;
+import com.altarwed.application.dto.VendorStatsResponse;
 import com.altarwed.application.service.MediaUploadService;
 import com.altarwed.application.service.VendorAuthService;
 import com.altarwed.application.service.VendorInquiryService;
@@ -118,7 +119,33 @@ public class VendorController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<VendorResponse> getById(@PathVariable UUID id) {
-        return ResponseEntity.ok(vendorMapper.toResponse(vendorService.getById(id)));
+    public ResponseEntity<VendorResponse> getById(@PathVariable UUID id, Authentication authentication) {
+        VendorResponse response = vendorMapper.toResponse(vendorService.getById(id));
+        // Skip the counter when the authenticated caller is the vendor who owns this listing.
+        // For unauthenticated callers and couple-authenticated callers, always count.
+        boolean isSelfView = false;
+        if (authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_VENDOR".equals(a.getAuthority()))) {
+            try {
+                isSelfView = vendorService.getByEmail(authentication.getName()).id().equals(id);
+            } catch (Exception ignored) {
+                // Vendor email not found -- count the view.
+            }
+        }
+        if (!isSelfView) {
+            try {
+                vendorService.incrementViewCount(id);
+            } catch (Exception ex) {
+                log.warn("view count increment failed, vendorId={}", id, ex);
+            }
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/me/stats")
+    public ResponseEntity<VendorStatsResponse> getMyStats(Authentication authentication) {
+        var vendor = vendorService.getByEmail(authentication.getName());
+        log.info("vendor stats fetched, vendorId={}", vendor.id());
+        return ResponseEntity.ok(vendorService.getStats(vendor.id()));
     }
 }

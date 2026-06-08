@@ -34,6 +34,19 @@ export interface UpdateVendorPayload {
 
 const ME_KEY = ['vendor', 'me']
 
+export interface VendorStats {
+  viewCount: number
+  inquiryCount: number
+  unreadInquiryCount: number
+}
+
+export function useVendorStats() {
+  return useQuery<VendorStats>({
+    queryKey: ['vendor', 'stats'],
+    queryFn: () => apiClient.get('/api/v1/vendors/me/stats').then(r => r.data),
+  })
+}
+
 export function useVendorProfile() {
   return useQuery<VendorProfile>({
     queryKey: ME_KEY,

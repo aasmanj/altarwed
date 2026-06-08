@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -21,13 +22,17 @@ public class SaveTheDateController {
         this.accessGuard = accessGuard;
     }
 
+    // guestIds is optional -- omit or send empty list to send to all eligible guests.
+    record SendRequest(List<UUID> guestIds) {}
+
     @PostMapping("/couple/{coupleId}/send")
     public ResponseEntity<Map<String, Integer>> sendAll(
             @PathVariable UUID coupleId,
+            @RequestBody(required = false) SendRequest body,
             @AuthenticationPrincipal String email
     ) {
         accessGuard.assertOwns(coupleId, email);
-        int count = guestService.sendSaveDates(coupleId);
+        int count = guestService.sendSaveDates(coupleId, body != null ? body.guestIds() : null);
         return ResponseEntity.ok(Map.of("sent", count));
     }
 }

@@ -16,16 +16,26 @@ export default function SaveTheDatePage() {
   const { data: website } = useWeddingWebsite(coupleId)
   const { data: guests = [] } = useGuests(coupleId)
   const [sent, setSent] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[] | null>(null)
   const qrRef = useRef<HTMLCanvasElement>(null)
   const confirm = useConfirm()
 
-  const eligibleCount = guests.filter(g => g.email).length
+  const emailGuests = guests.filter(g => g.email)
+  const eligibleCount = emailGuests.length
+
+  const activeIds = selectedIds ?? emailGuests.map(g => g.id)
+  const sendCount = activeIds.length
+
+  function toggleGuest(id: string) {
+    const current = selectedIds ?? emailGuests.map(g => g.id)
+    setSelectedIds(current.includes(id) ? current.filter(x => x !== id) : [...current, id])
+  }
 
   async function handleSend() {
-    if (sendMutation.isPending || sent || eligibleCount === 0) return
+    if (sendMutation.isPending || sent || sendCount === 0) return
     if (!await confirm({
-      title: `Send save-the-dates to ${eligibleCount} guest${eligibleCount !== 1 ? 's' : ''}?`,
-      message: 'Each guest with an email address will receive your faith-themed announcement. Make sure your wedding website is published first.',
+      title: `Send save-the-dates to ${sendCount} guest${sendCount !== 1 ? 's' : ''}?`,
+      message: 'Each selected guest will receive your faith-themed announcement. Make sure your wedding website is published first.',
       confirmLabel: 'Send now',
     })) return
     sendMutation.mutate()
@@ -33,11 +43,11 @@ export default function SaveTheDatePage() {
 
   const sendMutation = useMutation({
     mutationFn: () =>
-      apiClient.post(`/api/v1/save-the-dates/couple/${coupleId}/send`).then(r => r.data),
+      apiClient.post(`/api/v1/save-the-dates/couple/${coupleId}/send`,
+        selectedIds !== null ? { guestIds: selectedIds } : {}
+      ).then(r => r.data),
     onSuccess: () => {
       setSent(true)
-      // Celebrate the milestone, first save-the-date blast is the first time
-      // a couple's announcement actually reaches their guests.
       confetti({
         particleCount: 180,
         spread: 90,
@@ -88,48 +98,88 @@ export default function SaveTheDatePage() {
         </div>
 
         {/* Send panel */}
-        <div className="bg-white rounded-xl border border-stone-200 p-6">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            <div>
-              <h2 className="font-semibold text-stone-900 mb-1">Send to your guest list</h2>
-              <p className="text-sm text-stone-500">
-                {eligibleCount === 0 ? (
-                  <>
-                    No guests with email addresses yet.{' '}
-                    <Link to="/dashboard/guests" className="text-amber-600 font-medium underline hover:text-amber-700">
-                      Add guests first
-                    </Link>.
-                  </>
-                ) : (
-                  `Will be sent to ${eligibleCount} guest${eligibleCount !== 1 ? 's' : ''} with email addresses.`
-                )}
-              </p>
-              {website && (
-                <p className="text-xs text-stone-400 mt-1">
-                  Includes link to: <span className="text-amber-600">{weddingUrl}</span>
-                </p>
-              )}
-            </div>
-            {sent ? (
-              <div className="flex items-center gap-2 text-green-600 font-medium whitespace-nowrap">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                Sent!
+        <div className="bg-white rounded-xl border border-stone-200 p-6 space-y-4">
+          <h2 className="font-semibold text-stone-900">Send to your guests</h2>
+
+          {eligibleCount === 0 ? (
+            <p className="text-sm text-stone-500">
+              No guests with email addresses yet.{' '}
+              <Link to="/dashboard/guests" className="text-amber-600 font-medium underline hover:text-amber-700">
+                Add guests first
+              </Link>.
+            </p>
+          ) : (
+            <>
+              {/* Guest selector */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+                    Select recipients ({sendCount} of {eligibleCount} selected)
+                  </p>
+                  <div className="flex gap-2 text-xs">
+                    <button
+                      onClick={() => setSelectedIds(null)}
+                      className="text-amber-700 hover:underline"
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => setSelectedIds([])}
+                      className="text-stone-500 hover:underline"
+                    >
+                      None
+                    </button>
+                  </div>
+                </div>
+                <div className="max-h-52 overflow-y-auto rounded-lg border border-stone-200 divide-y divide-stone-100">
+                  {emailGuests.map(g => (
+                    <label key={g.id} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-stone-50">
+                      <input
+                        type="checkbox"
+                        checked={activeIds.includes(g.id)}
+                        onChange={() => toggleGuest(g.id)}
+                        className="h-4 w-4 rounded border-stone-300 accent-amber-600"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-stone-800">{g.name}</p>
+                        <p className="text-xs text-stone-400 truncate">{g.email}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
               </div>
-            ) : (
-              <button
-                onClick={handleSend}
-                disabled={sendMutation.isPending || eligibleCount === 0}
-                className="whitespace-nowrap px-5 py-2.5 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50 transition-colors"
-              >
-                {sendMutation.isPending ? 'Sending…' : 'Send Save-the-Dates'}
-              </button>
-            )}
-          </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 border-t border-stone-100">
+                <div>
+                  {website && (
+                    <p className="text-xs text-stone-400">
+                      Includes link to: <span className="text-amber-600">{weddingUrl}</span>
+                    </p>
+                  )}
+                </div>
+                {sent ? (
+                  <div className="flex items-center gap-2 text-green-600 font-medium whitespace-nowrap">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Sent!
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleSend}
+                    disabled={sendMutation.isPending || sendCount === 0}
+                    className="whitespace-nowrap px-5 py-2.5 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50 transition-colors"
+                  >
+                    {sendMutation.isPending ? 'Sending…' : `Send to ${sendCount} guest${sendCount !== 1 ? 's' : ''}`}
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
           {sent && (
-            <div className="mt-4 p-3 bg-green-50 rounded-lg text-sm text-green-700">
-              Save-the-dates sent to {sendMutation.data?.sent ?? eligibleCount} guests.{' '}
+            <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
+              Save-the-dates sent to {sendMutation.data?.sent ?? sendCount} guests.{' '}
               <Link to="/dashboard/guests" className="underline">View guest list</Link>
             </div>
           )}

@@ -127,13 +127,18 @@ export default function ImportGuestsModal({ onImport, onClose, isPending }: Prop
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="import-dialog-title"
+      role="presentation"
       className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4"
+      onClick={e => e.target === e.currentTarget && onClose()}
       onKeyDown={e => e.key === 'Escape' && onClose()}
     >
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-dialog-title"
+        tabIndex={-1}
+        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gold-light shrink-0">
           <h2 id="import-dialog-title" className="font-serif text-lg font-semibold text-brown">
@@ -148,8 +153,11 @@ export default function ImportGuestsModal({ onImport, onClose, isPending }: Prop
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
           {/* Drop zone */}
           <div
+            role="button"
+            tabIndex={0}
             className="rounded-xl border-2 border-dashed border-gold/50 bg-ivory/60 hover:border-gold hover:bg-gold/5 transition cursor-pointer p-8 text-center"
             onClick={() => inputRef.current?.click()}
+            onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && inputRef.current?.click()}
             onDrop={handleDrop}
             onDragOver={e => e.preventDefault()}
           >

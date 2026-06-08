@@ -1,21 +1,21 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
-import { useDenominations } from './useDenominations'
 
 const CATEGORIES = [
-  { value: 'PHOTOGRAPHER',    label: 'Photographer' },
-  { value: 'VIDEOGRAPHER',    label: 'Videographer' },
-  { value: 'FLORIST',         label: 'Florist' },
-  { value: 'CATERER',         label: 'Caterer' },
-  { value: 'VENUE',           label: 'Venue' },
-  { value: 'OFFICIANT',       label: 'Officiant / Pastor' },
-  { value: 'MUSIC',           label: 'Music' },
+  { value: 'ALTERATIONS',     label: 'Alterations, Tailoring & Dry Cleaning' },
   { value: 'CAKE',            label: 'Cake' },
+  { value: 'CATERER',         label: 'Caterer' },
+  { value: 'COORDINATOR',     label: 'Wedding Coordinator' },
+  { value: 'FLORIST',         label: 'Florist' },
   { value: 'HAIR_AND_MAKEUP', label: 'Hair & Makeup' },
   { value: 'INVITATION',      label: 'Invitations & Stationery' },
+  { value: 'MUSIC',           label: 'Music' },
+  { value: 'OFFICIANT',       label: 'Officiant / Pastor' },
+  { value: 'PHOTOGRAPHER',    label: 'Photographer' },
   { value: 'TRANSPORTATION',  label: 'Transportation' },
-  { value: 'COORDINATOR',     label: 'Wedding Coordinator' },
+  { value: 'VENUE',           label: 'Venue' },
+  { value: 'VIDEOGRAPHER',    label: 'Videographer' },
   { value: 'OTHER',           label: 'Other' },
 ]
 
@@ -27,7 +27,6 @@ const cls = {
 export default function RegisterVendorPage() {
   const { registerVendor } = useAuth()
   const navigate = useNavigate()
-  const { data: denominations } = useDenominations()
 
   const [form, setForm] = useState({
     businessName: '',
@@ -38,7 +37,6 @@ export default function RegisterVendorPage() {
     password: '',
     confirmPassword: '',
     isChristianOwned: false,
-    denominationIds: [] as string[],
   })
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -49,15 +47,6 @@ export default function RegisterVendorPage() {
     ...prev,
     [field]: e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value,
   }))
-
-  const toggleDenomination = (id: string) => {
-    setForm(prev => ({
-      ...prev,
-      denominationIds: prev.denominationIds.includes(id)
-        ? prev.denominationIds.filter(d => d !== id)
-        : [...prev.denominationIds, id],
-    }))
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -80,7 +69,6 @@ export default function RegisterVendorPage() {
         email: form.email,
         password: form.password,
         isChristianOwned: form.isChristianOwned,
-        denominationIds: form.denominationIds.length > 0 ? form.denominationIds : undefined,
       })
       navigate('/vendor')
     } catch (err: unknown) {
@@ -105,7 +93,7 @@ export default function RegisterVendorPage() {
           <div>
             <label htmlFor="reg-businessName" className={cls.label}>Business name *</label>
             <input id="reg-businessName" required value={form.businessName} onChange={set('businessName')}
-              className={cls.input} placeholder="Jordan's Photography" />
+              className={cls.input} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -118,13 +106,13 @@ export default function RegisterVendorPage() {
             </div>
             <div>
               <label htmlFor="reg-city" className={cls.label}>City *</label>
-              <input id="reg-city" required value={form.city} onChange={set('city')} className={cls.input} placeholder="Dallas" />
+              <input id="reg-city" required value={form.city} onChange={set('city')} className={cls.input} />
             </div>
           </div>
 
           <div>
             <label htmlFor="reg-state" className={cls.label}>State *</label>
-            <input id="reg-state" required value={form.state} onChange={set('state')} className={cls.input} placeholder="TX" maxLength={50} />
+            <input id="reg-state" required value={form.state} onChange={set('state')} className={cls.input} maxLength={50} />
           </div>
 
           <label className="flex items-center gap-3 cursor-pointer">
@@ -133,43 +121,22 @@ export default function RegisterVendorPage() {
             <span className="text-sm text-[#3b2f2f]">This is a Christian-owned business</span>
           </label>
 
-          {denominations && denominations.length > 0 && (
-            <fieldset>
-              <legend className="text-sm font-medium text-[#3b2f2f] mb-2">
-                Denomination(s) you serve <span className="text-[#a08060] font-normal">(optional)</span>
-              </legend>
-              <div className="grid grid-cols-2 gap-2">
-                {denominations.map(d => (
-                  <label key={d.id} className="flex items-center gap-2 cursor-pointer text-sm text-[#3b2f2f]">
-                    <input
-                      type="checkbox"
-                      checked={form.denominationIds.includes(d.id)}
-                      onChange={() => toggleDenomination(d.id)}
-                      className="h-4 w-4 rounded border-[#e8dcc8] accent-[#d4af6a]"
-                    />
-                    {d.name}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          )}
-
           <hr className="border-[#e8dcc8]" />
 
           <div>
             <label htmlFor="reg-email" className={cls.label}>Email *</label>
             <input id="reg-email" required type="email" value={form.email} onChange={set('email')}
-              className={cls.input} placeholder="you@yourbusiness.com" />
+              className={cls.input} />
           </div>
           <div>
             <label htmlFor="reg-password" className={cls.label}>Password *</label>
             <input id="reg-password" required type="password" value={form.password} onChange={set('password')}
-              className={cls.input} placeholder="At least 8 characters" />
+              className={cls.input} />
           </div>
           <div>
             <label htmlFor="reg-confirmPassword" className={cls.label}>Confirm password *</label>
             <input id="reg-confirmPassword" required type="password" value={form.confirmPassword} onChange={set('confirmPassword')}
-              className={cls.input} placeholder="Repeat password" />
+              className={cls.input} />
           </div>
 
           {error && (

@@ -1,12 +1,13 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
-import { useVendorProfile } from './useVendor'
+import { useVendorProfile, useVendorStats } from './useVendor'
 import { useVendorInquiries } from './useInquiries'
 
 export default function VendorDashboard() {
   const { user, logout } = useAuth()
   const { data: vendor } = useVendorProfile()
   const { data: inquiries = [] } = useVendorInquiries()
+  const { data: stats } = useVendorStats()
 
   const displayName = vendor?.businessName ?? user?.email ?? ''
   const unreadCount = inquiries.filter(i => !i.isRead).length
@@ -48,7 +49,16 @@ export default function VendorDashboard() {
             badge={unreadCount > 0 ? String(unreadCount) : undefined}
           />
           <DashboardCard title="Reviews" description="See what couples are saying" href="#" comingSoon />
-          <DashboardCard title="Analytics" description="Profile views and inquiry trends" href="#" comingSoon />
+          <DashboardCard
+            title="Analytics"
+            description={
+              stats
+                ? `${stats.viewCount} profile views · ${stats.inquiryCount} total inquiries`
+                : 'Profile views and inquiry trends'
+            }
+            href="#"
+            live={!!stats}
+          />
           <DashboardCard title="Subscription" description="Manage your vendor plan" href="#" comingSoon />
         </div>
 

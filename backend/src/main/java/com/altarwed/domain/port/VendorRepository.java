@@ -26,4 +26,6 @@ public interface VendorRepository {
     List<Vendor> findAllActive();
 
     void deleteById(UUID id);
+
+    void incrementViewCount(UUID id);
 }

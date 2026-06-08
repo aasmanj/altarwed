@@ -44,8 +44,6 @@ export default function SiteFooter() {
       </div>
 
       <div className="border-t border-[#e8dcc8] px-6 py-4 flex flex-wrap gap-x-6 gap-y-1 justify-center">
-        <Link href="/resources" className="text-xs text-[#a08060] hover:text-[#3b2f2f] transition">Resources</Link>
-        <Link href="/find-wedding" className="text-xs text-[#a08060] hover:text-[#3b2f2f] transition">Find a Wedding</Link>
         <Link href="/privacy" className="text-xs text-[#a08060] hover:text-[#3b2f2f] transition">Privacy Policy</Link>
         <Link href="/terms" className="text-xs text-[#a08060] hover:text-[#3b2f2f] transition">Terms of Service</Link>
         <Link href="/do-not-sell" className="text-xs text-[#a08060] hover:text-[#3b2f2f] transition">Do Not Sell or Share My Personal Information</Link>

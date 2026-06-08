@@ -36,6 +36,12 @@ export default function SiteHeader() {
             Start planning
           </a>
           <a
+            href="https://app.altarwed.com/login"
+            className="hidden lg:block text-sm font-medium text-[#a08060] hover:text-[#3b2f2f] transition"
+          >
+            Vendor sign in
+          </a>
+          <a
             href="https://app.altarwed.com/register/vendor"
             className="hidden md:block rounded-lg border border-[#d4af6a] px-4 py-2 text-sm font-semibold text-[#3b2f2f] hover:bg-[#d4af6a]/10 transition"
           >

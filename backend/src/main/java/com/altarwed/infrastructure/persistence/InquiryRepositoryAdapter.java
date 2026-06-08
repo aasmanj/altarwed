@@ -28,6 +28,11 @@ public class InquiryRepositoryAdapter implements InquiryRepository {
     }
 
     @Override
+    public long countByVendorId(UUID vendorId) {
+        return jpaRepository.countByVendorId(vendorId);
+    }
+
+    @Override
     public long countUnreadByVendorId(UUID vendorId) {
         return jpaRepository.countByVendorIdAndIsReadFalse(vendorId);
     }

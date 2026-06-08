@@ -1,9 +1,11 @@
 package com.altarwed.application.service;
 
 import com.altarwed.application.dto.UpdateVendorRequest;
+import com.altarwed.application.dto.VendorStatsResponse;
 import com.altarwed.domain.exception.VendorNotFoundException;
 import com.altarwed.domain.model.Vendor;
 import com.altarwed.domain.model.VendorCategory;
+import com.altarwed.domain.port.InquiryRepository;
 import com.altarwed.domain.port.VendorRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,9 +22,11 @@ public class VendorService {
     private static final Logger log = LoggerFactory.getLogger(VendorService.class);
 
     private final VendorRepository vendorRepository;
+    private final InquiryRepository inquiryRepository;
 
-    public VendorService(VendorRepository vendorRepository) {
+    public VendorService(VendorRepository vendorRepository, InquiryRepository inquiryRepository) {
         this.vendorRepository = vendorRepository;
+        this.inquiryRepository = inquiryRepository;
     }
 
     @Transactional(readOnly = true)
@@ -59,6 +63,7 @@ public class VendorService {
                 req.websiteUrl()      != null ? blankToNull(req.websiteUrl())      : existing.websiteUrl(),
                 req.phone()           != null ? blankToNull(req.phone())           : existing.phone(),
                 existing.logoUrl(),
+                existing.viewCount(),
                 existing.createdAt(),
                 LocalDateTime.now()
         );
@@ -88,6 +93,20 @@ public class VendorService {
         Vendor saved = vendorRepository.save(getById(vendorId).withLogoUrl(logoUrl));
         log.info("vendor logo updated, vendorId={}", vendorId);
         return saved;
+    }
+
+    @Transactional
+    public void incrementViewCount(UUID vendorId) {
+        vendorRepository.incrementViewCount(vendorId);
+        log.debug("vendor view count incremented, vendorId={}", vendorId);
+    }
+
+    @Transactional(readOnly = true)
+    public VendorStatsResponse getStats(UUID vendorId) {
+        Vendor vendor = getById(vendorId);
+        long totalInquiries = inquiryRepository.countByVendorId(vendorId);
+        long unreadInquiries = inquiryRepository.countUnreadByVendorId(vendorId);
+        return new VendorStatsResponse(vendor.viewCount() != null ? vendor.viewCount() : 0, totalInquiries, unreadInquiries);
     }
 
     private String blankToNull(String s) {

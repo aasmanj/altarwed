@@ -171,7 +171,7 @@ export default function HomePage() {
             </div>
 
             <p className="mt-6 text-sm text-white/80">
-              Free forever for couples &middot; No credit card required
+              Free for couples
             </p>
           </div>
         </section>
@@ -253,7 +253,7 @@ export default function HomePage() {
           <div className="max-w-6xl mx-auto px-6">
             <div className="text-center mb-16">
               <h2 id="features-heading" className="font-serif text-3xl sm:text-4xl font-bold text-[#3b2f2f] mb-4">
-                Everything your covenant day needs
+                Everything your wedding day needs
               </h2>
               <p className="text-[#6b5344] text-lg max-w-xl mx-auto">
                 From vendor discovery to vow writing, every feature is built around what makes a Christian wedding unique.
@@ -448,7 +448,7 @@ export default function HomePage() {
           <div className="max-w-3xl mx-auto px-6 text-center">
             <div className="text-[#d4af6a] text-2xl mb-6">✦</div>
             <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#3b2f2f] mb-4 text-balance">
-              Start planning your covenant day
+              Start planning your wedding day
             </h2>
             <p className="text-[#6b5344] text-lg mb-10 text-balance">
               Create your free wedding website and planning dashboard in minutes. No credit card required.

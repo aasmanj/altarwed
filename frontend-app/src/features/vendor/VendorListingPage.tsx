@@ -1,22 +1,22 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useVendorProfile, useUpdateVendorProfile, useUploadVendorLogo } from './useVendor'
-import { useDenominations } from './useDenominations'
 import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 
 const CATEGORIES = [
-  { value: 'PHOTOGRAPHER',    label: 'Photographer' },
-  { value: 'VIDEOGRAPHER',    label: 'Videographer' },
-  { value: 'FLORIST',         label: 'Florist' },
-  { value: 'CATERER',         label: 'Caterer' },
-  { value: 'VENUE',           label: 'Venue' },
-  { value: 'OFFICIANT',       label: 'Officiant / Pastor' },
-  { value: 'MUSIC',           label: 'Music' },
+  { value: 'ALTERATIONS',     label: 'Alterations, Tailoring & Dry Cleaning' },
   { value: 'CAKE',            label: 'Cake' },
+  { value: 'CATERER',         label: 'Caterer' },
+  { value: 'COORDINATOR',     label: 'Wedding Coordinator' },
+  { value: 'FLORIST',         label: 'Florist' },
   { value: 'HAIR_AND_MAKEUP', label: 'Hair & Makeup' },
   { value: 'INVITATION',      label: 'Invitations & Stationery' },
+  { value: 'MUSIC',           label: 'Music' },
+  { value: 'OFFICIANT',       label: 'Officiant / Pastor' },
+  { value: 'PHOTOGRAPHER',    label: 'Photographer' },
   { value: 'TRANSPORTATION',  label: 'Transportation' },
-  { value: 'COORDINATOR',     label: 'Wedding Coordinator' },
+  { value: 'VENUE',           label: 'Venue' },
+  { value: 'VIDEOGRAPHER',    label: 'Videographer' },
   { value: 'OTHER',           label: 'Other' },
 ]
 
@@ -33,7 +33,6 @@ const labelCls = 'block text-sm font-medium text-[#3b2f2f] mb-1'
 
 export default function VendorListingPage() {
   const { data: vendor, isLoading } = useVendorProfile()
-  const { data: denominations } = useDenominations()
   const update = useUpdateVendorProfile()
   const uploadLogo = useUploadVendorLogo()
   const logoInputRef = useRef<HTMLInputElement>(null)
@@ -48,7 +47,6 @@ export default function VendorListingPage() {
     state: '',
     isChristianOwned: false,
     priceTier: '',
-    denominationIds: [] as string[],
     bio: '',
     description: '',
     websiteUrl: '',
@@ -64,7 +62,6 @@ export default function VendorListingPage() {
         state: vendor.state,
         isChristianOwned: vendor.isChristianOwned,
         priceTier: vendor.priceTier ?? '',
-        denominationIds: vendor.denominationIds ?? [],
         bio: vendor.bio ?? '',
         description: vendor.description ?? '',
         websiteUrl: vendor.websiteUrl ?? '',
@@ -79,17 +76,6 @@ export default function VendorListingPage() {
     setForm(prev => ({
       ...prev,
       [field]: e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value,
-    }))
-    setSaved(false)
-    setSaveError('')
-  }
-
-  const toggleDenomination = (id: string) => {
-    setForm(prev => ({
-      ...prev,
-      denominationIds: prev.denominationIds.includes(id)
-        ? prev.denominationIds.filter(d => d !== id)
-        : [...prev.denominationIds, id],
     }))
     setSaved(false)
     setSaveError('')
@@ -309,28 +295,6 @@ export default function VendorListingPage() {
               <p className="text-xs text-[#a08060]">Shown as a badge on your listing</p>
             </div>
           </label>
-
-          {/* Denominations */}
-          {denominations && denominations.length > 0 && (
-            <fieldset>
-              <legend className="text-sm font-medium text-[#3b2f2f] mb-2">
-                Denomination(s) you serve
-              </legend>
-              <div className="grid grid-cols-2 gap-2">
-                {denominations.map(d => (
-                  <label key={d.id} className="flex items-center gap-2 cursor-pointer text-sm text-[#3b2f2f]">
-                    <input
-                      type="checkbox"
-                      checked={form.denominationIds.includes(d.id)}
-                      onChange={() => toggleDenomination(d.id)}
-                      className="h-4 w-4 rounded border-[#e8dcc8] accent-[#d4af6a]"
-                    />
-                    {d.name}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          )}
 
           {/* Save bar */}
           <div className="flex items-center justify-between pt-4 border-t border-[#e8dcc8]">

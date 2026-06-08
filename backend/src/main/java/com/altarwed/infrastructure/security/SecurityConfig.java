@@ -61,6 +61,8 @@ public class SecurityConfig {
                         // path (e.g. "/vendors/**" does not match "/vendors"). Any public endpoint
                         // that can be called without a path variable needs both the exact path and
                         // the wildcard listed explicitly.
+                        // /me/** routes must be authenticated even though the wildcard below permits all GET /vendors/**
+                        .requestMatchers(HttpMethod.GET, "/api/v1/vendors/me", "/api/v1/vendors/me/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/vendors", "/api/v1/vendors/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/denominations", "/api/v1/denominations/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/wedding-websites/slug/**").permitAll()

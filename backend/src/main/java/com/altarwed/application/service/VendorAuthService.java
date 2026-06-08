@@ -78,6 +78,7 @@ public class VendorAuthService {
                 null,   // websiteUrl
                 null,   // phone
                 null,   // logoUrl
+                null,   // viewCount -- DB column has DEFAULT 0
                 null,
                 null
         );
@@ -102,7 +103,7 @@ public class VendorAuthService {
         );
         log.info("vendor registration alert queued, vendorId={}", saved.id());
 
-        return AuthResponse.of(accessToken, rawRefresh, saved.id(), saved.email(), null, null, null, false);
+        return AuthResponse.of(accessToken, rawRefresh, saved.id(), saved.email(), ROLE_VENDOR, null, null, null, false);
     }
 
     @Transactional
@@ -129,7 +130,7 @@ public class VendorAuthService {
         persistRefreshToken(rawRefresh, vendor.id(), ROLE_VENDOR);
 
         log.info("login succeeded, role=VENDOR, vendorId={}, email={}", vendor.id(), maskedEmail);
-        return AuthResponse.of(accessToken, rawRefresh, vendor.id(), vendor.email(), null, null, null, false);
+        return AuthResponse.of(accessToken, rawRefresh, vendor.id(), vendor.email(), ROLE_VENDOR, null, null, null, false);
     }
 
     // -------------------------------------------------------------------------

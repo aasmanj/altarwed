@@ -1147,10 +1147,10 @@ function HeroSettings({
                 <button
                   type="button"
                   onClick={onScriptureClear}
-                  className="shrink-0 text-[10px] text-red-400 hover:text-red-600 transition"
+                  className="shrink-0 text-xs border border-red-300 text-red-500 hover:bg-red-50 hover:text-red-700 rounded px-2 py-0.5 transition"
                   title="Remove the scripture banner from your public page"
                 >
-                  Clear
+                  Remove verse
                 </button>
               </div>
             ) : (
@@ -1159,7 +1159,7 @@ function HeroSettings({
                 <Link to="/dashboard/scripture" className="text-amber-700 underline hover:text-amber-900">
                   Scripture tab
                 </Link>
-                .
+                . Not using a verse? This section is hidden from your page when empty.
               </p>
             )}
           </div>

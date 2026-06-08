@@ -9,10 +9,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+
+import java.time.Duration;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -58,7 +61,11 @@ public class ResendEmailAdapter implements EmailPort {
         this.postalAddress = postalAddress;
         this.adminAlertEmail = adminAlertEmail;
         this.suppressionPort = suppressionPort;
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(5));
+        factory.setReadTimeout(Duration.ofSeconds(15));
         this.restClient = RestClient.builder()
+                .requestFactory(factory)
                 .baseUrl("https://api.resend.com")
                 .defaultHeader("Authorization", "Bearer " + apiKey)
                 .build();

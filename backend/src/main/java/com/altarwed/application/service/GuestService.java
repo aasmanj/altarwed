@@ -15,8 +15,10 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -159,8 +161,9 @@ public class GuestService {
     }
 
     @Transactional
-    public int sendSaveDates(UUID coupleId) {
-        log.info("save-the-date send batch started, coupleId={}", coupleId);
+    public int sendSaveDates(UUID coupleId, List<UUID> guestIds) {
+        log.info("save-the-date send batch started, coupleId={}, targetCount={}", coupleId,
+                guestIds == null ? "all" : guestIds.size());
         var website = websiteRepository.findByCoupleId(coupleId).orElse(null);
         var couple  = coupleRepository.findById(coupleId).orElse(null);
         String coupleNames = couple != null
@@ -173,8 +176,10 @@ public class GuestService {
                 ? "https://www.altarwed.com/wedding/" + website.slug()
                 : "https://www.altarwed.com";
 
+        Set<UUID> guestIdSet = guestIds != null ? new HashSet<>(guestIds) : null;
         List<Guest> toSend = guestRepository.findAllByCoupleId(coupleId).stream()
                 .filter(g -> g.email() != null && !g.email().isBlank())
+                .filter(g -> guestIdSet == null || guestIdSet.contains(g.id()))
                 .toList();
 
         for (Guest guest : toSend) {

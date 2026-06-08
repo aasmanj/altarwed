@@ -68,6 +68,11 @@ public class VendorRepositoryAdapter implements VendorRepository {
         jpaRepository.deleteById(id);
     }
 
+    @Override
+    public void incrementViewCount(UUID id) {
+        jpaRepository.incrementViewCount(id);
+    }
+
     // -------------------------------------------------------------------------
     // Mapping
     // -------------------------------------------------------------------------
@@ -91,6 +96,7 @@ public class VendorRepositoryAdapter implements VendorRepository {
                 e.getWebsiteUrl(),
                 e.getPhone(),
                 e.getLogoUrl(),
+                e.getViewCount(),
                 e.getCreatedAt(),
                 e.getUpdatedAt()
         );
@@ -115,6 +121,7 @@ public class VendorRepositoryAdapter implements VendorRepository {
                 .websiteUrl(v.websiteUrl())
                 .phone(v.phone())
                 .logoUrl(v.logoUrl())
+                .viewCount(v.viewCount() != null ? v.viewCount() : 0)
                 .createdAt(v.createdAt())
                 .updatedAt(v.updatedAt())
                 .build();

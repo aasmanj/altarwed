@@ -13,6 +13,8 @@ public interface InquiryJpaRepository extends JpaRepository<InquiryEntity, UUID>
 
     List<InquiryEntity> findByVendorIdOrderByCreatedAtDesc(UUID vendorId);
 
+    long countByVendorId(UUID vendorId);
+
     long countByVendorIdAndIsReadFalse(UUID vendorId);
 
     boolean existsByIdAndVendorId(UUID id, UUID vendorId);

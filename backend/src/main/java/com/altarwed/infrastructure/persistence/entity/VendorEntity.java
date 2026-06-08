@@ -83,6 +83,9 @@ public class VendorEntity {
     @Column(name = "logo_url", length = 500)
     private String logoUrl;
 
+    @Column(name = "view_count", nullable = false)
+    private int viewCount;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

@@ -95,6 +95,12 @@ export default function LoginPage() {
               Sign up
             </Link>
           </p>
+          <p className="mt-2 text-center text-sm text-brown-light">
+            Listing your business?{' '}
+            <Link to="/register/vendor" className="text-gold hover:underline">
+              Register as a vendor
+            </Link>
+          </p>
         </form>
       </div>
     </div>

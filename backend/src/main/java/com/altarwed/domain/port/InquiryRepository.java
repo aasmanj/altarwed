@@ -11,6 +11,8 @@ public interface InquiryRepository {
 
     List<Inquiry> findByVendorId(UUID vendorId);
 
+    long countByVendorId(UUID vendorId);
+
     long countUnreadByVendorId(UUID vendorId);
 
     boolean existsByIdAndVendorId(UUID inquiryId, UUID vendorId);

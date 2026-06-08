@@ -101,7 +101,7 @@ public class AuthService {
         log.info("welcome email queued, coupleId={}", saved.id());
 
         return AuthResponse.of(accessToken, rawRefresh, saved.id(), saved.email(),
-                saved.partnerOneName(), saved.partnerTwoName(), saved.weddingDate(), saved.marketingConsent());
+                ROLE_COUPLE, saved.partnerOneName(), saved.partnerTwoName(), saved.weddingDate(), saved.marketingConsent());
     }
 
     @Transactional
@@ -136,7 +136,7 @@ public class AuthService {
 
         log.info("login succeeded, role=COUPLE, coupleId={}, email={}", couple.id(), maskedEmail);
         return AuthResponse.of(accessToken, rawRefresh, couple.id(), couple.email(),
-                couple.partnerOneName(), couple.partnerTwoName(), couple.weddingDate(), couple.marketingConsent());
+                ROLE_COUPLE, couple.partnerOneName(), couple.partnerTwoName(), couple.weddingDate(), couple.marketingConsent());
     }
 
     @Transactional
@@ -175,7 +175,7 @@ public class AuthService {
         var weddingDate = couple != null ? couple.weddingDate() : null;
         boolean marketingConsent = couple != null && couple.marketingConsent();
 
-        return AuthResponse.of(newAccessToken, newRawRefresh, userId, email, partnerOneName, partnerTwoName, weddingDate, marketingConsent);
+        return AuthResponse.of(newAccessToken, newRawRefresh, userId, email, role, partnerOneName, partnerTwoName, weddingDate, marketingConsent);
     }
 
     @Transactional
