@@ -53,3 +53,10 @@ Authenticated SPA for couples and vendors. SEO does not matter here — everythi
 - File uploads: POST as `multipart/form-data`; all media goes through backend upload endpoints
 - Invite cap: `MAX_INVITE_SENDS = 3`; frontend shows "Max sent" badge when `inviteSendCount >= 3`
 - Boxed nulls: backend DTOs use `Boolean`/`Integer`; treat `null` as "not set", not false/0
+
+## Accessibility
+No eslint config here yet (relies on manual review). Lower legal risk than `frontend-public`
+since everything is behind auth, but UX still matters. The full WCAG checklist lives in
+`frontend-public/CLAUDE.md` -- apply the same patterns: `<button>` for actions / `<a href>` for
+nav, programmatic labels on every input, `alt` on every image, `focus:outline-none` always
+paired with a `focus-visible:ring-*`, modals trap focus + close on Escape.

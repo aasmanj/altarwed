@@ -6,8 +6,7 @@ if ($cmd -notmatch '\bgit\s+push\b') { exit 0 }
 
 # File-based bypass: create .claude/.skip-review-once to push without review.
 # The file is deleted after one use so it can't be left permanently.
-$skipFile = Join-Path $PSScriptRoot '..' '.skip-review-once'
-$skipFile = [System.IO.Path]::GetFullPath($skipFile)
+$skipFile = [System.IO.Path]::GetFullPath((Join-Path (Join-Path $PSScriptRoot '..') '.skip-review-once'))
 if (Test-Path $skipFile) {
   Remove-Item $skipFile -Force
   exit 0
@@ -28,6 +27,23 @@ Workflow:
 
 Skip only for trivial pushes (typo, doc-only, config). Default is review.
 '@
+
+# If the push touches frontend-public/, also nudge for /verify (browser render check).
+# Best-effort: a git failure here must never block the existing review gate.
+try {
+  $repoRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($PSScriptRoot, '..', '..'))
+  $changed = & git -C $repoRoot diff --name-only origin/main...HEAD 2>$null
+  if ($LASTEXITCODE -ne 0) { $changed = & git -C $repoRoot diff --name-only HEAD 2>$null }
+  if ($changed -match '(?m)^frontend-public/') {
+    $reason += @'
+
+
+This push touches frontend-public/ (the public SEO site). Also run /verify to confirm the
+page actually renders in a browser before pushing, and run `npm run lint` in frontend-public/
+to catch accessibility violations. The same .skip-review-once bypass covers both checks.
+'@
+  }
+} catch { }
 
 $out = [ordered]@{
   hookSpecificOutput = [ordered]@{
