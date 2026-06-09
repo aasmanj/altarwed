@@ -45,6 +45,8 @@ export interface WeddingWebsite {
   customTabLabels: string | null
   // V59: CSS accent color (e.g. "#d4af6a"). null = default gold.
   accentColor: string | null
+  // V62: CSS color for the scripture banner background. null = default dark gradient.
+  scriptureBackgroundColor: string | null
 }
 
 // Parsed view of the per-couple tab customisations. The raw fields above are

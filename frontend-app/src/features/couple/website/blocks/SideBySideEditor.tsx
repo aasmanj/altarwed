@@ -586,7 +586,7 @@ export default function SideBySideEditor() {
               updateWebsite.mutate({ heroPhotoUrl: url }, { onSuccess: bumpPreview })
             }}
             onScriptureClear={() => {
-              updateWebsite.mutate({ scriptureText: null, scriptureReference: null }, { onSuccess: bumpPreview })
+              updateWebsite.mutate({ scriptureText: null, scriptureReference: null, scriptureBackgroundColor: '' }, { onSuccess: bumpPreview })
             }}
             onFocalPointSave={(x, y) => {
               updateWebsite.mutate({ heroFocalPointX: x, heroFocalPointY: y })
@@ -595,6 +595,9 @@ export default function SideBySideEditor() {
               updateWebsite.mutate({ heroTaglineColor: color })
             }}
             onTaglineColorLive={(color) => sendPreviewUpdate('heroTaglineColor', color)}
+            onScriptureBgColorSave={(color) => {
+              updateWebsite.mutate({ scriptureBackgroundColor: color }, { onSuccess: bumpPreview })
+            }}
           />
           <input
             ref={heroInputRef}
@@ -898,6 +901,7 @@ function HeroSettings({
   onFocalPointSave,
   onTaglineColorSave,
   onTaglineColorLive,
+  onScriptureBgColorSave,
 }: {
   website: {
     heroPhotoUrl?: string | null
@@ -909,6 +913,7 @@ function HeroSettings({
     partnerTwoName?: string
     scriptureReference?: string | null
     scriptureText?: string | null
+    scriptureBackgroundColor?: string | null
   }
   websiteId: string
   heroUploading: boolean
@@ -923,6 +928,7 @@ function HeroSettings({
   onFocalPointSave: (x: number, y: number) => void
   onTaglineColorSave: (color: string | null) => void
   onTaglineColorLive: (color: string) => void
+  onScriptureBgColorSave: (color: string) => void
 }) {
   const DEFAULT_TAGLINE = 'Together in covenant'
   const [expanded, setExpanded] = useState(false)
@@ -947,6 +953,10 @@ function HeroSettings({
   const scheduleBrideSave   = useDebouncedSave((v: string) => onNameSave('partnerTwoName', v))
   const scheduleGroomSave   = useDebouncedSave((v: string) => onNameSave('partnerOneName', v))
   const scheduleTaglineColorSave = useDebouncedSave((v: string) => onTaglineColorSave(v))
+
+  const [scriptureBgColor, setScriptureBgColor] = useState<string>(website.scriptureBackgroundColor ?? '')
+  useEffect(() => { setScriptureBgColor(website.scriptureBackgroundColor ?? '') }, [website.scriptureBackgroundColor])
+  const scheduleScriptureBgColorSave = useDebouncedSave((v: string) => onScriptureBgColorSave(v))
 
   return (
     <div className="border-b-2 border-gold-light flex-shrink-0 bg-gradient-to-r from-ivory via-white to-ivory">
@@ -989,7 +999,7 @@ function HeroSettings({
 
       {/* Expanded editor */}
       {expanded && (
-        <div className="px-3 pb-3 space-y-3 border-t border-stone-100 pt-3">
+        <div className="overflow-y-auto max-h-[400px] px-3 pb-3 space-y-3 border-t border-stone-100 pt-3">
           {/* Tagline */}
           <div>
             <label className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-1">
@@ -1255,6 +1265,35 @@ function HeroSettings({
                 </Link>
                 . Not using a verse? This section is hidden from your page when empty.
               </p>
+            )}
+            {(website.scriptureReference || website.scriptureText) && (
+              <div className="mt-2">
+                <label className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-1">
+                  Banner background color
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="scripture-bg-color"
+                    type="color"
+                    value={scriptureBgColor || '#3b2f2f'}
+                    onChange={e => {
+                      const v = e.target.value
+                      setScriptureBgColor(v)
+                      scheduleScriptureBgColorSave(v)
+                    }}
+                    onBlur={() => { if (scriptureBgColor !== (website.scriptureBackgroundColor ?? '')) onScriptureBgColorSave(scriptureBgColor) }}
+                    className="h-6 w-12 rounded border border-stone-300 cursor-pointer p-0.5"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setScriptureBgColor(''); onScriptureBgColorSave('') }}
+                    className="text-xs text-stone-400 hover:text-stone-600"
+                  >
+                    Reset to default
+                  </button>
+                </div>
+                <p className="text-[10px] text-stone-400 mt-1 leading-snug">Default is the dark gradient.</p>
+              </div>
             )}
           </div>
         </div>

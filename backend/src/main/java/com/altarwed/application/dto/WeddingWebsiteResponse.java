@@ -65,6 +65,9 @@ public record WeddingWebsiteResponse(
         // V59: CSS color string for the site's accent color. null = default gold.
         String accentColor,
 
+        // V62: CSS color string for the scripture banner background. null = default dark gradient.
+        String scriptureBackgroundColor,
+
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {}

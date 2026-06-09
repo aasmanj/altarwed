@@ -95,6 +95,7 @@ public class WeddingWebsiteService {
                 null,                          // goalBudget
                 null, null,                    // hiddenTabs, customTabLabels (V34)
                 null,                          // accentColor (V59)
+                null,                          // scriptureBackgroundColor (V62)
                 false, null,
                 LocalDateTime.now(), LocalDateTime.now()
         );
@@ -189,6 +190,9 @@ public class WeddingWebsiteService {
                 req.customTabLabels()        != null ? req.customTabLabels()        : existing.customTabLabels(),
 
                 req.accentColor()            != null ? req.accentColor()            : existing.accentColor(),
+                req.scriptureBackgroundColor() != null
+                        ? (req.scriptureBackgroundColor().isBlank() ? null : req.scriptureBackgroundColor())
+                        : existing.scriptureBackgroundColor(),
 
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(),
@@ -222,7 +226,7 @@ public class WeddingWebsiteService {
                 existing.partnerOneVows(), existing.partnerTwoVows(),
                 existing.goalBudget(),
                 existing.hiddenTabs(), existing.customTabLabels(),
-                existing.accentColor(),
+                existing.accentColor(), existing.scriptureBackgroundColor(),
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );
@@ -254,7 +258,7 @@ public class WeddingWebsiteService {
                 existing.partnerOneVows(), existing.partnerTwoVows(),
                 existing.goalBudget(),
                 existing.hiddenTabs(), existing.customTabLabels(),
-                existing.accentColor(),
+                existing.accentColor(), existing.scriptureBackgroundColor(),
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );

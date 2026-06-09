@@ -47,6 +47,8 @@ export interface WeddingWebsite {
   venuePhotoUrl: string | null
   venueAdditionalInfo: string | null
   accentColor: string | null
+  // V62: CSS color for the scripture banner background. null = default dark gradient.
+  scriptureBackgroundColor: string | null
 }
 
 export interface CreateWebsitePayload {

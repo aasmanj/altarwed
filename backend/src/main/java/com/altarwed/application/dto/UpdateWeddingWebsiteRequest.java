@@ -61,5 +61,8 @@ public record UpdateWeddingWebsiteRequest(
         @Size(max = 4000)  String customTabLabels,
 
         // V59: CSS hex color string for the site's accent color (e.g. "#d4af6a"). null = no change.
-        @Pattern(regexp = "^#[0-9a-fA-F]{3,8}$") @Size(max = 20) String accentColor
+        @Pattern(regexp = "^#[0-9a-fA-F]{3,8}$") @Size(max = 20) String accentColor,
+
+        // V62: CSS hex color string for the scripture banner background. null = no change; empty string = clear (use default gradient).
+        @Pattern(regexp = "^(#[0-9a-fA-F]{3,8})?$") @Size(max = 20) String scriptureBackgroundColor
 ) {}

@@ -182,7 +182,10 @@ export default async function PreviewPage({
 
       {/* Scripture banner, same as the public site */}
       {(wedding.scriptureText || wedding.scriptureReference) && (
-        <section className="bg-gradient-to-b from-[#3b2f2f] to-[#4a1942] py-10 px-6 text-center relative">
+        <section
+          className={`${wedding.scriptureBackgroundColor ? '' : 'bg-gradient-to-b from-[#3b2f2f] to-[#4a1942]'} py-10 px-6 text-center relative`}
+          style={wedding.scriptureBackgroundColor ? { backgroundColor: wedding.scriptureBackgroundColor } : undefined}
+        >
           <div className="absolute inset-x-0 top-0 h-px bg-[#d4af6a]/40" />
           <div className="absolute inset-x-0 bottom-0 h-px bg-[#d4af6a]/40" />
           {wedding.scriptureText && (

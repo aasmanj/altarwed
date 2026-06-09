@@ -149,6 +149,10 @@ public class WeddingWebsiteEntity {
     @Column(name = "accent_color", length = 20)
     private String accentColor;
 
+    // V62: CSS color string for the scripture banner background. null = default dark gradient.
+    @Column(name = "scripture_background_color", length = 20)
+    private String scriptureBackgroundColor;
+
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted;
 

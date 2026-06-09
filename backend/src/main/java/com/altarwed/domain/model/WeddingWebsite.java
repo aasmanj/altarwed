@@ -77,6 +77,10 @@ public record WeddingWebsite(
         // null = use the default AltarWed gold.
         String accentColor,
 
+        // V62: CSS color string for the scripture banner background (e.g. "#1a1a2e").
+        // null = use the default dark gradient.
+        String scriptureBackgroundColor,
+
         boolean isDeleted,
         LocalDateTime deletedAt,
 
@@ -93,7 +97,7 @@ public record WeddingWebsite(
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
                 rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget,
-                hiddenTabs, customTabLabels, accentColor,
+                hiddenTabs, customTabLabels, accentColor, scriptureBackgroundColor,
                 isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
@@ -107,7 +111,7 @@ public record WeddingWebsite(
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
                 rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget,
-                hiddenTabs, customTabLabels, accentColor,
+                hiddenTabs, customTabLabels, accentColor, scriptureBackgroundColor,
                 isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
@@ -121,7 +125,7 @@ public record WeddingWebsite(
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
                 rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget,
-                hiddenTabs, customTabLabels, accentColor,
+                hiddenTabs, customTabLabels, accentColor, scriptureBackgroundColor,
                 true, LocalDateTime.now(), createdAt, LocalDateTime.now());
     }
 }
