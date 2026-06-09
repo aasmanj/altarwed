@@ -588,6 +588,13 @@ export default function SideBySideEditor() {
             onScriptureClear={() => {
               updateWebsite.mutate({ scriptureText: null, scriptureReference: null }, { onSuccess: bumpPreview })
             }}
+            onFocalPointSave={(x, y) => {
+              updateWebsite.mutate({ heroFocalPointX: x, heroFocalPointY: y })
+            }}
+            onTaglineColorSave={(color) => {
+              updateWebsite.mutate({ heroTaglineColor: color })
+            }}
+            onTaglineColorLive={(color) => sendPreviewUpdate('heroTaglineColor', color)}
           />
           <input
             ref={heroInputRef}
@@ -651,6 +658,7 @@ export default function SideBySideEditor() {
               website={website}
               onClose={() => setSettingsOpen(false)}
               onSave={(payload) => updateWebsite.mutate(payload, { onSuccess: bumpPreview })}
+              onAccentColorSave={(color) => updateWebsite.mutate({ accentColor: color }, { onSuccess: bumpPreview })}
             />
           )}
 
@@ -887,47 +895,58 @@ function HeroSettings({
   onNameLive,
   onDefaultPhotoSelect,
   onScriptureClear,
+  onFocalPointSave,
+  onTaglineColorSave,
+  onTaglineColorLive,
 }: {
-  website: { heroPhotoUrl?: string | null; heroTagline?: string | null; partnerOneName?: string; partnerTwoName?: string; scriptureReference?: string | null; scriptureText?: string | null }
+  website: {
+    heroPhotoUrl?: string | null
+    heroTagline?: string | null
+    heroFocalPointX?: number | null
+    heroFocalPointY?: number | null
+    heroTaglineColor?: string | null
+    partnerOneName?: string
+    partnerTwoName?: string
+    scriptureReference?: string | null
+    scriptureText?: string | null
+  }
   websiteId: string
   heroUploading: boolean
   onHeroUploadClick: () => void
-  // Drop handler: couple drags a JPEG/PNG/WebP into the photo area. Same endpoint
-  // as the click-to-upload, just bypassing the file picker.
   onHeroDrop: (file: File) => void | Promise<void>
-  // Persisted save (debounced + on-blur). Empty string means "user cleared the
-  // tagline" and is persisted as-is: the public page treats empty as "hide".
   onTaglineSave: (tagline: string) => void
-  // Fires on every keystroke. Sends a postMessage to the preview iframe so the
-  // hero updates instantly without waiting for a save round-trip + iframe reload.
   onTaglineLive: (tagline: string) => void
-  // Persisted save for partner names. Field is the DB column name; UI labels
-  // map partnerTwoName→Bride and partnerOneName→Groom per the bride-first convention.
   onNameSave: (field: 'partnerOneName' | 'partnerTwoName', value: string) => void
-  // Fires on every keystroke. Updates the iframe preview live via postMessage.
   onNameLive: (field: 'partnerOneName' | 'partnerTwoName', value: string) => void
   onDefaultPhotoSelect: (url: string) => void
   onScriptureClear: () => void
+  onFocalPointSave: (x: number, y: number) => void
+  onTaglineColorSave: (color: string | null) => void
+  onTaglineColorLive: (color: string) => void
 }) {
+  const DEFAULT_TAGLINE = 'Together in covenant'
   const [expanded, setExpanded] = useState(false)
-  const [tagline, setTagline] = useState(website.heroTagline ?? '')
+  const [tagline, setTagline] = useState(website.heroTagline ?? DEFAULT_TAGLINE)
+  const [taglineColor, setTaglineColor] = useState<string>(website.heroTaglineColor ?? '#ffffff')
+  const [focalPointX, setFocalPointX] = useState<number>(website.heroFocalPointX ?? 0.5)
+  const [focalPointY, setFocalPointY] = useState<number>(website.heroFocalPointY ?? 0.5)
   const [brideName, setBrideName] = useState(website.partnerTwoName ?? '')
   const [groomName, setGroomName] = useState(website.partnerOneName ?? '')
   const [pickingPhoto, setPickingPhoto] = useState(false)
   const [photoDragOver, setPhotoDragOver] = useState(false)
 
   // Sync local state if the website record refreshes (e.g. another tab edited it)
-  useEffect(() => { setTagline(website.heroTagline ?? '') }, [website.heroTagline])
+  useEffect(() => { setTagline(website.heroTagline ?? DEFAULT_TAGLINE) }, [website.heroTagline])
+  useEffect(() => { setTaglineColor(website.heroTaglineColor ?? '#ffffff') }, [website.heroTaglineColor])
+  useEffect(() => { setFocalPointX(website.heroFocalPointX ?? 0.5) }, [website.heroFocalPointX])
+  useEffect(() => { setFocalPointY(website.heroFocalPointY ?? 0.5) }, [website.heroFocalPointY])
   useEffect(() => { setBrideName(website.partnerTwoName ?? '') }, [website.partnerTwoName])
   useEffect(() => { setGroomName(website.partnerOneName ?? '') }, [website.partnerOneName])
 
-  // Debounced auto-save 500ms after typing stops. Each field has its own timer
-  // so editing the tagline doesn't reset a pending name save and vice versa.
-  // The hook itself lives at module scope (below) to comply with Rules of Hooks
-  // and avoid being redefined on every parent render.
   const scheduleTaglineSave = useDebouncedSave(onTaglineSave)
   const scheduleBrideSave   = useDebouncedSave((v: string) => onNameSave('partnerTwoName', v))
   const scheduleGroomSave   = useDebouncedSave((v: string) => onNameSave('partnerOneName', v))
+  const scheduleTaglineColorSave = useDebouncedSave((v: string) => onTaglineColorSave(v))
 
   return (
     <div className="border-b-2 border-gold-light flex-shrink-0 bg-gradient-to-r from-ivory via-white to-ivory">
@@ -987,12 +1006,11 @@ function HeroSettings({
               }}
               onBlur={() => onTaglineSave(tagline)}
               maxLength={200}
-              placeholder="Together in covenant"
               className="w-full rounded-md border border-stone-300 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
             />
             <div className="mt-1 flex items-center justify-between gap-2">
               <p className="text-[10px] text-stone-400 leading-snug">
-                Updates live. Leave blank to hide the tagline entirely.
+                Edit to customize, or clear to hide the tagline entirely.
               </p>
               <button
                 type="button"
@@ -1007,6 +1025,37 @@ function HeroSettings({
                 Clear
               </button>
             </div>
+          </div>
+
+          {/* Tagline color */}
+          <div className="flex items-center gap-2">
+            <label htmlFor="hero-tagline-color" className="text-[10px] font-semibold text-stone-500 uppercase tracking-wide flex-1">
+              Tagline color
+            </label>
+            <input
+              id="hero-tagline-color"
+              type="color"
+              value={taglineColor}
+              onChange={e => {
+                const v = e.target.value
+                setTaglineColor(v)
+                onTaglineColorLive(v)
+                scheduleTaglineColorSave(v)
+              }}
+              onBlur={() => onTaglineColorSave(taglineColor)}
+              className="h-6 w-12 rounded border border-stone-300 cursor-pointer p-0.5"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setTaglineColor('#ffffff')
+                onTaglineColorSave(null)
+              }}
+              className="text-[10px] text-stone-400 hover:text-stone-700 underline"
+              title="Reset to default white"
+            >
+              Reset
+            </button>
           </div>
 
           {/* Bride + Groom names: bride first per display convention */}
@@ -1127,6 +1176,41 @@ function HeroSettings({
             </p>
           </div>
 
+          {/* Focal point picker: shows only when a hero photo is set */}
+          {website.heroPhotoUrl && (
+            <div>
+              <label className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-1">
+                Crop position
+              </label>
+              <p className="text-[10px] text-stone-400 leading-snug mb-1.5">
+                Click anywhere on the photo to set what part stays centered in the banner.
+              </p>
+              <div
+                className="relative aspect-video rounded overflow-hidden border border-stone-200 cursor-crosshair"
+                onClick={e => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+                  const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height))
+                  setFocalPointX(x)
+                  setFocalPointY(y)
+                  onFocalPointSave(x, y)
+                }}
+              >
+                <img
+                  src={website.heroPhotoUrl}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  style={{ objectPosition: `${focalPointX * 100}% ${focalPointY * 100}%` }}
+                />
+                {/* Crosshair dot at current focal point */}
+                <div
+                  className="absolute w-4 h-4 border-2 border-white bg-black/20 rounded-full -translate-x-1/2 -translate-y-1/2 shadow pointer-events-none"
+                  style={{ left: `${focalPointX * 100}%`, top: `${focalPointY * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Wedding scripture */}
           <div>
             <label className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-1.5">
@@ -1190,12 +1274,16 @@ function TabSettingsPanel({
   website,
   onClose,
   onSave,
+  onAccentColorSave,
 }: {
   website: WeddingWebsite
   onClose: () => void
   onSave: (payload: { hiddenTabs: string; customTabLabels: string }) => void
+  onAccentColorSave: (color: string | null) => void
 }) {
   const [saving, setSaving] = useState(false)
+  const [accentColor, setAccentColor] = useState(website.accentColor ?? '#d4af6a')
+  const scheduleAccentSave = useDebouncedSave((v: string) => onAccentColorSave(v))
   // Parse the opaque server fields on open. Re-derived from props rather than
   // memoised because the panel is short-lived and re-parsing is trivially cheap.
   const initialHidden = new Set<BlockTab>(
@@ -1288,6 +1376,36 @@ function TabSettingsPanel({
           )
         })}
       </ul>
+      {/* Accent color: immediate-save (no Save button needed) */}
+      <div className="mt-3 flex items-center gap-2 rounded border border-stone-200 bg-white px-2.5 py-2">
+        <label htmlFor="accent-color" className="text-[11px] font-medium text-brown flex-1">
+          Accent color
+        </label>
+        <input
+          id="accent-color"
+          type="color"
+          value={accentColor}
+          onChange={e => {
+            const v = e.target.value
+            setAccentColor(v)
+            scheduleAccentSave(v)
+          }}
+          onBlur={() => onAccentColorSave(accentColor)}
+          className="h-6 w-12 rounded border border-stone-300 cursor-pointer p-0.5"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setAccentColor('#d4af6a')
+            onAccentColorSave(null)
+          }}
+          className="text-[10px] text-stone-400 hover:text-stone-700 underline"
+          title="Reset to default gold"
+        >
+          Reset
+        </button>
+      </div>
+
       <div className="mt-3 flex items-center justify-between gap-2">
         <p className="text-[10px] text-stone-400 leading-snug">
           Changes apply after Save. The preview will reload to reflect them.

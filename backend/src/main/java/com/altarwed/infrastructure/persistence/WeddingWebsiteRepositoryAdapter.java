@@ -66,10 +66,13 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
         return new WeddingWebsite(
                 e.getId(), e.getCoupleId(), e.getSlug(), e.isPublished(),
                 e.getPartnerOneName(), e.getPartnerTwoName(), e.getWeddingDate(), e.getEngagementDate(),
-                e.getHeroPhotoUrl(), e.getHeroTagline(), e.getOurStory(),
-                e.getScriptureReference(), e.getScriptureText(),
+                e.getHeroPhotoUrl(), e.getHeroTagline(),
+                e.getHeroFocalPointX(), e.getHeroFocalPointY(), e.getHeroTaglineColor(),
+                e.getOurStory(),
+                e.getScriptureReference(), e.getScriptureText(), e.getScriptureTranslation(),
                 e.getVenueName(), e.getVenueAddress(), e.getVenueCity(), e.getVenueState(),
                 e.getCeremonyTime(), e.getDressCode(),
+                e.getVenuePhotoUrl(), e.getVenueAdditionalInfo(),
                 e.getHotelName(), e.getHotelUrl(), e.getHotelDetails(),
                 e.getRegistryUrl1(), e.getRegistryLabel1(),
                 e.getRegistryUrl2(), e.getRegistryLabel2(),
@@ -78,6 +81,7 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 e.getPartnerOneVows(), e.getPartnerTwoVows(),
                 e.getGoalBudget(),
                 e.getHiddenTabs(), e.getCustomTabLabels(),
+                e.getAccentColor(),
                 e.isDeleted(), e.getDeletedAt(),
                 e.getCreatedAt(), e.getUpdatedAt()
         );
@@ -95,15 +99,21 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 .engagementDate(w.engagementDate())
                 .heroPhotoUrl(w.heroPhotoUrl())
                 .heroTagline(w.heroTagline())
+                .heroFocalPointX(w.heroFocalPointX())
+                .heroFocalPointY(w.heroFocalPointY())
+                .heroTaglineColor(w.heroTaglineColor())
                 .ourStory(w.ourStory())
                 .scriptureReference(w.scriptureReference())
                 .scriptureText(w.scriptureText())
+                .scriptureTranslation(w.scriptureTranslation())
                 .venueName(w.venueName())
                 .venueAddress(w.venueAddress())
                 .venueCity(w.venueCity())
                 .venueState(w.venueState())
                 .ceremonyTime(w.ceremonyTime())
                 .dressCode(w.dressCode())
+                .venuePhotoUrl(w.venuePhotoUrl())
+                .venueAdditionalInfo(w.venueAdditionalInfo())
                 .hotelName(w.hotelName())
                 .hotelUrl(w.hotelUrl())
                 .hotelDetails(w.hotelDetails())
@@ -119,6 +129,7 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 .goalBudget(w.goalBudget())
                 .hiddenTabs(w.hiddenTabs())
                 .customTabLabels(w.customTabLabels())
+                .accentColor(w.accentColor())
                 .isDeleted(w.isDeleted())
                 .deletedAt(w.deletedAt())
                 .createdAt(w.createdAt())

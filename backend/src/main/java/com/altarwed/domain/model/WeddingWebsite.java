@@ -21,9 +21,18 @@ public record WeddingWebsite(
 
         String heroPhotoUrl,
         String heroTagline,
+        // V57: focal point for the hero image (0.0–1.0 range, maps to CSS object-position).
+        // null = use center (0.5, 0.5).
+        Double heroFocalPointX,
+        Double heroFocalPointY,
+        // V57: CSS color string for the tagline text (e.g. "#ffffff"). null = white.
+        String heroTaglineColor,
+
         String ourStory,
         String scriptureReference,
         String scriptureText,
+        // V57: translation code (e.g. "ESV", "NIV"). null = unset.
+        String scriptureTranslation,
 
         String venueName,
         String venueAddress,
@@ -31,6 +40,9 @@ public record WeddingWebsite(
         String venueState,
         String ceremonyTime,
         String dressCode,
+        // V58: optional venue photo and free-form additional info (parking, etc.)
+        String venuePhotoUrl,
+        String venueAdditionalInfo,
 
         String hotelName,
         String hotelUrl,
@@ -61,6 +73,10 @@ public record WeddingWebsite(
         String hiddenTabs,
         String customTabLabels,
 
+        // V59: CSS color string for the site's accent color (e.g. "#d4af6a").
+        // null = use the default AltarWed gold.
+        String accentColor,
+
         boolean isDeleted,
         LocalDateTime deletedAt,
 
@@ -70,39 +86,42 @@ public record WeddingWebsite(
     public WeddingWebsite published() {
         return new WeddingWebsite(id, coupleId, slug, true,
                 partnerOneName, partnerTwoName, weddingDate, engagementDate,
-                heroPhotoUrl, heroTagline, ourStory,
-                scriptureReference, scriptureText,
+                heroPhotoUrl, heroTagline, heroFocalPointX, heroFocalPointY, heroTaglineColor,
+                ourStory, scriptureReference, scriptureText, scriptureTranslation,
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
+                venuePhotoUrl, venueAdditionalInfo,
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
                 rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget,
-                hiddenTabs, customTabLabels,
+                hiddenTabs, customTabLabels, accentColor,
                 isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
     public WeddingWebsite unpublished() {
         return new WeddingWebsite(id, coupleId, slug, false,
                 partnerOneName, partnerTwoName, weddingDate, engagementDate,
-                heroPhotoUrl, heroTagline, ourStory,
-                scriptureReference, scriptureText,
+                heroPhotoUrl, heroTagline, heroFocalPointX, heroFocalPointY, heroTaglineColor,
+                ourStory, scriptureReference, scriptureText, scriptureTranslation,
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
+                venuePhotoUrl, venueAdditionalInfo,
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
                 rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget,
-                hiddenTabs, customTabLabels,
+                hiddenTabs, customTabLabels, accentColor,
                 isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
     public WeddingWebsite deleted() {
         return new WeddingWebsite(id, coupleId, slug, false,
                 partnerOneName, partnerTwoName, weddingDate, engagementDate,
-                heroPhotoUrl, heroTagline, ourStory,
-                scriptureReference, scriptureText,
+                heroPhotoUrl, heroTagline, heroFocalPointX, heroFocalPointY, heroTaglineColor,
+                ourStory, scriptureReference, scriptureText, scriptureTranslation,
                 venueName, venueAddress, venueCity, venueState, ceremonyTime, dressCode,
+                venuePhotoUrl, venueAdditionalInfo,
                 hotelName, hotelUrl, hotelDetails,
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
                 rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget,
-                hiddenTabs, customTabLabels,
+                hiddenTabs, customTabLabels, accentColor,
                 true, LocalDateTime.now(), createdAt, LocalDateTime.now());
     }
 }

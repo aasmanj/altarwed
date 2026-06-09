@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 import { useAuth } from '@/core/auth/AuthContext'
@@ -9,6 +9,8 @@ interface VerseResult {
   reference: string
   text: string
 }
+
+const TRANSLATION_OPTIONS = ['NIV', 'NIV84', 'ESV', 'KJV', 'NKJV', 'NLT', 'CSB', 'NASB', 'HCSB', 'MSG']
 
 function useScriptureFeatured() {
   return useQuery<{ references: string[] }>({
@@ -27,12 +29,28 @@ function useScriptureSearch() {
 
 function usePinScripture(coupleId: string) {
   const qc = useQueryClient()
-  return useMutation<void, Error, VerseResult>({
-    mutationFn: ({ reference, text }: VerseResult) =>
+  return useMutation<void, Error, VerseResult & { translation?: string }>({
+    mutationFn: ({ reference, text, translation }) =>
       apiClient
         .patch(`/api/v1/wedding-websites/couple/${coupleId}`, {
           scriptureReference: reference,
           scriptureText: text,
+          ...(translation ? { scriptureTranslation: translation } : {}),
+        })
+        .then(() => undefined),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['wedding-website', coupleId] }),
+  })
+}
+
+function useSaveCustomVerse(coupleId: string) {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { reference: string; text: string; translation: string }>({
+    mutationFn: (data) =>
+      apiClient
+        .patch(`/api/v1/wedding-websites/couple/${coupleId}`, {
+          scriptureReference: data.reference,
+          scriptureText: data.text,
+          scriptureTranslation: data.translation,
         })
         .then(() => undefined),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['wedding-website', coupleId] }),
@@ -47,9 +65,22 @@ export default function ScripturePage() {
   const featured = useScriptureFeatured()
   const search = useScriptureSearch()
   const pin = usePinScripture(coupleId)
+  const saveCustom = useSaveCustomVerse(coupleId)
 
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<VerseResult | null>(null)
+  const [selectedTranslation, setSelectedTranslation] = useState('ESV')
+
+  // Sync to the saved translation once the website record loads (React Query
+  // is async; website is undefined on first render so useState can't use it).
+  useEffect(() => {
+    if (website?.scriptureTranslation) setSelectedTranslation(website.scriptureTranslation)
+  }, [website?.scriptureTranslation])
+
+  // Custom verse form state
+  const [customRef, setCustomRef] = useState('')
+  const [customText, setCustomText] = useState('')
+  const [customTranslation, setCustomTranslation] = useState('ESV')
 
   const pinnedRef = website?.scriptureReference ?? null
 
@@ -69,8 +100,25 @@ export default function ScripturePage() {
 
   const handlePin = () => {
     if (!selected) return
-    pin.mutate(selected)
+    pin.mutate({ ...selected, translation: selectedTranslation })
   }
+
+  const handleSaveCustom = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!customRef.trim() || !customText.trim()) return
+    saveCustom.mutate({
+      reference: customRef.trim(),
+      text: customText.trim(),
+      translation: customTranslation,
+    }, {
+      onSuccess: () => {
+        setCustomRef('')
+        setCustomText('')
+      },
+    })
+  }
+
+  const inputCls = 'w-full rounded-lg border border-gold-light px-4 py-2.5 text-sm text-brown placeholder-brown-light/60 focus:border-gold focus:outline-none'
 
   return (
     <div className="min-h-screen bg-ivory">
@@ -86,7 +134,12 @@ export default function ScripturePage() {
         {pinnedRef && (
           <div className="rounded-xl border border-gold bg-gold/5 px-5 py-4">
             <p className="text-xs font-medium text-gold uppercase tracking-wide mb-1">Currently pinned</p>
-            <p className="font-serif text-brown font-semibold">{pinnedRef}</p>
+            <p className="font-serif text-brown font-semibold">
+              {pinnedRef}
+              {website?.scriptureTranslation && (
+                <span className="ml-2 text-sm font-normal text-brown-light">({website.scriptureTranslation})</span>
+              )}
+            </p>
             {website?.scriptureText && (
               <p className="text-sm text-brown-light mt-1 italic line-clamp-2">{website.scriptureText}</p>
             )}
@@ -124,7 +177,17 @@ export default function ScripturePage() {
           <section className="rounded-xl border border-gold-light bg-white px-6 py-5 space-y-3">
             <p className="font-serif text-xl font-bold text-brown">{selected.reference}</p>
             <p className="text-sm text-brown-light leading-relaxed italic">"{selected.text}"</p>
-            <div className="flex items-center gap-3 pt-1">
+            <div className="flex items-center gap-3 pt-1 flex-wrap">
+              <label className="text-sm text-brown-light flex items-center gap-2">
+                Translation
+                <select
+                  value={selectedTranslation}
+                  onChange={e => setSelectedTranslation(e.target.value)}
+                  className="rounded border border-gold-light px-2 py-1 text-sm text-brown focus:border-gold focus:outline-none"
+                >
+                  {TRANSLATION_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </label>
               <button
                 onClick={handlePin}
                 disabled={pin.isPending}
@@ -185,6 +248,66 @@ export default function ScripturePage() {
             </ul>
           )}
         </section>
+
+        {/* Write your own verse */}
+        <section className="rounded-xl border border-gold-light bg-white px-6 py-5">
+          <h2 className="font-serif text-lg font-semibold text-brown mb-1">Write your own verse</h2>
+          <p className="text-sm text-brown-light mb-4">
+            Using a family Bible, a specific edition, or a verse our search doesn&apos;t have? Enter it directly.
+          </p>
+          <form onSubmit={handleSaveCustom} className="space-y-4">
+            <div>
+              <label htmlFor="custom-ref" className="block text-sm font-medium text-brown mb-1">
+                Reference
+              </label>
+              <input
+                id="custom-ref"
+                type="text"
+                value={customRef}
+                onChange={e => setCustomRef(e.target.value)}
+                placeholder="e.g. Colossians 3:14"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label htmlFor="custom-text" className="block text-sm font-medium text-brown mb-1">
+                Verse text
+              </label>
+              <textarea
+                id="custom-text"
+                value={customText}
+                onChange={e => setCustomText(e.target.value)}
+                rows={4}
+                placeholder="And above all these put on love, which binds everything together in perfect harmony."
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label htmlFor="custom-translation" className="block text-sm font-medium text-brown mb-1">
+                Translation
+              </label>
+              <select
+                id="custom-translation"
+                value={customTranslation}
+                onChange={e => setCustomTranslation(e.target.value)}
+                className={inputCls}
+              >
+                {TRANSLATION_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <button
+              type="submit"
+              disabled={!customRef.trim() || !customText.trim() || saveCustom.isPending}
+              className="w-full rounded-lg bg-gold px-5 py-2.5 text-sm font-semibold text-white hover:bg-gold/90 disabled:opacity-50 transition"
+            >
+              {saveCustom.isPending ? 'Saving…' : 'Save to my website'}
+            </button>
+            {saveCustom.isSuccess && (
+              <p className="text-sm text-green-600 font-medium text-center">Saved!</p>
+            )}
+          </form>
+        </section>
+
       </main>
     </div>
   )

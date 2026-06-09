@@ -11,10 +11,13 @@ public class WeddingWebsiteMapper {
         return new WeddingWebsiteResponse(
                 w.id(), w.coupleId(), w.slug(), w.isPublished(),
                 w.partnerOneName(), w.partnerTwoName(), w.weddingDate(), w.engagementDate(),
-                w.heroPhotoUrl(), w.heroTagline(), w.ourStory(),
-                w.scriptureReference(), w.scriptureText(),
+                w.heroPhotoUrl(), w.heroTagline(),
+                w.heroFocalPointX(), w.heroFocalPointY(), w.heroTaglineColor(),
+                w.ourStory(),
+                w.scriptureReference(), w.scriptureText(), w.scriptureTranslation(),
                 w.venueName(), w.venueAddress(), w.venueCity(), w.venueState(),
                 w.ceremonyTime(), w.dressCode(),
+                w.venuePhotoUrl(), w.venueAdditionalInfo(),
                 w.hotelName(), w.hotelUrl(), w.hotelDetails(),
                 w.registryUrl1(), w.registryLabel1(),
                 w.registryUrl2(), w.registryLabel2(),
@@ -23,6 +26,7 @@ public class WeddingWebsiteMapper {
                 w.partnerOneVows(), w.partnerTwoVows(),
                 w.goalBudget(),
                 w.hiddenTabs(), w.customTabLabels(),
+                w.accentColor(),
                 w.createdAt(), w.updatedAt()
         );
     }

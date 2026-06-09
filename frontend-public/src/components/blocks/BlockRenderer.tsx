@@ -218,7 +218,7 @@ function EmptyCardPlaceholder({ icon: Icon, title, hint }: { icon: LucideIcon; t
 }
 
 function VenueCardBlock({ wedding, preview = false }: { wedding: WeddingWebsite; preview?: boolean }) {
-  const { venueName, venueAddress, venueCity, venueState, ceremonyTime, weddingDate, dressCode } = wedding
+  const { venueName, venueAddress, venueCity, venueState, ceremonyTime, weddingDate, dressCode, venuePhotoUrl, venueAdditionalInfo } = wedding
   if (!venueName) {
     return preview ? (
       <EmptyCardPlaceholder
@@ -230,26 +230,41 @@ function VenueCardBlock({ wedding, preview = false }: { wedding: WeddingWebsite;
   }
   const address = [venueAddress, venueCity, venueState].filter(Boolean).join(', ')
   return (
-    <div className="rounded-xl border border-[#e8dcc8] bg-white p-6 space-y-3">
-      <div className="flex items-start gap-3">
-        <MapPin className="w-5 h-5 text-[#d4af6a] shrink-0 mt-0.5" strokeWidth={1.5} />
-        <div>
-          <p className="font-serif font-semibold text-[#3b2f2f] text-lg">{venueName}</p>
-          {address && <p className="text-sm text-[#6b5344] mt-0.5">{address}</p>}
-        </div>
-      </div>
-      {(weddingDate || ceremonyTime) && (
+    <div className="rounded-xl border border-[#e8dcc8] bg-white overflow-hidden">
+      {venuePhotoUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={venuePhotoUrl}
+          alt={venueName}
+          className="w-full object-cover max-h-52"
+        />
+      )}
+      <div className="p-6 space-y-3">
         <div className="flex items-start gap-3">
-          <Calendar className="w-5 h-5 text-[#d4af6a] shrink-0 mt-0.5" strokeWidth={1.5} />
+          <MapPin className="w-5 h-5 text-[#d4af6a] shrink-0 mt-0.5" strokeWidth={1.5} />
           <div>
-            {weddingDate && <p className="text-sm text-[#3b2f2f] font-medium">{formatWeddingDate(weddingDate)}</p>}
-            {ceremonyTime && <p className="text-xs text-[#a08060]">{ceremonyTime}</p>}
+            <p className="font-serif font-semibold text-[#3b2f2f] text-lg">{venueName}</p>
+            {address && <p className="text-sm text-[#6b5344] mt-0.5">{address}</p>}
           </div>
         </div>
-      )}
-      {dressCode && (
-        <p className="text-xs text-[#a08060] pl-8">Dress code: <span className="font-medium text-[#6b5344]">{dressCode}</span></p>
-      )}
+        {(weddingDate || ceremonyTime) && (
+          <div className="flex items-start gap-3">
+            <Calendar className="w-5 h-5 text-[#d4af6a] shrink-0 mt-0.5" strokeWidth={1.5} />
+            <div>
+              {weddingDate && <p className="text-sm text-[#3b2f2f] font-medium">{formatWeddingDate(weddingDate)}</p>}
+              {ceremonyTime && <p className="text-xs text-[#a08060]">{ceremonyTime}</p>}
+            </div>
+          </div>
+        )}
+        {dressCode && (
+          <p className="text-xs text-[#a08060] pl-8">Dress code: <span className="font-medium text-[#6b5344]">{dressCode}</span></p>
+        )}
+        {venueAdditionalInfo && (
+          <div className="border-t border-[#e8dcc8] pt-3 mt-1">
+            <p className="text-sm text-[#6b5344] leading-relaxed whitespace-pre-line">{venueAdditionalInfo}</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

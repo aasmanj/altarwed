@@ -7,15 +7,25 @@ export interface WeddingWebsite {
   weddingDate: string | null
   heroPhotoUrl: string | null
   heroTagline: string | null
+  // V57: focal point for hero image (0.0–1.0). null = center (50% 50%).
+  heroFocalPointX: number | null
+  heroFocalPointY: number | null
+  // V57: CSS color for tagline text. null = white.
+  heroTaglineColor: string | null
   ourStory: string | null
   scriptureReference: string | null
   scriptureText: string | null
+  // V57: translation code (e.g. "ESV"). null = unset.
+  scriptureTranslation: string | null
   venueName: string | null
   venueAddress: string | null
   venueCity: string | null
   venueState: string | null
   ceremonyTime: string | null
   dressCode: string | null
+  // V58: optional venue photo and additional info (parking, directions, etc.)
+  venuePhotoUrl: string | null
+  venueAdditionalInfo: string | null
   hotelName: string | null
   hotelUrl: string | null
   hotelDetails: string | null
@@ -33,6 +43,8 @@ export interface WeddingWebsite {
   //   customTabLabels  = JSON map ({"TRAVEL":"Hotels & flights"})
   hiddenTabs: string | null
   customTabLabels: string | null
+  // V59: CSS accent color (e.g. "#d4af6a"). null = default gold.
+  accentColor: string | null
 }
 
 // Parsed view of the per-couple tab customisations. The raw fields above are

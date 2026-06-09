@@ -40,6 +40,13 @@ export interface WeddingWebsite {
   //   customTabLabels  = JSON map ({"TRAVEL":"Hotels & flights"})
   hiddenTabs: string | null
   customTabLabels: string | null
+  heroFocalPointX: number | null
+  heroFocalPointY: number | null
+  heroTaglineColor: string | null
+  scriptureTranslation: string | null
+  venuePhotoUrl: string | null
+  venueAdditionalInfo: string | null
+  accentColor: string | null
 }
 
 export interface CreateWebsitePayload {

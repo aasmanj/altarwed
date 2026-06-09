@@ -14,6 +14,7 @@ const EDITOR_ORIGINS = [
 
 interface Props {
   initialTagline: string | null
+  initialTaglineColor: string | null
   partnerOneName: string
   partnerTwoName: string
   // Wedding date + countdown blocks live under the names; pass them as children
@@ -31,8 +32,9 @@ interface Props {
 //   - empty string  → render NOTHING (user intentionally cleared)
 //   - null          → render the default "Together in covenant"
 //   - any text      → render it as-is
-export default function HeroLive({ initialTagline, partnerOneName, partnerTwoName, children }: Props) {
+export default function HeroLive({ initialTagline, initialTaglineColor, partnerOneName, partnerTwoName, children }: Props) {
   const [tagline, setTagline] = useState<string | null>(initialTagline)
+  const [taglineColor, setTaglineColor] = useState<string | null>(initialTaglineColor)
   const [names, setNames] = useState({ one: partnerOneName, two: partnerTwoName })
 
   useEffect(() => {
@@ -43,6 +45,8 @@ export default function HeroLive({ initialTagline, partnerOneName, partnerTwoNam
       if (data.field === 'heroTagline') {
         // value may be string or null; empty string is meaningful (hide tagline)
         setTagline(typeof data.value === 'string' ? data.value : null)
+      } else if (data.field === 'heroTaglineColor') {
+        setTaglineColor(typeof data.value === 'string' ? data.value : null)
       } else if (data.field === 'partnerOneName') {
         setNames(n => ({ ...n, one: String(data.value ?? '') }))
       } else if (data.field === 'partnerTwoName') {
@@ -61,7 +65,10 @@ export default function HeroLive({ initialTagline, partnerOneName, partnerTwoNam
   return (
     <div className="relative z-10 text-center pb-8 px-6 w-full max-w-3xl mx-auto">
       {tagline !== '' && (
-        <p className="mb-2 text-[10px] uppercase tracking-[0.3em] text-white/70 font-light">
+        <p
+          className="mb-2 text-[10px] uppercase tracking-[0.3em] font-light"
+          style={{ color: taglineColor ?? 'rgba(255,255,255,0.7)' }}
+        >
           {tagline ?? 'Together in covenant'}
         </p>
       )}

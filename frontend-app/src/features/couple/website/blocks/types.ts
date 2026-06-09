@@ -68,7 +68,7 @@ export const BLOCK_TYPE_DESCRIPTIONS: Record<BlockType, string> = {
   TEXT:               'A paragraph of plain text. Use for greetings, notes, or anything narrative.',
   HEADING:            'A bold section title (large, medium, or small).',
   IMAGE:              'A standalone photo with optional caption.',
-  STORY_ENTRY:        'A milestone in your story: date, body, and optional photo placed left or right.',
+  STORY_ENTRY:        'A single memory or milestone in your love story. Use a label like "The Proposal" or just a date.',
   SCRIPTURE:          'A verse with reference and translation. Browse and pin from the Scripture page.',
   DIVIDER:            'A decorative gold line to separate sections.',
   VENUE_CARD:         'Ceremony venue with address, time, and dress code. Edit details on the Details tab.',

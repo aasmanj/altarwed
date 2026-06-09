@@ -102,4 +102,16 @@ public class MediaUploadController {
         weddingWebsiteService.updateHeroPhoto(websiteId, url);
         return ResponseEntity.ok(Map.of("photoUrl", url));
     }
+
+    @PostMapping("/wedding-websites/{websiteId}/venue-photo")
+    public ResponseEntity<Map<String, String>> uploadVenuePhoto(
+            @PathVariable UUID websiteId,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal String email
+    ) throws IOException {
+        accessGuard.assertOwnsWebsite(websiteId, email);
+        String url = mediaUploadService.uploadVenuePhoto(websiteId, file);
+        weddingWebsiteService.updateVenuePhoto(websiteId, url);
+        return ResponseEntity.ok(Map.of("photoUrl", url));
+    }
 }

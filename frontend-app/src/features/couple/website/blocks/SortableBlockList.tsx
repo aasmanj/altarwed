@@ -1,16 +1,5 @@
 import { useEffect, useState } from 'react'
-import {
-  DndContext,
-  DragEndEvent,
-  PointerSensor,
-  TouchSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core'
-import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { ChevronDown, ChevronRight, GripVertical, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronUp, Trash2 } from 'lucide-react'
 import BlockForm from './BlockForm'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { BLOCK_TYPE_LABELS, type WeddingPageBlock } from './types'
@@ -20,28 +9,22 @@ interface Props {
   onReorder: (orderedIds: string[]) => void
   onUpdate: (blockId: string, contentJson: string) => void
   onDelete: (blockId: string) => void
-  // If provided, the row with this id renders expanded on first mount so the
-  // couple can start editing the just-added block immediately. Pattern: caller
-  // sets this to the new block id after a successful create.
   defaultExpandedId?: string | null
 }
 
 export default function SortableBlockList({ blocks, onReorder, onUpdate, onDelete, defaultExpandedId }: Props) {
-  // PointerSensor with activation distance prevents misfiring drag when the user
-  // means to click the expand chevron. TouchSensor with delay handles mobile.
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
-  )
+  const moveUp = (index: number) => {
+    if (index <= 0) return
+    const ids = blocks.map(b => b.id)
+    ;[ids[index - 1], ids[index]] = [ids[index], ids[index - 1]]
+    onReorder(ids)
+  }
 
-  const handleDragEnd = (e: DragEndEvent) => {
-    const { active, over } = e
-    if (!over || active.id === over.id) return
-    const oldIndex = blocks.findIndex(b => b.id === active.id)
-    const newIndex = blocks.findIndex(b => b.id === over.id)
-    if (oldIndex < 0 || newIndex < 0) return
-    const reordered = arrayMove(blocks, oldIndex, newIndex)
-    onReorder(reordered.map(b => b.id))
+  const moveDown = (index: number) => {
+    if (index >= blocks.length - 1) return
+    const ids = blocks.map(b => b.id)
+    ;[ids[index], ids[index + 1]] = [ids[index + 1], ids[index]]
+    onReorder(ids)
   }
 
   if (blocks.length === 0) {
@@ -53,72 +36,83 @@ export default function SortableBlockList({ blocks, onReorder, onUpdate, onDelet
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
-        <ul className="space-y-2">
-          {blocks.map(block => (
-            <SortableRow
-              key={block.id}
-              block={block}
-              initiallyExpanded={defaultExpandedId === block.id}
-              onUpdate={contentJson => onUpdate(block.id, contentJson)}
-              onDelete={() => onDelete(block.id)}
-            />
-          ))}
-        </ul>
-      </SortableContext>
-    </DndContext>
+    <ul className="space-y-2">
+      {blocks.map((block, index) => (
+        <BlockRow
+          key={block.id}
+          block={block}
+          isFirst={index === 0}
+          isLast={index === blocks.length - 1}
+          initiallyExpanded={defaultExpandedId === block.id}
+          onMoveUp={() => moveUp(index)}
+          onMoveDown={() => moveDown(index)}
+          onUpdate={contentJson => onUpdate(block.id, contentJson)}
+          onDelete={() => onDelete(block.id)}
+        />
+      ))}
+    </ul>
   )
 }
 
-function SortableRow({
+function BlockRow({
   block,
+  isFirst,
+  isLast,
+  onMoveUp,
+  onMoveDown,
   onUpdate,
   onDelete,
   initiallyExpanded = false,
 }: {
   block: WeddingPageBlock
+  isFirst: boolean
+  isLast: boolean
+  onMoveUp: () => void
+  onMoveDown: () => void
   onUpdate: (contentJson: string) => void
   onDelete: () => void
   initiallyExpanded?: boolean
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: block.id,
-  })
   const confirm = useConfirm()
   const [open, setOpen] = useState(initiallyExpanded)
 
-  // If the parent later flags this row as initially-expanded (e.g. because the
-  // couple just added a new block), open it. Only fires on transition false:to-true;
-  // doesn't fight the user toggling it closed.
   useEffect(() => {
     if (initiallyExpanded) setOpen(true)
   }, [initiallyExpanded])
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
-
   return (
-    <li ref={setNodeRef} style={style} className="bg-white border border-stone-200 rounded-lg">
-      <div className="flex items-center gap-2 px-2 py-2">
-        <button
-          {...attributes}
-          {...listeners}
-          className="text-stone-400 hover:text-stone-700 cursor-grab active:cursor-grabbing p-1"
-          aria-label="Drag to reorder"
-        >
-          <GripVertical size={16} />
-        </button>
+    <li className="bg-white border border-stone-200 rounded-lg">
+      <div className="flex items-center gap-1 px-2 py-2">
+        {/* Up/down reorder arrows */}
+        <div className="flex flex-col gap-0.5">
+          <button
+            type="button"
+            onClick={onMoveUp}
+            disabled={isFirst}
+            className="p-0.5 text-stone-400 hover:text-stone-700 disabled:opacity-20 disabled:cursor-default"
+            aria-label="Move block up"
+          >
+            <ChevronUp size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={onMoveDown}
+            disabled={isLast}
+            className="p-0.5 text-stone-400 hover:text-stone-700 disabled:opacity-20 disabled:cursor-default"
+            aria-label="Move block down"
+          >
+            <ChevronDown size={14} />
+          </button>
+        </div>
+
         <button
           onClick={() => setOpen(o => !o)}
-          className="flex-1 flex items-center gap-2 text-left text-sm font-medium text-stone-700 hover:text-stone-900"
+          className="flex-1 flex items-center gap-2 text-left text-sm font-medium text-stone-700 hover:text-stone-900 min-w-0"
         >
-          {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          {BLOCK_TYPE_LABELS[block.type]}
+          {open ? <ChevronDown size={14} className="shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
+          <span className="truncate">{BLOCK_TYPE_LABELS[block.type]}</span>
         </button>
+
         <button
           onClick={async () => {
             if (await confirm({

@@ -121,8 +121,15 @@ export default async function WeddingLayout({
     },
   } : null
 
+  // Validate before injecting into a <style> tag. The backend enforces @Pattern
+  // but this guards the SSR path against any future direct DB writes or bugs.
+  const accentColor = /^#[0-9a-fA-F]{3,8}$/.test(wedding.accentColor ?? '')
+    ? wedding.accentColor!
+    : '#d4af6a'
+
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
+      <style>{`:root { --accent: ${accentColor}; }`}</style>
 
       {eventJsonLd && (
         <script
@@ -147,6 +154,9 @@ export default async function WeddingLayout({
           src={heroImage}
           alt={`${wedding.partnerTwoName} and ${wedding.partnerOneName}`}
           fill sizes="100vw" className="object-cover" priority
+          style={{
+            objectPosition: `${(wedding.heroFocalPointX ?? 0.5) * 100}% ${(wedding.heroFocalPointY ?? 0.5) * 100}%`,
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/10" />
 
@@ -156,7 +166,10 @@ export default async function WeddingLayout({
               `||` would treat empty-string as falsy and force the default; we want
               the user to be able to opt out entirely. */}
           {wedding.heroTagline !== '' && (
-            <p className="mb-3 text-xs uppercase tracking-[0.3em] text-white/70 font-light">
+            <p
+              className="mb-3 text-xs uppercase tracking-[0.3em] font-light"
+              style={{ color: wedding.heroTaglineColor ?? 'rgba(255,255,255,0.7)' }}
+            >
               {wedding.heroTagline ?? 'Together in covenant'}
             </p>
           )}
@@ -205,6 +218,9 @@ export default async function WeddingLayout({
           {wedding.scriptureReference && (
             <p className="mt-6 text-[#d4af6a] text-sm sm:text-base tracking-[0.25em] uppercase font-medium">
               {wedding.scriptureReference}
+              {wedding.scriptureTranslation && (
+                <span className="text-white/40 ml-2 normal-case tracking-normal text-sm">({wedding.scriptureTranslation})</span>
+              )}
             </p>
           )}
         </section>

@@ -484,6 +484,11 @@ function Step2UrlDate({
             Wedding date <span className="text-[#a08060] font-normal">(optional)</span>
           </label>
           <input type="date" value={weddingDate} onChange={e => onWeddingDate(e.target.value)} className={inputCls} />
+          {weddingDate && weddingDate < new Date().toISOString().slice(0, 10) && (
+            <p className="mt-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              This date has already passed. If you're documenting a past ceremony, that's fine!
+            </p>
+          )}
         </div>
       )}
       {dateLocked && weddingDate && (
@@ -517,16 +522,15 @@ function Step3Venue({
         subtitle="The ceremony venue. You can skip and add this later."
       />
       <LabeledInput label="Venue name" value={venueName} onChange={onVenueName} />
-      <LabeledInput label="Street address" value={venueAddress} onChange={onVenueAddress} placeholder="123 Faith Lane" />
+      <LabeledInput label="Street address" value={venueAddress} onChange={onVenueAddress} />
       <div className="grid grid-cols-2 gap-3">
         <LabeledInput label="City" value={venueCity} onChange={onVenueCity} />
-        <LabeledInput label="State" value={venueState} onChange={onVenueState} placeholder="TN" />
+        <LabeledInput label="State" value={venueState} onChange={onVenueState} />
       </div>
       <LabeledInput
         label="Ceremony time"
         value={ceremonyTime}
         onChange={onCeremonyTime}
-        placeholder="4:00 PM"
         hint="Free-form, whatever you'd write on the invitation."
       />
       <Nav onBack={onBack} onNext={onNext} nextLabel={venueName ? 'Continue →' : 'Skip for now →'} />
@@ -550,7 +554,7 @@ function Step4Hotel({
         subtitle="Got a room block negotiated? Drop it here. You can add more hotels later."
       />
       <LabeledInput label="Hotel name" value={hotelName} onChange={onHotelName} />
-      <LabeledInput label="Booking URL" value={hotelUrl} onChange={onHotelUrl} placeholder="https://hilton.com/group/xyz" />
+      <LabeledInput label="Booking URL" value={hotelUrl} onChange={onHotelUrl} />
       <div>
         <label className="block text-sm font-medium text-[#3b2f2f] mb-1">Notes for guests</label>
         <textarea
@@ -558,7 +562,6 @@ function Step4Hotel({
           onChange={e => onHotelDetails(e.target.value)}
           rows={3}
           className={inputCls}
-          placeholder="Block rate $129/night until Aug 1. Mention the Smith wedding."
         />
       </div>
       <Nav onBack={onBack} onNext={onNext} nextLabel={hotelName ? 'Continue →' : 'Skip for now →'} />
@@ -715,7 +718,7 @@ function Step7Registry({
         subtitle="One link to start. You can add up to two more in the editor."
       />
       <div>
-        <LabeledInput label="Registry name" value={registryLabel} onChange={onRegistryLabel} placeholder="e.g. Amazon" />
+        <LabeledInput label="Registry name" value={registryLabel} onChange={onRegistryLabel} />
         <div className="flex flex-wrap gap-1.5 mt-2">
           {REGISTRY_SUGGESTIONS.map(name => (
             <button
@@ -733,7 +736,7 @@ function Step7Registry({
           ))}
         </div>
       </div>
-      <LabeledInput label="Link" value={registryUrl} onChange={onRegistryUrl} placeholder="https://amazon.com/wedding/share/..." />
+      <LabeledInput label="Link" value={registryUrl} onChange={onRegistryUrl} />
       <Nav onBack={onBack} onNext={onNext} nextLabel={registryUrl ? 'Continue →' : 'Skip for now →'} />
     </div>
   )

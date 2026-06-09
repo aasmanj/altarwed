@@ -82,16 +82,19 @@ public class WeddingWebsiteService {
         WeddingWebsite website = new WeddingWebsite(
                 null, coupleId, slug, false,
                 request.partnerOneName(), request.partnerTwoName(), request.weddingDate(),
-                null,                                      // engagementDate (set later via Details/checklist)
-                null, null, null,                          // heroPhotoUrl, heroTagline, ourStory
-                null, null,                                // scriptureReference, scriptureText
-                null, null, null, null, null, null,        // venue + ceremonyTime + dressCode
-                null, null, null,                          // hotel
-                null, null, null, null, null, null,        // registry 1/2/3
-                null,                                      // rsvpDeadline
-                null, null,                                // vows
-                null,                                      // goalBudget
-                null, null,                                // hiddenTabs, customTabLabels (V34)
+                null,                          // engagementDate (set later via Details/checklist)
+                null, null, null, null, null,  // heroPhotoUrl, heroTagline, focalPointX/Y, taglineColor
+                null,                          // ourStory
+                null, null, null,              // scriptureReference, scriptureText, scriptureTranslation
+                null, null, null, null, null, null,  // venue + ceremonyTime + dressCode
+                null, null,                    // venuePhotoUrl, venueAdditionalInfo
+                null, null, null,              // hotel
+                null, null, null, null, null, null,  // registry 1/2/3
+                null,                          // rsvpDeadline
+                null, null,                    // vows
+                null,                          // goalBudget
+                null, null,                    // hiddenTabs, customTabLabels (V34)
+                null,                          // accentColor (V59)
                 false, null,
                 LocalDateTime.now(), LocalDateTime.now()
         );
@@ -136,47 +139,56 @@ public class WeddingWebsiteService {
                 existing.slug(),
                 existing.isPublished(),
 
-                req.partnerOneName()    != null ? req.partnerOneName()    : existing.partnerOneName(),
-                req.partnerTwoName()    != null ? req.partnerTwoName()    : existing.partnerTwoName(),
-                req.weddingDate()       != null ? req.weddingDate()       : existing.weddingDate(),
-                req.engagementDate()    != null ? req.engagementDate()    : existing.engagementDate(),
+                req.partnerOneName()         != null ? req.partnerOneName()         : existing.partnerOneName(),
+                req.partnerTwoName()         != null ? req.partnerTwoName()         : existing.partnerTwoName(),
+                req.weddingDate()            != null ? req.weddingDate()            : existing.weddingDate(),
+                req.engagementDate()         != null ? req.engagementDate()         : existing.engagementDate(),
 
-                req.heroPhotoUrl()      != null ? req.heroPhotoUrl()      : existing.heroPhotoUrl(),
-                req.heroTagline()       != null ? req.heroTagline()       : existing.heroTagline(),
-                req.ourStory()          != null ? req.ourStory()          : existing.ourStory(),
-                req.scriptureReference()!= null ? req.scriptureReference(): existing.scriptureReference(),
-                req.scriptureText()     != null ? req.scriptureText()     : existing.scriptureText(),
+                req.heroPhotoUrl()           != null ? req.heroPhotoUrl()           : existing.heroPhotoUrl(),
+                req.heroTagline()            != null ? req.heroTagline()            : existing.heroTagline(),
+                req.heroFocalPointX()        != null ? req.heroFocalPointX()        : existing.heroFocalPointX(),
+                req.heroFocalPointY()        != null ? req.heroFocalPointY()        : existing.heroFocalPointY(),
+                req.heroTaglineColor()       != null ? req.heroTaglineColor()       : existing.heroTaglineColor(),
 
-                req.venueName()         != null ? req.venueName()         : existing.venueName(),
-                req.venueAddress()      != null ? req.venueAddress()      : existing.venueAddress(),
-                req.venueCity()         != null ? req.venueCity()         : existing.venueCity(),
-                req.venueState()        != null ? req.venueState()        : existing.venueState(),
-                req.ceremonyTime()      != null ? req.ceremonyTime()      : existing.ceremonyTime(),
-                req.dressCode()         != null ? req.dressCode()         : existing.dressCode(),
+                req.ourStory()               != null ? req.ourStory()               : existing.ourStory(),
+                req.scriptureReference()     != null ? req.scriptureReference()     : existing.scriptureReference(),
+                req.scriptureText()          != null ? req.scriptureText()          : existing.scriptureText(),
+                req.scriptureTranslation()   != null ? req.scriptureTranslation()   : existing.scriptureTranslation(),
 
-                req.hotelName()         != null ? req.hotelName()         : existing.hotelName(),
-                req.hotelUrl()          != null ? req.hotelUrl()          : existing.hotelUrl(),
-                req.hotelDetails()      != null ? req.hotelDetails()      : existing.hotelDetails(),
+                req.venueName()              != null ? req.venueName()              : existing.venueName(),
+                req.venueAddress()           != null ? req.venueAddress()           : existing.venueAddress(),
+                req.venueCity()              != null ? req.venueCity()              : existing.venueCity(),
+                req.venueState()             != null ? req.venueState()             : existing.venueState(),
+                req.ceremonyTime()           != null ? req.ceremonyTime()           : existing.ceremonyTime(),
+                req.dressCode()              != null ? req.dressCode()              : existing.dressCode(),
+                req.venuePhotoUrl()          != null ? req.venuePhotoUrl()          : existing.venuePhotoUrl(),
+                req.venueAdditionalInfo()    != null ? req.venueAdditionalInfo()    : existing.venueAdditionalInfo(),
 
-                req.registryUrl1()      != null ? req.registryUrl1()      : existing.registryUrl1(),
-                req.registryLabel1()    != null ? req.registryLabel1()    : existing.registryLabel1(),
-                req.registryUrl2()      != null ? req.registryUrl2()      : existing.registryUrl2(),
-                req.registryLabel2()    != null ? req.registryLabel2()    : existing.registryLabel2(),
-                req.registryUrl3()      != null ? req.registryUrl3()      : existing.registryUrl3(),
-                req.registryLabel3()    != null ? req.registryLabel3()    : existing.registryLabel3(),
+                req.hotelName()              != null ? req.hotelName()              : existing.hotelName(),
+                req.hotelUrl()               != null ? req.hotelUrl()               : existing.hotelUrl(),
+                req.hotelDetails()           != null ? req.hotelDetails()           : existing.hotelDetails(),
 
-                req.rsvpDeadline()      != null ? req.rsvpDeadline()      : existing.rsvpDeadline(),
+                req.registryUrl1()           != null ? req.registryUrl1()           : existing.registryUrl1(),
+                req.registryLabel1()         != null ? req.registryLabel1()         : existing.registryLabel1(),
+                req.registryUrl2()           != null ? req.registryUrl2()           : existing.registryUrl2(),
+                req.registryLabel2()         != null ? req.registryLabel2()         : existing.registryLabel2(),
+                req.registryUrl3()           != null ? req.registryUrl3()           : existing.registryUrl3(),
+                req.registryLabel3()         != null ? req.registryLabel3()         : existing.registryLabel3(),
 
-                req.partnerOneVows()    != null ? req.partnerOneVows()    : existing.partnerOneVows(),
-                req.partnerTwoVows()    != null ? req.partnerTwoVows()    : existing.partnerTwoVows(),
+                req.rsvpDeadline()           != null ? req.rsvpDeadline()           : existing.rsvpDeadline(),
 
-                req.goalBudget()        != null ? req.goalBudget()        : existing.goalBudget(),
+                req.partnerOneVows()         != null ? req.partnerOneVows()         : existing.partnerOneVows(),
+                req.partnerTwoVows()         != null ? req.partnerTwoVows()         : existing.partnerTwoVows(),
+
+                req.goalBudget()             != null ? req.goalBudget()             : existing.goalBudget(),
 
                 // Strip HOME/RSVP from the hiddenTabs CSV before persisting so a
                 // direct API call cannot hide them. The frontend already disables
                 // those checkboxes; this is defence at the boundary.
-                req.hiddenTabs()        != null ? sanitiseHiddenTabs(req.hiddenTabs()) : existing.hiddenTabs(),
-                req.customTabLabels()   != null ? req.customTabLabels()   : existing.customTabLabels(),
+                req.hiddenTabs()             != null ? sanitiseHiddenTabs(req.hiddenTabs()) : existing.hiddenTabs(),
+                req.customTabLabels()        != null ? req.customTabLabels()        : existing.customTabLabels(),
+
+                req.accentColor()            != null ? req.accentColor()            : existing.accentColor(),
 
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(),
@@ -196,10 +208,12 @@ public class WeddingWebsiteService {
                 existing.partnerOneName(), existing.partnerTwoName(), existing.weddingDate(),
                 existing.engagementDate(),
                 photoUrl, existing.heroTagline(),
+                existing.heroFocalPointX(), existing.heroFocalPointY(), existing.heroTaglineColor(),
                 existing.ourStory(),
-                existing.scriptureReference(), existing.scriptureText(),
+                existing.scriptureReference(), existing.scriptureText(), existing.scriptureTranslation(),
                 existing.venueName(), existing.venueAddress(), existing.venueCity(),
                 existing.venueState(), existing.ceremonyTime(), existing.dressCode(),
+                existing.venuePhotoUrl(), existing.venueAdditionalInfo(),
                 existing.hotelName(), existing.hotelUrl(), existing.hotelDetails(),
                 existing.registryUrl1(), existing.registryLabel1(),
                 existing.registryUrl2(), existing.registryLabel2(),
@@ -208,10 +222,44 @@ public class WeddingWebsiteService {
                 existing.partnerOneVows(), existing.partnerTwoVows(),
                 existing.goalBudget(),
                 existing.hiddenTabs(), existing.customTabLabels(),
+                existing.accentColor(),
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );
         WeddingWebsite saved = websiteRepository.save(updated);
+        revalidationPort.revalidateWeddingPage(saved.slug());
+    }
+
+    @Transactional
+    public void updateVenuePhoto(UUID websiteId, String photoUrl) {
+        log.info("venue photo update started, websiteId={}", websiteId);
+        WeddingWebsite existing = websiteRepository.findById(websiteId)
+                .orElseThrow(() -> new WeddingWebsiteNotFoundException(websiteId.toString()));
+        WeddingWebsite updated = new WeddingWebsite(
+                existing.id(), existing.coupleId(), existing.slug(), existing.isPublished(),
+                existing.partnerOneName(), existing.partnerTwoName(), existing.weddingDate(),
+                existing.engagementDate(),
+                existing.heroPhotoUrl(), existing.heroTagline(),
+                existing.heroFocalPointX(), existing.heroFocalPointY(), existing.heroTaglineColor(),
+                existing.ourStory(),
+                existing.scriptureReference(), existing.scriptureText(), existing.scriptureTranslation(),
+                existing.venueName(), existing.venueAddress(), existing.venueCity(),
+                existing.venueState(), existing.ceremonyTime(), existing.dressCode(),
+                photoUrl, existing.venueAdditionalInfo(),
+                existing.hotelName(), existing.hotelUrl(), existing.hotelDetails(),
+                existing.registryUrl1(), existing.registryLabel1(),
+                existing.registryUrl2(), existing.registryLabel2(),
+                existing.registryUrl3(), existing.registryLabel3(),
+                existing.rsvpDeadline(),
+                existing.partnerOneVows(), existing.partnerTwoVows(),
+                existing.goalBudget(),
+                existing.hiddenTabs(), existing.customTabLabels(),
+                existing.accentColor(),
+                existing.isDeleted(), existing.deletedAt(),
+                existing.createdAt(), LocalDateTime.now()
+        );
+        WeddingWebsite saved = websiteRepository.save(updated);
+        log.info("venue photo updated, websiteId={}", websiteId);
         revalidationPort.revalidateWeddingPage(saved.slug());
     }
 

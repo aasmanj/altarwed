@@ -18,9 +18,17 @@ public record WeddingWebsiteResponse(
 
         String heroPhotoUrl,
         String heroTagline,
+        // V57: hero focal point (0.0–1.0 range, maps to CSS object-position). null = center.
+        Double heroFocalPointX,
+        Double heroFocalPointY,
+        // V57: CSS color string for the tagline text. null = white.
+        String heroTaglineColor,
+
         String ourStory,
         String scriptureReference,
         String scriptureText,
+        // V57: translation code (e.g. "ESV", "NIV"). null = unset.
+        String scriptureTranslation,
 
         String venueName,
         String venueAddress,
@@ -28,6 +36,9 @@ public record WeddingWebsiteResponse(
         String venueState,
         String ceremonyTime,
         String dressCode,
+        // V58: optional venue photo and additional info.
+        String venuePhotoUrl,
+        String venueAdditionalInfo,
 
         String hotelName,
         String hotelUrl,
@@ -48,10 +59,11 @@ public record WeddingWebsiteResponse(
         BigDecimal goalBudget,
 
         // V34: tab visibility + custom labels. Both opaque strings; frontend parses.
-        // hiddenTabs       = CSV of BlockTab enum names (e.g. "REGISTRY,TRAVEL")
-        // customTabLabels  = JSON map (e.g. {"TRAVEL":"Hotels & flights"})
         String hiddenTabs,
         String customTabLabels,
+
+        // V59: CSS color string for the site's accent color. null = default gold.
+        String accentColor,
 
         LocalDateTime createdAt,
         LocalDateTime updatedAt

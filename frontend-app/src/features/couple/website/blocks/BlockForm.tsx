@@ -205,15 +205,14 @@ function FieldsFor({
     case 'STORY_ENTRY':
       return (
         <>
-          <Field label="Date or label (optional)">
+          <Field label="Label (optional)">
             <input
               type="text"
               value={str('dateLabel')}
               onChange={e => onChange('dateLabel', e.target.value)}
               className={inputClass}
-              placeholder="e.g. January 22, 2026 · The day we met"
             />
-            <p className="text-xs text-stone-400 mt-1">Free text: write a date, a place, anything.</p>
+            <p className="text-xs text-stone-400 mt-1">Can be a date, a place, or a label like "The Proposal" or "When We Met".</p>
           </Field>
           <Field label="Story text">
             <textarea
@@ -221,8 +220,8 @@ function FieldsFor({
               onChange={e => onChange('body', e.target.value)}
               rows={5}
               className={inputClass}
-              placeholder=""
             />
+            <p className="text-xs text-stone-400 mt-1">Tell guests about this moment.</p>
           </Field>
           <Field label="Photo (optional)">
             <BlockImageUpload
@@ -279,12 +278,15 @@ function FieldsFor({
             />
           </Field>
           <Field label="Translation">
-            <input
-              type="text"
+            <select
               value={str('translation') || 'ESV'}
               onChange={e => onChange('translation', e.target.value)}
               className={inputClass}
-            />
+            >
+              {['NIV', 'NIV84', 'ESV', 'KJV', 'NKJV', 'NLT', 'CSB', 'NASB', 'HCSB', 'MSG'].map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
           </Field>
         </>
       )

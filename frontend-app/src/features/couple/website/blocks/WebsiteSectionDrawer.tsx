@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { X, ImagePlus, Loader2 } from 'lucide-react'
 import { useUpdateWeddingWebsite, type WeddingWebsite } from '../useWeddingWebsite'
+import { apiClient } from '@/core/api/client'
+import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 import { useHotels, useAddHotel, useUpdateHotel, useDeleteHotel } from '../useHotels'
 import { HotelTab } from '../WeddingWebsiteEditor'
 import WeddingPartyManager from '@/features/couple/weddingparty/WeddingPartyManager'
@@ -157,9 +159,33 @@ function DetailsSection({ website, coupleId, onSaved }: { website: WeddingWebsit
     weddingDate: website.weddingDate ?? '',
     engagementDate: website.engagementDate ?? '',
     rsvpDeadline: website.rsvpDeadline ?? '',
+    venueAdditionalInfo: website.venueAdditionalInfo ?? '',
   })
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(prev => ({ ...prev, [k]: e.target.value }))
+
+  const [venuePhotoUrl, setVenuePhotoUrl] = useState<string | null>(website.venuePhotoUrl ?? null)
+  const [venueUploading, setVenueUploading] = useState(false)
+  const venuePhotoRef = useRef<HTMLInputElement>(null)
+
+  const handleVenuePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = e.target.files?.[0]
+    if (!picked) return
+    const file = await normalizeImageFile(picked)
+    const fd = new FormData()
+    fd.append('file', file)
+    setVenueUploading(true)
+    try {
+      const res = await apiClient.post<{ photoUrl: string }>(
+        `/api/v1/uploads/wedding-websites/${website.id}/venue-photo`, fd,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      )
+      setVenuePhotoUrl(res.data.photoUrl)
+    } finally {
+      setVenueUploading(false)
+      if (venuePhotoRef.current) venuePhotoRef.current.value = ''
+    }
+  }
 
   const save = async () => {
     await update.mutateAsync({
@@ -167,6 +193,7 @@ function DetailsSection({ website, coupleId, onSaved }: { website: WeddingWebsit
       weddingDate: form.weddingDate || null,
       engagementDate: form.engagementDate || null,
       rsvpDeadline: form.rsvpDeadline || null,
+      venueAdditionalInfo: form.venueAdditionalInfo || null,
     } as Parameters<typeof update.mutateAsync>[0])
     onSaved()
   }
@@ -212,6 +239,11 @@ function DetailsSection({ website, coupleId, onSaved }: { website: WeddingWebsit
       </LabeledField>
       <LabeledField label="Wedding date">
         <input type="date" value={form.weddingDate} onChange={set('weddingDate')} className={inputCls} />
+        {form.weddingDate && form.weddingDate < new Date().toISOString().slice(0, 10) && (
+          <p className="mt-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+            This date has already passed. If you're documenting a past ceremony, that's fine!
+          </p>
+        )}
       </LabeledField>
       <LabeledField label="Engagement date" hint="Used to tailor your planning checklist timeline.">
         <input type="date" value={form.engagementDate} onChange={set('engagementDate')} className={inputCls} />
@@ -219,6 +251,44 @@ function DetailsSection({ website, coupleId, onSaved }: { website: WeddingWebsit
       <LabeledField label="RSVP deadline">
         <input type="date" value={form.rsvpDeadline} onChange={set('rsvpDeadline')} className={inputCls} />
       </LabeledField>
+
+      <LabeledField label="Venue photo" hint="Optional. Shows above the venue details on your wedding site.">
+        <input
+          ref={venuePhotoRef}
+          type="file"
+          accept={IMAGE_ACCEPT}
+          className="hidden"
+          onChange={handleVenuePhotoChange}
+        />
+        {venuePhotoUrl && (
+          <img
+            src={venuePhotoUrl}
+            alt="Venue"
+            className="w-full rounded-lg border border-gold-light object-cover mb-2 max-h-40"
+          />
+        )}
+        <button
+          type="button"
+          onClick={() => venuePhotoRef.current?.click()}
+          disabled={venueUploading}
+          className="w-full flex items-center justify-center gap-2 rounded-lg border border-gold-light px-4 py-2.5 text-sm text-brown-light hover:border-gold hover:text-brown transition disabled:opacity-50"
+        >
+          {venueUploading
+            ? <><Loader2 size={14} className="animate-spin" /> Uploading…</>
+            : <><ImagePlus size={14} /> {venuePhotoUrl ? 'Replace photo' : 'Upload venue photo'}</>
+          }
+        </button>
+      </LabeledField>
+
+      <LabeledField label="Additional details" hint="Parking info, directions, accessibility notes, etc.">
+        <textarea
+          value={form.venueAdditionalInfo}
+          onChange={set('venueAdditionalInfo')}
+          rows={4}
+          className={inputCls}
+        />
+      </LabeledField>
+
       <SaveButton onClick={save} pending={update.isPending} />
     </>
   )

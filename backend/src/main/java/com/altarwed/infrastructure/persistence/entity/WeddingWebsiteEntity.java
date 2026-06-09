@@ -49,6 +49,17 @@ public class WeddingWebsiteEntity {
     @Column(name = "hero_tagline", length = 200)
     private String heroTagline;
 
+    // V57: focal point for the hero image (0.0–1.0 range, maps to CSS object-position).
+    @Column(name = "hero_focal_point_x")
+    private Double heroFocalPointX;
+
+    @Column(name = "hero_focal_point_y")
+    private Double heroFocalPointY;
+
+    // V57: CSS color string for the tagline text (e.g. "#ffffff"). null = white.
+    @Column(name = "hero_tagline_color", length = 20)
+    private String heroTaglineColor;
+
     @Column(name = "our_story", columnDefinition = "NVARCHAR(MAX)")
     private String ourStory;
 
@@ -57,6 +68,10 @@ public class WeddingWebsiteEntity {
 
     @Column(name = "scripture_text", columnDefinition = "NVARCHAR(MAX)")
     private String scriptureText;
+
+    // V57: translation code (e.g. "ESV", "NIV"). null = unset.
+    @Column(name = "scripture_translation", length = 20)
+    private String scriptureTranslation;
 
     @Column(name = "venue_name", length = 200)
     private String venueName;
@@ -75,6 +90,13 @@ public class WeddingWebsiteEntity {
 
     @Column(name = "dress_code", length = 100)
     private String dressCode;
+
+    // V58: optional venue photo and free-form additional info (parking, directions, etc.)
+    @Column(name = "venue_photo_url", length = 2000)
+    private String venuePhotoUrl;
+
+    @Column(name = "venue_additional_info", columnDefinition = "NVARCHAR(MAX)")
+    private String venueAdditionalInfo;
 
     @Column(name = "hotel_name", length = 200)
     private String hotelName;
@@ -119,9 +141,13 @@ public class WeddingWebsiteEntity {
     @Column(name = "hidden_tabs", length = 500)
     private String hiddenTabs;
 
-    // V34: opaque JSON map of tab → custom label - parsed by frontend
+    // V34: opaque JSON map of tab -> custom label - parsed by frontend
     @Column(name = "custom_tab_labels", columnDefinition = "NVARCHAR(MAX)")
     private String customTabLabels;
+
+    // V59: CSS color string for the site's accent color (e.g. "#d4af6a"). null = default gold.
+    @Column(name = "accent_color", length = 20)
+    private String accentColor;
 
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted;

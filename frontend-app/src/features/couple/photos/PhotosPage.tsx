@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react'
-import { Camera, ExternalLink } from 'lucide-react'
+import { useCallback, useEffect, useState, useRef } from 'react'
+import { Camera, ExternalLink, X } from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
@@ -71,15 +71,33 @@ export default function PhotosPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [caption, setCaption] = useState('')
   const [editingCaption, setEditingCaption] = useState<{ id: string; value: string } | null>(null)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null)
+
+  // Close lightbox on Escape
+  useEffect(() => {
+    if (!lightboxUrl) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setLightboxUrl(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [lightboxUrl])
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const picked = e.target.files?.[0]
-    if (!picked || !websiteId) return
-    // Convert HEIC (iPhone / Google Photos) to JPEG before upload.
-    upload.mutate({ file: await normalizeImageFile(picked), caption })
-    setCaption('')
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length || !websiteId) return
     e.target.value = ''
+
+    setUploadProgress({ done: 0, total: files.length })
+    for (let i = 0; i < files.length; i++) {
+      const normalized = await normalizeImageFile(files[i])
+      await upload.mutateAsync({ file: normalized, caption: files.length === 1 ? caption : '' })
+      setUploadProgress({ done: i + 1, total: files.length })
+    }
+    setCaption('')
+    setUploadProgress(null)
   }
+
+  const closeLightbox = useCallback(() => setLightboxUrl(null), [])
 
   if (!websiteId || isLoading) {
     return (
@@ -90,6 +108,7 @@ export default function PhotosPage() {
   }
 
   const publicUrl = `https://www.altarwed.com/wedding/${website?.slug}/photos`
+  const isUploading = !!uploadProgress
 
   return (
     <div className="min-h-screen bg-ivory">
@@ -108,10 +127,10 @@ export default function PhotosPage() {
 
         {/* Upload section */}
         <div className="bg-white rounded-xl border border-stone-200 p-6">
-          <h2 className="font-semibold text-stone-900 mb-4">Add Photo</h2>
+          <h2 className="font-semibold text-stone-900 mb-4">Add Photos</h2>
           <div className="flex gap-3 items-end flex-wrap">
             <div className="flex-1 min-w-[180px]">
-              <label className="block text-sm text-stone-600 mb-1">Caption (optional)</label>
+              <label className="block text-sm text-stone-600 mb-1">Caption (optional, single photo)</label>
               <input
                 value={caption}
                 onChange={e => setCaption(e.target.value)}
@@ -121,20 +140,23 @@ export default function PhotosPage() {
             </div>
             <button
               onClick={() => fileRef.current?.click()}
-              disabled={upload.isPending}
+              disabled={isUploading}
               className="px-5 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50 transition-colors"
             >
-              {upload.isPending ? 'Uploading…' : '+ Upload Photo'}
+              {isUploading
+                ? `Uploading ${uploadProgress!.done + 1} of ${uploadProgress!.total}…`
+                : '+ Upload Photos'}
             </button>
             <input
               ref={fileRef}
               type="file"
               accept={IMAGE_ACCEPT}
+              multiple
               className="hidden"
               onChange={handleFileChange}
             />
           </div>
-          <p className="text-xs text-stone-400 mt-2">JPEG, PNG, WebP, or HEIC · Max 15 MB · Photos appear on your public wedding page</p>
+          <p className="text-xs text-stone-400 mt-2">JPEG, PNG, WebP, or HEIC · Max 15 MB · Select multiple photos at once</p>
         </div>
 
         {/* Photo grid */}
@@ -154,13 +176,20 @@ export default function PhotosPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {photos.sort((a, b) => a.sortOrder - b.sortOrder).map(photo => (
               <div key={photo.id} className="group relative bg-white rounded-xl overflow-hidden border border-stone-200 shadow-sm">
-                <img
-                  src={photo.url}
-                  alt={photo.caption ?? 'Wedding photo'}
-                  className="w-full aspect-square object-cover"
-                />
+                <button
+                  type="button"
+                  className="block w-full focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none"
+                  aria-label={photo.caption ? `Enlarge photo: ${photo.caption}` : 'Enlarge photo'}
+                  onClick={() => setLightboxUrl(photo.url)}
+                >
+                  <img
+                    src={photo.url}
+                    alt={photo.caption ?? 'Wedding photo'}
+                    className="w-full aspect-square object-cover"
+                  />
+                </button>
                 {/* Overlay controls */}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
                   <button
                     onClick={() => setEditingCaption({ id: photo.id, value: photo.caption ?? '' })}
                     className="p-2 bg-white rounded-full shadow text-stone-700 hover:text-amber-600"
@@ -228,6 +257,32 @@ export default function PhotosPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4"
+          onClick={closeLightbox}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Photo enlarged view"
+        >
+          <button
+            type="button"
+            onClick={closeLightbox}
+            className="absolute top-4 right-4 p-2 text-white/80 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            aria-label="Close enlarged photo"
+          >
+            <X size={24} />
+          </button>
+          <img
+            src={lightboxUrl}
+            alt="Enlarged wedding photo"
+            className="max-w-full max-h-full object-contain rounded-lg"
+            onClick={e => e.stopPropagation()}
+          />
         </div>
       )}
     </div>
