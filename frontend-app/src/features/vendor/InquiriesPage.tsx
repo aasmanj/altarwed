@@ -82,7 +82,18 @@ export default function InquiriesPage() {
                     )}
                   </div>
                 </div>
-                <p className="text-sm text-[#3b2f2f] whitespace-pre-line">{inquiry.message}</p>
+                <p className="text-sm text-[#3b2f2f] whitespace-pre-line mb-4">{inquiry.message}</p>
+                <div className="flex items-center justify-between pt-3 border-t border-[#f0e8d8]">
+                  <p className="text-xs text-[#a08060]">
+                    Reply directly to the couple's email below. Your response goes straight to their inbox.
+                  </p>
+                  <a
+                    href={`mailto:${inquiry.coupleEmail}?subject=Re: Your AltarWed inquiry`}
+                    className="ml-4 shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[#3b2f2f] px-4 py-2 text-xs font-semibold text-white hover:bg-[#5c4033] transition"
+                  >
+                    Reply to {inquiry.coupleEmail}
+                  </a>
+                </div>
               </div>
             ))}
           </div>

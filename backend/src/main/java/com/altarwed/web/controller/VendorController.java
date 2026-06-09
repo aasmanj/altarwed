@@ -94,8 +94,8 @@ public class VendorController {
     public ResponseEntity<List<InquiryResponse>> listInquiries(Authentication auth) {
         var vendor = vendorService.getByEmail(auth.getName());
         var inquiries = inquiryService.listForVendor(vendor.id()).stream()
-                .map(i -> new InquiryResponse(i.id(), i.coupleName(), i.weddingDate(),
-                        i.message(), i.isRead(), i.createdAt()))
+                .map(i -> new InquiryResponse(i.id(), i.coupleName(), i.coupleEmail(),
+                        i.weddingDate(), i.message(), i.isRead(), i.createdAt()))
                 .toList();
         return ResponseEntity.ok(inquiries);
     }

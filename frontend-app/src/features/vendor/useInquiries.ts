@@ -4,6 +4,7 @@ import { apiClient } from '@/core/api/client'
 export interface Inquiry {
   id: string
   coupleName: string
+  coupleEmail: string
   weddingDate: string | null
   message: string
   isRead: boolean
