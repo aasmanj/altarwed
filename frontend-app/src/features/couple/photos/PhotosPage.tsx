@@ -263,26 +263,35 @@ export default function PhotosPage() {
       {/* Lightbox */}
       {lightboxUrl && (
         <div
-          className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4"
-          onClick={closeLightbox}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
           role="dialog"
           aria-modal="true"
           aria-label="Photo enlarged view"
         >
+          {/* Backdrop -- full-screen button so mouse and keyboard are both valid */}
           <button
             type="button"
+            className="absolute inset-0 w-full h-full bg-black/90 cursor-default"
             onClick={closeLightbox}
-            className="absolute top-4 right-4 p-2 text-white/80 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-            aria-label="Close enlarged photo"
-          >
-            <X size={24} />
-          </button>
-          <img
-            src={lightboxUrl}
-            alt="Enlarged wedding photo"
-            className="max-w-full max-h-full object-contain rounded-lg"
-            onClick={e => e.stopPropagation()}
+            onKeyDown={e => { if (e.key === 'Escape') closeLightbox() }}
+            aria-label="Close photo viewer"
+            tabIndex={-1}
           />
+          <div className="relative z-10 flex items-center justify-center w-full h-full">
+            <button
+              type="button"
+              onClick={closeLightbox}
+              className="absolute top-4 right-4 p-2 text-white/80 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              aria-label="Close enlarged photo"
+            >
+              <X size={24} />
+            </button>
+            <img
+              src={lightboxUrl}
+              alt="Enlarged view"
+              className="max-w-full max-h-full object-contain rounded-lg"
+            />
+          </div>
         </div>
       )}
     </div>

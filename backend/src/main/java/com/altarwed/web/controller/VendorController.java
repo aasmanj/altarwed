@@ -5,6 +5,7 @@ import com.altarwed.application.dto.InquiryResponse;
 import com.altarwed.application.dto.RegisterVendorRequest;
 import com.altarwed.application.dto.SubscriptionResponse;
 import com.altarwed.application.dto.UpdateVendorRequest;
+import com.altarwed.application.dto.VendorProfileResponse;
 import com.altarwed.application.dto.VendorResponse;
 import com.altarwed.application.dto.VendorStatsResponse;
 import com.altarwed.application.service.MediaUploadService;
@@ -65,15 +66,15 @@ public class VendorController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<VendorResponse> getMe(Authentication auth) {
+    public ResponseEntity<VendorProfileResponse> getMe(Authentication auth) {
         var vendor = vendorService.getByEmail(auth.getName());
-        return ResponseEntity.ok(vendorMapper.toResponse(vendor));
+        return ResponseEntity.ok(vendorMapper.toProfileResponse(vendor));
     }
 
     @PatchMapping("/me")
-    public ResponseEntity<VendorResponse> updateMe(Authentication auth, @Valid @RequestBody UpdateVendorRequest req) {
+    public ResponseEntity<VendorProfileResponse> updateMe(Authentication auth, @Valid @RequestBody UpdateVendorRequest req) {
         var vendor = vendorService.getByEmail(auth.getName());
-        return ResponseEntity.ok(vendorMapper.toResponse(vendorService.update(vendor.id(), req)));
+        return ResponseEntity.ok(vendorMapper.toProfileResponse(vendorService.update(vendor.id(), req)));
     }
 
     @PostMapping(value = "/me/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

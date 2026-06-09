@@ -1187,6 +1187,9 @@ function HeroSettings({
               </p>
               <div
                 className="relative aspect-video rounded overflow-hidden border border-stone-200 cursor-crosshair"
+                role="button"
+                tabIndex={0}
+                aria-label="Click to set focal point"
                 onClick={e => {
                   const rect = e.currentTarget.getBoundingClientRect()
                   const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
@@ -1194,6 +1197,13 @@ function HeroSettings({
                   setFocalPointX(x)
                   setFocalPointY(y)
                   onFocalPointSave(x, y)
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    setFocalPointX(0.5)
+                    setFocalPointY(0.5)
+                    onFocalPointSave(0.5, 0.5)
+                  }
                 }}
               >
                 <img

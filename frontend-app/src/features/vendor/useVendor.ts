@@ -3,6 +3,7 @@ import { apiClient } from '@/core/api/client'
 
 export interface VendorProfile {
   id: string
+  email: string
   businessName: string
   category: string
   city: string

@@ -191,6 +191,22 @@ export default function VendorListingPage() {
             <input id="businessName" value={form.businessName} onChange={set('businessName')} className={inputCls} />
           </div>
 
+          {/* Account email (read-only — login identity, not shown publicly) */}
+          <div>
+            <label htmlFor="accountEmail" className={labelCls}>Account email</label>
+            <input
+              id="accountEmail"
+              type="email"
+              value={vendor?.email ?? ''}
+              readOnly
+              className={`${inputCls} bg-[#fdfaf6] text-[#a08060] cursor-default`}
+              aria-describedby="accountEmailHint"
+            />
+            <p id="accountEmailHint" className="text-xs text-[#a08060] mt-1">
+              This is your login email. To change it, contact support.
+            </p>
+          </div>
+
           {/* Category + City */}
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
@@ -282,7 +298,7 @@ export default function VendorListingPage() {
           </div>
 
           {/* Christian-owned */}
-          <label className="flex items-center gap-3 cursor-pointer">
+          <label htmlFor="isChristianOwned" className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
               id="isChristianOwned"
@@ -290,10 +306,10 @@ export default function VendorListingPage() {
               onChange={set('isChristianOwned')}
               className="h-4 w-4 rounded border-[#e8dcc8] accent-[#d4af6a]"
             />
-            <div>
-              <p className="text-sm font-medium text-[#3b2f2f]">Christian-owned business</p>
-              <p className="text-xs text-[#a08060]">Shown as a badge on your listing</p>
-            </div>
+            <span className="flex flex-col">
+              <span className="text-sm font-medium text-[#3b2f2f]">Christian-owned business</span>
+              <span className="text-xs text-[#a08060]">Shown as a badge on your listing</span>
+            </span>
           </label>
 
           {/* Save bar */}
