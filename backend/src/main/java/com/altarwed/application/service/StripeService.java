@@ -25,6 +25,7 @@ public class StripeService {
 
     private final StripePort stripePort;
     private final VendorSubscriptionRepository subscriptionRepository;
+    private final VendorService vendorService;
     private final String appBaseUrl;
     private final String priceProMonthly;
     private final String priceProAnnual;
@@ -32,12 +33,14 @@ public class StripeService {
     public StripeService(
             StripePort stripePort,
             VendorSubscriptionRepository subscriptionRepository,
+            VendorService vendorService,
             @Value("${altarwed.app.base-url:https://app.altarwed.com}") String appBaseUrl,
             @Value("${altarwed.stripe.prices.pro-monthly:}") String priceProMonthly,
             @Value("${altarwed.stripe.prices.pro-annual:}") String priceProAnnual
     ) {
         this.stripePort = stripePort;
         this.subscriptionRepository = subscriptionRepository;
+        this.vendorService = vendorService;
         this.appBaseUrl = appBaseUrl;
         this.priceProMonthly = priceProMonthly;
         this.priceProAnnual = priceProAnnual;
@@ -149,6 +152,15 @@ public class StripeService {
             log.warn("vendor subscription concurrent insert resolved, vendorId={}", vendorId);
         }
         log.info("vendor subscription upserted, vendorId={}, status={}, planTier={}", vendorId, status, planTier);
+
+        if (status == SubscriptionStatus.ACTIVE || status == SubscriptionStatus.TRIALING) {
+            try {
+                vendorService.verify(vendorId);
+                log.info("vendor verified via stripe subscription, vendorId={}", vendorId);
+            } catch (Exception ex) {
+                log.warn("vendor verify failed after subscription upsert, vendorId={}", vendorId, ex);
+            }
+        }
     }
 
     private void handleSubscriptionDeleted(StripeEventData event) {
@@ -167,6 +179,12 @@ public class StripeService {
                             now, existing.createdAt(), now
                     ));
                     log.info("vendor subscription cancelled, vendorId={}", existing.vendorId());
+                    try {
+                        vendorService.unverify(existing.vendorId());
+                        log.info("vendor unlisted after subscription cancellation, vendorId={}", existing.vendorId());
+                    } catch (Exception ex) {
+                        log.warn("vendor unverify failed after subscription cancellation, vendorId={}", existing.vendorId(), ex);
+                    }
                 },
                 () -> log.warn("stripe subscription.deleted: no subscription found, stripeSubscriptionId={}",
                                event.stripeSubscriptionId())

@@ -10,6 +10,7 @@ import com.altarwed.domain.port.VendorRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -72,7 +73,7 @@ public class VendorService {
         return saved;
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Vendor verify(UUID vendorId) {
         log.info("vendor verify started, vendorId={}", vendorId);
         Vendor saved = vendorRepository.save(getById(vendorId).withVerified());
@@ -80,7 +81,7 @@ public class VendorService {
         return saved;
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Vendor unverify(UUID vendorId) {
         log.info("vendor unverify started, vendorId={}", vendorId);
         Vendor saved = vendorRepository.save(getById(vendorId).withUnverified());

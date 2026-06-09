@@ -71,7 +71,7 @@ public class VendorAuthService {
                 request.isChristianOwned(),
                 request.denominationIds() != null ? request.denominationIds() : List.of(),
                 true,
-                true,   // auto-verify on registration; admin can unverify bad actors
+                false,  // starts unverified; Stripe webhook verifies on ACTIVE/TRIALING
                 null,   // priceTier
                 null,   // bio
                 null,   // description

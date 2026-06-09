@@ -30,7 +30,24 @@ export default function VendorDashboard() {
         <h1 className="font-serif text-2xl font-bold text-[#3b2f2f] mb-1">
           Welcome, {displayName}
         </h1>
-        <p className="text-[#a08060] text-sm mb-8">Your vendor dashboard</p>
+        <p className="text-[#a08060] text-sm mb-6">Your vendor dashboard</p>
+
+        {vendor && !vendor.isVerified && (
+          <div className="mb-6 rounded-xl border border-[#d4af6a]/50 bg-[#fdf6eb] px-5 py-4 flex items-start justify-between gap-4">
+            <div>
+              <p className="font-semibold text-[#3b2f2f] text-sm">Your listing is not published yet</p>
+              <p className="text-xs text-[#6b5344] mt-0.5">
+                Subscribe to make your listing visible to couples browsing AltarWed.
+              </p>
+            </div>
+            <Link
+              to="/vendor/subscription"
+              className="shrink-0 rounded-lg bg-[#3b2f2f] px-4 py-2 text-xs font-semibold text-white hover:bg-[#5c4033] transition"
+            >
+              Get listed
+            </Link>
+          </div>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <DashboardCard
@@ -79,14 +96,24 @@ export default function VendorDashboard() {
         <div className="mt-10 rounded-2xl border border-[#e8dcc8] bg-white p-6">
           <p className="font-serif text-lg font-semibold text-[#3b2f2f] mb-1">Your public listing</p>
           {vendor ? (
-            <a
-              href={`https://www.altarwed.com/vendors/${vendor.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-[#d4af6a] hover:underline"
-            >
-              altarwed.com/vendors/{vendor.id} ↗
-            </a>
+            vendor.isVerified ? (
+              <a
+                href={`https://www.altarwed.com/vendors/${vendor.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-[#d4af6a] hover:underline"
+              >
+                altarwed.com/vendors/{vendor.id} ↗
+              </a>
+            ) : (
+              <p className="text-sm text-[#a08060]">
+                Your listing will appear here once you{' '}
+                <Link to="/vendor/subscription" className="text-[#3b2f2f] font-medium hover:underline">
+                  subscribe
+                </Link>
+                .
+              </p>
+            )
           ) : (
             <p className="text-sm text-[#a08060]">Complete your listing to appear in search results</p>
           )}
