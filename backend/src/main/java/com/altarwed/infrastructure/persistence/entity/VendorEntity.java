@@ -83,6 +83,9 @@ public class VendorEntity {
     @Column(name = "logo_url", length = 500)
     private String logoUrl;
 
+    @Column(name = "contact_email", length = 255)
+    private String contactEmail;
+
     @Column(name = "view_count", nullable = false)
     private int viewCount;
 

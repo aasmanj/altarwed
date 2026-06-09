@@ -455,7 +455,6 @@ function Step2UrlDate({
             value={slug}
             onChange={e => onSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
             className="flex-1 px-3 py-3 text-sm text-[#3b2f2f] focus:outline-none bg-white"
-            placeholder="caleb-and-grace"
             aria-describedby="slug-status"
           />
           {showStatus && (

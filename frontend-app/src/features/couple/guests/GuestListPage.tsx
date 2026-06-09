@@ -944,7 +944,7 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
         </Field>
         <Field label="Email">
           <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-            className={inputCls} placeholder="guest@example.com" />
+            className={inputCls} />
         </Field>
         <Field label="Phone">
           <input value={phone} onChange={e => setPhone(e.target.value)}
@@ -959,19 +959,19 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
         </Field>
         <Field label="Address line 1">
           <input value={mailLine1} onChange={e => setMailLine1(e.target.value)}
-            className={inputCls} placeholder="123 Main St" />
+            className={inputCls} />
         </Field>
         <Field label="City">
           <input value={mailCity} onChange={e => setMailCity(e.target.value)}
-            className={inputCls} placeholder="Dallas" />
+            className={inputCls} />
         </Field>
         <Field label="State (2-letter)">
           <input value={mailState} onChange={e => setMailState(e.target.value.toUpperCase())}
-            className={inputCls} placeholder="TX" maxLength={2} />
+            className={inputCls} maxLength={2} />
         </Field>
         <Field label="ZIP">
           <input value={mailZip} onChange={e => setMailZip(e.target.value)}
-            className={inputCls} placeholder="75201" maxLength={10} />
+            className={inputCls} maxLength={10} />
         </Field>
       </div>
       <label className="flex items-center gap-2 text-sm text-brown">
@@ -1067,19 +1067,19 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
           </Field>
           <Field label="Address line 1">
             <input value={mailLine1} onChange={e => setMailLine1(e.target.value)}
-              placeholder="123 Main St" className={inputCls} />
+              className={inputCls} />
           </Field>
           <Field label="City">
             <input value={mailCity} onChange={e => setMailCity(e.target.value)}
-              placeholder="Dallas" className={inputCls} />
+              className={inputCls} />
           </Field>
           <Field label="State (2-letter)">
             <input value={mailState} onChange={e => setMailState(e.target.value.toUpperCase())}
-              placeholder="TX" maxLength={2} className={inputCls} />
+              maxLength={2} className={inputCls} />
           </Field>
           <Field label="ZIP">
             <input value={mailZip} onChange={e => setMailZip(e.target.value)}
-              placeholder="75201" maxLength={10} className={inputCls} />
+              maxLength={10} className={inputCls} />
           </Field>
           <div className="flex items-end gap-6 pb-0.5">
             <label className="flex items-center gap-2 text-sm text-brown">

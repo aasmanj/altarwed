@@ -23,7 +23,8 @@ public class VendorMapper {
                 vendor.description(),
                 vendor.websiteUrl(),
                 vendor.phone(),
-                vendor.logoUrl()
+                vendor.logoUrl(),
+                vendor.contactEmail()
         );
     }
 
@@ -43,7 +44,8 @@ public class VendorMapper {
                 vendor.description(),
                 vendor.websiteUrl(),
                 vendor.phone(),
-                vendor.logoUrl()
+                vendor.logoUrl(),
+                vendor.contactEmail()
         );
     }
 }

@@ -61,8 +61,9 @@ public class VendorInquiryService {
 
         String profileUrl = publicSiteUrl + "/vendors/" + vendor.id();
 
+        String notifyEmail = vendor.contactEmail() != null ? vendor.contactEmail() : vendor.email();
         emails.sendVendorInquiryEmail(
-                vendor.email(),
+                notifyEmail,
                 vendor.businessName(),
                 req.coupleName(),
                 req.coupleEmail(),

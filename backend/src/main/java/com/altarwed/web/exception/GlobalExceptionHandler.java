@@ -1,6 +1,7 @@
 package com.altarwed.web.exception;
 
 import com.altarwed.domain.exception.BlogPostNotFoundException;
+import com.altarwed.domain.exception.PortfolioCapExceededException;
 import com.altarwed.domain.exception.BudgetItemNotFoundException;
 import com.altarwed.domain.exception.SeatingTableNotFoundException;
 import com.altarwed.domain.exception.CoupleNotFoundException;
@@ -236,6 +237,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BlogPostNotFoundException.class)
     public ProblemDetail handleBlogPostNotFound(BlogPostNotFoundException ex) {
         return notFound("blog-post-not-found", ex.getMessage());
+    }
+
+    @ExceptionHandler(PortfolioCapExceededException.class)
+    public ProblemDetail handlePortfolioCapExceeded(PortfolioCapExceededException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.UNPROCESSABLE_ENTITY);
+        pd.setType(URI.create("https://altarwed.com/problems/portfolio-cap-exceeded"));
+        pd.setTitle("Portfolio Cap Exceeded");
+        pd.setDetail(ex.getMessage());
+        return pd;
     }
 
     // Unmapped routes hit Spring's default handler and throw this. Without an explicit

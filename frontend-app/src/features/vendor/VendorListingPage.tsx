@@ -1,6 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useVendorProfile, useUpdateVendorProfile, useUploadVendorLogo } from './useVendor'
+import {
+  usePortfolioPhotos,
+  useUploadPortfolioPhoto,
+  useDeletePortfolioPhoto,
+  useReorderPortfolioPhotos,
+  useUpdatePortfolioPhotoCaption,
+  type PortfolioPhoto,
+} from './useVendorPortfolio'
 import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 
 const CATEGORIES = [
@@ -27,6 +35,11 @@ const PRICE_TIERS = [
   { value: '$$$', label: '$$$ - Premium' },
 ]
 
+function normalizeUrl(raw: string): string {
+  if (!raw || /^https?:\/\//i.test(raw)) return raw
+  return `https://${raw}`
+}
+
 const inputCls = 'w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]'
 const textareaCls = 'w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a] resize-y'
 const labelCls = 'block text-sm font-medium text-[#3b2f2f] mb-1'
@@ -35,6 +48,13 @@ export default function VendorListingPage() {
   const { data: vendor, isLoading } = useVendorProfile()
   const update = useUpdateVendorProfile()
   const uploadLogo = useUploadVendorLogo()
+  const portfolioPhotos = usePortfolioPhotos(vendor?.id)
+  const uploadPortfolioPhoto = useUploadPortfolioPhoto()
+  const deletePortfolioPhoto = useDeletePortfolioPhoto()
+  const reorderPortfolioPhotos = useReorderPortfolioPhotos()
+  const updatePortfolioCaption = useUpdatePortfolioPhotoCaption()
+  const portfolioFileRef = useRef<HTMLInputElement>(null)
+  const [portfolioError, setPortfolioError] = useState('')
   const logoInputRef = useRef<HTMLInputElement>(null)
   const [saved, setSaved] = useState<boolean | null>(null)
   const [saveError, setSaveError] = useState('')
@@ -51,6 +71,7 @@ export default function VendorListingPage() {
     description: '',
     websiteUrl: '',
     phone: '',
+    contactEmail: '',
   })
 
   useEffect(() => {
@@ -66,6 +87,7 @@ export default function VendorListingPage() {
         description: vendor.description ?? '',
         websiteUrl: vendor.websiteUrl ?? '',
         phone: vendor.phone ?? '',
+        contactEmail: vendor.contactEmail ?? '',
       })
     }
   }, [vendor])
@@ -101,8 +123,9 @@ export default function VendorListingPage() {
         priceTier: form.priceTier || undefined,
         bio: form.bio || undefined,
         description: form.description || undefined,
-        websiteUrl: form.websiteUrl || undefined,
+        websiteUrl: normalizeUrl(form.websiteUrl) || undefined,
         phone: form.phone || undefined,
+        contactEmail: form.contactEmail || undefined,
       })
       setSaved(true)
     } catch {
@@ -207,6 +230,22 @@ export default function VendorListingPage() {
             </p>
           </div>
 
+          {/* Contact email for couples */}
+          <div>
+            <label htmlFor="contactEmail" className={labelCls}>Contact email for couples</label>
+            <input
+              id="contactEmail"
+              type="email"
+              value={form.contactEmail}
+              onChange={set('contactEmail')}
+              className={inputCls}
+              maxLength={255}
+            />
+            <p className="text-xs text-[#a08060] mt-1">
+              Optional. Shown publicly on your listing so couples can reach you. Leave blank to use your account email.
+            </p>
+          </div>
+
           {/* Category + City */}
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
@@ -275,13 +314,16 @@ export default function VendorListingPage() {
               <label htmlFor="websiteUrl" className={labelCls}>Website URL</label>
               <input
                 id="websiteUrl"
-                type="url"
+                type="text"
                 value={form.websiteUrl}
                 onChange={set('websiteUrl')}
+                onBlur={() => setForm(prev => ({ ...prev, websiteUrl: normalizeUrl(prev.websiteUrl) }))}
                 className={inputCls}
-                placeholder="https://yourbusiness.com"
                 maxLength={500}
               />
+              {form.websiteUrl && !/^https?:\/\//i.test(form.websiteUrl) && (
+                <p className="text-xs text-[#a08060] mt-1">Will be saved as: {normalizeUrl(form.websiteUrl)}</p>
+              )}
             </div>
             <div>
               <label htmlFor="phone" className={labelCls}>Phone number</label>
@@ -291,9 +333,9 @@ export default function VendorListingPage() {
                 value={form.phone}
                 onChange={set('phone')}
                 className={inputCls}
-                placeholder="(555) 555-5555"
                 maxLength={30}
               />
+              <p className="text-xs text-[#a08060] mt-1">Include area code</p>
             </div>
           </div>
 
@@ -333,6 +375,125 @@ export default function VendorListingPage() {
               {update.isPending ? 'Saving…' : 'Save changes'}
             </button>
           </div>
+        </div>
+
+        {/* Portfolio */}
+        <div className="bg-white rounded-2xl border border-[#e8dcc8] p-5 sm:p-8 space-y-5 mt-6">
+          <div>
+            <h2 className="font-serif text-lg font-semibold text-[#3b2f2f]">Portfolio</h2>
+            <p className="text-sm text-[#6b5344] mt-0.5">Add photos to showcase your work (max 10)</p>
+          </div>
+
+          {portfolioPhotos.isLoading && (
+            <p className="text-sm text-[#a08060] animate-pulse">Loading photos…</p>
+          )}
+
+          {!portfolioPhotos.isLoading && (portfolioPhotos.data?.length ?? 0) > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {portfolioPhotos.data!.map((photo: PortfolioPhoto, index: number) => (
+                <div key={photo.id} className="group relative">
+                  <div className="relative aspect-square overflow-hidden rounded-lg border border-[#e8dcc8]">
+                    <img
+                      src={photo.photoUrl}
+                      alt={photo.caption ?? 'Portfolio photo'}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPortfolioError('')
+                        deletePortfolioPhoto.mutate(photo.id)
+                      }}
+                      className="absolute top-1 right-1 hidden group-hover:flex items-center justify-center w-6 h-6 rounded-full bg-white/90 text-red-500 hover:bg-white text-xs font-bold shadow transition"
+                      aria-label="Delete photo"
+                    >
+                      x
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1 mt-1">
+                    <button
+                      type="button"
+                      disabled={index === 0}
+                      onClick={() => {
+                        const ids = portfolioPhotos.data!.map((p: PortfolioPhoto) => p.id)
+                        const newIds = [...ids]
+                        ;[newIds[index - 1], newIds[index]] = [newIds[index], newIds[index - 1]]
+                        reorderPortfolioPhotos.mutate(newIds)
+                      }}
+                      className="text-[#a08060] hover:text-[#3b2f2f] disabled:opacity-30 transition text-xs px-1"
+                      aria-label="Move photo up"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      disabled={index === portfolioPhotos.data!.length - 1}
+                      onClick={() => {
+                        const ids = portfolioPhotos.data!.map((p: PortfolioPhoto) => p.id)
+                        const newIds = [...ids]
+                        ;[newIds[index], newIds[index + 1]] = [newIds[index + 1], newIds[index]]
+                        reorderPortfolioPhotos.mutate(newIds)
+                      }}
+                      className="text-[#a08060] hover:text-[#3b2f2f] disabled:opacity-30 transition text-xs px-1"
+                      aria-label="Move photo down"
+                    >
+                      ↓
+                    </button>
+                    <input
+                      type="text"
+                      defaultValue={photo.caption ?? ''}
+                      onBlur={e => {
+                        const val = e.target.value.trim()
+                        if (val !== (photo.caption ?? '')) {
+                          updatePortfolioCaption.mutate({ photoId: photo.id, caption: val })
+                        }
+                      }}
+                      placeholder="Add caption"
+                      className="flex-1 text-xs border border-[#e8dcc8] rounded px-2 py-1 text-[#3b2f2f] focus:border-[#d4af6a] focus:outline-none"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {portfolioError && (
+            <p role="alert" className="text-sm text-red-600">{portfolioError}</p>
+          )}
+
+          <input
+            ref={portfolioFileRef}
+            type="file"
+            accept={IMAGE_ACCEPT}
+            className="sr-only"
+            aria-label="Upload portfolio photo"
+            onChange={async e => {
+              const picked = e.target.files?.[0]
+              if (!picked) return
+              setPortfolioError('')
+              try {
+                const normalized = await normalizeImageFile(picked)
+                await uploadPortfolioPhoto.mutateAsync({ file: normalized })
+              } catch (err: unknown) {
+                const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+                setPortfolioError(detail ?? 'Upload failed. Please try again.')
+              }
+              if (portfolioFileRef.current) portfolioFileRef.current.value = ''
+            }}
+          />
+
+          {(portfolioPhotos.data?.length ?? 0) >= 10 ? (
+            <p className="text-sm text-[#a08060]">Portfolio full (10/10). Delete a photo to add another.</p>
+          ) : (
+            <button
+              type="button"
+              onClick={() => portfolioFileRef.current?.click()}
+              disabled={uploadPortfolioPhoto.isPending}
+              className="rounded-lg border border-[#e8dcc8] px-4 py-2 text-sm font-medium text-[#3b2f2f] hover:bg-[#f5ede0] disabled:opacity-60 transition"
+            >
+              {uploadPortfolioPhoto.isPending ? 'Uploading…' : '+ Add photo'}
+            </button>
+          )}
         </div>
       </main>
     </div>

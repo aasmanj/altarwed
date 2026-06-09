@@ -294,7 +294,6 @@ function DetailsStep({
             value={businessName}
             onChange={e => setBusinessName(e.target.value)}
             className={inputCls}
-            placeholder="e.g. Grace &amp; Light Photography"
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -305,7 +304,6 @@ function DetailsStep({
               value={city}
               onChange={e => setCity(e.target.value)}
               className={inputCls}
-              placeholder="e.g. Nashville"
             />
           </div>
           <div>
@@ -315,9 +313,9 @@ function DetailsStep({
               value={state}
               onChange={e => setState(e.target.value)}
               className={inputCls}
-              placeholder="e.g. TN"
               maxLength={50}
             />
+            <p className="text-xs text-[#a08060] mt-1">2-letter abbreviation</p>
           </div>
         </div>
       </div>

@@ -5,6 +5,13 @@ import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 import InquiryForm from './InquiryForm'
 
+interface PortfolioPhoto {
+  id: string
+  photoUrl: string
+  caption: string | null
+  sortOrder: number
+}
+
 interface Vendor {
   id: string
   businessName: string
@@ -19,6 +26,7 @@ interface Vendor {
   websiteUrl: string | null
   phone: string | null
   logoUrl: string | null
+  contactEmail: string | null
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -37,15 +45,26 @@ const CATEGORY_LABELS: Record<string, string> = {
   OTHER:          'Other',
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
+
 async function getVendor(id: string): Promise<Vendor | null> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
   try {
-    const res = await fetch(`${apiUrl}/api/v1/vendors/${id}`, { next: { revalidate: 120 } })
+    const res = await fetch(`${API_URL}/api/v1/vendors/${id}`, { next: { revalidate: 15 } })
     if (res.status === 404) return null
     if (!res.ok) throw new Error()
     return res.json()
   } catch {
     return null
+  }
+}
+
+async function getPortfolioPhotos(id: string): Promise<PortfolioPhoto[]> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/vendors/${id}/portfolio-photos`, { next: { revalidate: 15 } })
+    if (!res.ok) return []
+    return res.json()
+  } catch {
+    return []
   }
 }
 
@@ -77,7 +96,7 @@ export default async function VendorDetailPage(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const vendor = await getVendor(id)
+  const [vendor, portfolioPhotos] = await Promise.all([getVendor(id), getPortfolioPhotos(id)])
   if (!vendor) notFound()
 
   const category = CATEGORY_LABELS[vendor.category] ?? vendor.category
@@ -159,6 +178,30 @@ export default async function VendorDetailPage(
           <InquiryForm vendorId={vendor.id} vendorBusinessName={vendor.businessName} />
         </div>
 
+        {/* Portfolio */}
+        {portfolioPhotos.length > 0 && (
+          <div className="mb-8 rounded-2xl border border-[#e8dcc8] bg-white p-6">
+            <h2 className="font-serif text-lg font-semibold text-[#3b2f2f] mb-4">Portfolio</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {portfolioPhotos.map(photo => (
+                <a
+                  key={photo.id}
+                  href={photo.photoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={photo.caption ?? `${vendor.businessName} portfolio photo`}
+                >
+                  <img
+                    src={photo.photoUrl}
+                    alt={photo.caption ?? `${vendor.businessName} portfolio photo`}
+                    className="w-full aspect-square object-cover rounded-lg border border-[#e8dcc8]"
+                  />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Details card */}
         <div className="rounded-2xl border border-[#e8dcc8] bg-white p-6">
           <h2 className="font-serif text-lg font-semibold text-[#3b2f2f] mb-4">Details</h2>
@@ -182,6 +225,16 @@ export default async function VendorDetailPage(
                 <dt className="text-sm text-[#a08060] w-24 shrink-0">Phone</dt>
                 <dd className="text-sm text-[#3b2f2f]">
                   <a href={`tel:${vendor.phone}`} className="hover:text-[#d4af6a] transition">{vendor.phone}</a>
+                </dd>
+              </div>
+            )}
+            {vendor.contactEmail && (
+              <div className="flex gap-4">
+                <dt className="text-sm text-[#a08060] w-24 shrink-0">Email</dt>
+                <dd className="text-sm text-[#3b2f2f]">
+                  <a href={`mailto:${vendor.contactEmail}`} className="hover:text-[#d4af6a] transition break-all">
+                    {vendor.contactEmail}
+                  </a>
                 </dd>
               </div>
             )}

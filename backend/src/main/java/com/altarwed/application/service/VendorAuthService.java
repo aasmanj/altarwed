@@ -79,6 +79,7 @@ public class VendorAuthService {
                 null,   // phone
                 null,   // logoUrl
                 null,   // viewCount -- DB column has DEFAULT 0
+                null,   // contactEmail -- not set at registration
                 null,
                 null
         );

@@ -611,7 +611,7 @@ function HotelForm({ initial, onSave, onCancel, isPending }: {
         </div>
         <div>
           <label className="block text-xs text-brown-light mb-1">Address</label>
-          <input value={address} onChange={e => setAddr(e.target.value)} className={hotelInputCls} placeholder="123 Main St, Dallas TX" />
+          <input value={address} onChange={e => setAddr(e.target.value)} className={hotelInputCls} />
         </div>
         <div>
           <label className="block text-xs text-brown-light mb-1">Booking link</label>
@@ -619,11 +619,11 @@ function HotelForm({ initial, onSave, onCancel, isPending }: {
         </div>
         <div>
           <label className="block text-xs text-brown-light mb-1">Block rate / notes</label>
-          <input value={rate} onChange={e => setRate(e.target.value)} className={hotelInputCls} placeholder="$149/night, mention AltarWed" />
+          <input value={rate} onChange={e => setRate(e.target.value)} className={hotelInputCls} />
         </div>
         <div>
           <label className="block text-xs text-brown-light mb-1">Distance from venue</label>
-          <input value={dist} onChange={e => setDist(e.target.value)} className={hotelInputCls} placeholder="e.g. 2.3 miles" />
+          <input value={dist} onChange={e => setDist(e.target.value)} className={hotelInputCls} />
         </div>
       </div>
       <div className="flex gap-3 pt-1">

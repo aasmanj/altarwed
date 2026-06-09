@@ -113,7 +113,6 @@ export default function InquiryForm({ vendorId, vendorBusinessName }: Props) {
           required
           maxLength={120}
           autoComplete="name"
-          placeholder="Caleb and Grace"
           disabled={submitting}
         />
         <Field
@@ -125,7 +124,6 @@ export default function InquiryForm({ vendorId, vendorBusinessName }: Props) {
           required
           maxLength={254}
           autoComplete="email"
-          placeholder="you@example.com"
           disabled={submitting}
           hint="They will reply to this address."
         />
@@ -135,8 +133,8 @@ export default function InquiryForm({ vendorId, vendorBusinessName }: Props) {
           value={weddingDate}
           onChange={setWeddingDate}
           maxLength={60}
-          placeholder="Summer 2026 (or skip if undecided)"
           disabled={submitting}
+          hint="Optional. A season, month, or specific date is fine."
         />
 
         <div>

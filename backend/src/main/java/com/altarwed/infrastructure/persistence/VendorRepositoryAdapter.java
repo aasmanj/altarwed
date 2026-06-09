@@ -97,6 +97,7 @@ public class VendorRepositoryAdapter implements VendorRepository {
                 e.getPhone(),
                 e.getLogoUrl(),
                 e.getViewCount(),
+                e.getContactEmail(),
                 e.getCreatedAt(),
                 e.getUpdatedAt()
         );
@@ -122,6 +123,7 @@ public class VendorRepositoryAdapter implements VendorRepository {
                 .phone(v.phone())
                 .logoUrl(v.logoUrl())
                 .viewCount(v.viewCount() != null ? v.viewCount() : 0)
+                .contactEmail(v.contactEmail())
                 .createdAt(v.createdAt())
                 .updatedAt(v.updatedAt())
                 .build();

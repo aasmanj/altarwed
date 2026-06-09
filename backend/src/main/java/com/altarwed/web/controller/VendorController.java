@@ -3,8 +3,10 @@ package com.altarwed.web.controller;
 import com.altarwed.application.dto.AuthResponse;
 import com.altarwed.application.dto.InquiryResponse;
 import com.altarwed.application.dto.RegisterVendorRequest;
+import com.altarwed.application.dto.ReorderPortfolioPhotosRequest;
 import com.altarwed.application.dto.SubscriptionResponse;
 import com.altarwed.application.dto.UpdateVendorRequest;
+import com.altarwed.application.dto.VendorPortfolioPhotoResponse;
 import com.altarwed.application.dto.VendorProfileResponse;
 import com.altarwed.application.dto.VendorResponse;
 import com.altarwed.application.dto.VendorStatsResponse;
@@ -12,7 +14,9 @@ import com.altarwed.application.service.MediaUploadService;
 import com.altarwed.application.service.StripeService;
 import com.altarwed.application.service.VendorAuthService;
 import com.altarwed.application.service.VendorInquiryService;
+import com.altarwed.application.service.VendorPortfolioPhotoService;
 import com.altarwed.application.service.VendorService;
+import com.altarwed.domain.model.VendorPortfolioPhoto;
 import com.altarwed.domain.model.VendorSubscription;
 import com.altarwed.domain.model.VendorCategory;
 import com.altarwed.web.mapper.VendorMapper;
@@ -43,6 +47,7 @@ public class VendorController {
     private final VendorInquiryService inquiryService;
     private final MediaUploadService mediaUploadService;
     private final StripeService stripeService;
+    private final VendorPortfolioPhotoService portfolioPhotoService;
 
     public VendorController(
             VendorService vendorService,
@@ -50,7 +55,8 @@ public class VendorController {
             VendorMapper vendorMapper,
             VendorInquiryService inquiryService,
             MediaUploadService mediaUploadService,
-            StripeService stripeService
+            StripeService stripeService,
+            VendorPortfolioPhotoService portfolioPhotoService
     ) {
         this.vendorService = vendorService;
         this.vendorAuthService = vendorAuthService;
@@ -58,6 +64,7 @@ public class VendorController {
         this.inquiryService = inquiryService;
         this.mediaUploadService = mediaUploadService;
         this.stripeService = stripeService;
+        this.portfolioPhotoService = portfolioPhotoService;
     }
 
     @PostMapping("/register")
@@ -170,5 +177,55 @@ public class VendorController {
                 stripeService.getPriceProAnnual()
         );
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping(value = "/me/portfolio-photos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<VendorPortfolioPhotoResponse> uploadPortfolioPhoto(
+            Authentication auth,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "caption", required = false) String caption
+    ) throws IOException {
+        var vendor = vendorService.getByEmail(auth.getName());
+        VendorPortfolioPhoto photo = portfolioPhotoService.addPhoto(vendor.id(), file, caption);
+        return ResponseEntity.status(HttpStatus.CREATED).body(toPhotoResponse(photo));
+    }
+
+    @GetMapping("/{id}/portfolio-photos")
+    public ResponseEntity<List<VendorPortfolioPhotoResponse>> listPortfolioPhotos(@PathVariable UUID id) {
+        return ResponseEntity.ok(
+                portfolioPhotoService.listPhotos(id).stream().map(this::toPhotoResponse).toList()
+        );
+    }
+
+    @DeleteMapping("/me/portfolio-photos/{photoId}")
+    public ResponseEntity<Void> deletePortfolioPhoto(Authentication auth, @PathVariable UUID photoId) {
+        var vendor = vendorService.getByEmail(auth.getName());
+        portfolioPhotoService.deletePhoto(vendor.id(), photoId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/me/portfolio-photos/reorder")
+    public ResponseEntity<Void> reorderPortfolioPhotos(
+            Authentication auth,
+            @Valid @RequestBody ReorderPortfolioPhotosRequest req
+    ) {
+        var vendor = vendorService.getByEmail(auth.getName());
+        portfolioPhotoService.reorderPhotos(vendor.id(), req.orderedIds());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/me/portfolio-photos/{photoId}/caption")
+    public ResponseEntity<VendorPortfolioPhotoResponse> updatePortfolioPhotoCaption(
+            Authentication auth,
+            @PathVariable UUID photoId,
+            @RequestParam(value = "caption", required = false) String caption
+    ) {
+        var vendor = vendorService.getByEmail(auth.getName());
+        VendorPortfolioPhoto photo = portfolioPhotoService.updateCaption(vendor.id(), photoId, caption);
+        return ResponseEntity.ok(toPhotoResponse(photo));
+    }
+
+    private VendorPortfolioPhotoResponse toPhotoResponse(VendorPortfolioPhoto p) {
+        return new VendorPortfolioPhotoResponse(p.id(), p.photoUrl(), p.caption(), p.sortOrder(), p.createdAt());
     }
 }

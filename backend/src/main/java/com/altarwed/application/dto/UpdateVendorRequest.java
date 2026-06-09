@@ -1,6 +1,7 @@
 package com.altarwed.application.dto;
 
 import com.altarwed.domain.model.VendorCategory;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -19,5 +20,6 @@ public record UpdateVendorRequest(
         @Size(max = 1000) String bio,
         @Size(max = 2000) String description,
         @Size(max = 500) @Pattern(regexp = "^(https?://.*)?$") String websiteUrl,
-        @Size(max = 30) String phone
+        @Size(max = 30) String phone,
+        @Email @Size(max = 255) String contactEmail
 ) {}

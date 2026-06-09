@@ -28,36 +28,38 @@ public record Vendor(
         String logoUrl,
         // V56: profile view counter; incremented on each public GET /vendors/{id}
         Integer viewCount,
+        // V60: optional public contact email, distinct from login email
+        String contactEmail,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
     public Vendor withVerified() {
         return new Vendor(id, businessName, category, city, state, email, passwordHash,
                 isChristianOwned, denominationIds, isActive, true, priceTier,
-                bio, description, websiteUrl, phone, logoUrl, viewCount, createdAt, LocalDateTime.now());
+                bio, description, websiteUrl, phone, logoUrl, viewCount, contactEmail, createdAt, LocalDateTime.now());
     }
 
     public Vendor withUnverified() {
         return new Vendor(id, businessName, category, city, state, email, passwordHash,
                 isChristianOwned, denominationIds, isActive, false, priceTier,
-                bio, description, websiteUrl, phone, logoUrl, viewCount, createdAt, LocalDateTime.now());
+                bio, description, websiteUrl, phone, logoUrl, viewCount, contactEmail, createdAt, LocalDateTime.now());
     }
 
     public Vendor withPasswordHash(String newHash) {
         return new Vendor(id, businessName, category, city, state, email, newHash,
                 isChristianOwned, denominationIds, isActive, isVerified, priceTier,
-                bio, description, websiteUrl, phone, logoUrl, viewCount, createdAt, LocalDateTime.now());
+                bio, description, websiteUrl, phone, logoUrl, viewCount, contactEmail, createdAt, LocalDateTime.now());
     }
 
     public Vendor withLogoUrl(String url) {
         return new Vendor(id, businessName, category, city, state, email, passwordHash,
                 isChristianOwned, denominationIds, isActive, isVerified, priceTier,
-                bio, description, websiteUrl, phone, url, viewCount, createdAt, LocalDateTime.now());
+                bio, description, websiteUrl, phone, url, viewCount, contactEmail, createdAt, LocalDateTime.now());
     }
 
     public Vendor deactivated() {
         return new Vendor(id, businessName, category, city, state, email, passwordHash,
                 isChristianOwned, denominationIds, false, isVerified, priceTier,
-                bio, description, websiteUrl, phone, logoUrl, viewCount, createdAt, LocalDateTime.now());
+                bio, description, websiteUrl, phone, logoUrl, viewCount, contactEmail, createdAt, LocalDateTime.now());
     }
 }

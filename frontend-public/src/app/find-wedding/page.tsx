@@ -79,7 +79,7 @@ export default async function FindWeddingPage({
               type="text"
               name="name"
               defaultValue={name}
-              placeholder="Partner name (e.g. Jordan, Eden)"
+              placeholder="Search by name"
               className="flex-1 rounded-xl border border-[#e8dcc8] bg-white px-4 py-3 text-sm text-[#3b2f2f] placeholder-[#a08060] focus:border-[#d4af6a] focus:outline-none"
             />
             <select

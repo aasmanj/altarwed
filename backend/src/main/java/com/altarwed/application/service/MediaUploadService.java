@@ -83,6 +83,21 @@ public class MediaUploadService {
         }
     }
 
+    public String uploadVendorPortfolioPhoto(UUID vendorId, MultipartFile file) throws IOException {
+        validate(file);
+        String ext = getExtension(file.getContentType());
+        String blobName = "vendor-portfolio/" + vendorId + "/" + UUID.randomUUID() + ext;
+        log.info("submitting vendor portfolio photo to blob storage, vendorId={}", vendorId);
+        try {
+            String url = blobStorage.upload(blobName, file.getInputStream(), file.getSize(), file.getContentType());
+            log.info("vendor portfolio photo stored in blob, vendorId={}", vendorId);
+            return url;
+        } catch (Exception ex) {
+            log.error("blob storage upload failed for vendor portfolio photo, vendorId={}", vendorId, ex);
+            throw ex;
+        }
+    }
+
     private void validate(MultipartFile file) {
         if (file.isEmpty()) throw new IllegalArgumentException("File is empty");
         if (!ALLOWED_TYPES.contains(file.getContentType()))

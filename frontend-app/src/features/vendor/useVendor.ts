@@ -17,6 +17,7 @@ export interface VendorProfile {
   websiteUrl: string | null
   phone: string | null
   logoUrl: string | null
+  contactEmail: string | null
 }
 
 export interface UpdateVendorPayload {
@@ -31,6 +32,7 @@ export interface UpdateVendorPayload {
   description?: string
   websiteUrl?: string
   phone?: string
+  contactEmail?: string
 }
 
 const ME_KEY = ['vendor', 'me']

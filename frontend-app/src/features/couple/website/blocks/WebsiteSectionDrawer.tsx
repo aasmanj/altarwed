@@ -325,7 +325,7 @@ function RegistrySection({ website, coupleId, onSaved }: { website: WeddingWebsi
         <div key={n} className="rounded-xl border border-gold-light p-4 mb-3 space-y-3">
           <p className="text-xs font-medium text-brown">Registry {n}</p>
           <LabeledField label="Label" hint='e.g. "Amazon"'>
-            <input value={form[labelKey]} onChange={set(labelKey)} className={inputCls} placeholder="Amazon" />
+            <input value={form[labelKey]} onChange={set(labelKey)} className={inputCls} />
             <div className="flex flex-wrap gap-1.5 mt-2">
               {REGISTRY_SUGGESTIONS.map(name => (
                 <button

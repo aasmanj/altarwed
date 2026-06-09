@@ -20,5 +20,6 @@ public record VendorProfileResponse(
         String description,
         String websiteUrl,
         String phone,
-        String logoUrl
+        String logoUrl,
+        String contactEmail
 ) {}

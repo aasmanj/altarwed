@@ -65,6 +65,7 @@ public class VendorService {
                 req.phone()           != null ? blankToNull(req.phone())           : existing.phone(),
                 existing.logoUrl(),
                 existing.viewCount(),
+                req.contactEmail()    != null ? blankToNull(req.contactEmail())    : existing.contactEmail(),
                 existing.createdAt(),
                 LocalDateTime.now()
         );

@@ -296,7 +296,7 @@ export default function CommunicationsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <input
                   value={returnState} onChange={e => setReturnState(e.target.value.toUpperCase())}
-                  maxLength={2} placeholder="ST"
+                  maxLength={2} placeholder="State"
                   className="rounded border border-stone-300 px-3 py-2 text-sm uppercase"
                 />
                 <input
