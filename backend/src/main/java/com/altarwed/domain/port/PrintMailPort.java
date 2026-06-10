@@ -27,7 +27,7 @@ public interface PrintMailPort {
                        String city, String state, String zip) {}
 
     record ToAddress(String name, String addressLine1, String addressLine2,
-                     String city, String state, String zip) {}
+                     String city, String state, String zip, String country) {}
 
     class PrintMailException extends RuntimeException {
         public PrintMailException(String message) { super(message); }

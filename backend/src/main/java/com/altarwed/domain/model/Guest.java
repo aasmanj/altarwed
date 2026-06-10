@@ -23,6 +23,8 @@ public record Guest(
         String mailCity,
         String mailState,
         String mailZip,
+        // null means domestic US; any non-null value enables international routing in Lob
+        String mailCountry,
         // private note left by the guest on the RSVP form; never returned by any public endpoint
         String noteForCouple,
         // number of invite emails sent for this guest; capped to prevent spamming

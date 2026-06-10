@@ -22,6 +22,7 @@ export interface Guest {
   mailCity: string | null
   mailState: string | null
   mailZip: string | null
+  mailCountry: string | null
   noteForCouple: string | null
   inviteSendCount: number | null
   inviteSentAt: string | null
@@ -43,6 +44,7 @@ export interface CreateGuestPayload {
   mailCity?: string
   mailState?: string
   mailZip?: string
+  mailCountry?: string
   partyId?: string
   partyName?: string
   partyContact?: boolean
@@ -69,6 +71,7 @@ export interface UpdateGuestPayload {
   mailCity?: string
   mailState?: string
   mailZip?: string
+  mailCountry?: string
 }
 
 const key = (coupleId: string) => ['guests', coupleId]

@@ -59,7 +59,10 @@ public class LobPrintMailAdapter implements PrintMailPort {
         body.put("front", front);
         body.put("back", back);
         body.put("size", "6x11");
-        body.put("mail_type", "usps_first_class");
+        // usps_first_class is US-only; omit mail_type for international so Lob routes correctly
+        if (isUsDomestic(req.to().country())) {
+            body.put("mail_type", "usps_first_class");
+        }
 
         try {
             @SuppressWarnings("unchecked")
@@ -93,10 +96,22 @@ public class LobPrintMailAdapter implements PrintMailPort {
         m.put("address_line1", a.addressLine1());
         if (a.addressLine2() != null && !a.addressLine2().isBlank()) m.put("address_line2", a.addressLine2());
         m.put("address_city", a.city());
-        m.put("address_state", a.state());
-        m.put("address_zip", a.zip());
-        m.put("address_country", "US");
+        // Lob rejects null keys for state/zip on domestic; omit entirely when absent (international)
+        if (a.state() != null && !a.state().isBlank()) m.put("address_state", a.state());
+        if (a.zip()   != null && !a.zip().isBlank())   m.put("address_zip",   a.zip());
+        // Lob address_country requires ISO 3166-1 alpha-2. Normalize US variants to "US".
+        m.put("address_country", isUsDomestic(a.country()) ? "US" : a.country());
         return m;
+    }
+
+    // Single source of truth for US-domestic detection. Lob's domestic postcard API requires
+    // address_country="US" and mail_type="usps_first_class"; international omits both.
+    private static boolean isUsDomestic(String country) {
+        if (country == null || country.isBlank()) return true;
+        return country.equalsIgnoreCase("US")
+                || country.equalsIgnoreCase("USA")
+                || country.equalsIgnoreCase("United States")
+                || country.equalsIgnoreCase("United States of America");
     }
 
     private Map<String, Object> addressMap(FromAddress a) {

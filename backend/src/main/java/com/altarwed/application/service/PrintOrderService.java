@@ -154,17 +154,21 @@ public class PrintOrderService {
                 continue;
             }
 
-            if (guest.mailLine1() == null || guest.mailCity() == null
-                    || guest.mailState() == null || guest.mailZip() == null) {
-                recipients.add(new PrintOrderRecipient(null, null, guestId, null, "FAILED",
-                        "Guest is missing a mailing address. Fill in address line, city, state, and ZIP on the guest list."));
+            boolean isDomestic = guest.mailCountry() == null || guest.mailCountry().isBlank();
+            boolean missingAddress = guest.mailLine1() == null || guest.mailCity() == null
+                    || (isDomestic && (guest.mailState() == null || guest.mailZip() == null));
+            if (missingAddress) {
+                String hint = isDomestic
+                        ? "Guest is missing a mailing address. Fill in address line, city, state, and ZIP on the guest list."
+                        : "Guest is missing a mailing address. Fill in address line and city (state and postal code optional for international).";
+                recipients.add(new PrintOrderRecipient(null, null, guestId, null, "FAILED", hint));
                 failureCount++;
                 continue;
             }
 
             ToAddress to = new ToAddress(
                     guest.name(), guest.mailLine1(), null,
-                    guest.mailCity(), guest.mailState(), guest.mailZip()
+                    guest.mailCity(), guest.mailState(), guest.mailZip(), guest.mailCountry()
             );
 
             PostcardRequest postcard = new PostcardRequest(

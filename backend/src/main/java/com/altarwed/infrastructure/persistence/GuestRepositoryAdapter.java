@@ -74,7 +74,7 @@ public class GuestRepositoryAdapter implements GuestRepository {
                 e.getRsvpStatus(), e.isPlusOneAllowed(), e.getPlusOneName(),
                 e.getDietaryRestrictions(), e.getSongRequest(),
                 e.getTableNumber(), e.getSide(), e.getNotes(),
-                e.getMailLine1(), e.getMailCity(), e.getMailState(), e.getMailZip(),
+                e.getMailLine1(), e.getMailCity(), e.getMailState(), e.getMailZip(), e.getMailCountry(),
                 e.getNoteForCouple(), e.getInviteSendCount(),
                 e.getInviteSentAt(), e.getRespondedAt(), e.getRemindAt(),
                 e.getCreatedAt(), e.getUpdatedAt(),
@@ -100,8 +100,9 @@ public class GuestRepositoryAdapter implements GuestRepository {
                 .notes(g.notes())
                 .mailLine1(g.mailLine1())
                 .mailCity(g.mailCity())
-                .mailState(g.mailState() != null ? g.mailState().toUpperCase() : null)
+                .mailState(g.mailState())
                 .mailZip(g.mailZip())
+                .mailCountry(g.mailCountry())
                 .noteForCouple(g.noteForCouple())
                 .inviteSendCount(g.inviteSendCount() != null ? g.inviteSendCount() : 0)
                 .inviteSentAt(g.inviteSentAt())

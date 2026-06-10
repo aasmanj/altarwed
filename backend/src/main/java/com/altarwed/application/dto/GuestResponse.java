@@ -26,6 +26,7 @@ public record GuestResponse(
         String mailCity,
         String mailState,
         String mailZip,
+        String mailCountry,
         String noteForCouple,
         Integer inviteSendCount,
         LocalDateTime inviteSentAt,

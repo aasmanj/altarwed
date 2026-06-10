@@ -413,6 +413,7 @@ public class GoogleSheetSyncService {
             String city        = getAny(cols, colIndex, "city");
             String state       = getAny(cols, colIndex, "state");
             String zip         = getAny(cols, colIndex, "zip code", "zip");
+            String country     = getAny(cols, colIndex, "country");
             String plusOneRaw  = getAny(cols, colIndex, "allowed plus one?", "allowed plus one", "plus one allowed");
             String plusOneName = getAny(cols, colIndex, "plus one name");
             String rsvpRaw     = getAny(cols, colIndex, "rsvp status");
@@ -447,7 +448,7 @@ public class GoogleSheetSyncService {
                         tableNumber,
                         sideVal,
                         notes,
-                        mailLine1, city, state, zip,
+                        mailLine1, city, state, zip, country,
                         null, 0,    // noteForCouple, inviteSendCount
                         null, null, null, null, null,  // inviteSentAt, respondedAt, remindAt, createdAt, updatedAt
                         null, null, null,  // partyId, partyName, partyContact
@@ -475,11 +476,12 @@ public class GoogleSheetSyncService {
                         city        != null ? city        : g.mailCity(),
                         state       != null ? state       : g.mailState(),
                         zip         != null ? zip         : g.mailZip(),
+                        country     != null ? country     : g.mailCountry(),
                         g.noteForCouple(),
                         g.inviteSendCount(), g.inviteSentAt(), g.respondedAt(), g.remindAt(),
                         g.createdAt(), g.updatedAt(),
                         g.partyId(), g.partyName(), g.partyContact(),
-                        syncId, g.syncedFromSheet()  // preserve syncedFromSheet flag
+                        syncId, g.syncedFromSheet()  // preserve: manually-added guests must not become auto-deletable
                 );
                 // Consume from name map so a second row with the same name creates a new guest.
                 byNameFallback.remove(name.toLowerCase().trim());
@@ -569,6 +571,7 @@ public class GoogleSheetSyncService {
             String city        = getAny(cols, colIndex, "city");
             String state       = getAny(cols, colIndex, "state");
             String zip         = getAny(cols, colIndex, "zip code", "zip");
+            String country     = getAny(cols, colIndex, "country");
             String plusOneRaw  = getAny(cols, colIndex, "allowed plus one?", "allowed plus one", "plus one allowed");
             String plusOneName = getAny(cols, colIndex, "plus one name");
             String rsvpRaw     = getAny(cols, colIndex, "rsvp status");
@@ -591,7 +594,7 @@ public class GoogleSheetSyncService {
                         plusOneAllowed,
                         plusOneName, dietary,
                         null, tableNumber, sideVal, notes,
-                        mailLine1, city, state, zip,
+                        mailLine1, city, state, zip, country,
                         null, 0,
                         null, null, null, null, null,
                         null, null, null,
@@ -619,11 +622,12 @@ public class GoogleSheetSyncService {
                         city        != null ? city        : g.mailCity(),
                         state       != null ? state       : g.mailState(),
                         zip         != null ? zip         : g.mailZip(),
+                        country     != null ? country     : g.mailCountry(),
                         g.noteForCouple(),
                         g.inviteSendCount(), g.inviteSentAt(), g.respondedAt(), g.remindAt(),
                         g.createdAt(), g.updatedAt(),
                         g.partyId(), g.partyName(), g.partyContact(),
-                        g.sheetSyncId(), g.syncedFromSheet()  // preserve both flags
+                        g.sheetSyncId(), g.syncedFromSheet()  // preserve: manually-added guests must not become auto-deletable
                 );
                 if (!merged.equals(g)) {
                     toSave.add(merged);

@@ -48,7 +48,8 @@ const GUEST_SHEET_COLUMNS: { header: string; value: (g: Guest) => string }[] = [
   { header: 'Street Address',        value: g => g.mailLine1 ?? '' },
   { header: 'City',                  value: g => g.mailCity ?? '' },
   { header: 'State',                 value: g => g.mailState ?? '' },
-  { header: 'Zip Code',              value: g => g.mailZip ?? '' },
+  { header: 'Zip Code',             value: g => g.mailZip ?? '' },
+  { header: 'Country',              value: g => g.mailCountry ?? '' },
   { header: 'Allowed Plus One?',     value: g => (g.plusOneAllowed ? 'Yes' : 'No') },
   { header: 'Plus One Name',         value: g => g.plusOneName ?? '' },
   { header: 'RSVP Status',           value: g => g.rsvpStatus },
@@ -902,6 +903,20 @@ function AddGuestModal({
 }
 
 // ---------------------------------------------------------------------------
+// Address label helper -- adapts field names based on destination country
+// ---------------------------------------------------------------------------
+function addressLabels(country: string) {
+  const c = country.toLowerCase().trim()
+  if (!c || c === 'us' || c === 'usa' || c === 'united states' || c === 'united states of america') {
+    return { state: 'State', zip: 'Zip Code' }
+  }
+  if (c === 'ca' || c === 'canada') {
+    return { state: 'Province', zip: 'Postal Code' }
+  }
+  return { state: 'State/Province', zip: 'Postal Code' }
+}
+
+// ---------------------------------------------------------------------------
 // Add guest form
 // ---------------------------------------------------------------------------
 function AddGuestForm({ onSubmit, onCancel, isPending }: {
@@ -914,10 +929,13 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
   const [phone, setPhone]         = useState('')
   const [side, setSide]           = useState<GuestSide | ''>('')
   const [plusOne, setPlusOne]     = useState(false)
-  const [mailLine1, setMailLine1] = useState('')
-  const [mailCity, setMailCity]   = useState('')
-  const [mailState, setMailState] = useState('')
-  const [mailZip, setMailZip]     = useState('')
+  const [mailLine1, setMailLine1]       = useState('')
+  const [mailCity, setMailCity]         = useState('')
+  const [mailState, setMailState]       = useState('')
+  const [mailZip, setMailZip]           = useState('')
+  const [mailCountry, setMailCountry]   = useState('')
+
+  const addrLabels = addressLabels(mailCountry)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -931,6 +949,7 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
       mailCity: mailCity || undefined,
       mailState: mailState || undefined,
       mailZip: mailZip || undefined,
+      mailCountry: mailCountry || undefined,
     })
   }
 
@@ -965,11 +984,15 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
           <input value={mailCity} onChange={e => setMailCity(e.target.value)}
             className={inputCls} />
         </Field>
-        <Field label="State (2-letter)">
-          <input value={mailState} onChange={e => setMailState(e.target.value.toUpperCase())}
-            className={inputCls} maxLength={2} />
+        <Field label="Country">
+          <input value={mailCountry} onChange={e => setMailCountry(e.target.value)}
+            className={inputCls} placeholder="2-letter code, e.g. CA, MX, GB (blank = US)" />
         </Field>
-        <Field label="ZIP">
+        <Field label={addrLabels.state}>
+          <input value={mailState} onChange={e => setMailState(e.target.value)}
+            className={inputCls} />
+        </Field>
+        <Field label={addrLabels.zip}>
           <input value={mailZip} onChange={e => setMailZip(e.target.value)}
             className={inputCls} maxLength={10} />
         </Field>
@@ -1010,10 +1033,13 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
   const [table, setTable]             = useState(guest.tableNumber?.toString() ?? '')
   const [plusOne, setPlusOne]         = useState(guest.plusOneAllowed)
   const [song, setSong]           = useState(guest.songRequest ?? '')
-  const [mailLine1, setMailLine1] = useState(guest.mailLine1 ?? '')
-  const [mailCity, setMailCity]   = useState(guest.mailCity ?? '')
-  const [mailState, setMailState] = useState(guest.mailState ?? '')
-  const [mailZip, setMailZip]     = useState(guest.mailZip ?? '')
+  const [mailLine1, setMailLine1]     = useState(guest.mailLine1 ?? '')
+  const [mailCity, setMailCity]       = useState(guest.mailCity ?? '')
+  const [mailState, setMailState]     = useState(guest.mailState ?? '')
+  const [mailZip, setMailZip]         = useState(guest.mailZip ?? '')
+  const [mailCountry, setMailCountry] = useState(guest.mailCountry ?? '')
+
+  const addrLabels = addressLabels(mailCountry)
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
@@ -1029,6 +1055,7 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
       mailCity: mailCity || undefined,
       mailState: mailState || undefined,
       mailZip: mailZip || undefined,
+      mailCountry: mailCountry || undefined,
     })
   }
 
@@ -1073,11 +1100,15 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
             <input value={mailCity} onChange={e => setMailCity(e.target.value)}
               className={inputCls} />
           </Field>
-          <Field label="State (2-letter)">
-            <input value={mailState} onChange={e => setMailState(e.target.value.toUpperCase())}
-              maxLength={2} className={inputCls} />
+          <Field label="Country">
+            <input value={mailCountry} onChange={e => setMailCountry(e.target.value)}
+              className={inputCls} placeholder="2-letter code, e.g. CA, MX, GB (blank = US)" />
           </Field>
-          <Field label="ZIP">
+          <Field label={addrLabels.state}>
+            <input value={mailState} onChange={e => setMailState(e.target.value)}
+              className={inputCls} />
+          </Field>
+          <Field label={addrLabels.zip}>
             <input value={mailZip} onChange={e => setMailZip(e.target.value)}
               maxLength={10} className={inputCls} />
           </Field>

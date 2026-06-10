@@ -13,7 +13,7 @@ public class GuestMapper {
                 g.rsvpStatus(), g.plusOneAllowed(), g.plusOneName(),
                 g.dietaryRestrictions(), g.songRequest(),
                 g.tableNumber(), g.side(), g.notes(),
-                g.mailLine1(), g.mailCity(), g.mailState(), g.mailZip(),
+                g.mailLine1(), g.mailCity(), g.mailState(), g.mailZip(), g.mailCountry(),
                 g.noteForCouple(), g.inviteSendCount(),
                 g.inviteSentAt(), g.respondedAt(), g.remindAt(), g.createdAt(), g.updatedAt(),
                 g.partyId(), g.partyName(), g.partyContact()
