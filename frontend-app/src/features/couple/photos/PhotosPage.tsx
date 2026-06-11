@@ -245,17 +245,14 @@ export default function PhotosPage() {
 
       {/* Edit caption modal */}
       {editingCaption && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
-          onClick={() => setEditingCaption(null)}
-        >
+        <div className="fixed inset-0 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setEditingCaption(null)} aria-hidden="true" />
           <div
             ref={captionModalRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="caption-modal-title"
-            onClick={e => e.stopPropagation()}
-            className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm p-6 max-h-[90vh] overflow-y-auto"
+            className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm p-6 max-h-[90vh] overflow-y-auto"
           >
             <h2 id="caption-modal-title" className="text-lg font-semibold text-stone-900 mb-4">Edit Caption</h2>
             <textarea

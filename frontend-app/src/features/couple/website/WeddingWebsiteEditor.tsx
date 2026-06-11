@@ -359,14 +359,14 @@ function ScriptureBrowserModal({ onSelect, onClose }: {
   const ref = useModalA11y(true, onClose)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
       <div
         ref={ref}
         role="dialog"
         aria-modal="true"
         aria-labelledby="scripture-modal-title"
-        onClick={e => e.stopPropagation()}
-        className="w-full max-w-lg rounded-2xl bg-white shadow-2xl flex flex-col max-h-[90vh]"
+        className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl flex flex-col max-h-[90vh]"
       >
         <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gold-light">
           <h2 id="scripture-modal-title" className="font-serif text-lg font-bold text-brown">Browse Wedding Verses</h2>

@@ -873,17 +873,14 @@ function AddGuestModal({
 }) {
   const ref = useModalA11y(true, onClose)
   return (
-    <div
-      className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
       <div
         ref={ref}
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-guest-title"
-        onClick={e => e.stopPropagation()}
-        className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6"
+        className="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6"
       >
         <div className="flex items-center justify-between mb-5">
           <h3 id="add-guest-title" className="font-serif text-lg font-semibold text-brown">Add Guests</h3>
