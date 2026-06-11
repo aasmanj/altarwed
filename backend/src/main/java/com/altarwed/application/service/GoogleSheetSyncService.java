@@ -51,9 +51,10 @@ import java.util.stream.Collectors;
  *
  * Sync strategy: upsert, then delete stale rows. If a guest already exists we merge
  * sheet values non-destructively (sheet wins for non-null fields; manual edits survive).
- * Guests created by this sync job (syncedFromSheet=true) are deleted when their sheet
- * row disappears, but only when at least one data row was seen in the current run.
- * Manually added guests (syncedFromSheet=false) are never deleted by the sync.
+ * A guest bound to a sheet row (created by the sync, syncedFromSheet=true, OR stamped
+ * with a sheetSyncId by UUID write-back) is deleted when that row disappears, but only
+ * when at least one data row was seen in the current run. Guests with no sheet binding
+ * (added in the dashboard, never matched to a row) are never deleted by the sync.
  */
 @Service
 public class GoogleSheetSyncService {
@@ -77,6 +78,20 @@ public class GoogleSheetSyncService {
 
     // Accepted header spellings for the Side column, lowercased.
     private static final String[] SIDE_ALIASES = { "side (bride or groom)", "bride or groom", "side" };
+
+    // DB column widths from GuestEntity, used as clamp() targets for sheet-sourced
+    // values. Keep in lockstep with the entity; a mismatch reintroduces SQL 2628
+    // batch aborts (one oversized cell killing the whole sync).
+    private static final int MAX_NAME = 200;
+    private static final int MAX_EMAIL = 300;
+    private static final int MAX_PHONE = 50;
+    private static final int MAX_PLUS_ONE_NAME = 200;
+    private static final int MAX_DIETARY = 500;
+    private static final int MAX_MAIL_LINE1 = 200;
+    private static final int MAX_MAIL_CITY = 100;
+    private static final int MAX_MAIL_STATE = 100;
+    private static final int MAX_MAIL_ZIP = 20;
+    private static final int MAX_MAIL_COUNTRY = 100;
 
     private final GoogleSheetSyncRepository syncRepository;
     private final GuestRepository guestRepository;
@@ -141,7 +156,11 @@ public class GoogleSheetSyncService {
     // Sync execution (called by scheduler and also available on-demand)
     // -----------------------------------------------------------------------
 
-    @Transactional
+    // Intentionally NOT @Transactional: an outer transaction defers DB writes to commit
+    // time, which happens AFTER runSync's catch block has returned "success". A constraint
+    // failure then escapes as an unhandled 500 instead of being recorded on lastError.
+    // Without it, each repository call commits (or throws) inside runSync's try, matching
+    // the scheduled path's behavior exactly.
     public GoogleSheetSyncResponse triggerSync(UUID coupleId) {
         GoogleSheetSync sync = syncRepository.findByCoupleId(coupleId)
                 .orElseThrow(() -> new IllegalStateException("No Google Sheet sync configured for this couple."));
@@ -150,7 +169,7 @@ public class GoogleSheetSyncService {
 
     // Same as triggerSync but exposes the per-run added/updated counts so the
     // dashboard can show a meaningful toast describing what happened.
-    @Transactional
+    // NOT @Transactional, same reasoning as triggerSync above.
     public com.altarwed.application.dto.TriggerSyncResponse triggerSyncWithCounts(UUID coupleId) {
         GoogleSheetSync sync = syncRepository.findByCoupleId(coupleId)
                 .orElseThrow(() -> new IllegalStateException("No Google Sheet sync configured for this couple."));
@@ -288,7 +307,10 @@ public class GoogleSheetSyncService {
     }
 
     private String fetchCsv(String url) {
-        log.info("google sheet csv fetch started, url={}", url);
+        // No url in the log: the publish-to-web CSV URL is an unauthenticated capability
+        // URL to the couple's full guest list (PII by one hop for anyone with log access).
+        // The caller already logged the coupleId on the preceding line.
+        log.info("google sheet csv fetch started");
         String csv = restClient.get()
                 .uri(URI.create(url))
                 .header("Accept", "text/csv, text/plain, */*")
@@ -358,14 +380,30 @@ public class GoogleSheetSyncService {
         }
         String idColLetter = columnLetter(idColIndex);
 
+        // Pre-scan every data row's ID cell so the name fallback below can tell a guest
+        // whose stamp reached the sheet apart from an orphaned stamp (write-back failed
+        // after the DB save, e.g. the 403 readonly-scope case).
+        Set<String> uuidsInSheet = new HashSet<>();
+        for (int i = 1; i < rows.size(); i++) {
+            String[] cols = rows.get(i);
+            if (idColIndex < cols.length) {
+                String u = parseSheetUuid(cols[idColIndex]);
+                if (u != null) uuidsInSheet.add(u);
+            }
+        }
+
         // Build lookup maps from existing guests
         List<Guest> existing = guestRepository.findAllByCoupleId(coupleId);
         Map<String, Guest> bySheetSyncId = existing.stream()
                 .filter(g -> g.sheetSyncId() != null)
                 .collect(Collectors.toMap(Guest::sheetSyncId, Function.identity(), (a, b) -> a));
-        // Name-keyed fallback for guests synced before write-back was introduced (sheetSyncId == null)
+        // Name-keyed fallback for guests with no usable sheet binding: never stamped
+        // (synced before write-back existed, or added manually), or stamped in the DB
+        // but the UUID never reached the sheet (orphaned stamp). Without the orphan
+        // case, a failed write-back would make the next run create a duplicate AND
+        // delete the original guest via the reconciliation below.
         Map<String, Guest> byNameFallback = existing.stream()
-                .filter(g -> g.sheetSyncId() == null)
+                .filter(g -> g.sheetSyncId() == null || !uuidsInSheet.contains(g.sheetSyncId()))
                 .collect(Collectors.toMap(
                         g -> g.name().toLowerCase().trim(),
                         Function.identity(),
@@ -387,16 +425,14 @@ public class GoogleSheetSyncService {
             int sheetRowNumber = i + 1; // sheet row 1 = header, data starts at row 2
             String[] cols = rows.get(i);
 
-            String name = getAny(cols, colIndex, NAME_ALIASES);
+            String name = clamp(getAny(cols, colIndex, NAME_ALIASES), MAX_NAME);
             if (name == null || name.isBlank()) continue;
             seen++;
 
-            // Read the UUID that was stamped on a previous sync (if any)
-            String existingUuid = null;
-            if (idColIndex < cols.length) {
-                String v = cols[idColIndex].trim();
-                if (!v.isEmpty()) existingUuid = v;
-            }
+            // Read the UUID that was stamped on a previous sync (if any). Junk in the
+            // cell (couple typed over it) is treated as unstamped; a fresh UUID is
+            // written back below. Never persisted raw: sheet_sync_id is NVARCHAR(36).
+            String existingUuid = idColIndex < cols.length ? parseSheetUuid(cols[idColIndex]) : null;
 
             // Resolve existing DB guest: UUID first, name as migration-period fallback
             Guest g = existingUuid != null ? bySheetSyncId.get(existingUuid) : null;
@@ -404,36 +440,40 @@ public class GoogleSheetSyncService {
                 g = byNameFallback.get(name.toLowerCase().trim());
             }
 
-            // Parse all columns (same logic as the CSV path)
+            // Parse all columns (same logic as the CSV path). Sheet cells are untrusted
+            // input; clamp to the guests column widths so one oversized cell cannot fail
+            // the whole batch with a truncation error (SQL 2628 took down prod sync).
             String side        = getAny(cols, colIndex, SIDE_ALIASES);
-            String phone       = getAny(cols, colIndex, "phone number", "phone");
-            String emailVal    = getAny(cols, colIndex, "email address", "email");
+            String phone       = clamp(getAny(cols, colIndex, "phone number", "phone"), MAX_PHONE);
+            String emailVal    = clamp(getAny(cols, colIndex, "email address", "email"), MAX_EMAIL);
             String street      = getAny(cols, colIndex, "street address", "address line 1");
             String apt         = getAny(cols, colIndex, "apt/suite", "apt", "suite");
-            String city        = getAny(cols, colIndex, "city");
-            String state       = getAny(cols, colIndex, "state");
-            String zip         = getAny(cols, colIndex, "zip code", "zip");
-            String country     = getAny(cols, colIndex, "country");
+            String city        = clamp(getAny(cols, colIndex, "city"), MAX_MAIL_CITY);
+            String state       = clamp(getAny(cols, colIndex, "state"), MAX_MAIL_STATE);
+            String zip         = clamp(getAny(cols, colIndex, "zip code", "zip"), MAX_MAIL_ZIP);
+            String country     = clamp(getAny(cols, colIndex, "country"), MAX_MAIL_COUNTRY);
             String plusOneRaw  = getAny(cols, colIndex, "allowed plus one?", "allowed plus one", "plus one allowed");
-            String plusOneName = getAny(cols, colIndex, "plus one name");
+            String plusOneName = clamp(getAny(cols, colIndex, "plus one name"), MAX_PLUS_ONE_NAME);
             String rsvpRaw     = getAny(cols, colIndex, "rsvp status");
             String tableRaw    = getAny(cols, colIndex, "table #", "table number", "table");
-            String dietary     = getAny(cols, colIndex, "dietary restriction", "dietary restrictions");
-            String notes       = getAny(cols, colIndex, "notes");
+            String dietary     = clamp(getAny(cols, colIndex, "dietary restriction", "dietary restrictions"), MAX_DIETARY);
+            String notes       = getAny(cols, colIndex, "notes"); // NVARCHAR(MAX), no clamp
 
-            String mailLine1 = street != null ? (apt != null ? street + " " + apt : street) : null;
+            String mailLine1 = clamp(street != null ? (apt != null ? street + " " + apt : street) : null, MAX_MAIL_LINE1);
             boolean plusOneAllowed = plusOneRaw != null &&
                     (plusOneRaw.equalsIgnoreCase("yes") || plusOneRaw.equalsIgnoreCase("true") || plusOneRaw.equals("1"));
             com.altarwed.domain.model.GuestRsvpStatus rsvpStatus = parseRsvpStatus(rsvpRaw);
             Integer tableNumber = parseTableNumber(tableRaw);
             com.altarwed.domain.model.GuestSide sideVal = parseSide(side);
 
-            // Assign or reuse the UUID for this row
+            // Assign or reuse the UUID for this row. A name-matched guest with an
+            // orphaned stamp keeps its existing UUID (re-written into the sheet to
+            // repair the cell) so the binding doesn't churn on every run.
             String syncId;
             if (existingUuid != null) {
                 syncId = existingUuid;
             } else {
-                syncId = UUID.randomUUID().toString();
+                syncId = (g != null && g.sheetSyncId() != null) ? g.sheetSyncId() : UUID.randomUUID().toString();
                 writeBackCells.put(idColLetter + sheetRowNumber, syncId);
             }
 
@@ -481,7 +521,7 @@ public class GoogleSheetSyncService {
                         g.inviteSendCount(), g.inviteSentAt(), g.respondedAt(), g.remindAt(),
                         g.createdAt(), g.updatedAt(),
                         g.partyId(), g.partyName(), g.partyContact(),
-                        syncId, g.syncedFromSheet()  // preserve: manually-added guests must not become auto-deletable
+                        syncId, g.syncedFromSheet()  // preserve creation provenance; the CSV-path delete filter still relies on it
                 );
                 // Consume from name map so a second row with the same name creates a new guest.
                 byNameFallback.remove(name.toLowerCase().trim());
@@ -495,14 +535,18 @@ public class GoogleSheetSyncService {
 
         guestRepository.saveAll(toSave);
 
-        // Delete guests that were created by a previous sheet sync but no longer have a row.
+        // Delete guests bound to a sheet row that no longer exists. A guest is bound when
+        // it was created by a sync (syncedFromSheet=true) OR when its UUID was stamped into
+        // the sheet (sheetSyncId != null), which also covers guests imported before sheet
+        // sync existed and matched by name later. Guests added in the dashboard that never
+        // matched a sheet row keep sheetSyncId == null and are never touched.
         // Guard: only run when at least one data row was seen. A header-only sheet (rows=1)
         // or a transient empty API response must not wipe the entire guest list.
-        // Manually added guests (syncedFromSheet=false) are never touched.
         int deleted = 0;
         if (seen > 0) {
             List<UUID> toDelete = existing.stream()
-                    .filter(g -> g.syncedFromSheet() && !seenExistingIds.contains(g.id()))
+                    .filter(g -> (g.syncedFromSheet() || g.sheetSyncId() != null)
+                            && !seenExistingIds.contains(g.id()))
                     .map(Guest::id)
                     .toList();
             for (UUID id : toDelete) {
@@ -557,29 +601,30 @@ public class GoogleSheetSyncService {
 
         for (int i = 1; i < rows.size(); i++) {
             String[] cols = rows.get(i);
-            String name = getAny(cols, colIndex, NAME_ALIASES);
+            String name = clamp(getAny(cols, colIndex, NAME_ALIASES), MAX_NAME);
             if (name == null || name.isBlank()) continue;
             seen++;
 
             Guest g = byName.get(name.toLowerCase().trim());
 
+            // Clamp to column widths, same reasoning as the OAuth path.
             String side        = getAny(cols, colIndex, SIDE_ALIASES);
-            String phone       = getAny(cols, colIndex, "phone number", "phone");
-            String emailVal    = getAny(cols, colIndex, "email address", "email");
+            String phone       = clamp(getAny(cols, colIndex, "phone number", "phone"), MAX_PHONE);
+            String emailVal    = clamp(getAny(cols, colIndex, "email address", "email"), MAX_EMAIL);
             String street      = getAny(cols, colIndex, "street address", "address line 1");
             String apt         = getAny(cols, colIndex, "apt/suite", "apt", "suite");
-            String city        = getAny(cols, colIndex, "city");
-            String state       = getAny(cols, colIndex, "state");
-            String zip         = getAny(cols, colIndex, "zip code", "zip");
-            String country     = getAny(cols, colIndex, "country");
+            String city        = clamp(getAny(cols, colIndex, "city"), MAX_MAIL_CITY);
+            String state       = clamp(getAny(cols, colIndex, "state"), MAX_MAIL_STATE);
+            String zip         = clamp(getAny(cols, colIndex, "zip code", "zip"), MAX_MAIL_ZIP);
+            String country     = clamp(getAny(cols, colIndex, "country"), MAX_MAIL_COUNTRY);
             String plusOneRaw  = getAny(cols, colIndex, "allowed plus one?", "allowed plus one", "plus one allowed");
-            String plusOneName = getAny(cols, colIndex, "plus one name");
+            String plusOneName = clamp(getAny(cols, colIndex, "plus one name"), MAX_PLUS_ONE_NAME);
             String rsvpRaw     = getAny(cols, colIndex, "rsvp status");
             String tableRaw    = getAny(cols, colIndex, "table #", "table number", "table");
-            String dietary     = getAny(cols, colIndex, "dietary restriction", "dietary restrictions");
-            String notes       = getAny(cols, colIndex, "notes");
+            String dietary     = clamp(getAny(cols, colIndex, "dietary restriction", "dietary restrictions"), MAX_DIETARY);
+            String notes       = getAny(cols, colIndex, "notes"); // NVARCHAR(MAX), no clamp
 
-            String mailLine1 = street != null ? (apt != null ? street + " " + apt : street) : null;
+            String mailLine1 = clamp(street != null ? (apt != null ? street + " " + apt : street) : null, MAX_MAIL_LINE1);
             boolean plusOneAllowed = plusOneRaw != null &&
                     (plusOneRaw.equalsIgnoreCase("yes") || plusOneRaw.equalsIgnoreCase("true") || plusOneRaw.equals("1"));
             com.altarwed.domain.model.GuestRsvpStatus rsvpStatus = parseRsvpStatus(rsvpRaw);
@@ -627,7 +672,7 @@ public class GoogleSheetSyncService {
                         g.inviteSendCount(), g.inviteSentAt(), g.respondedAt(), g.remindAt(),
                         g.createdAt(), g.updatedAt(),
                         g.partyId(), g.partyName(), g.partyContact(),
-                        g.sheetSyncId(), g.syncedFromSheet()  // preserve: manually-added guests must not become auto-deletable
+                        g.sheetSyncId(), g.syncedFromSheet()  // preserve creation provenance; this path's delete filter relies on it
                 );
                 if (!merged.equals(g)) {
                     toSave.add(merged);
@@ -789,6 +834,44 @@ public class GoogleSheetSyncService {
             if (v != null) return v;
         }
         return null;
+    }
+
+    /**
+     * Trims and truncates a sheet-sourced value to its DB column width. Sheet cells are
+     * untrusted input; without this, one oversized cell aborts the entire sync batch with
+     * a SQL truncation error (2628). Truncating loses data on junk input only: every max
+     * here exceeds any legitimate value for its field.
+     */
+    static String clamp(String v, int max) {
+        if (v == null) return null;
+        String t = v.trim();
+        if (t.length() <= max) return t;
+        // Never cut a UTF-16 surrogate pair in half (e.g. an emoji at the boundary);
+        // an unpaired surrogate is invalid text and renders as garbage downstream.
+        int end = Character.isHighSurrogate(t.charAt(max - 1)) ? max - 1 : max;
+        return t.substring(0, end);
+    }
+
+    /**
+     * Parses an "AltarWed ID" sheet cell into a canonical UUID string, or null when the
+     * cell is empty or junk (couple typed over it). The raw cell value must never be
+     * persisted: sheet_sync_id is NVARCHAR(36) and an oversized value would abort the
+     * sync batch the same way an oversized zip did. Canonical form also keeps lookups
+     * stable, since every stamp we write is UUID.toString() output.
+     */
+    static String parseSheetUuid(String cell) {
+        if (cell == null) return null;
+        String v = cell.trim();
+        // Every stamp we write is canonical UUID.toString() output, exactly 36 chars.
+        // UUID.fromString alone is too lenient ("1-2-3-4-5" parses), and accepting
+        // non-canonical junk would let several rows alias to one canonicalized UUID,
+        // binding them all to a single guest and deleting the others' originals.
+        if (v.length() != 36) return null;
+        try {
+            return UUID.fromString(v).toString();
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     // -----------------------------------------------------------------------

@@ -20,7 +20,7 @@ public record UpdateGuestRequest(
         @Size(max = 200) String mailLine1,
         @Size(max = 100) String mailCity,
         @Size(max = 100) String mailState,
-        @Size(max = 10) String mailZip,
+        @Size(max = 20) String mailZip,
         @Size(max = 100) String mailCountry,
         java.util.UUID partyId,
         @Size(max = 100) String partyName,

@@ -9,7 +9,7 @@ migration that changes the data model.**
   hardcoded here. See `backend/CLAUDE.md` for the rule.
 - All tables use UUID primary keys. Schema changes are Flyway-only (never `ddl-auto`).
 
-## Domain Entities (Flyway V1–V54, live in production)
+## Domain Entities (Flyway V1–V64, live in production)
 
 - **Couple**, partnerOneName, partnerTwoName, email, weddingDate, denominationId. **Acquisition columns** (V46): utm_source/medium/campaign/term/content, referrer, landing_path, all nullable, captured once at registration (first-touch), modeled as an `AcquisitionSource` value object on the domain `Couple` record; read only by founder /admin/metrics.
 - **Vendor**, businessName, category, city, state, isChristianOwned, denominationIds, isActive, isVerified. **Profile-enrichment fields** (V49): bio (1000), description (2000), websiteUrl (500), phone (30), all nullable. **Logo** (V51): logoUrl (500), nullable, stored in Azure Blob under `vendor-logos/{vendorId}/`. **Auth:** Vendors auto-verify on registration (isVerified=true); admin can unverify via `PATCH /api/v1/admin/vendors/{id}/unverify`. **Password reset** shares the same PasswordResetToken flow as couples (email-keyed, 15-min expiry). Admin notification email fires to `hello@altarwed.com` on every registration (property: `altarwed.admin.alert-email`)
@@ -35,6 +35,7 @@ migration that changes the data model.**
 - **Inquiry** (V50), vendorId FK, couple_name, couple_email, wedding_date (nullable), message, is_read (default 0), created_at. Persisted when a couple submits the inquiry form on a vendor's public page. Vendor inbox: `GET /api/v1/vendors/me/inquiries`; mark-read: `PATCH /api/v1/vendors/me/inquiries/{id}/read` (ownership via `EXISTS` query, not full load). Public submit still at `POST /api/v1/inquiries`.
 - **Vendor logo** (V51), logo_url NVARCHAR(500) nullable on vendors table. Uploaded via `POST /api/v1/vendors/me/logo` (multipart, 15 MB limit), stored in Azure Blob under `vendor-logos/{vendorId}/`. Shown on public vendor cards and detail page; falls back to letter avatar.
 - **Vendor verification backfill** (V52), one-time UPDATE: sets `is_verified = 1` for all active vendors created before auto-verify was added to the registration flow. No schema change.
+- **Guest mailing address** (V34, V63, V64), structured fields on guests replacing freeform mail_address: mail_line1 (200), mail_city (100), mail_state (100, widened from NCHAR(2) in V63 for international provinces), mail_zip (NVARCHAR(20), widened from 10 in V64 after a Canadian postal code aborted the sheet sync; the V34 US-format CHECK constraints on state and zip were dropped in V63/V64), mail_country (100, V63; null = domestic US, non-null routes internationally via Lob).
 
 ## Active data conventions (load-bearing)
 

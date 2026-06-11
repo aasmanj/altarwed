@@ -16,7 +16,7 @@ public record CreateGuestRequest(
         @Size(max = 200) String mailLine1,
         @Size(max = 100) String mailCity,
         @Size(max = 100) String mailState,
-        @Size(max = 10) String mailZip,
+        @Size(max = 20) String mailZip,
         @Size(max = 100) String mailCountry,
         // Optional: assign guest to an existing party. Provide partyId to join an existing party.
         // Provide partyName without partyId to start a new party (a new UUID is generated server-side).

@@ -44,6 +44,7 @@ public record Guest(
         // Null for guests added manually or synced before write-back was introduced.
         String sheetSyncId,
         // true when this guest was created by the Google Sheets sync job (not manually added).
-        // Only sheet-synced guests are eligible for automatic deletion when their row is removed.
+        // A guest is eligible for automatic deletion when its sheet row is removed if this
+        // flag is true OR sheetSyncId is non-null (the row was the guest's sheet binding).
         boolean syncedFromSheet
 ) {}
