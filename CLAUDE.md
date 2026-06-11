@@ -55,8 +55,10 @@ senior engineering interview:
 
 ## Claude Tool Triggers, When to Remind Jordan
 
-Surface these unprompted when the moment is right (not at random). The frontend-public `/verify`
-nudge is now enforced by the pre-push hook, so it is not listed here.
+Surface these unprompted when the moment is right (not at random). There is no longer a pre-push
+hook; before pushing any frontend change I run that workspace's linter myself (`npm run lint` in
+`frontend-public`, `npx eslint src --ext ts,tsx --max-warnings=46` in `frontend-app`) and run
+`/verify` when a public page render is in doubt, plus the code-reviewer agent before every push.
 
 | Trigger | What to say |
 |---|---|
