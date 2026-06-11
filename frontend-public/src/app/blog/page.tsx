@@ -86,7 +86,7 @@ export default async function BlogIndexPage() {
 
         <section className="max-w-4xl mx-auto px-6 pb-24">
           {posts.length === 0 ? (
-            <div className="text-center py-20 text-[#a08060]">
+            <div className="text-center py-20 text-[#8a6a4a]">
               <p className="text-lg font-serif italic">Articles coming soon.</p>
               <p className="text-sm mt-2">Check back shortly. New posts are published weekly.</p>
             </div>
@@ -121,7 +121,7 @@ export default async function BlogIndexPage() {
                       {post.title}
                     </h2>
                     <p className="text-[#6b5344] text-sm leading-relaxed mb-4">{post.excerpt}</p>
-                    <div className="flex items-center justify-between text-xs text-[#a08060]">
+                    <div className="flex items-center justify-between text-xs text-[#8a6a4a]">
                       <span>{post.author}</span>
                       {post.publishedAt && <span>{formatDate(post.publishedAt)}</span>}
                     </div>

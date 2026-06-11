@@ -24,7 +24,7 @@ export default async function RegistryPage(
       </p>
 
       {items.length === 0 ? (
-        <div className="text-center py-12 text-[#a08060]">
+        <div className="text-center py-12 text-[#8a6a4a]">
           <p className="font-serif text-xl">Registry coming soon…</p>
         </div>
       ) : (

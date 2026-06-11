@@ -56,7 +56,7 @@ export default function ShareModal({ isOpen, onClose, slug, coupleNames }: Props
           ref={closeRef}
           onClick={onClose}
           aria-label="Close share modal"
-          className="absolute top-4 right-4 rounded-full p-1.5 text-[#a08060] hover:bg-[#fdfaf6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af6a] transition"
+          className="absolute top-4 right-4 rounded-full p-1.5 text-[#8a6a4a] hover:bg-[#fdfaf6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af6a] transition"
         >
           <X className="w-4 h-4" />
         </button>

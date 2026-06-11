@@ -4,9 +4,10 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import confetti from 'canvas-confetti'
 import { useUpdateWeddingWebsite, usePublishWeddingWebsite, type WeddingWebsite } from './useWeddingWebsite'
 import { useHotels, useAddHotel, useUpdateHotel, useDeleteHotel, type WeddingHotelPayload, type WeddingHotel } from './useHotels'
-import { MapPin, DollarSign } from 'lucide-react'
+import { MapPin, DollarSign, X } from 'lucide-react'
 import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
+import { useModalA11y } from '@/lib/useModalA11y'
 import { apiClient } from '@/core/api/client'
 import ShareModal from './ShareModal'
 
@@ -355,12 +356,21 @@ function ScriptureBrowserModal({ onSelect, onClose }: {
     if (browseQuery.trim()) handleLookup(browseQuery.trim())
   }
 
+  const ref = useModalA11y(true, onClose)
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="scripture-modal-title"
+        onClick={e => e.stopPropagation()}
+        className="w-full max-w-lg rounded-2xl bg-white shadow-2xl flex flex-col max-h-[90vh]"
+      >
         <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gold-light">
-          <h2 className="font-serif text-lg font-bold text-brown">Browse Wedding Verses</h2>
-          <button onClick={onClose} className="text-brown-light hover:text-brown text-xl leading-none">✕</button>
+          <h2 id="scripture-modal-title" className="font-serif text-lg font-bold text-brown">Browse Wedding Verses</h2>
+          <button onClick={onClose} aria-label="Close" className="text-brown-light hover:text-brown leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded"><X size={20} /></button>
         </div>
 
         <div className="overflow-y-auto px-6 py-4 space-y-5 flex-1">

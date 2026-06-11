@@ -56,7 +56,7 @@ export default function FindInvitationWidget({ slug }: Props) {
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder="Type your first and last name..."
-          className="flex-1 rounded-xl border border-[#d4af6a]/50 bg-white px-4 py-3 text-[#3b2f2f] placeholder-[#a08060] shadow-sm focus:border-[#d4af6a] focus:outline-none focus:ring-2 focus:ring-[#d4af6a]/30"
+          className="flex-1 rounded-xl border border-[#d4af6a]/50 bg-white px-4 py-3 text-[#3b2f2f] placeholder-[#8a6a4a] shadow-sm focus:border-[#d4af6a] focus:outline-none focus:ring-2 focus:ring-[#d4af6a]/30"
           autoComplete="off"
           aria-label="Your name"
         />
@@ -70,11 +70,11 @@ export default function FindInvitationWidget({ slug }: Props) {
       </form>
 
       {error && (
-        <p className="text-center text-sm text-red-600">{error}</p>
+        <p role="alert" className="text-center text-sm text-red-600">{error}</p>
       )}
 
       {results !== null && results.length === 0 && (
-        <div className="rounded-xl border border-[#d4af6a]/30 bg-amber-50 p-6 text-center">
+        <div role="status" className="rounded-xl border border-[#d4af6a]/30 bg-amber-50 p-6 text-center">
           <p className="font-medium text-[#3b2f2f]">No invitation found</p>
           <p className="mt-1 text-sm text-[#6b5344]">
             Try a different spelling, or contact the couple directly to make sure you&apos;re on the guest list.
@@ -83,8 +83,8 @@ export default function FindInvitationWidget({ slug }: Props) {
       )}
 
       {results && results.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-center text-sm text-[#a08060]">
+        <div role="status" className="space-y-3">
+          <p className="text-center text-sm text-[#8a6a4a]">
             {results.length === 1 ? 'We found your invitation!' : `We found ${results.length} matches. Select yours below.`}
           </p>
           {results.map((r, i) => (

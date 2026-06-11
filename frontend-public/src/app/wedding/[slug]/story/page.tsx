@@ -10,7 +10,7 @@ export default async function StoryPage(
 
   if (!wedding.ourStory) {
     return (
-      <div className="text-center py-16 text-[#a08060]">
+      <div className="text-center py-16 text-[#8a6a4a]">
         <p className="font-serif text-2xl mb-2">Our story is being written…</p>
         <p className="text-sm">Check back soon.</p>
       </div>

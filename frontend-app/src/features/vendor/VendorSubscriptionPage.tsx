@@ -25,7 +25,7 @@ export default function VendorSubscriptionPage() {
   return (
     <div className="min-h-screen bg-[#fdfaf6]">
       <header className="border-b border-[#e8dcc8] bg-white px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3">
-        <Link to="/vendor" className="text-sm text-[#a08060] hover:text-[#3b2f2f] transition">
+        <Link to="/vendor" className="text-sm text-[#8a6a4a] hover:text-[#3b2f2f] transition">
           &larr; Dashboard
         </Link>
         <span className="text-[#e8dcc8]">|</span>
@@ -34,7 +34,7 @@ export default function VendorSubscriptionPage() {
 
       <main className="mx-auto max-w-2xl px-4 sm:px-6 py-8 sm:py-12">
         {isLoading ? (
-          <div className="text-center text-[#a08060]">Loading...</div>
+          <div className="text-center text-[#8a6a4a]">Loading...</div>
         ) : isPro && isActive ? (
           <ActivePlanPanel sub={sub!} onManage={() => portal.mutate()} managing={portal.isPending} />
         ) : sub?.status === 'PAST_DUE' ? (
@@ -123,7 +123,7 @@ function UpgradePanel({
     <div className="space-y-6">
       <div>
         <h1 className="font-serif text-2xl font-bold text-[#3b2f2f] mb-1">Upgrade to Pro</h1>
-        <p className="text-[#a08060] text-sm">
+        <p className="text-[#8a6a4a] text-sm">
           Get in front of more couples with priority placement and analytics.
         </p>
       </div>
@@ -148,7 +148,7 @@ function UpgradePanel({
         />
       </div>
 
-      <p className="text-xs text-[#a08060] text-center">
+      <p className="text-xs text-[#8a6a4a] text-center">
         Have a promo code? You can enter it on the checkout page.
         <br />
         No long-term commitment. Cancel anytime from your billing portal.
@@ -196,7 +196,7 @@ function PricingRow({
           )}
         </div>
         <p className="text-lg font-bold text-[#3b2f2f] mt-0.5">{price}</p>
-        <p className="text-xs text-[#a08060]">{description}</p>
+        <p className="text-xs text-[#8a6a4a]">{description}</p>
       </div>
       <button
         onClick={() => priceId && onCheckout(priceId)}

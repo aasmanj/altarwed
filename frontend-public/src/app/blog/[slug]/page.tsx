@@ -187,7 +187,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         {/* Header */}
         <section className="max-w-3xl mx-auto px-6 pt-10 pb-8">
           <div className="mb-6">
-            <Link href="/blog" className="text-sm text-[#a08060] hover:text-[#3b2f2f] transition">
+            <Link href="/blog" className="text-sm text-[#8a6a4a] hover:text-[#3b2f2f] transition">
               ← Back to blog
             </Link>
           </div>
@@ -202,7 +202,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             {post.title}
           </h1>
           <p className="text-lg text-[#6b5344] leading-relaxed mb-6">{post.excerpt}</p>
-          <div className="flex items-center gap-3 text-sm text-[#a08060] border-t border-[#e8dcc8] pt-5">
+          <div className="flex items-center gap-3 text-sm text-[#8a6a4a] border-t border-[#e8dcc8] pt-5">
             <span>By {post.author}</span>
             {post.publishedAt && (
               <>

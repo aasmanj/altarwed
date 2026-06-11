@@ -14,6 +14,8 @@ import {
 import { useWeddingWebsite, useUpdateWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import TipCallout from '@/components/TipCallout'
 import { useConfirm } from '@/components/ConfirmDialog'
+import QueryErrorState from '@/components/QueryErrorState'
+import { useModalA11y } from '@/lib/useModalA11y'
 import { TIPS } from '@/lib/tips'
 
 const CATEGORIES = Object.keys(CATEGORY_LABELS) as BudgetCategory[]
@@ -49,7 +51,7 @@ const emptyForm = (): FormState => ({
 export default function BudgetPage() {
   const { user } = useAuth()
   const coupleId = user?.id ?? ''
-  const { data, isLoading } = useBudget(coupleId)
+  const { data, isLoading, isError, refetch } = useBudget(coupleId)
   const createItem = useCreateBudgetItem(coupleId)
   const updateItem = useUpdateBudgetItem(coupleId)
   const deleteItem = useDeleteBudgetItem(coupleId)
@@ -109,6 +111,8 @@ export default function BudgetPage() {
     setForm(emptyForm())
   }
 
+  const modalRef = useModalA11y(showForm, closeForm)
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const payload = {
@@ -129,13 +133,26 @@ export default function BudgetPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-ivory flex items-center justify-center">
+      <div className="min-h-screen bg-ivory flex items-center justify-center" aria-busy="true">
         <div className="animate-spin h-8 w-8 border-2 border-gold border-t-transparent rounded-full" />
       </div>
     )
   }
 
-  const summary = data!
+  // A failed/aborted fetch must not fall through to `data!` (blank screen) or to
+  // the "No budget items yet" empty state (implies the couple's data is gone).
+  if (isError || !data) {
+    return (
+      <div className="min-h-screen bg-ivory">
+        <PageHeader title="Budget Tracker" subtitle="Track your wedding costs with peace of mind" />
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+          <QueryErrorState what="your budget" onRetry={() => refetch()} />
+        </div>
+      </div>
+    )
+  }
+
+  const summary = data
   const paidPercent = summary.totalActual > 0
     ? Math.round((summary.totalPaid / summary.totalActual) * 100)
     : 0
@@ -288,12 +305,12 @@ export default function BudgetPage() {
                           </svg>
                         )}
                       </button>
-                      <button onClick={() => openEditForm(item)} className="text-stone-400 hover:text-stone-700 p-1">
+                      <button onClick={() => openEditForm(item)} aria-label="Edit item" className="text-stone-400 hover:text-stone-700 p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
-                      <button onClick={() => confirmDeleteItem(item.id)} className="text-stone-400 hover:text-rose-500 p-1">
+                      <button onClick={() => confirmDeleteItem(item.id)} aria-label="Delete item" className="text-stone-400 hover:text-rose-500 p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
@@ -405,9 +422,19 @@ export default function BudgetPage() {
 
       {/* Add/Edit modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-semibold text-stone-900 mb-5">
+        <div
+          className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
+          onClick={closeForm}
+        >
+          <div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="budget-modal-title"
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg p-6 max-h-[90vh] overflow-y-auto"
+          >
+            <h2 id="budget-modal-title" className="text-lg font-semibold text-stone-900 mb-5">
               {editingId ? 'Edit Budget Item' : 'Add Budget Item'}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">

@@ -221,7 +221,7 @@ export default function HomePage() {
               {['Our Story', 'The Wedding', 'Wedding Party', 'Travel', 'Registry', 'RSVP'].map((tab, i) => (
                 <span
                   key={tab}
-                  className={`px-4 py-3 text-sm font-medium whitespace-nowrap ${i === 0 ? 'border-b-2 border-[#d4af6a] text-[#3b2f2f]' : 'text-[#a08060]'}`}
+                  className={`px-4 py-3 text-sm font-medium whitespace-nowrap ${i === 0 ? 'border-b-2 border-[#d4af6a] text-[#3b2f2f]' : 'text-[#8a6a4a]'}`}
                 >
                   {tab}
                 </span>
@@ -241,7 +241,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <p className="text-center mt-6 text-sm text-[#a08060]">
+          <p className="text-center mt-6 text-sm text-[#8a6a4a]">
             <a href="https://app.altarwed.com/register" className="text-[#d4af6a] font-semibold hover:underline">
               Create yours free →
             </a>
@@ -287,7 +287,7 @@ export default function HomePage() {
                   &ldquo;{t.quote}&rdquo;
                 </blockquote>
                 <p className="text-sm font-semibold text-[#6b5344]">{t.name}</p>
-                <p className="text-xs text-[#a08060]">{t.detail}</p>
+                <p className="text-xs text-[#8a6a4a]">{t.detail}</p>
               </div>
             ))}
           </div>
@@ -339,7 +339,7 @@ export default function HomePage() {
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <h4 className="font-semibold text-[#3b2f2f]">Grace Light Photography</h4>
-                    <p className="text-xs text-[#a08060]">Photographer · Fredericksburg, VA</p>
+                    <p className="text-xs text-[#8a6a4a]">Photographer · Fredericksburg, VA</p>
                   </div>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-[#d4af6a]/10 text-[#a07840] font-medium border border-[#d4af6a]/20">Christian-owned</span>
                 </div>
@@ -347,7 +347,7 @@ export default function HomePage() {
                   We pray with every couple before the ceremony. Capturing covenant moments is our ministry.
                 </p>
                 <div className="mt-4 pt-4 border-t border-[#e8dcc8] flex items-center justify-between">
-                  <span className="text-xs text-[#a08060]">Baptist · Non-denominational</span>
+                  <span className="text-xs text-[#8a6a4a]">Baptist · Non-denominational</span>
                   <span className="text-sm text-[#d4af6a] font-semibold">View listing →</span>
                 </div>
               </div>

@@ -80,9 +80,9 @@ export default function ResourcesPage() {
           <section>
             <div className="text-center mb-6">
               <h2 className="font-serif text-3xl font-bold text-[#3b2f2f] mb-2">Books We Recommend</h2>
-              <p className="text-sm text-[#a08060]">Faith-rooted reads to prepare your hearts for marriage.</p>
+              <p className="text-sm text-[#8a6a4a]">Faith-rooted reads to prepare your hearts for marriage.</p>
             </div>
-            <p className="text-xs text-center text-[#a08060] mb-8">
+            <p className="text-xs text-center text-[#8a6a4a] mb-8">
               AltarWed participates in the Amazon Associates Program. As an Amazon Associate we earn from qualifying purchases. Links below are affiliate links.
             </p>
             <div className="grid sm:grid-cols-2 gap-6">
@@ -99,7 +99,7 @@ export default function ResourcesPage() {
                       <p className="font-serif text-lg font-bold text-[#3b2f2f] group-hover:text-[#d4af6a] transition leading-snug">
                         {book.title}
                       </p>
-                      <p className="text-xs text-[#a08060] mt-0.5">by {book.author}</p>
+                      <p className="text-xs text-[#8a6a4a] mt-0.5">by {book.author}</p>
                     </div>
                     {book.badge && (
                       <span className="shrink-0 text-xs bg-[#d4af6a]/15 text-[#d4af6a] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">
@@ -120,7 +120,7 @@ export default function ResourcesPage() {
           <section>
             <div className="text-center mb-10">
               <h2 className="font-serif text-3xl font-bold text-[#3b2f2f] mb-2">Wedding Registries</h2>
-              <p className="text-sm text-[#a08060]">Set up your registry. You can link up to three on your AltarWed wedding website.</p>
+              <p className="text-sm text-[#8a6a4a]">Set up your registry. You can link up to three on your AltarWed wedding website.</p>
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
               {REGISTRIES.map(r => (
@@ -134,7 +134,7 @@ export default function ResourcesPage() {
                   <ShoppingBag className="w-6 h-6 text-[#d4af6a] shrink-0 mt-0.5" strokeWidth={1.5} />
                   <div>
                     <p className="font-semibold text-[#3b2f2f] group-hover:text-[#d4af6a] transition text-sm">{r.name}</p>
-                    <p className="text-xs text-[#a08060] mt-1 leading-relaxed">{r.description}</p>
+                    <p className="text-xs text-[#8a6a4a] mt-1 leading-relaxed">{r.description}</p>
                   </div>
                 </a>
               ))}

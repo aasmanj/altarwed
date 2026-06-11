@@ -136,7 +136,7 @@ export default function VendorPageClient({ vendor, portfolioPhotos, category }: 
       <main className="max-w-3xl mx-auto px-6 py-12">
         <Link
           href="/vendors"
-          className="inline-flex items-center gap-1 text-sm text-[#a08060] hover:text-[#3b2f2f] mb-8 transition"
+          className="inline-flex items-center gap-1 text-sm text-[#8a6a4a] hover:text-[#3b2f2f] mb-8 transition"
           aria-label="Back to all vendors"
         >
           <span aria-hidden="true">←</span> All vendors
@@ -146,7 +146,7 @@ export default function VendorPageClient({ vendor, portfolioPhotos, category }: 
           <div className="h-20 w-20 rounded-full bg-[#f5ede0] border-2 border-[#e8dcc8] flex items-center justify-center shrink-0 overflow-hidden">
             {vendor.logoUrl
               ? <img src={vendor.logoUrl} alt={`${vendor.businessName} logo`} className="h-full w-full object-cover" />
-              : <span className="font-serif text-3xl text-[#a08060]">{vendor.businessName.charAt(0)}</span>
+              : <span className="font-serif text-3xl text-[#8a6a4a]">{vendor.businessName.charAt(0)}</span>
             }
           </div>
           <div className="flex-1 pt-1">
@@ -157,7 +157,7 @@ export default function VendorPageClient({ vendor, portfolioPhotos, category }: 
             <p className="text-[#6b5344] text-sm">{vendor.city}, {vendor.state}</p>
             <div className="flex gap-2 mt-3 flex-wrap">
               {vendor.isChristianOwned && (
-                <span className="text-xs bg-[#d4af6a]/10 text-[#a08060] font-medium px-3 py-1 rounded-full border border-[#d4af6a]/30">
+                <span className="text-xs bg-[#d4af6a]/10 text-[#8a6a4a] font-medium px-3 py-1 rounded-full border border-[#d4af6a]/30">
                   ✝ Christian-owned
                 </span>
               )}
@@ -213,22 +213,22 @@ export default function VendorPageClient({ vendor, portfolioPhotos, category }: 
           <h2 className="font-serif text-lg font-semibold text-[#3b2f2f] mb-4">Details</h2>
           <dl className="space-y-3">
             <div className="flex gap-4">
-              <dt className="text-sm text-[#a08060] w-24 shrink-0">Category</dt>
+              <dt className="text-sm text-[#8a6a4a] w-24 shrink-0">Category</dt>
               <dd className="text-sm text-[#3b2f2f]">{category}</dd>
             </div>
             <div className="flex gap-4">
-              <dt className="text-sm text-[#a08060] w-24 shrink-0">Location</dt>
+              <dt className="text-sm text-[#8a6a4a] w-24 shrink-0">Location</dt>
               <dd className="text-sm text-[#3b2f2f]">{vendor.city}, {vendor.state}</dd>
             </div>
             {vendor.priceTier && (
               <div className="flex gap-4">
-                <dt className="text-sm text-[#a08060] w-24 shrink-0">Price range</dt>
+                <dt className="text-sm text-[#8a6a4a] w-24 shrink-0">Price range</dt>
                 <dd className="text-sm text-[#3b2f2f]">{vendor.priceTier}</dd>
               </div>
             )}
             {vendor.phone && (
               <div className="flex gap-4">
-                <dt className="text-sm text-[#a08060] w-24 shrink-0">Phone</dt>
+                <dt className="text-sm text-[#8a6a4a] w-24 shrink-0">Phone</dt>
                 <dd className="text-sm text-[#3b2f2f]">
                   <a href={`tel:${vendor.phone}`} className="hover:text-[#d4af6a] transition">{vendor.phone}</a>
                 </dd>
@@ -236,7 +236,7 @@ export default function VendorPageClient({ vendor, portfolioPhotos, category }: 
             )}
             {vendor.contactEmail && (
               <div className="flex gap-4">
-                <dt className="text-sm text-[#a08060] w-24 shrink-0">Email</dt>
+                <dt className="text-sm text-[#8a6a4a] w-24 shrink-0">Email</dt>
                 <dd className="text-sm text-[#3b2f2f]">
                   <a href={`mailto:${vendor.contactEmail}`} className="hover:text-[#d4af6a] transition break-all">
                     {vendor.contactEmail}
@@ -246,7 +246,7 @@ export default function VendorPageClient({ vendor, portfolioPhotos, category }: 
             )}
             {safeWebsiteUrl && (
               <div className="flex gap-4">
-                <dt className="text-sm text-[#a08060] w-24 shrink-0">Website</dt>
+                <dt className="text-sm text-[#8a6a4a] w-24 shrink-0">Website</dt>
                 <dd className="text-sm text-[#3b2f2f]">
                   <a
                     href={safeWebsiteUrl}
@@ -260,7 +260,7 @@ export default function VendorPageClient({ vendor, portfolioPhotos, category }: 
               </div>
             )}
             <div className="flex gap-4">
-              <dt className="text-sm text-[#a08060] w-24 shrink-0">Faith</dt>
+              <dt className="text-sm text-[#8a6a4a] w-24 shrink-0">Faith</dt>
               <dd className="text-sm text-[#3b2f2f]">
                 {vendor.isChristianOwned ? 'Christian-owned business' : 'Works with faith-based couples'}
               </dd>

@@ -41,8 +41,8 @@ export default async function PhotosPage(
       {photos.length === 0 ? (
         <div className="text-center py-16">
           <Camera className="w-12 h-12 text-stone-300 mx-auto mb-4" strokeWidth={1.5} />
-          <p className="font-serif text-2xl text-[#a08060] mb-2">Photos coming soon</p>
-          <p className="text-sm text-[#a08060]">
+          <p className="font-serif text-2xl text-[#8a6a4a] mb-2">Photos coming soon</p>
+          <p className="text-sm text-[#8a6a4a]">
             {wedding.partnerTwoName} & {wedding.partnerOneName} will share photos here.
           </p>
         </div>
@@ -60,7 +60,7 @@ export default async function PhotosPage(
               />
               {photo.caption && (
                 <div className="px-3 py-2 bg-white">
-                  <p className="text-xs text-[#a08060] leading-relaxed">{photo.caption}</p>
+                  <p className="text-xs text-[#8a6a4a] leading-relaxed">{photo.caption}</p>
                 </div>
               )}
             </div>

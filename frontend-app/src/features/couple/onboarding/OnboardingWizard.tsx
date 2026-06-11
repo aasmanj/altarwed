@@ -259,7 +259,7 @@ export default function OnboardingWizard() {
 
         {/* Progress */}
         <div className="mb-8 text-center">
-          <p className="text-xs uppercase tracking-widest text-[#a08060] mb-2">
+          <p className="text-xs uppercase tracking-widest text-[#8a6a4a] mb-2">
             Step {step} of {TOTAL_STEPS}
           </p>
           <div className="h-1.5 w-full max-w-xs mx-auto rounded-full bg-[#e8dcc8] overflow-hidden">
@@ -381,7 +381,7 @@ export default function OnboardingWizard() {
         </div>
 
         {/* Bottom hint */}
-        <p className="text-center text-xs text-[#a08060] mt-6">
+        <p className="text-center text-xs text-[#8a6a4a] mt-6">
           You can change everything later in the side-by-side editor.
         </p>
       </div>
@@ -448,7 +448,7 @@ function Step2UrlDate({
       <div>
         <label className="block text-sm font-medium text-[#3b2f2f] mb-1">Website URL</label>
         <div className={`flex items-center rounded-lg border overflow-hidden focus-within:ring-1 ${isTaken ? 'border-rose-400 focus-within:ring-rose-400' : isAvailable ? 'border-emerald-400 focus-within:ring-emerald-400' : 'border-[#e8dcc8] focus-within:border-[#d4af6a] focus-within:ring-[#d4af6a]'}`}>
-          <span className="px-3 py-3 bg-[#f5ede0] text-[#a08060] text-sm whitespace-nowrap border-r border-[#e8dcc8]">
+          <span className="px-3 py-3 bg-[#f5ede0] text-[#8a6a4a] text-sm whitespace-nowrap border-r border-[#e8dcc8]">
             altarwed.com/wedding/
           </span>
           <input
@@ -460,7 +460,7 @@ function Step2UrlDate({
           {showStatus && (
             <span className="px-3 shrink-0">
               {isFetching
-                ? <Loader2 className="w-4 h-4 animate-spin text-[#a08060]" />
+                ? <Loader2 className="w-4 h-4 animate-spin text-[#8a6a4a]" />
                 : isAvailable
                 ? <Check className="w-4 h-4 text-emerald-500" />
                 : isTaken
@@ -469,7 +469,7 @@ function Step2UrlDate({
             </span>
           )}
         </div>
-        <p id="slug-status" className={`text-xs mt-1 ${isTaken ? 'text-rose-600' : isAvailable ? 'text-emerald-600' : 'text-[#a08060]'}`}>
+        <p id="slug-status" className={`text-xs mt-1 ${isTaken ? 'text-rose-600' : isAvailable ? 'text-emerald-600' : 'text-[#8a6a4a]'}`}>
           {isTaken
             ? 'That URL is already taken. Try adding your wedding date or location.'
             : isAvailable
@@ -480,7 +480,7 @@ function Step2UrlDate({
       {!dateLocked && (
         <div>
           <label className="block text-sm font-medium text-[#3b2f2f] mb-1">
-            Wedding date <span className="text-[#a08060] font-normal">(optional)</span>
+            Wedding date <span className="text-[#8a6a4a] font-normal">(optional)</span>
           </label>
           <input type="date" value={weddingDate} onChange={e => onWeddingDate(e.target.value)} className={inputCls} />
           {weddingDate && weddingDate < new Date().toISOString().slice(0, 10) && (
@@ -491,7 +491,7 @@ function Step2UrlDate({
         </div>
       )}
       {dateLocked && weddingDate && (
-        <div className="rounded-lg bg-[#fdfaf6] border border-[#e8dcc8] px-4 py-3 text-sm text-[#a08060]">
+        <div className="rounded-lg bg-[#fdfaf6] border border-[#e8dcc8] px-4 py-3 text-sm text-[#8a6a4a]">
           Wedding date: <span className="text-[#3b2f2f] font-medium">{formatShortDate(weddingDate)}</span>
           <span className="block text-xs mt-0.5">You can change this any time in your dashboard.</span>
         </div>
@@ -623,7 +623,7 @@ function Step5Hero({
           ariaLabel="Upload a hero photo"
           className="block w-full rounded-lg border-2 border-dashed border-[#e8dcc8] hover:border-[#d4af6a] transition"
         >
-          <span className="block w-full text-center py-4 text-sm text-[#a08060]">
+          <span className="block w-full text-center py-4 text-sm text-[#8a6a4a]">
             <ImagePlus className="inline-block w-4 h-4 mr-1" />
             Drag a photo here, or click to choose (JPEG, PNG, WebP, HEIC up to 15 MB)
           </span>
@@ -633,7 +633,7 @@ function Step5Hero({
             {heroError}
           </p>
         )}
-        <p className="mt-2 text-xs text-[#a08060] leading-snug">
+        <p className="mt-2 text-xs text-[#8a6a4a] leading-snug">
           A wide landscape photo works best. Tall portrait shots get cropped top and bottom in the banner.
         </p>
       </div>
@@ -662,11 +662,11 @@ function Step6Scripture({
       {selectedText && (
         <div className="rounded-xl bg-[#fdfaf6] border border-[#d4af6a] px-4 py-3">
           <p className="font-serif italic text-[#3b2f2f] text-sm leading-relaxed">&ldquo;{selectedText}&rdquo;</p>
-          <p className="mt-2 text-xs text-[#a08060] uppercase tracking-wider">{selectedReference}</p>
+          <p className="mt-2 text-xs text-[#8a6a4a] uppercase tracking-wider">{selectedReference}</p>
         </div>
       )}
 
-      {isLoadingFeatured && <p className="text-sm text-[#a08060]">Loading…</p>}
+      {isLoadingFeatured && <p className="text-sm text-[#8a6a4a]">Loading…</p>}
 
       {!isLoadingFeatured && featured.length > 0 && (
         <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
@@ -692,7 +692,7 @@ function Step6Scripture({
       )}
 
       {isFetching && (
-        <p className="text-xs text-[#a08060] flex items-center gap-2">
+        <p className="text-xs text-[#8a6a4a] flex items-center gap-2">
           <Loader2 className="w-3 h-3 animate-spin" /> Fetching verse…
         </p>
       )}
@@ -727,7 +727,7 @@ function Step7Registry({
               className={`rounded-full border px-2.5 py-1 text-xs transition ${
                 registryLabel === name
                   ? 'border-[#d4af6a] bg-[#d4af6a] text-white'
-                  : 'border-[#e8dcc8] text-[#a08060] hover:border-[#d4af6a] hover:text-[#3b2f2f]'
+                  : 'border-[#e8dcc8] text-[#8a6a4a] hover:border-[#d4af6a] hover:text-[#3b2f2f]'
               }`}
             >
               {name}
@@ -761,7 +761,7 @@ function Step8Confirm({
       <div className="text-center mb-6">
         <Sparkles className="w-10 h-10 text-[#d4af6a] mx-auto mb-3" />
         <h2 className="font-serif text-2xl font-bold text-[#3b2f2f] mb-1">Ready to launch</h2>
-        <p className="text-sm text-[#a08060]">We&apos;ll build your draft site with what you gave us.</p>
+        <p className="text-sm text-[#8a6a4a]">We&apos;ll build your draft site with what you gave us.</p>
       </div>
 
       <div className="rounded-xl bg-[#fdfaf6] border border-[#e8dcc8] p-5 space-y-3">
@@ -771,22 +771,22 @@ function Step8Confirm({
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs uppercase tracking-widest text-[#a08060]">Site content</p>
+        <p className="text-xs uppercase tracking-widest text-[#8a6a4a]">Site content</p>
         {items.map(([key, label]) => (
           <div key={key} className="flex items-center gap-2 text-sm">
             <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${
-              filledChecklist[key] ? 'bg-[#d4af6a] text-white' : 'bg-[#e8dcc8] text-[#a08060]'
+              filledChecklist[key] ? 'bg-[#d4af6a] text-white' : 'bg-[#e8dcc8] text-[#8a6a4a]'
             }`}>
               {filledChecklist[key] ? <Check className="w-3 h-3" /> : null}
             </span>
-            <span className={filledChecklist[key] ? 'text-[#3b2f2f]' : 'text-[#a08060]'}>
+            <span className={filledChecklist[key] ? 'text-[#3b2f2f]' : 'text-[#8a6a4a]'}>
               {label}{filledChecklist[key] ? '' : ' (add later)'}
             </span>
           </div>
         ))}
       </div>
 
-      <p className="text-xs text-center text-[#a08060]">
+      <p className="text-xs text-center text-[#8a6a4a]">
         Your site starts as a draft. Publish it when you&apos;re ready for guests to see it.
       </p>
 
@@ -822,7 +822,7 @@ function Header({ icon, title, subtitle }: { icon?: React.ReactNode; title: stri
     <div className="text-center mb-2">
       {icon && <div className="flex justify-center mb-3">{icon}</div>}
       <h2 className="font-serif text-2xl font-bold text-[#3b2f2f] mb-1">{title}</h2>
-      <p className="text-sm text-[#a08060]">{subtitle}</p>
+      <p className="text-sm text-[#8a6a4a]">{subtitle}</p>
     </div>
   )
 }
@@ -840,7 +840,7 @@ function LabeledInput({
     <div>
       <label htmlFor={id} className="block text-sm font-medium text-[#3b2f2f] mb-1">{label}</label>
       <input id={id} value={value} onChange={e => onChange(e.target.value)} className={inputCls} placeholder={placeholder} />
-      {hint && <p className="text-xs text-[#a08060] mt-1">{hint}</p>}
+      {hint && <p className="text-xs text-[#8a6a4a] mt-1">{hint}</p>}
     </div>
   )
 }
@@ -889,7 +889,7 @@ function Nav({ onBack, onNext, disableNext, nextLabel = 'Continue →' }: {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between items-start gap-4">
-      <span className="text-sm text-[#a08060] shrink-0">{label}</span>
+      <span className="text-sm text-[#8a6a4a] shrink-0">{label}</span>
       <span className="text-sm font-medium text-[#3b2f2f] text-right">{value}</span>
     </div>
   )

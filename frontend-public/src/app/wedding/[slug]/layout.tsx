@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import WeddingNav from './WeddingNav'
 import ComingSoon from './ComingSoon'
-import { parseTabCustomisation } from './data'
+import { parseTabCustomisation, hasWeddingPartyMembers, hasWeddingPhotos } from './data'
 import FloatingEditButton from '@/components/FloatingEditButton'
 import { getWedding } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
@@ -76,6 +76,14 @@ export default async function WeddingLayout({
   const hasDetails  = !!(wedding.venueName || wedding.ceremonyTime || wedding.dressCode)
   const hasRegistry = !!(wedding.registryUrl1 || wedding.registryUrl2 || wedding.registryUrl3)
   const hasTravel   = !!(wedding.hotelName)
+
+  // Wedding Party and Photos have no scalar flag on the wedding record (their
+  // content lives in separate tables), so gate them on a real content check.
+  // Run in parallel; both are cached, so this adds no perceptible render cost.
+  const [hasParty, hasPhotos] = await Promise.all([
+    hasWeddingPartyMembers(wedding.id),
+    hasWeddingPhotos(slug),
+  ])
 
   // Parse the couple's tab customisations (hidden tabs + relabeled tabs).
   // Done on every layout render so changes from the editor show up after the
@@ -234,7 +242,8 @@ export default async function WeddingLayout({
         slug={slug}
         hasStory={hasStory}
         hasDetails={hasDetails}
-        hasParty={true}
+        hasParty={hasParty}
+        hasPhotos={hasPhotos}
         hasRegistry={hasRegistry}
         hasTravel={hasTravel}
         hiddenTabs={tabCustom.hidden}
@@ -247,7 +256,7 @@ export default async function WeddingLayout({
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[#e8dcc8] py-12 text-center text-sm text-[#a08060] space-y-4">
+      <footer className="border-t border-[#e8dcc8] py-12 text-center text-sm text-[#8a6a4a] space-y-4">
         <p className="text-xs uppercase tracking-widest text-[#c4a882] font-medium">
           Created on AltarWed
         </p>

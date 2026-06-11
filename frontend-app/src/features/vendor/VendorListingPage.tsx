@@ -136,7 +136,7 @@ export default function VendorListingPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#fdfaf6] flex items-center justify-center">
-        <p className="text-[#a08060] animate-pulse">Loading…</p>
+        <p className="text-[#8a6a4a] animate-pulse">Loading…</p>
       </div>
     )
   }
@@ -145,7 +145,7 @@ export default function VendorListingPage() {
     <div className="min-h-screen bg-[#fdfaf6]">
       <header className="border-b border-[#e8dcc8] bg-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
         <span className="font-serif text-xl font-bold text-[#3b2f2f] shrink-0">AltarWed</span>
-        <Link to="/vendor" className="shrink-0 text-sm text-[#a08060] hover:text-[#3b2f2f] transition">
+        <Link to="/vendor" className="shrink-0 text-sm text-[#8a6a4a] hover:text-[#3b2f2f] transition">
           ← Dashboard
         </Link>
       </header>
@@ -164,7 +164,7 @@ export default function VendorListingPage() {
                 {vendor.isVerified ? 'Verified' : 'Pending verification'}
               </span>
               {!vendor.isVerified && (
-                <p className="text-xs text-[#a08060] mt-0.5">
+                <p className="text-xs text-[#8a6a4a] mt-0.5">
                   Your listing is under review. Once verified, it will appear in the public directory.
                 </p>
               )}
@@ -181,7 +181,7 @@ export default function VendorListingPage() {
               <div className="h-16 w-16 rounded-full bg-[#f5ede0] border border-[#e8dcc8] flex items-center justify-center shrink-0 overflow-hidden">
                 {vendor?.logoUrl
                   ? <img src={vendor.logoUrl} alt={`${form.businessName} logo`} className="h-full w-full object-cover" />
-                  : <span className="font-serif text-2xl text-[#a08060]">{form.businessName.charAt(0) || '?'}</span>
+                  : <span className="font-serif text-2xl text-[#8a6a4a]">{form.businessName.charAt(0) || '?'}</span>
                 }
               </div>
               <div>
@@ -198,11 +198,11 @@ export default function VendorListingPage() {
                   type="button"
                   onClick={() => logoInputRef.current?.click()}
                   disabled={uploadLogo.isPending}
-                  className="text-sm font-medium text-[#d4af6a] hover:text-[#a08060] transition disabled:opacity-50"
+                  className="text-sm font-medium text-[#d4af6a] hover:text-[#8a6a4a] transition disabled:opacity-50"
                 >
                   {uploadLogo.isPending ? 'Uploading…' : vendor?.logoUrl ? 'Change logo' : 'Upload logo'}
                 </button>
-                <p className="text-xs text-[#a08060] mt-0.5">JPEG, PNG, or WebP, max 15 MB</p>
+                <p className="text-xs text-[#8a6a4a] mt-0.5">JPEG, PNG, or WebP, max 15 MB</p>
                 {logoError && <p role="alert" className="text-xs text-red-600 mt-1">{logoError}</p>}
               </div>
             </div>
@@ -222,10 +222,10 @@ export default function VendorListingPage() {
               type="email"
               value={vendor?.email ?? ''}
               readOnly
-              className={`${inputCls} bg-[#fdfaf6] text-[#a08060] cursor-default`}
+              className={`${inputCls} bg-[#fdfaf6] text-[#8a6a4a] cursor-default`}
               aria-describedby="accountEmailHint"
             />
-            <p id="accountEmailHint" className="text-xs text-[#a08060] mt-1">
+            <p id="accountEmailHint" className="text-xs text-[#8a6a4a] mt-1">
               This is your login email. To change it, contact support.
             </p>
           </div>
@@ -241,7 +241,7 @@ export default function VendorListingPage() {
               className={inputCls}
               maxLength={255}
             />
-            <p className="text-xs text-[#a08060] mt-1">
+            <p className="text-xs text-[#8a6a4a] mt-1">
               Optional. Shown publicly on your listing so couples can reach you. Leave blank to use your account email.
             </p>
           </div>
@@ -277,7 +277,7 @@ export default function VendorListingPage() {
           {/* Bio */}
           <div>
             <label htmlFor="bio" className={labelCls}>
-              Short bio <span className="text-[#a08060] font-normal">(shown on listing card)</span>
+              Short bio <span className="text-[#8a6a4a] font-normal">(shown on listing card)</span>
             </label>
             <textarea
               id="bio"
@@ -288,13 +288,13 @@ export default function VendorListingPage() {
               maxLength={1000}
               placeholder="One or two sentences about what makes your business unique"
             />
-            <p className="text-xs text-[#a08060] mt-1">{form.bio.length}/1000</p>
+            <p className="text-xs text-[#8a6a4a] mt-1">{form.bio.length}/1000</p>
           </div>
 
           {/* Description */}
           <div>
             <label htmlFor="description" className={labelCls}>
-              Full description <span className="text-[#a08060] font-normal">(shown on your listing page)</span>
+              Full description <span className="text-[#8a6a4a] font-normal">(shown on your listing page)</span>
             </label>
             <textarea
               id="description"
@@ -305,7 +305,7 @@ export default function VendorListingPage() {
               maxLength={2000}
               placeholder="Tell couples about your services, style, packages, and what a couple can expect when working with you"
             />
-            <p className="text-xs text-[#a08060] mt-1">{form.description.length}/2000</p>
+            <p className="text-xs text-[#8a6a4a] mt-1">{form.description.length}/2000</p>
           </div>
 
           {/* Website + Phone */}
@@ -322,7 +322,7 @@ export default function VendorListingPage() {
                 maxLength={500}
               />
               {form.websiteUrl && !/^https?:\/\//i.test(form.websiteUrl) && (
-                <p className="text-xs text-[#a08060] mt-1">Will be saved as: {normalizeUrl(form.websiteUrl)}</p>
+                <p className="text-xs text-[#8a6a4a] mt-1">Will be saved as: {normalizeUrl(form.websiteUrl)}</p>
               )}
             </div>
             <div>
@@ -335,7 +335,7 @@ export default function VendorListingPage() {
                 className={inputCls}
                 maxLength={30}
               />
-              <p className="text-xs text-[#a08060] mt-1">Include area code</p>
+              <p className="text-xs text-[#8a6a4a] mt-1">Include area code</p>
             </div>
           </div>
 
@@ -350,7 +350,7 @@ export default function VendorListingPage() {
             />
             <span className="flex flex-col">
               <span className="text-sm font-medium text-[#3b2f2f]">Christian-owned business</span>
-              <span className="text-xs text-[#a08060]">Shown as a badge on your listing</span>
+              <span className="text-xs text-[#8a6a4a]">Shown as a badge on your listing</span>
             </span>
           </label>
 
@@ -364,7 +364,7 @@ export default function VendorListingPage() {
                 <span className="text-sm text-green-600 font-medium">Saved ✓</span>
               )}
               {!saveError && saved === false && (
-                <span className="text-sm text-[#a08060]">Unsaved changes</span>
+                <span className="text-sm text-[#8a6a4a]">Unsaved changes</span>
               )}
             </div>
             <button
@@ -385,7 +385,7 @@ export default function VendorListingPage() {
           </div>
 
           {portfolioPhotos.isLoading && (
-            <p className="text-sm text-[#a08060] animate-pulse">Loading photos…</p>
+            <p className="text-sm text-[#8a6a4a] animate-pulse">Loading photos…</p>
           )}
 
           {!portfolioPhotos.isLoading && (portfolioPhotos.data?.length ?? 0) > 0 && (
@@ -420,7 +420,7 @@ export default function VendorListingPage() {
                         ;[newIds[index - 1], newIds[index]] = [newIds[index], newIds[index - 1]]
                         reorderPortfolioPhotos.mutate(newIds)
                       }}
-                      className="text-[#a08060] hover:text-[#3b2f2f] disabled:opacity-30 transition text-xs px-1"
+                      className="text-[#8a6a4a] hover:text-[#3b2f2f] disabled:opacity-30 transition text-xs px-1"
                       aria-label="Move photo up"
                     >
                       ↑
@@ -434,7 +434,7 @@ export default function VendorListingPage() {
                         ;[newIds[index], newIds[index + 1]] = [newIds[index + 1], newIds[index]]
                         reorderPortfolioPhotos.mutate(newIds)
                       }}
-                      className="text-[#a08060] hover:text-[#3b2f2f] disabled:opacity-30 transition text-xs px-1"
+                      className="text-[#8a6a4a] hover:text-[#3b2f2f] disabled:opacity-30 transition text-xs px-1"
                       aria-label="Move photo down"
                     >
                       ↓
@@ -483,7 +483,7 @@ export default function VendorListingPage() {
           />
 
           {(portfolioPhotos.data?.length ?? 0) >= 10 ? (
-            <p className="text-sm text-[#a08060]">Portfolio full (10/10). Delete a photo to add another.</p>
+            <p className="text-sm text-[#8a6a4a]">Portfolio full (10/10). Delete a photo to add another.</p>
           ) : (
             <button
               type="button"

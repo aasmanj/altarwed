@@ -14,7 +14,7 @@ export default function InquiriesPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#fdfaf6] flex items-center justify-center">
-        <p className="text-[#a08060] animate-pulse">Loading…</p>
+        <p className="text-[#8a6a4a] animate-pulse">Loading…</p>
       </div>
     )
   }
@@ -23,7 +23,7 @@ export default function InquiriesPage() {
     <div className="min-h-screen bg-[#fdfaf6]">
       <header className="border-b border-[#e8dcc8] bg-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
         <span className="font-serif text-xl font-bold text-[#3b2f2f] shrink-0">AltarWed</span>
-        <Link to="/vendor" className="shrink-0 text-sm text-[#a08060] hover:text-[#3b2f2f] transition">
+        <Link to="/vendor" className="shrink-0 text-sm text-[#8a6a4a] hover:text-[#3b2f2f] transition">
           ← Dashboard
         </Link>
       </header>
@@ -32,7 +32,7 @@ export default function InquiriesPage() {
         <div className="mb-6">
           <h1 className="font-serif text-2xl font-bold text-[#3b2f2f]">Inquiries</h1>
           {unreadCount > 0 && (
-            <p className="text-sm text-[#a08060] mt-1">
+            <p className="text-sm text-[#8a6a4a] mt-1">
               {unreadCount} unread {unreadCount === 1 ? 'message' : 'messages'}
             </p>
           )}
@@ -40,8 +40,8 @@ export default function InquiriesPage() {
 
         {inquiries.length === 0 ? (
           <div className="rounded-2xl border border-[#e8dcc8] bg-white p-10 text-center">
-            <p className="text-[#a08060]">No inquiries yet.</p>
-            <p className="text-sm text-[#a08060] mt-1">
+            <p className="text-[#8a6a4a]">No inquiries yet.</p>
+            <p className="text-sm text-[#8a6a4a] mt-1">
               When couples contact you through your listing, their messages will appear here.
             </p>
           </div>
@@ -66,16 +66,16 @@ export default function InquiriesPage() {
                       )}
                     </p>
                     {inquiry.weddingDate && (
-                      <p className="text-xs text-[#a08060]">Wedding date: {inquiry.weddingDate}</p>
+                      <p className="text-xs text-[#8a6a4a]">Wedding date: {inquiry.weddingDate}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <time className="text-xs text-[#a08060]">{formatDate(inquiry.createdAt)}</time>
+                    <time className="text-xs text-[#8a6a4a]">{formatDate(inquiry.createdAt)}</time>
                     {!inquiry.isRead && (
                       <button
                         onClick={() => markRead.mutate(inquiry.id)}
                         disabled={markRead.isPending}
-                        className="text-xs text-[#d4af6a] hover:text-[#a08060] transition"
+                        className="text-xs text-[#d4af6a] hover:text-[#8a6a4a] transition"
                       >
                         Mark read
                       </button>
@@ -84,7 +84,7 @@ export default function InquiriesPage() {
                 </div>
                 <p className="text-sm text-[#3b2f2f] whitespace-pre-line mb-4">{inquiry.message}</p>
                 <div className="flex items-center justify-between pt-3 border-t border-[#f0e8d8]">
-                  <p className="text-xs text-[#a08060]">
+                  <p className="text-xs text-[#8a6a4a]">
                     Reply directly to the couple's email below. Your response goes straight to their inbox.
                   </p>
                   <a

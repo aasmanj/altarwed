@@ -118,7 +118,7 @@ export default async function VendorsPage({
 
         {/* Price-tier filters */}
         <div className="flex flex-wrap items-center gap-2 mb-8">
-          <span className="text-xs uppercase tracking-widest text-[#a08060] mr-1">Price</span>
+          <span className="text-xs uppercase tracking-widest text-[#8a6a4a] mr-1">Price</span>
           <FilterChip label="Any" href={buildHref({ tier: undefined })} active={!tier} />
           {PRICE_TIERS.map(t => (
             <FilterChip key={t} label={t} href={buildHref({ tier: t })} active={tier === t} />
@@ -141,7 +141,7 @@ export default async function VendorsPage({
           </button>
           {city && (
             <Link href={`/vendors${category ? `?category=${category}` : ''}`}
-              className="rounded-lg border border-[#e8dcc8] px-4 py-2 text-sm text-[#a08060] hover:text-[#3b2f2f] transition">
+              className="rounded-lg border border-[#e8dcc8] px-4 py-2 text-sm text-[#8a6a4a] hover:text-[#3b2f2f] transition">
               Clear
             </Link>
           )}
@@ -150,8 +150,8 @@ export default async function VendorsPage({
         {/* Grid */}
         {vendors.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-[#a08060] text-lg mb-2">No vendors listed yet in this area</p>
-            <p className="text-sm text-[#a08060]">
+            <p className="text-[#8a6a4a] text-lg mb-2">No vendors listed yet in this area</p>
+            <p className="text-sm text-[#8a6a4a]">
               Are you a vendor?{' '}
               <a href="https://app.altarwed.com/register/vendor" className="text-[#d4af6a] hover:underline">
                 List your business →
@@ -170,12 +170,12 @@ export default async function VendorsPage({
                   <div className="h-12 w-12 rounded-full bg-[#f5ede0] border border-[#e8dcc8] flex items-center justify-center shrink-0 overflow-hidden">
                     {vendor.logoUrl
                       ? <img src={vendor.logoUrl} alt={`${vendor.businessName} logo`} className="h-full w-full object-cover" />
-                      : <span className="font-serif text-xl text-[#a08060]">{vendor.businessName.charAt(0)}</span>
+                      : <span className="font-serif text-xl text-[#8a6a4a]">{vendor.businessName.charAt(0)}</span>
                     }
                   </div>
                   <div className="flex flex-col gap-1 items-end">
                     {vendor.isChristianOwned && (
-                      <span className="text-xs bg-[#d4af6a]/10 text-[#a08060] font-medium px-2 py-0.5 rounded-full">
+                      <span className="text-xs bg-[#d4af6a]/10 text-[#8a6a4a] font-medium px-2 py-0.5 rounded-full">
                         ✝ Christian-owned
                       </span>
                     )}
@@ -191,7 +191,7 @@ export default async function VendorsPage({
                   {CATEGORY_LABELS[vendor.category] ?? vendor.category}
                 </p>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm text-[#a08060]">{vendor.city}, {vendor.state}</p>
+                  <p className="text-sm text-[#8a6a4a]">{vendor.city}, {vendor.state}</p>
                   {vendor.priceTier && (
                     <span className="text-xs font-semibold text-[#6b5344]">{vendor.priceTier}</span>
                   )}

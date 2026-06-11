@@ -19,8 +19,8 @@ export default function VendorDashboard() {
       <header className="border-b border-[#e8dcc8] bg-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
         <span className="font-serif text-xl font-bold text-[#3b2f2f] shrink-0">AltarWed</span>
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-          <span className="text-sm text-[#a08060] truncate hidden sm:block">{user?.email}</span>
-          <button onClick={logout} className="shrink-0 text-sm text-[#a08060] hover:text-[#3b2f2f] transition py-2 px-3 rounded-lg hover:bg-[#fdfaf6]">
+          <span className="text-sm text-[#8a6a4a] truncate hidden sm:block">{user?.email}</span>
+          <button onClick={logout} className="shrink-0 text-sm text-[#8a6a4a] hover:text-[#3b2f2f] transition py-2 px-3 rounded-lg hover:bg-[#fdfaf6]">
             Sign out
           </button>
         </div>
@@ -30,7 +30,7 @@ export default function VendorDashboard() {
         <h1 className="font-serif text-2xl font-bold text-[#3b2f2f] mb-1">
           Welcome, {displayName}
         </h1>
-        <p className="text-[#a08060] text-sm mb-6">Your vendor dashboard</p>
+        <p className="text-[#8a6a4a] text-sm mb-6">Your vendor dashboard</p>
 
         {vendor && !vendor.isVerified && (
           <div className="mb-6 rounded-xl border border-[#d4af6a]/50 bg-[#fdf6eb] px-5 py-4 flex items-start justify-between gap-4">
@@ -73,10 +73,10 @@ export default function VendorDashboard() {
             description={
               stats
                 ? `${stats.viewCount} profile views · ${stats.inquiryCount} total inquiries`
-                : 'Profile views and inquiry trends'
+                : 'No views yet. Share your listing to start tracking.'
             }
             href="#"
-            live={!!stats}
+            passive
           />
           <DashboardCard
             title="Subscription"
@@ -106,7 +106,7 @@ export default function VendorDashboard() {
                 altarwed.com/vendors/{vendor.id} ↗
               </a>
             ) : (
-              <p className="text-sm text-[#a08060]">
+              <p className="text-sm text-[#8a6a4a]">
                 Your listing will appear here once you{' '}
                 <Link to="/vendor/subscription" className="text-[#3b2f2f] font-medium hover:underline">
                   subscribe
@@ -115,7 +115,7 @@ export default function VendorDashboard() {
               </p>
             )
           ) : (
-            <p className="text-sm text-[#a08060]">Complete your listing to appear in search results</p>
+            <p className="text-sm text-[#8a6a4a]">Complete your listing to appear in search results</p>
           )}
         </div>
       </main>
@@ -123,26 +123,32 @@ export default function VendorDashboard() {
   )
 }
 
-function DashboardCard({ title, description, href, live, comingSoon, badge }: {
+function DashboardCard({ title, description, href, live, comingSoon, passive, badge }: {
   title: string
   description: string
   href: string
   live?: boolean
   comingSoon?: boolean
+  // passive: a non-clickable card that still shows real data (e.g. Analytics).
+  // Rendered at full opacity so live numbers never look like a broken/disabled
+  // link, distinct from comingSoon which is intentionally greyed out.
+  passive?: boolean
   badge?: string
 }) {
   const isLive = live && href !== '#'
   const cardCls = 'block rounded-xl border bg-white p-6 transition ' +
     (isLive
       ? 'border-[#d4af6a] hover:shadow-md cursor-pointer'
-      : 'border-[#e8dcc8] opacity-60 cursor-not-allowed')
+      : passive
+        ? 'border-[#e8dcc8] cursor-default'
+        : 'border-[#e8dcc8] opacity-60 cursor-not-allowed')
 
   const inner = (
     <>
       <div className="flex items-start justify-between gap-2 mb-1">
         <h3 className="font-serif text-lg font-semibold text-[#3b2f2f]">{title}</h3>
         {comingSoon && (
-          <span className="shrink-0 text-xs font-medium text-[#a08060] bg-[#f5ede0] px-2 py-0.5 rounded-full">
+          <span className="shrink-0 text-xs font-medium text-[#8a6a4a] bg-[#f5ede0] px-2 py-0.5 rounded-full">
             Soon
           </span>
         )}
@@ -152,7 +158,7 @@ function DashboardCard({ title, description, href, live, comingSoon, badge }: {
           </span>
         )}
       </div>
-      <p className="text-sm text-[#a08060]">{description}</p>
+      <p className="text-sm text-[#8a6a4a]">{description}</p>
     </>
   )
 

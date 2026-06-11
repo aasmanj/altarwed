@@ -105,7 +105,7 @@ export default function RegisterVendorPage() {
     <div className="min-h-screen bg-[#fdfaf6] flex flex-col">
       <header className="px-6 py-4 flex items-center justify-between border-b border-[#e8dcc8] bg-white">
         <span className="font-serif text-xl font-bold text-[#3b2f2f]">AltarWed</span>
-        <Link to="/login" className="text-sm text-[#a08060] hover:text-[#3b2f2f] transition">
+        <Link to="/login" className="text-sm text-[#8a6a4a] hover:text-[#3b2f2f] transition">
           Have an account? Sign in
         </Link>
       </header>
@@ -121,7 +121,7 @@ export default function RegisterVendorPage() {
             />
           ))}
         </div>
-        <p className="text-xs text-[#a08060] mt-2">
+        <p className="text-xs text-[#8a6a4a] mt-2">
           Step {step + 1} of {TOTAL_STEPS}: {STEP_LABELS[step]}
         </p>
       </div>
@@ -215,7 +215,7 @@ function CategoryStep({
     <div className="space-y-5 pt-4">
       <div>
         <h1 className="font-serif text-2xl font-bold text-[#3b2f2f]">What type of business are you?</h1>
-        <p className="text-sm text-[#a08060] mt-1">Choose the category that best describes your services.</p>
+        <p className="text-sm text-[#8a6a4a] mt-1">Choose the category that best describes your services.</p>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -246,7 +246,7 @@ function CategoryStep({
         />
         <span className="flex flex-col">
           <span className="text-sm font-medium text-[#3b2f2f]">This is a Christian-owned business</span>
-          <span className="text-xs text-[#a08060]">Shows a badge on your listing</span>
+          <span className="text-xs text-[#8a6a4a]">Shows a badge on your listing</span>
         </span>
       </label>
 
@@ -259,7 +259,7 @@ function CategoryStep({
         Continue
       </button>
 
-      <p className="text-center text-sm text-[#a08060]">
+      <p className="text-center text-sm text-[#8a6a4a]">
         Planning a wedding?{' '}
         <Link to="/register" className="text-[#3b2f2f] font-medium hover:underline">Sign up as a couple</Link>
       </p>
@@ -283,7 +283,7 @@ function DetailsStep({
     <div className="space-y-5 pt-4">
       <div>
         <h1 className="font-serif text-2xl font-bold text-[#3b2f2f]">Tell us about your business</h1>
-        <p className="text-sm text-[#a08060] mt-1">This is what couples see when they find your listing.</p>
+        <p className="text-sm text-[#8a6a4a] mt-1">This is what couples see when they find your listing.</p>
       </div>
 
       <div className="bg-white rounded-2xl border border-[#e8dcc8] p-6 space-y-4">
@@ -315,7 +315,7 @@ function DetailsStep({
               className={inputCls}
               maxLength={50}
             />
-            <p className="text-xs text-[#a08060] mt-1">2-letter abbreviation</p>
+            <p className="text-xs text-[#8a6a4a] mt-1">2-letter abbreviation</p>
           </div>
         </div>
       </div>
@@ -359,7 +359,7 @@ function AccountStep({
     <div className="space-y-5 pt-4">
       <div>
         <h1 className="font-serif text-2xl font-bold text-[#3b2f2f]">Create your account</h1>
-        <p className="text-sm text-[#a08060] mt-1">This is how you'll log in to manage your listing.</p>
+        <p className="text-sm text-[#8a6a4a] mt-1">This is how you'll log in to manage your listing.</p>
       </div>
 
       <div className="bg-white rounded-2xl border border-[#e8dcc8] p-6 space-y-4">
@@ -384,7 +384,7 @@ function AccountStep({
             className={inputCls}
             autoComplete="new-password"
           />
-          <p className="text-xs text-[#a08060] mt-1">At least 8 characters</p>
+          <p className="text-xs text-[#8a6a4a] mt-1">At least 8 characters</p>
         </div>
         <div>
           <label htmlFor="wiz-confirmPassword" className={labelCls}>Confirm password *</label>
@@ -438,7 +438,7 @@ function StripeStep({
       <div className="text-center py-3">
         <div className="text-4xl mb-3" aria-hidden="true">🎉</div>
         <h1 className="font-serif text-2xl font-bold text-[#3b2f2f]">Your account is ready!</h1>
-        <p className="text-sm text-[#a08060] mt-1">
+        <p className="text-sm text-[#8a6a4a] mt-1">
           Subscribe to publish your listing and start reaching couples.
         </p>
       </div>
@@ -456,7 +456,7 @@ function StripeStep({
         </div>
       ) : subLoading ? (
         <div className="rounded-2xl border border-[#e8dcc8] bg-white p-8 text-center">
-          <p className="text-sm text-[#a08060] animate-pulse">Loading pricing...</p>
+          <p className="text-sm text-[#8a6a4a] animate-pulse">Loading pricing...</p>
         </div>
       ) : (
         <div className="rounded-2xl border border-[#e8dcc8] bg-white divide-y divide-[#e8dcc8]">
@@ -495,7 +495,7 @@ function StripeStep({
       <button
         type="button"
         onClick={onSkip}
-        className="w-full text-sm text-[#a08060] hover:text-[#3b2f2f] transition py-2 underline underline-offset-2"
+        className="w-full text-sm text-[#8a6a4a] hover:text-[#3b2f2f] transition py-2 underline underline-offset-2"
       >
         Skip for now (listing stays unpublished until you subscribe)
       </button>
@@ -527,7 +527,7 @@ function StripeRow({
           )}
         </div>
         <p className="text-lg font-bold text-[#3b2f2f] mt-0.5">{price}</p>
-        <p className="text-xs text-[#a08060]">{description}</p>
+        <p className="text-xs text-[#8a6a4a]">{description}</p>
       </div>
       <button
         type="button"

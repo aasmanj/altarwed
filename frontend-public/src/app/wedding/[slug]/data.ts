@@ -111,6 +111,40 @@ export async function getWedding(slug: string, fresh = false): Promise<WeddingWe
   }
 }
 
+// Lightweight content-presence checks used to gate the Wedding Party and Photos
+// tabs in the layout/home grid. They hit the exact same public endpoints the
+// /wedding-party and /photos pages render from, so a tab only shows when its page
+// would actually have content. Without this, a typical half-filled couple ships a
+// public site (the surface paid ads land on) with dead "coming soon" tabs.
+// Cached with the same 60s ISR window as the rest of the wedding page.
+export async function hasWeddingPartyMembers(websiteId: string): Promise<boolean> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
+  try {
+    const res = await fetch(`${apiUrl}/api/v1/wedding-party/website/${websiteId}`, { next: { revalidate: 60 } })
+    if (!res.ok) return false
+    const members = await res.json()
+    // Mirror the wedding-party page exactly: it only renders BRIDE/GROOM groups
+    // and shows "coming soon" when both are empty. A couple who has only NEUTRAL
+    // members (officiant, musicians) would otherwise re-open the dead tab this
+    // gate exists to hide.
+    return Array.isArray(members) && members.some((m: { side?: string }) => m.side === 'BRIDE' || m.side === 'GROOM')
+  } catch {
+    return false
+  }
+}
+
+export async function hasWeddingPhotos(slug: string): Promise<boolean> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
+  try {
+    const res = await fetch(`${apiUrl}/api/v1/wedding-photos/website/slug/${slug}`, { next: { revalidate: 60 } })
+    if (!res.ok) return false
+    const photos = await res.json()
+    return Array.isArray(photos) && photos.length > 0
+  } catch {
+    return false
+  }
+}
+
 // ── Block types (mirrors frontend-app/src/features/couple/website/blocks/types.ts) ──
 
 export type BlockTab =

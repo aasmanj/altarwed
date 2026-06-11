@@ -26,7 +26,7 @@ export default function DoNotSellPage() {
             constitutes &ldquo;sharing&rdquo; under CPRA when active.
           </p>
           <DoNotSellClient />
-          <p className="text-sm text-[#a08060] mt-8 leading-relaxed">
+          <p className="text-sm text-[#8a6a4a] mt-8 leading-relaxed">
             We also honor the Global Privacy Control (GPC) browser signal automatically.
             You may also email <a href="mailto:hello@altarwed.com" className="text-[#d4af6a] hover:underline">hello@altarwed.com</a> to opt out or ask questions about our data practices.
           </p>

@@ -19,7 +19,7 @@ export default async function RsvpTabPage(
         <div className="text-center">
           <p className="font-serif text-3xl font-bold text-[#3b2f2f] mb-2">Will you join us?</p>
           {wedding.rsvpDeadline && (
-            <p className="text-sm text-[#a08060]">
+            <p className="text-sm text-[#8a6a4a]">
               Please RSVP by {formatWeddingDate(wedding.rsvpDeadline)}
             </p>
           )}
@@ -45,7 +45,7 @@ export default async function RsvpTabPage(
         </div>
 
         {/* Fallback note */}
-        <p className="text-center text-xs text-[#a08060]">
+        <p className="text-center text-xs text-[#8a6a4a]">
           You can also check your email for your personal invitation link sent by{' '}
           {wedding.partnerTwoName} &amp; {wedding.partnerOneName}.
         </p>

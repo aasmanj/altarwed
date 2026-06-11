@@ -106,7 +106,7 @@ export default async function RsvpPage(
         </div>
       </div>
 
-      <footer className="text-center text-xs text-[#a08060] pb-10">
+      <footer className="text-center text-xs text-[#8a6a4a] pb-10">
         Powered by <a href="https://www.altarwed.com" className="hover:underline">AltarWed</a>
       </footer>
     </div>

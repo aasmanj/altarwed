@@ -7,7 +7,7 @@ import Link from 'next/link'
 export default function WeddingNotFound() {
   return (
     <main className="min-h-screen bg-[#fdfaf6] flex flex-col items-center justify-center px-6 text-center text-[#3b2f2f]">
-      <p className="text-xs uppercase tracking-[0.3em] text-[#a08060] mb-4">AltarWed</p>
+      <p className="text-xs uppercase tracking-[0.3em] text-[#8a6a4a] mb-4">AltarWed</p>
       <h1 className="font-serif text-3xl sm:text-4xl font-bold mb-3">
         This wedding site isn&rsquo;t available
       </h1>
@@ -30,7 +30,7 @@ export default function WeddingNotFound() {
         </Link>
       </div>
 
-      <Link href="/" className="mt-10 text-sm text-[#a08060] hover:text-[#3b2f2f] transition">
+      <Link href="/" className="mt-10 text-sm text-[#8a6a4a] hover:text-[#3b2f2f] transition">
         ← Back to AltarWed
       </Link>
     </main>

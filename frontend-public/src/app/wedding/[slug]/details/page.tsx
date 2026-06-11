@@ -62,7 +62,7 @@ function DetailCard({ label, value, Icon }: { label: string; value: string; Icon
     <div className="rounded-xl border border-[#e8dcc8] bg-white p-5 flex gap-4 items-start">
       <Icon className="w-5 h-5 text-[#d4af6a] shrink-0 mt-0.5" strokeWidth={1.5} />
       <div>
-        <p className="text-xs uppercase tracking-widest text-[#a08060] mb-1">{label}</p>
+        <p className="text-xs uppercase tracking-widest text-[#8a6a4a] mb-1">{label}</p>
         <p className="font-medium text-[#3b2f2f] text-sm leading-snug">{value}</p>
       </div>
     </div>

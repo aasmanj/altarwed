@@ -57,7 +57,7 @@ export default function BlockListLive({ initialBlocks, wedding, partyMembers, ph
 
   if (blocks.length === 0) {
     return (
-      <div className="text-center text-[#a08060] text-sm py-16 italic border-2 border-dashed border-[#e8dcc8] rounded-xl">
+      <div className="text-center text-[#8a6a4a] text-sm py-16 italic border-2 border-dashed border-[#e8dcc8] rounded-xl">
         <p>This tab is empty.</p>
         <p className="mt-1 text-xs">Add blocks on the right to see them appear here.</p>
       </div>

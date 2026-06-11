@@ -132,12 +132,12 @@ export default async function PreviewPage({
                 className={`shrink-0 flex-1 text-center px-3 py-3 text-[11px] font-medium border-b-2 transition-colors whitespace-nowrap ${
                   isActive
                     ? 'border-[#d4af6a] text-[#3b2f2f]'
-                    : 'border-transparent text-[#a08060] hover:text-[#3b2f2f]'
+                    : 'border-transparent text-[#8a6a4a] hover:text-[#3b2f2f]'
                 }`}
               >
                 {displayLabel}
                 {isHidden && (
-                  <span className="ml-1 text-[9px] text-[#a08060] opacity-70">(hidden)</span>
+                  <span className="ml-1 text-[9px] text-[#8a6a4a] opacity-70">(hidden)</span>
                 )}
               </a>
             )
@@ -219,7 +219,7 @@ export default async function PreviewPage({
       </main>
 
       {/* Footer, matches public site for visual consistency */}
-      <footer className="border-t border-[#e8dcc8] py-8 text-center text-xs text-[#a08060]">
+      <footer className="border-t border-[#e8dcc8] py-8 text-center text-xs text-[#8a6a4a]">
         <span className="font-serif text-[#3b2f2f] font-semibold">AltarWed</span>
         <span className="mx-2">·</span>
         Faith-based wedding planning

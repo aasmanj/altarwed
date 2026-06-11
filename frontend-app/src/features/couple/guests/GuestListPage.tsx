@@ -14,6 +14,8 @@ import {
 import ImportGuestsModal from './ImportGuestsModal'
 import TipCallout from '@/components/TipCallout'
 import { useConfirm } from '@/components/ConfirmDialog'
+import QueryErrorState from '@/components/QueryErrorState'
+import { useModalA11y } from '@/lib/useModalA11y'
 import { TIPS } from '@/lib/tips'
 import {
   useGoogleSheetSync, useSetGoogleSheetSync, useDeleteGoogleSheetSync,
@@ -76,7 +78,7 @@ export default function GuestListPage() {
   const { user } = useAuth()
   const coupleId = user?.id ?? ''
 
-  const { data: guests = [], isLoading } = useGuests(coupleId)
+  const { data: guests = [], isLoading, isError, refetch } = useGuests(coupleId)
   const addGuest    = useAddGuest(coupleId)
   const updateGuest = useUpdateGuest(coupleId)
   const removeGuest = useRemoveGuest(coupleId)
@@ -695,7 +697,9 @@ export default function GuestListPage() {
 
         {/* Guest table */}
         {isLoading ? (
-          <p className="text-center text-brown-light py-16 animate-pulse">Loading guests…</p>
+          <p className="text-center text-brown-light py-16 animate-pulse" aria-busy="true">Loading guests…</p>
+        ) : isError ? (
+          <QueryErrorState what="your guest list" onRetry={() => refetch()} />
         ) : filtered.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-brown font-medium mb-1">
@@ -813,15 +817,15 @@ function GuestRow({ guest, onEdit, onRemove, onInvite, sendInvitePending }: {
           <div className="flex items-center gap-2 justify-end">
             {guest.email && (guest.inviteSendCount ?? 0) < 3 && (
               <button onClick={onInvite} disabled={sendInvitePending}
-                className="text-xs text-gold hover:underline disabled:opacity-50">
+                className="text-xs text-gold hover:underline disabled:opacity-50 min-h-[44px] inline-flex items-center px-1">
                 {guest.inviteSentAt ? 'Resend' : 'Invite'}
               </button>
             )}
             {guest.email && (guest.inviteSendCount ?? 0) >= 3 && (
               <span className="text-xs text-brown-light" title="Maximum 3 invites reached">Max sent</span>
             )}
-            <button onClick={onEdit} className="text-xs text-brown-light hover:text-brown">Edit</button>
-            <button onClick={onRemove} className="text-xs text-red-400 hover:text-red-600">Remove</button>
+            <button onClick={onEdit} className="text-xs text-brown-light hover:text-brown min-h-[44px] inline-flex items-center px-1">Edit</button>
+            <button onClick={onRemove} className="text-xs text-red-400 hover:text-red-600 min-h-[44px] inline-flex items-center px-1">Remove</button>
           </div>
         </td>
       </tr>
@@ -867,12 +871,23 @@ function AddGuestModal({
   onSheetSync: () => void
   onImport: () => void
 }) {
+  const ref = useModalA11y(true, onClose)
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+    <div
+      className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4"
+      onClick={onClose}
+    >
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-guest-title"
+        onClick={e => e.stopPropagation()}
+        className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6"
+      >
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-serif text-lg font-semibold text-brown">Add Guests</h3>
-          <button onClick={onClose} aria-label="Close" className="text-brown-light hover:text-brown leading-none"><X size={20} /></button>
+          <h3 id="add-guest-title" className="font-serif text-lg font-semibold text-brown">Add Guests</h3>
+          <button onClick={onClose} aria-label="Close" className="text-brown-light hover:text-brown leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded"><X size={20} /></button>
         </div>
         <div className="space-y-3">
           <button

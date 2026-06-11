@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { BookHeart, Calendar, Camera, Clock, Gift, Hotel, Mail, MapPin, PenLine, Shirt, Users } from 'lucide-react'
-import { getWedding } from '@/app/wedding/[slug]/data'
+import { getWedding, hasWeddingPartyMembers, hasWeddingPhotos } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
 
 export default async function WeddingHomePage(
@@ -10,6 +10,13 @@ export default async function WeddingHomePage(
   const { slug } = await params
   const wedding = await getWedding(slug)
   if (!wedding) notFound()
+
+  // Mirror the nav's content gating so the "Explore" grid never links to an
+  // empty Wedding Party or Photos page on a half-filled site. Cached fetches.
+  const [hasParty, hasPhotos] = await Promise.all([
+    hasWeddingPartyMembers(wedding.id),
+    hasWeddingPhotos(slug),
+  ])
 
   const countdown = wedding.weddingDate ? daysUntilDate(wedding.weddingDate) : null
   const base = `/wedding/${slug}`
@@ -65,15 +72,15 @@ export default async function WeddingHomePage(
 
       {/* Explore links */}
       <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-[#a08060] text-center mb-5">Explore</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-[#8a6a4a] text-center mb-5">Explore</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {([
             { label: 'Our Story',    href: `${base}/story`,         Icon: PenLine,   show: !!wedding.ourStory },
-            { label: 'The Wedding',  href: `${base}/details`,        Icon: BookHeart, show: !!(wedding.venueName || wedding.ceremonyTime) },
-            { label: 'Wedding Party',href: `${base}/wedding-party`,  Icon: Users,     show: true },
-            { label: 'Registry',     href: `${base}/registry`,       Icon: Gift,      show: !!(wedding.registryUrl1) },
+            { label: 'The Wedding',  href: `${base}/details`,        Icon: BookHeart, show: !!(wedding.venueName || wedding.ceremonyTime || wedding.dressCode) },
+            { label: 'Wedding Party',href: `${base}/wedding-party`,  Icon: Users,     show: hasParty },
+            { label: 'Registry',     href: `${base}/registry`,       Icon: Gift,      show: !!(wedding.registryUrl1 || wedding.registryUrl2 || wedding.registryUrl3) },
             { label: 'Travel',       href: `${base}/travel`,         Icon: Hotel,     show: !!(wedding.hotelName) },
-            { label: 'Photos',       href: `${base}/photos`,         Icon: Camera,    show: true },
+            { label: 'Photos',       href: `${base}/photos`,         Icon: Camera,    show: hasPhotos },
             { label: 'RSVP',         href: `${base}/rsvp`,           Icon: Mail,      show: true },
           ] as const).filter(l => l.show).map(link => (
             <Link
@@ -98,7 +105,7 @@ function QuickCard({ Icon, label, value }: { Icon: React.ElementType; label: str
     <div className="rounded-xl border border-[#e8dcc8] bg-white p-5 flex gap-4 items-start">
       <Icon className="w-5 h-5 text-[#d4af6a] shrink-0 mt-0.5" strokeWidth={1.5} />
       <div>
-        <p className="text-xs uppercase tracking-widest text-[#a08060] mb-1">{label}</p>
+        <p className="text-xs uppercase tracking-widest text-[#8a6a4a] mb-1">{label}</p>
         <p className="font-medium text-[#3b2f2f] text-sm leading-snug">{value}</p>
       </div>
     </div>

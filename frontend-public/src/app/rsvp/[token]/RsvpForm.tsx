@@ -84,8 +84,8 @@ export default function RsvpForm({
 
   if (done) {
     return (
-      <div className="text-center space-y-4 py-4">
-        <p className="text-2xl">{status === 'ATTENDING' ? '🎉' : status === 'PENDING' ? '⏰' : '💌'}</p>
+      <div role="status" className="text-center space-y-4 py-4">
+        <p className="text-2xl" aria-hidden="true">{status === 'ATTENDING' ? '🎉' : status === 'PENDING' ? '⏰' : '💌'}</p>
         <p className="font-serif text-xl font-semibold text-[#3b2f2f]">
           {status === 'ATTENDING' ? 'See you there!'
            : status === 'PENDING' ? "We'll remind you!"
@@ -107,7 +107,7 @@ export default function RsvpForm({
               Now go check out the registry →
             </a>
           ) : (
-            <p className="mt-2 text-sm text-[#a08060] italic">
+            <p className="mt-2 text-sm text-[#8a6a4a] italic">
               The couple hasn&apos;t set up their registry yet. Check back soon.
             </p>
           )
@@ -181,7 +181,7 @@ export default function RsvpForm({
       {status === 'ATTENDING' && plusOneAllowed && (
         <div>
           <label className="block text-sm font-medium text-[#3b2f2f] mb-1.5">
-            Guest name <span className="text-[#a08060] font-normal">(optional)</span>
+            Guest name <span className="text-[#8a6a4a] font-normal">(optional)</span>
           </label>
           <input
             type="text"
@@ -198,7 +198,7 @@ export default function RsvpForm({
         <>
           <div>
             <label className="block text-sm font-medium text-[#3b2f2f] mb-1.5">
-              Dietary restrictions <span className="text-[#a08060] font-normal">(optional)</span>
+              Dietary restrictions <span className="text-[#8a6a4a] font-normal">(optional)</span>
             </label>
             <input
               type="text"
@@ -210,7 +210,7 @@ export default function RsvpForm({
           </div>
           <div>
             <label className="block text-sm font-medium text-[#3b2f2f] mb-1.5">
-              Song request <span className="text-[#a08060] font-normal">(optional)</span>
+              Song request <span className="text-[#8a6a4a] font-normal">(optional)</span>
             </label>
             <input
               type="text"
@@ -227,7 +227,7 @@ export default function RsvpForm({
       {(status === 'ATTENDING' || status === 'DECLINING') && (
         <div>
           <label className="block text-sm font-medium text-[#3b2f2f] mb-1.5">
-            Leave a note for the couple <span className="text-[#a08060] font-normal">(private, only they will see it)</span>
+            Leave a note for the couple <span className="text-[#8a6a4a] font-normal">(private, only they will see it)</span>
           </label>
           <textarea
             value={noteForCouple}
@@ -244,7 +244,7 @@ export default function RsvpForm({
       {partyMembers && partyMembers.length > 0 && (status === 'ATTENDING' || status === 'DECLINING') && (
         <div className="border border-[#e8dcc8] rounded-xl p-4 space-y-3">
           <p className="text-sm font-medium text-[#3b2f2f]">Other members in your party</p>
-          <p className="text-xs text-[#a08060]">Let us know if each person will be attending.</p>
+          <p className="text-xs text-[#8a6a4a]">Let us know if each person will be attending.</p>
           {partyMembers.map(m => (
             <div key={m.guestId} className="flex items-center justify-between gap-4">
               <span className="text-sm text-[#3b2f2f]">{m.name}</span>
@@ -270,7 +270,7 @@ export default function RsvpForm({
       )}
 
       {error && (
-        <p className="text-sm text-red-600 text-center">{error}</p>
+        <p role="alert" className="text-sm text-red-600 text-center">{error}</p>
       )}
 
       <button

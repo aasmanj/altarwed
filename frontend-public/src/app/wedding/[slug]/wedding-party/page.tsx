@@ -35,7 +35,7 @@ export default async function WeddingPartyPage(
 
   if (bride.length === 0 && groom.length === 0) {
     return (
-      <div className="text-center py-16 text-[#a08060]">
+      <div className="text-center py-16 text-[#8a6a4a]">
         <p className="font-serif text-2xl mb-2">Wedding party coming soon…</p>
         <p className="text-sm">Check back as the big day approaches!</p>
       </div>
@@ -96,7 +96,7 @@ function PartyGroup({ label, members, accent }: {
   const a = ACCENTS[accent]
   return (
     <div className={`${a.bg} rounded-2xl p-5 sm:p-8`}>
-      <h3 className="text-center text-xs uppercase tracking-[0.2em] text-[#a08060] mb-10">{label}</h3>
+      <h3 className="text-center text-xs uppercase tracking-[0.2em] text-[#8a6a4a] mb-10">{label}</h3>
       <div className="flex flex-wrap justify-center gap-6">
         {members.map(member => (
           <div key={member.id} className="text-center w-[140px]">
@@ -113,7 +113,7 @@ function PartyGroup({ label, members, accent }: {
               />
             ) : (
               <div className={`h-28 w-28 rounded-full bg-white border-2 ${a.border} flex items-center justify-center mx-auto mb-4`}>
-                <span className="font-serif text-4xl text-[#a08060]">{member.name.charAt(0)}</span>
+                <span className="font-serif text-4xl text-[#8a6a4a]">{member.name.charAt(0)}</span>
               </div>
             )}
             <p className="font-serif font-semibold text-[#3b2f2f] text-base leading-snug">{member.name}</p>

@@ -156,7 +156,7 @@ export default function InquiryForm({ vendorId, vendorBusinessName }: Props) {
           />
           <p
             id="message-counter"
-            className={`text-xs mt-1 ${tooLong ? 'text-red-600' : 'text-[#a08060]'}`}
+            className={`text-xs mt-1 ${tooLong ? 'text-red-600' : 'text-[#8a6a4a]'}`}
           >
             {charCount} / {charLimit}{tooLong ? ' (over limit)' : ''}
           </p>
@@ -179,7 +179,7 @@ export default function InquiryForm({ vendorId, vendorBusinessName }: Props) {
           {submitting ? 'Sending...' : 'Send inquiry'}
         </button>
 
-        <p className="text-xs text-[#a08060]">
+        <p className="text-xs text-[#8a6a4a]">
           By sending an inquiry you agree to share your name, email, and message with {vendorBusinessName}.
         </p>
       </form>
@@ -228,7 +228,7 @@ function Field({
         className="w-full rounded-lg border border-[#e8dcc8] px-4 py-3 text-sm text-[#3b2f2f] focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a] disabled:opacity-60"
       />
       {hint && (
-        <p id={hintId} className="text-xs text-[#a08060] mt-1">{hint}</p>
+        <p id={hintId} className="text-xs text-[#8a6a4a] mt-1">{hint}</p>
       )}
     </div>
   )

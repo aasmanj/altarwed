@@ -18,7 +18,7 @@ export default function ComingSoon({ wedding }: { wedding: WeddingWebsite }) {
 
   return (
     <main className="min-h-screen bg-[#fdfaf6] flex flex-col items-center justify-center px-6 py-16 text-center text-[#3b2f2f]">
-      <p className="text-xs uppercase tracking-[0.3em] text-[#a08060] mb-5">AltarWed</p>
+      <p className="text-xs uppercase tracking-[0.3em] text-[#8a6a4a] mb-5">AltarWed</p>
 
       {names && (
         <h1 className="font-serif text-4xl sm:text-5xl font-bold mb-3 break-words text-balance max-w-3xl">
@@ -76,7 +76,7 @@ export default function ComingSoon({ wedding }: { wedding: WeddingWebsite }) {
         </a>
       </div>
 
-      <Link href="https://www.altarwed.com" className="mt-10 text-sm text-[#a08060] hover:text-[#3b2f2f] transition">
+      <Link href="https://www.altarwed.com" className="mt-10 text-sm text-[#8a6a4a] hover:text-[#3b2f2f] transition">
         ← Back to AltarWed
       </Link>
     </main>

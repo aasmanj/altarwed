@@ -39,7 +39,7 @@ export default async function TravelPage(
 
   if (!hasHotels && !hasLegacyHotel) {
     return (
-      <div className="text-center py-16 text-[#a08060]">
+      <div className="text-center py-16 text-[#8a6a4a]">
         <p className="font-serif text-2xl mb-2">Travel details coming soon…</p>
         <p className="text-sm">Hotel block and travel info will appear here.</p>
       </div>
@@ -60,7 +60,7 @@ export default async function TravelPage(
                 <div className="flex-1">
                   <p className="font-serif text-2xl font-semibold text-[#3b2f2f] mb-1">{hotel.name}</p>
                   {hotel.address && (
-                    <p className="text-[#a08060] text-sm mb-3">{hotel.address}</p>
+                    <p className="text-[#8a6a4a] text-sm mb-3">{hotel.address}</p>
                   )}
                   <div className="flex flex-wrap gap-4 mb-4 text-sm">
                     {hotel.distanceFromVenue && (

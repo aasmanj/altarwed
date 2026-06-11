@@ -168,7 +168,7 @@ function ImageBlock({ url, caption, alt }: { url: string; caption: string; alt: 
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={url} alt={alt || caption || 'Wedding photo'} className="w-full object-cover max-h-[480px]" />
       {caption && (
-        <figcaption className="px-4 py-2 text-xs text-[#a08060] text-center bg-white">{caption}</figcaption>
+        <figcaption className="px-4 py-2 text-xs text-[#8a6a4a] text-center bg-white">{caption}</figcaption>
       )}
     </figure>
   )
@@ -212,7 +212,7 @@ function EmptyCardPlaceholder({ icon: Icon, title, hint }: { icon: LucideIcon; t
     <div className="rounded-xl border-2 border-dashed border-[#e8dcc8] bg-[#fdfaf6] p-6 text-center">
       <Icon className="w-5 h-5 text-[#d4af6a] mx-auto mb-2" strokeWidth={1.5} />
       <p className="text-sm font-medium text-[#6b5344]">{title}</p>
-      <p className="text-xs text-[#a08060] mt-1">{hint}</p>
+      <p className="text-xs text-[#8a6a4a] mt-1">{hint}</p>
     </div>
   )
 }
@@ -252,12 +252,12 @@ function VenueCardBlock({ wedding, preview = false }: { wedding: WeddingWebsite;
             <Calendar className="w-5 h-5 text-[#d4af6a] shrink-0 mt-0.5" strokeWidth={1.5} />
             <div>
               {weddingDate && <p className="text-sm text-[#3b2f2f] font-medium">{formatWeddingDate(weddingDate)}</p>}
-              {ceremonyTime && <p className="text-xs text-[#a08060]">{ceremonyTime}</p>}
+              {ceremonyTime && <p className="text-xs text-[#8a6a4a]">{ceremonyTime}</p>}
             </div>
           </div>
         )}
         {dressCode && (
-          <p className="text-xs text-[#a08060] pl-8">Dress code: <span className="font-medium text-[#6b5344]">{dressCode}</span></p>
+          <p className="text-xs text-[#8a6a4a] pl-8">Dress code: <span className="font-medium text-[#6b5344]">{dressCode}</span></p>
         )}
         {venueAdditionalInfo && (
           <div className="border-t border-[#e8dcc8] pt-3 mt-1">
@@ -323,9 +323,9 @@ function RegistryCardBlock({ url, label, preview = false }: { url: string | null
       <Gift className="w-6 h-6 text-[#d4af6a] shrink-0" strokeWidth={1.5} />
       <div>
         <p className="font-medium text-[#3b2f2f] group-hover:underline">{label ?? 'Registry'}</p>
-        <p className="text-xs text-[#a08060] mt-0.5 truncate max-w-[260px]">{url}</p>
+        <p className="text-xs text-[#8a6a4a] mt-0.5 truncate max-w-[260px]">{url}</p>
       </div>
-      <ExternalLink className="w-4 h-4 text-[#a08060] ml-auto shrink-0" strokeWidth={1.5} />
+      <ExternalLink className="w-4 h-4 text-[#8a6a4a] ml-auto shrink-0" strokeWidth={1.5} />
     </a>
   )
 }
@@ -388,7 +388,7 @@ function RsvpCtaBlock({ slug, partnerOneName, partnerTwoName, heading, buttonLab
 const PARTY_ACCENTS = {
   BRIDE: { border: 'border-rose-200', role: 'text-rose-500', bg: 'bg-rose-50/40' },
   GROOM: { border: 'border-sky-200',  role: 'text-sky-600',  bg: 'bg-sky-50/40' },
-  ALL:   { border: 'border-[#e8dcc8]', role: 'text-[#a08060]', bg: 'bg-white' },
+  ALL:   { border: 'border-[#e8dcc8]', role: 'text-[#8a6a4a]', bg: 'bg-white' },
 } as const
 
 function WeddingPartyGridBlock({ members, wedding, side }: {
@@ -398,7 +398,7 @@ function WeddingPartyGridBlock({ members, wedding, side }: {
 }) {
   if (members.length === 0) {
     return (
-      <p className="text-center text-[#a08060] text-sm py-6 italic">
+      <p className="text-center text-[#8a6a4a] text-sm py-6 italic">
         Wedding party members will appear here.
       </p>
     )
@@ -409,7 +409,7 @@ function WeddingPartyGridBlock({ members, wedding, side }: {
                : 'Wedding Party'
   return (
     <div className={`${a.bg} rounded-2xl p-6`}>
-      <p className="text-center text-xs uppercase tracking-[0.2em] text-[#a08060] mb-8">{label}</p>
+      <p className="text-center text-xs uppercase tracking-[0.2em] text-[#8a6a4a] mb-8">{label}</p>
       <div className="flex flex-wrap justify-center gap-6">
         {members.map(member => (
           <div key={member.id} className="text-center w-[130px]">
@@ -422,7 +422,7 @@ function WeddingPartyGridBlock({ members, wedding, side }: {
               />
             ) : (
               <div className={`h-24 w-24 rounded-full bg-white border-2 ${a.border} flex items-center justify-center mx-auto mb-3`}>
-                <span className="font-serif text-3xl text-[#a08060]">{member.name.charAt(0)}</span>
+                <span className="font-serif text-3xl text-[#8a6a4a]">{member.name.charAt(0)}</span>
               </div>
             )}
             <p className="font-serif font-semibold text-[#3b2f2f] text-sm leading-snug">{member.name}</p>
@@ -440,7 +440,7 @@ function WeddingPartyGridBlock({ members, wedding, side }: {
 function PhotoAlbumGridBlock({ photos, wedding }: { photos: WeddingPhoto[]; wedding: WeddingWebsite }) {
   if (photos.length === 0) {
     return (
-      <p className="text-center text-[#a08060] text-sm py-6 italic">
+      <p className="text-center text-[#8a6a4a] text-sm py-6 italic">
         Photos will appear here once {wedding.partnerTwoName} &amp; {wedding.partnerOneName} share them.
       </p>
     )
@@ -457,7 +457,7 @@ function PhotoAlbumGridBlock({ photos, wedding }: { photos: WeddingPhoto[]; wedd
           />
           {photo.caption && (
             <div className="px-3 py-2 bg-white">
-              <p className="text-xs text-[#a08060] leading-relaxed">{photo.caption}</p>
+              <p className="text-xs text-[#8a6a4a] leading-relaxed">{photo.caption}</p>
             </div>
           )}
         </div>
@@ -474,7 +474,7 @@ function VowsPreviewBlock({ partnerOneName, partnerTwoName, partnerOneVows, part
 }) {
   if (!partnerOneVows && !partnerTwoVows) {
     return (
-      <p className="text-center text-[#a08060] text-sm py-6 italic">
+      <p className="text-center text-[#8a6a4a] text-sm py-6 italic">
         Vows will appear here once written.
       </p>
     )

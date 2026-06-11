@@ -79,19 +79,19 @@ export default function SaveTheDatePage() {
         <div>
           <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wide mb-4">Email Preview</h2>
           <div className="bg-[#fdfaf6] rounded-2xl border border-[#e8dcc8] p-6 sm:p-10 text-center shadow-sm overflow-hidden">
-            <p className="text-xs uppercase tracking-[0.2em] text-[#a08060] mb-2">Save the Date</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-[#8a6a4a] mb-2">Save the Date</p>
             <p className="font-serif text-3xl font-bold text-[#3b2f2f] mb-1">{coupleNames.split(' & ')[0]}</p>
             <p className="font-serif text-xl text-[#d4af6a] mb-1">&amp;</p>
             <p className="font-serif text-3xl font-bold text-[#3b2f2f] mb-6">{coupleNames.split(' & ')[1] ?? ''}</p>
             <div className="border-t border-b border-[#e8dcc8] py-5 mb-6">
-              <p className="text-[#a08060] text-sm mb-1">are getting married on</p>
+              <p className="text-[#8a6a4a] text-sm mb-1">are getting married on</p>
               <p className="font-semibold text-[#3b2f2f]">{weddingDate}</p>
             </div>
-            <p className="text-[#a08060] text-xs mb-4">Formal invitation to follow · Visit their wedding website ↓</p>
+            <p className="text-[#8a6a4a] text-xs mb-4">Formal invitation to follow · Visit their wedding website ↓</p>
             <div className="inline-block px-8 py-3 bg-[#3b2f2f] text-[#d4af6a] rounded text-sm font-medium tracking-wide">
               Visit Our Wedding Website
             </div>
-            <p className="mt-6 text-[#a08060] text-xs italic">
+            <p className="mt-6 text-[#8a6a4a] text-xs italic">
               "And over all these virtues put on love, which binds them all together in perfect unity." (Colossians 3:14)
             </p>
           </div>

@@ -7,13 +7,13 @@ export default function SiteFooter() {
 
         <div>
           <p className="font-serif text-lg font-bold text-[#3b2f2f] mb-3">AltarWed</p>
-          <p className="text-sm text-[#a08060] leading-relaxed">
+          <p className="text-sm text-[#8a6a4a] leading-relaxed">
             A faith-based wedding planning platform for Christian couples and vendors.
           </p>
         </div>
 
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-[#a08060] mb-3">For Couples</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-[#8a6a4a] mb-3">For Couples</p>
           <ul className="space-y-2">
             <FooterLink href="https://app.altarwed.com/register">Start planning free</FooterLink>
             <FooterLink href="/vendors">Find vendors</FooterLink>
@@ -22,7 +22,7 @@ export default function SiteFooter() {
         </div>
 
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-[#a08060] mb-3">For Vendors</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-[#8a6a4a] mb-3">For Vendors</p>
           <ul className="space-y-2">
             <FooterLink href="https://app.altarwed.com/register/vendor">List your business</FooterLink>
             <FooterLink href="/vendors">Browse directory</FooterLink>
@@ -30,7 +30,7 @@ export default function SiteFooter() {
         </div>
 
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-[#a08060] mb-3">Browse</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-[#8a6a4a] mb-3">Browse</p>
           <ul className="space-y-2">
             <FooterLink href="/vendors?category=PHOTOGRAPHER">Photographers</FooterLink>
             <FooterLink href="/vendors?category=VENUE">Venues</FooterLink>
@@ -44,12 +44,12 @@ export default function SiteFooter() {
       </div>
 
       <div className="border-t border-[#e8dcc8] px-6 py-4 flex flex-wrap gap-x-6 gap-y-1 justify-center">
-        <Link href="/privacy" className="text-xs text-[#a08060] hover:text-[#3b2f2f] transition">Privacy Policy</Link>
-        <Link href="/terms" className="text-xs text-[#a08060] hover:text-[#3b2f2f] transition">Terms of Service</Link>
-        <Link href="/do-not-sell" className="text-xs text-[#a08060] hover:text-[#3b2f2f] transition">Do Not Sell or Share My Personal Information</Link>
+        <Link href="/privacy" className="text-xs text-[#8a6a4a] hover:text-[#3b2f2f] transition">Privacy Policy</Link>
+        <Link href="/terms" className="text-xs text-[#8a6a4a] hover:text-[#3b2f2f] transition">Terms of Service</Link>
+        <Link href="/do-not-sell" className="text-xs text-[#8a6a4a] hover:text-[#3b2f2f] transition">Do Not Sell or Share My Personal Information</Link>
       </div>
 
-      <div className="border-t border-[#e8dcc8] py-4 text-center text-xs text-[#a08060]">
+      <div className="border-t border-[#e8dcc8] py-4 text-center text-xs text-[#8a6a4a]">
         © {new Date().getFullYear()} AltarWed · Faith-based wedding planning
       </div>
     </footer>

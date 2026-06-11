@@ -105,7 +105,7 @@ export default async function CeremonyTemplatePage(
       <main>
         {/* Header */}
         <section className="max-w-3xl mx-auto px-6 pt-12 pb-8">
-          <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[#a08060]">
+          <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[#8a6a4a]">
             <Link href="/ceremony-templates" className="hover:text-[#3b2f2f] transition">
               ← All ceremony templates
             </Link>
@@ -121,7 +121,7 @@ export default async function CeremonyTemplatePage(
               <p key={i} className="text-lg text-[#5a4a3a] leading-relaxed">{p}</p>
             ))}
           </div>
-          <p className="mt-5 text-sm text-[#a08060] border-t border-[#e8dcc8] pt-4">
+          <p className="mt-5 text-sm text-[#8a6a4a] border-t border-[#e8dcc8] pt-4">
             {guide.durationNote}
           </p>
         </section>

@@ -9,6 +9,7 @@ interface Props {
   hasStory: boolean
   hasDetails: boolean
   hasParty: boolean
+  hasPhotos: boolean
   hasRegistry: boolean
   hasTravel: boolean
   // V34: tabs the couple opted to hide entirely from public navigation.
@@ -21,7 +22,7 @@ interface Props {
 }
 
 export default function WeddingNav({
-  slug, hasStory, hasDetails, hasParty, hasRegistry, hasTravel,
+  slug, hasStory, hasDetails, hasParty, hasPhotos, hasRegistry, hasTravel,
   hiddenTabs, customLabels,
 }: Props) {
   const pathname = usePathname()
@@ -55,7 +56,7 @@ export default function WeddingNav({
     { tab: 'WEDDING_PARTY', label: label('WEDDING_PARTY', 'Wedding Party'), href: `${base}/wedding-party`, show: hasParty       && visible('WEDDING_PARTY') },
     { tab: 'TRAVEL',        label: label('TRAVEL',        'Travel'),        href: `${base}/travel`,        show: hasTravel      && visible('TRAVEL') },
     { tab: 'REGISTRY',      label: label('REGISTRY',      'Registry'),      href: `${base}/registry`,      show: hasRegistry    && visible('REGISTRY') },
-    { tab: 'PHOTOS',        label: label('PHOTOS',        'Photos'),        href: `${base}/photos`,        show: visible('PHOTOS') },
+    { tab: 'PHOTOS',        label: label('PHOTOS',        'Photos'),        href: `${base}/photos`,        show: hasPhotos      && visible('PHOTOS') },
     { tab: 'RSVP',          label: label('RSVP',          'RSVP'),          href: `${base}/rsvp`,          show: visible('RSVP') },
   ].filter(t => t.show)
 
@@ -86,7 +87,7 @@ export default function WeddingNav({
               className={`shrink-0 sm:flex-1 text-center px-4 sm:px-1 py-4 text-xs font-medium border-b-2 transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af6a] focus-visible:ring-inset ${
                 active
                   ? 'border-[#d4af6a] text-[#3b2f2f]'
-                  : 'border-transparent text-[#a08060] hover:text-[#3b2f2f]'
+                  : 'border-transparent text-[#8a6a4a] hover:text-[#3b2f2f]'
               }`}
             >
               {tab.label}

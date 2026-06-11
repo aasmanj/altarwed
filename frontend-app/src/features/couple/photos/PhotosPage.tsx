@@ -3,6 +3,8 @@ import { Camera, ExternalLink, X } from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
+import QueryErrorState from '@/components/QueryErrorState'
+import { useModalA11y } from '@/lib/useModalA11y'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
@@ -63,7 +65,7 @@ export default function PhotosPage() {
   const websiteId = website?.id ?? ''
   const confirm = useConfirm()
 
-  const { data: photos = [], isLoading } = usePhotos(websiteId)
+  const { data: photos = [], isLoading, isError, refetch } = usePhotos(websiteId)
   const upload = useUploadPhoto(websiteId)
   const deletePhoto = useDeletePhoto(websiteId)
   const updateCaption = useUpdateCaption(websiteId)
@@ -98,11 +100,25 @@ export default function PhotosPage() {
   }
 
   const closeLightbox = useCallback(() => setLightboxUrl(null), [])
+  const captionModalRef = useModalA11y(!!editingCaption, () => setEditingCaption(null))
 
   if (!websiteId || isLoading) {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center" aria-busy="true">
         <div className="animate-spin h-8 w-8 border-2 border-amber-600 border-t-transparent rounded-full" />
+      </div>
+    )
+  }
+
+  // Distinguish a failed load from a genuinely empty album so couples are never
+  // told "No photos yet" (and tempted to re-upload) when the fetch just failed.
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-ivory">
+        <PageHeader title="Wedding Photos" subtitle="Share your memories with guests" />
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+          <QueryErrorState what="your photos" onRetry={() => refetch()} />
+        </div>
       </div>
     )
   }
@@ -229,9 +245,19 @@ export default function PhotosPage() {
 
       {/* Edit caption modal */}
       {editingCaption && (
-        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-semibold text-stone-900 mb-4">Edit Caption</h2>
+        <div
+          className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
+          onClick={() => setEditingCaption(null)}
+        >
+          <div
+            ref={captionModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="caption-modal-title"
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm p-6 max-h-[90vh] overflow-y-auto"
+          >
+            <h2 id="caption-modal-title" className="text-lg font-semibold text-stone-900 mb-4">Edit Caption</h2>
             <textarea
               value={editingCaption.value}
               onChange={e => setEditingCaption(c => c ? { ...c, value: e.target.value } : null)}
