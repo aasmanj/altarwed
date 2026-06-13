@@ -252,8 +252,10 @@ export default function GuestListPage() {
       || (g.plusOneName ?? '').toLowerCase().includes(q))
     .sort(compareGuests)
 
-  const total     = guests.length
-  const attending = guests.filter(g => g.rsvpStatus === 'ATTENDING').length
+  const confirmedPlusOnes = guests.filter(g => g.plusOneAllowed && g.plusOneName).length
+  const plusOneAttending  = guests.filter(g => g.rsvpStatus === 'ATTENDING' && g.plusOneAllowed && g.plusOneName).length
+  const total     = guests.length + confirmedPlusOnes
+  const attending = guests.filter(g => g.rsvpStatus === 'ATTENDING').length + plusOneAttending
   const declining = guests.filter(g => g.rsvpStatus === 'DECLINING').length
   const pending   = guests.filter(g => g.rsvpStatus === 'PENDING').length
   const notSent   = guests.filter(g => !g.inviteSentAt).length
@@ -425,6 +427,7 @@ export default function GuestListPage() {
                   <span className="font-medium">Sync active</span>
                   {' '}Last synced: {relativeTime(sheetSync.lastSynced)}
                   {sheetSync.rowCount != null && ` · ${sheetSync.rowCount} rows`}
+                  <p className="text-[11px] text-green-700 mt-0.5 opacity-75">Syncs automatically every 15 min -- "Sync now" shows only new changes since the last run.</p>
                   {sheetSync.lastError && (
                     <p className="mt-1 text-red-600 text-xs">Error: {sheetSync.lastError}</p>
                   )}
@@ -550,14 +553,15 @@ export default function GuestListPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'Total', value: total,     color: 'text-brown' },
-            { label: 'Attending', value: attending, color: 'text-green-700' },
-            { label: 'Declined',  value: declining, color: 'text-red-600' },
-            { label: 'Pending',   value: pending,   color: 'text-yellow-600' },
+            { label: 'Total', value: total,     color: 'text-brown',       sub: confirmedPlusOnes > 0 ? `incl. ${confirmedPlusOnes} plus one${confirmedPlusOnes === 1 ? '' : 's'}` : undefined },
+            { label: 'Attending', value: attending, color: 'text-green-700', sub: undefined },
+            { label: 'Declined',  value: declining, color: 'text-red-600',   sub: undefined },
+            { label: 'Pending',   value: pending,   color: 'text-yellow-600', sub: undefined },
           ].map(s => (
             <div key={s.label} className="rounded-xl border border-gold-light bg-white p-5 text-center">
               <p className={`font-serif text-3xl font-bold ${s.color}`}>{s.value}</p>
               <p className="text-xs text-brown-light mt-1 uppercase tracking-wide">{s.label}</p>
+              {s.sub && <p className="text-[10px] text-stone-400 mt-0.5">{s.sub}</p>}
             </div>
           ))}
         </div>
@@ -1061,18 +1065,18 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
     onSave({
-      name, email: email || undefined,
-      phone: phone || undefined,
+      name, email,
+      phone,
       side: side || undefined,
       rsvpStatus: status,
       tableNumber: table ? parseInt(table) : undefined,
       plusOneAllowed: plusOne,
-      songRequest: song || undefined,
-      mailLine1: mailLine1 || undefined,
-      mailCity: mailCity || undefined,
-      mailState: mailState || undefined,
-      mailZip: mailZip || undefined,
-      mailCountry: mailCountry || undefined,
+      songRequest: song,
+      mailLine1,
+      mailCity,
+      mailState,
+      mailZip,
+      mailCountry,
     })
   }
 
