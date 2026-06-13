@@ -537,6 +537,11 @@ export default function GuestListPage() {
                   AltarWed fills in the last column (AltarWed ID) automatically. It keeps your sheet
                   in sync even if you rename guests.
                 </p>
+                <p className="text-stone-500 mt-1">
+                  <span className="font-mono">Allowed Plus One?</span>: enter{' '}
+                  <span className="font-mono">yes</span> for Yes,{' '}
+                  <span className="font-mono">no</span> for No. Leaving the cell blank keeps the existing value.
+                </p>
               </details>
             </div>
           </div>
