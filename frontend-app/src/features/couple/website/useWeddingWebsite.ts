@@ -49,6 +49,8 @@ export interface WeddingWebsite {
   accentColor: string | null
   // V62: CSS color for the scripture banner background. null = default dark gradient.
   scriptureBackgroundColor: string | null
+  // V65: custom save-the-date image. null = use the default text-only STD email template.
+  stdImageUrl: string | null
 }
 
 export interface CreateWebsitePayload {

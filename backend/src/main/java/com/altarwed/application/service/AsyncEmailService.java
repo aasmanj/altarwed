@@ -27,8 +27,9 @@ public class AsyncEmailService {
 
     @Async("emailExecutor")
     public void sendSaveTheDateEmail(String toEmail, String guestName,
-                                     String coupleNames, String weddingDate, String weddingUrl) {
-        emailPort.sendSaveTheDateEmail(toEmail, guestName, coupleNames, weddingDate, weddingUrl);
+                                     String coupleNames, String weddingDate, String weddingUrl,
+                                     String stdImageUrl) {
+        emailPort.sendSaveTheDateEmail(toEmail, guestName, coupleNames, weddingDate, weddingUrl, stdImageUrl);
     }
 
     @Async("emailExecutor")

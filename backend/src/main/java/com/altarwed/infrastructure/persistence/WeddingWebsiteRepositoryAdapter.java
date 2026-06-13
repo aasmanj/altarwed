@@ -82,6 +82,7 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 e.getGoalBudget(),
                 e.getHiddenTabs(), e.getCustomTabLabels(),
                 e.getAccentColor(), e.getScriptureBackgroundColor(),
+                e.getStdImageUrl(),
                 e.isDeleted(), e.getDeletedAt(),
                 e.getCreatedAt(), e.getUpdatedAt()
         );
@@ -131,6 +132,7 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 .customTabLabels(w.customTabLabels())
                 .accentColor(w.accentColor())
                 .scriptureBackgroundColor(w.scriptureBackgroundColor())
+                .stdImageUrl(w.stdImageUrl())
                 .isDeleted(w.isDeleted())
                 .deletedAt(w.deletedAt())
                 .createdAt(w.createdAt())

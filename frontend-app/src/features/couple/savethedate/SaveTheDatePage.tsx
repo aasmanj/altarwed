@@ -4,7 +4,7 @@ import confetti from 'canvas-confetti'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { useGuests } from '@/features/couple/guests/useGuests'
@@ -13,12 +13,30 @@ import { QRCodeCanvas } from 'qrcode.react'
 export default function SaveTheDatePage() {
   const { user } = useAuth()
   const coupleId = user?.id ?? ''
+  const qc = useQueryClient()
   const { data: website } = useWeddingWebsite(coupleId)
   const { data: guests = [] } = useGuests(coupleId)
   const [sent, setSent] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[] | null>(null)
   const qrRef = useRef<HTMLCanvasElement>(null)
   const confirm = useConfirm()
+
+  const uploadStdImage = useMutation({
+    mutationFn: (file: File) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      return apiClient.post(`/api/v1/uploads/wedding-websites/${website?.id}/std-image`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }).then(r => r.data as { imageUrl: string })
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['wedding-website', coupleId] }),
+  })
+
+  const removeStdImage = useMutation({
+    mutationFn: () =>
+      apiClient.delete(`/api/v1/uploads/wedding-websites/${website?.id}/std-image`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['wedding-website', coupleId] }),
+  })
 
   const emailGuests = guests.filter(g => g.email)
   const eligibleCount = emailGuests.length
@@ -75,10 +93,74 @@ export default function SaveTheDatePage() {
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-8">
 
+        {/* Custom STD image upload */}
+        <div className="bg-white rounded-xl border border-stone-200 p-6">
+          <h2 className="font-semibold text-stone-900 mb-1">Custom design image</h2>
+          <p className="text-sm text-stone-500 mb-4">
+            Upload an image from Canva or any design tool (JPEG, PNG, or WebP, max 15 MB). It will appear at the top of every save-the-date email you send.
+          </p>
+          {website?.stdImageUrl ? (
+            <div className="space-y-3">
+              <img
+                src={website.stdImageUrl}
+                alt="Save-the-date design"
+                className="w-full rounded-lg border border-stone-200 object-cover max-h-64"
+              />
+              <div className="flex gap-2">
+                <label className={`cursor-pointer rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition ${uploadStdImage.isPending ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {uploadStdImage.isPending ? 'Uploading…' : 'Replace'}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    disabled={uploadStdImage.isPending}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadStdImage.mutate(f) }}
+                  />
+                </label>
+                <button
+                  onClick={() => removeStdImage.mutate()}
+                  disabled={removeStdImage.isPending}
+                  className="rounded-md border border-stone-300 px-3 py-1.5 text-xs font-semibold text-stone-600 hover:bg-stone-50 transition disabled:opacity-50"
+                >
+                  {removeStdImage.isPending ? 'Removing…' : 'Remove'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <label className={`cursor-pointer flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-stone-300 px-6 py-8 hover:border-amber-400 hover:bg-amber-50 transition ${(uploadStdImage.isPending || !website) ? 'opacity-50 pointer-events-none' : ''}`}>
+              {uploadStdImage.isPending ? (
+                <p className="text-sm text-stone-500">Uploading…</p>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-stone-700">Click to upload your design</p>
+                  <p className="text-xs text-stone-400 mt-1">JPEG, PNG, or WebP up to 15 MB</p>
+                </>
+              )}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                disabled={uploadStdImage.isPending || !website}
+                onChange={e => { const f = e.target.files?.[0]; if (f) uploadStdImage.mutate(f) }}
+              />
+            </label>
+          )}
+          {uploadStdImage.isError && (
+            <p className="mt-2 text-xs text-red-600">Upload failed. Check the file type and size and try again.</p>
+          )}
+        </div>
+
         {/* Email preview */}
         <div>
           <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wide mb-4">Email Preview</h2>
           <div className="bg-[#fdfaf6] rounded-2xl border border-[#e8dcc8] p-6 sm:p-10 text-center shadow-sm overflow-hidden">
+            {website?.stdImageUrl && (
+              <img
+                src={website.stdImageUrl}
+                alt="Save-the-date design"
+                className="w-full rounded-lg mb-6 object-cover"
+              />
+            )}
             <p className="text-xs uppercase tracking-[0.2em] text-[#8a6a4a] mb-2">Save the Date</p>
             <p className="font-serif text-3xl font-bold text-[#3b2f2f] mb-1">{coupleNames.split(' & ')[0]}</p>
             <p className="font-serif text-xl text-[#d4af6a] mb-1">&amp;</p>

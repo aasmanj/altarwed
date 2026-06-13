@@ -27,6 +27,7 @@ public class WeddingWebsiteMapper {
                 w.goalBudget(),
                 w.hiddenTabs(), w.customTabLabels(),
                 w.accentColor(), w.scriptureBackgroundColor(),
+                w.stdImageUrl(),
                 w.createdAt(), w.updatedAt()
         );
     }

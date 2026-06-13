@@ -17,7 +17,7 @@ public interface EmailPort {
     void sendWeddingPublishedEmail(String toEmail, String partnerOneName, String partnerTwoName, String weddingUrl);
 
     void sendRsvpInviteEmail(String toEmail, String guestName, String coupleNames, String weddingDate, String rsvpToken);
-    void sendSaveTheDateEmail(String toEmail, String guestName, String coupleNames, String weddingDate, String weddingUrl);
+    void sendSaveTheDateEmail(String toEmail, String guestName, String coupleNames, String weddingDate, String weddingUrl, String stdImageUrl);
     void sendRsvpNotificationToCouple(String coupleEmail, String coupleNames,
                                       String guestName, String rsvpStatus,
                                       String noteForCouple,

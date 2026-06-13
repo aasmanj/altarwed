@@ -153,6 +153,10 @@ public class WeddingWebsiteEntity {
     @Column(name = "scripture_background_color", length = 20)
     private String scriptureBackgroundColor;
 
+    // V65: custom save-the-date image (e.g. Canva export). null = use the default text template.
+    @Column(name = "std_image_url", length = 2000)
+    private String stdImageUrl;
+
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted;
 

@@ -173,9 +173,13 @@ public class ResendEmailAdapter implements EmailPort {
 
     @Override
     public void sendSaveTheDateEmail(String toEmail, String guestName, String coupleNames,
-                                     String weddingDate, String weddingUrl) {
+                                     String weddingDate, String weddingUrl, String stdImageUrl) {
+        String imageBlock = (stdImageUrl != null && !stdImageUrl.isBlank())
+                ? "<img src=\"" + stdImageUrl + "\" alt=\"Save the Date\" style=\"display:block;width:100%;max-width:540px;margin:0 auto 32px;border-radius:6px;\" />"
+                : "";
         String html = """
                 <div style="font-family: Georgia, serif; max-width: 540px; margin: 0 auto; background: #fdfaf6; padding: 40px; border-radius: 8px;">
+                  %s
                   <p style="text-align:center; color:#a08060; font-size:12px; letter-spacing:0.2em; text-transform:uppercase; margin-bottom:8px;">Save the Date</p>
                   <h1 style="text-align:center; color:#3b2f2f; font-size:36px; margin:0 0 8px;">%s</h1>
                   <p style="text-align:center; color:#d4af6a; font-size:22px; margin:0 0 24px;">&amp;</p>
@@ -194,7 +198,8 @@ public class ResendEmailAdapter implements EmailPort {
                     "And over all these virtues put on love, which binds them all together in perfect unity." (Colossians 3:14)
                   </p>
                 </div>
-                """.formatted(coupleNames.replace(" & ", "</h1><p style=\"text-align:center; color:#d4af6a; font-size:22px; margin:0 0 8px;\">&amp;</p><h1 style=\"text-align:center; color:#3b2f2f; font-size:36px; margin:0 0 24px;\">"),
+                """.formatted(imageBlock,
+                coupleNames.replace(" & ", "</h1><p style=\"text-align:center; color:#d4af6a; font-size:22px; margin:0 0 8px;\">&amp;</p><h1 style=\"text-align:center; color:#3b2f2f; font-size:36px; margin:0 0 24px;\">"),
                 weddingDate, guestName, weddingUrl);
 
         String displayUnsubUrl = unsubscribeDisplayUrl(toEmail);

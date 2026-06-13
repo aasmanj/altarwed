@@ -68,6 +68,9 @@ public record WeddingWebsiteResponse(
         // V62: CSS color string for the scripture banner background. null = default dark gradient.
         String scriptureBackgroundColor,
 
+        // V65: custom save-the-date image URL. null = use the default text-only STD email template.
+        String stdImageUrl,
+
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {}

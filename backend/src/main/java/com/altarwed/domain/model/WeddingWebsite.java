@@ -81,6 +81,10 @@ public record WeddingWebsite(
         // null = use the default dark gradient.
         String scriptureBackgroundColor,
 
+        // V65: custom save-the-date image URL (couple uploads a Canva PNG, etc.).
+        // null = use the default text-only STD email template.
+        String stdImageUrl,
+
         boolean isDeleted,
         LocalDateTime deletedAt,
 
@@ -98,6 +102,7 @@ public record WeddingWebsite(
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
                 rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget,
                 hiddenTabs, customTabLabels, accentColor, scriptureBackgroundColor,
+                stdImageUrl,
                 isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
@@ -112,6 +117,7 @@ public record WeddingWebsite(
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
                 rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget,
                 hiddenTabs, customTabLabels, accentColor, scriptureBackgroundColor,
+                stdImageUrl,
                 isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
@@ -126,6 +132,7 @@ public record WeddingWebsite(
                 registryUrl1, registryLabel1, registryUrl2, registryLabel2, registryUrl3, registryLabel3,
                 rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget,
                 hiddenTabs, customTabLabels, accentColor, scriptureBackgroundColor,
+                stdImageUrl,
                 true, LocalDateTime.now(), createdAt, LocalDateTime.now());
     }
 }

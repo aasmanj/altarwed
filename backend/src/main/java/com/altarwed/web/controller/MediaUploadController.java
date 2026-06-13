@@ -114,4 +114,26 @@ public class MediaUploadController {
         weddingWebsiteService.updateVenuePhoto(websiteId, url);
         return ResponseEntity.ok(Map.of("photoUrl", url));
     }
+
+    @PostMapping("/wedding-websites/{websiteId}/std-image")
+    public ResponseEntity<Map<String, String>> uploadStdImage(
+            @PathVariable UUID websiteId,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal String email
+    ) throws IOException {
+        accessGuard.assertOwnsWebsite(websiteId, email);
+        String url = mediaUploadService.uploadStdImage(websiteId, file);
+        weddingWebsiteService.updateStdImage(websiteId, url);
+        return ResponseEntity.ok(Map.of("imageUrl", url));
+    }
+
+    @DeleteMapping("/wedding-websites/{websiteId}/std-image")
+    public ResponseEntity<Void> removeStdImage(
+            @PathVariable UUID websiteId,
+            @AuthenticationPrincipal String email
+    ) {
+        accessGuard.assertOwnsWebsite(websiteId, email);
+        weddingWebsiteService.updateStdImage(websiteId, null);
+        return ResponseEntity.noContent().build();
+    }
 }

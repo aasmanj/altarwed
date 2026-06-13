@@ -32,20 +32,20 @@ public class GuestService {
     private final RsvpInviteTokenRepository tokenRepository;
     private final WeddingWebsiteRepository websiteRepository;
     private final CoupleRepository coupleRepository;
-    private final AsyncEmailService emailPort;
+    private final AsyncEmailService asyncEmailService;
 
     public GuestService(
             GuestRepository guestRepository,
             RsvpInviteTokenRepository tokenRepository,
             WeddingWebsiteRepository websiteRepository,
             CoupleRepository coupleRepository,
-            AsyncEmailService emailPort
+            AsyncEmailService asyncEmailService
     ) {
         this.guestRepository = guestRepository;
         this.tokenRepository = tokenRepository;
         this.websiteRepository = websiteRepository;
         this.coupleRepository = coupleRepository;
-        this.emailPort = emailPort;
+        this.asyncEmailService = asyncEmailService;
     }
 
     @Transactional
@@ -121,21 +121,21 @@ public class GuestService {
         Guest updated = new Guest(
                 existing.id(), existing.coupleId(),
                 req.name()               != null ? req.name()               : existing.name(),
-                req.email()              != null ? req.email()              : existing.email(),
-                req.phone()              != null ? req.phone()              : existing.phone(),
+                req.email()              != null ? (req.email().isBlank()              ? null : req.email())              : existing.email(),
+                req.phone()              != null ? (req.phone().isBlank()              ? null : req.phone())              : existing.phone(),
                 req.rsvpStatus()         != null ? req.rsvpStatus()         : existing.rsvpStatus(),
                 req.plusOneAllowed()     != null ? req.plusOneAllowed()     : existing.plusOneAllowed(),
-                req.plusOneName()        != null ? req.plusOneName()        : existing.plusOneName(),
-                req.dietaryRestrictions()!= null ? req.dietaryRestrictions(): existing.dietaryRestrictions(),
-                req.songRequest()        != null ? req.songRequest()        : existing.songRequest(),
+                req.plusOneName()        != null ? (req.plusOneName().isBlank()        ? null : req.plusOneName())        : existing.plusOneName(),
+                req.dietaryRestrictions()!= null ? (req.dietaryRestrictions().isBlank() ? null : req.dietaryRestrictions()) : existing.dietaryRestrictions(),
+                req.songRequest()        != null ? (req.songRequest().isBlank()        ? null : req.songRequest())        : existing.songRequest(),
                 req.tableNumber()        != null ? req.tableNumber()        : existing.tableNumber(),
                 req.side()               != null ? req.side()               : existing.side(),
-                req.notes()              != null ? req.notes()              : existing.notes(),
-                req.mailLine1()          != null ? req.mailLine1()          : existing.mailLine1(),
-                req.mailCity()           != null ? req.mailCity()           : existing.mailCity(),
-                req.mailState()          != null ? req.mailState()          : existing.mailState(),
-                req.mailZip()            != null ? req.mailZip()            : existing.mailZip(),
-                req.mailCountry()        != null ? req.mailCountry()        : existing.mailCountry(),
+                req.notes()              != null ? (req.notes().isBlank()              ? null : req.notes())              : existing.notes(),
+                req.mailLine1()          != null ? (req.mailLine1().isBlank()          ? null : req.mailLine1())          : existing.mailLine1(),
+                req.mailCity()           != null ? (req.mailCity().isBlank()           ? null : req.mailCity())           : existing.mailCity(),
+                req.mailState()          != null ? (req.mailState().isBlank()          ? null : req.mailState())          : existing.mailState(),
+                req.mailZip()            != null ? (req.mailZip().isBlank()            ? null : req.mailZip())            : existing.mailZip(),
+                req.mailCountry()        != null ? (req.mailCountry().isBlank()        ? null : req.mailCountry())        : existing.mailCountry(),
                 existing.noteForCouple(), existing.inviteSendCount(),
                 existing.inviteSentAt(), existing.respondedAt(), existing.remindAt(),
                 existing.createdAt(), LocalDateTime.now(),
@@ -176,6 +176,7 @@ public class GuestService {
         String weddingUrl = website != null
                 ? "https://www.altarwed.com/wedding/" + website.slug()
                 : "https://www.altarwed.com";
+        String stdImageUrl = website != null ? website.stdImageUrl() : null;
 
         Set<UUID> guestIdSet = guestIds != null ? new HashSet<>(guestIds) : null;
         List<Guest> toSend = guestRepository.findAllByCoupleId(coupleId).stream()
@@ -184,7 +185,7 @@ public class GuestService {
                 .toList();
 
         for (Guest guest : toSend) {
-            emailPort.sendSaveTheDateEmail(guest.email(), guest.name(), coupleNames, weddingDate, weddingUrl);
+            asyncEmailService.sendSaveTheDateEmail(guest.email(), guest.name(), coupleNames, weddingDate, weddingUrl, stdImageUrl);
         }
         log.info("save-the-date send batch queued, coupleId={}, queued={}", coupleId, toSend.size());
         return toSend.size();
@@ -381,7 +382,7 @@ public class GuestService {
             coupleRepository.findById(responded.coupleId()).ifPresent(couple -> {
                 String coupleNames = couple.partnerTwoName() + " & " + couple.partnerOneName();
                 String dashboardUrl = "https://app.altarwed.com/dashboard/guests";
-                emailPort.sendRsvpNotificationToCouple(
+                asyncEmailService.sendRsvpNotificationToCouple(
                         couple.email(),
                         coupleNames,
                         responded.name(),
@@ -440,7 +441,7 @@ public class GuestService {
                 ? website.weddingDate().format(DateTimeFormatter.ofPattern("MMMM d, yyyy"))
                 : "TBD";
 
-        emailPort.sendRsvpInviteEmail(guest.email(), guest.name(), coupleNames, weddingDate, rawToken);
+        asyncEmailService.sendRsvpInviteEmail(guest.email(), guest.name(), coupleNames, weddingDate, rawToken);
         log.info("rsvp invite queued, guestId={}, coupleId={}, sendNumber={}",
                  guest.id(), coupleId, currentSends + 1);
 

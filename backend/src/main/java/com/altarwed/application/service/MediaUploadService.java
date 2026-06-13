@@ -53,6 +53,21 @@ public class MediaUploadService {
         return blobStorage.upload(blobName, file.getInputStream(), file.getSize(), file.getContentType());
     }
 
+    public String uploadStdImage(UUID websiteId, MultipartFile file) throws IOException {
+        validate(file);
+        String ext = getExtension(file.getContentType());
+        String blobName = "std-images/" + websiteId + "/" + UUID.randomUUID() + ext;
+        log.info("submitting std image to blob storage, websiteId={}", websiteId);
+        try {
+            String url = blobStorage.upload(blobName, file.getInputStream(), file.getSize(), file.getContentType());
+            log.info("std image stored in blob, websiteId={}", websiteId);
+            return url;
+        } catch (Exception ex) {
+            log.error("blob storage upload failed for std image, websiteId={}", websiteId, ex);
+            throw ex;
+        }
+    }
+
     public String uploadVenuePhoto(UUID websiteId, MultipartFile file) throws IOException {
         validate(file);
         String ext = getExtension(file.getContentType());

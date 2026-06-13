@@ -96,6 +96,7 @@ public class WeddingWebsiteService {
                 null, null,                    // hiddenTabs, customTabLabels (V34)
                 null,                          // accentColor (V59)
                 null,                          // scriptureBackgroundColor (V62)
+                null,                          // stdImageUrl (V65)
                 false, null,
                 LocalDateTime.now(), LocalDateTime.now()
         );
@@ -194,6 +195,8 @@ public class WeddingWebsiteService {
                         ? (req.scriptureBackgroundColor().isBlank() ? null : req.scriptureBackgroundColor())
                         : existing.scriptureBackgroundColor(),
 
+                existing.stdImageUrl(),
+
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(),
                 LocalDateTime.now()
@@ -227,6 +230,7 @@ public class WeddingWebsiteService {
                 existing.goalBudget(),
                 existing.hiddenTabs(), existing.customTabLabels(),
                 existing.accentColor(), existing.scriptureBackgroundColor(),
+                existing.stdImageUrl(),
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );
@@ -259,12 +263,46 @@ public class WeddingWebsiteService {
                 existing.goalBudget(),
                 existing.hiddenTabs(), existing.customTabLabels(),
                 existing.accentColor(), existing.scriptureBackgroundColor(),
+                existing.stdImageUrl(),
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );
         WeddingWebsite saved = websiteRepository.save(updated);
         log.info("venue photo updated, websiteId={}", websiteId);
         revalidationPort.revalidateWeddingPage(saved.slug());
+    }
+
+    @Transactional
+    public void updateStdImage(UUID websiteId, String imageUrl) {
+        log.info("std image update started, websiteId={}", websiteId);
+        WeddingWebsite existing = websiteRepository.findById(websiteId)
+                .orElseThrow(() -> new WeddingWebsiteNotFoundException(websiteId.toString()));
+        WeddingWebsite updated = new WeddingWebsite(
+                existing.id(), existing.coupleId(), existing.slug(), existing.isPublished(),
+                existing.partnerOneName(), existing.partnerTwoName(), existing.weddingDate(),
+                existing.engagementDate(),
+                existing.heroPhotoUrl(), existing.heroTagline(),
+                existing.heroFocalPointX(), existing.heroFocalPointY(), existing.heroTaglineColor(),
+                existing.ourStory(),
+                existing.scriptureReference(), existing.scriptureText(), existing.scriptureTranslation(),
+                existing.venueName(), existing.venueAddress(), existing.venueCity(),
+                existing.venueState(), existing.ceremonyTime(), existing.dressCode(),
+                existing.venuePhotoUrl(), existing.venueAdditionalInfo(),
+                existing.hotelName(), existing.hotelUrl(), existing.hotelDetails(),
+                existing.registryUrl1(), existing.registryLabel1(),
+                existing.registryUrl2(), existing.registryLabel2(),
+                existing.registryUrl3(), existing.registryLabel3(),
+                existing.rsvpDeadline(),
+                existing.partnerOneVows(), existing.partnerTwoVows(),
+                existing.goalBudget(),
+                existing.hiddenTabs(), existing.customTabLabels(),
+                existing.accentColor(), existing.scriptureBackgroundColor(),
+                imageUrl,
+                existing.isDeleted(), existing.deletedAt(),
+                existing.createdAt(), LocalDateTime.now()
+        );
+        websiteRepository.save(updated);
+        log.info("std image updated, websiteId={}", websiteId);
     }
 
     @Transactional
