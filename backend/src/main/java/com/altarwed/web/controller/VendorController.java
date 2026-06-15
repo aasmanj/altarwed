@@ -19,10 +19,13 @@ import com.altarwed.application.service.VendorService;
 import com.altarwed.domain.model.VendorPortfolioPhoto;
 import com.altarwed.domain.model.VendorSubscription;
 import com.altarwed.domain.model.VendorCategory;
+import com.altarwed.web.security.CookieService;
 import com.altarwed.web.mapper.VendorMapper;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -48,6 +51,7 @@ public class VendorController {
     private final MediaUploadService mediaUploadService;
     private final StripeService stripeService;
     private final VendorPortfolioPhotoService portfolioPhotoService;
+    private final CookieService cookieService;
 
     public VendorController(
             VendorService vendorService,
@@ -56,7 +60,8 @@ public class VendorController {
             VendorInquiryService inquiryService,
             MediaUploadService mediaUploadService,
             StripeService stripeService,
-            VendorPortfolioPhotoService portfolioPhotoService
+            VendorPortfolioPhotoService portfolioPhotoService,
+            CookieService cookieService
     ) {
         this.vendorService = vendorService;
         this.vendorAuthService = vendorAuthService;
@@ -65,11 +70,16 @@ public class VendorController {
         this.mediaUploadService = mediaUploadService;
         this.stripeService = stripeService;
         this.portfolioPhotoService = portfolioPhotoService;
+        this.cookieService = cookieService;
     }
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterVendorRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(vendorAuthService.register(request));
+    public ResponseEntity<AuthResponse> register(
+            @Valid @RequestBody RegisterVendorRequest request,
+            HttpServletResponse response) {
+        AuthResponse auth = vendorAuthService.register(request);
+        response.addHeader(HttpHeaders.SET_COOKIE, cookieService.createRefreshCookie(auth.refreshToken()).toString());
+        return ResponseEntity.status(HttpStatus.CREATED).body(auth);
     }
 
     @GetMapping("/me")

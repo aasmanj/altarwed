@@ -20,7 +20,6 @@ interface AuthUser {
 interface AuthState {
   user: AuthUser | null
   accessToken: string | null
-  refreshToken: string | null
 }
 
 interface AuthContextValue extends AuthState {
@@ -38,96 +37,77 @@ interface AuthContextValue extends AuthState {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-// The refresh token (7-day lifespan) is persisted in localStorage so that
-// opening a new tab or clicking "Edit this website" from the public wedding
-// page doesn't force a re-login. The short-lived access token (15 min) stays
-// in memory only. localStorage is readable only on the same origin
-// (app.altarwed.com), so there is no cross-site leakage.
-const REFRESH_TOKEN_KEY = 'altarwed.rt'
-
-function saveRefreshToken(token: string | null) {
-  if (token) {
-    localStorage.setItem(REFRESH_TOKEN_KEY, token)
-  } else {
-    localStorage.removeItem(REFRESH_TOKEN_KEY)
-  }
-}
+// Non-credential hint: tells the app whether to attempt a silent bootstrap refresh
+// on mount. The actual credential is the HttpOnly session cookie managed by the browser
+// (invisible to JS). This hint avoids an unnecessary network round-trip for users who
+// have never logged in or have explicitly logged out.
+//
+// On browser close the session cookie is cleared but this hint may remain. The next
+// mount will attempt bootstrap, get a 401 (no cookie), clear the hint, and show login.
+const SESSION_HINT_KEY = 'altarwed.sh'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Access token: memory only (short-lived, 15 min). Refresh token: seeded
-  // from localStorage so silent re-auth works across new tabs and page loads.
-  const [state, setState] = useState<AuthState>(() => ({
-    user: null,
-    accessToken: null,
-    refreshToken: typeof window !== 'undefined' ? localStorage.getItem(REFRESH_TOKEN_KEY) : null,
-  }))
+  // Access token lives in memory only (short-lived, 15 min). Refresh token lives in
+  // the browser's HttpOnly session cookie -- JS never sees it.
+  const [state, setState] = useState<AuthState>({ user: null, accessToken: null })
   const refreshPromise = useRef<Promise<string | null> | null>(null)
 
-  // Bootstrap: if a refresh token was persisted (new tab, reopened tab, hard
-  // refresh), restore the session once on mount before any protected route
-  // renders. Starts true only when there is actually a token to redeem, so a
-  // logged-out visitor isn't held behind a spinner.
+  // Bootstrap: attempt a silent refresh if our session hint says we were logged in.
+  // Starts true only when the hint is present so logged-out visitors skip the spinner.
   const [bootstrapping, setBootstrapping] = useState<boolean>(
-    () => typeof window !== 'undefined' && !!localStorage.getItem(REFRESH_TOKEN_KEY),
+    () => typeof window !== 'undefined' && localStorage.getItem(SESSION_HINT_KEY) === '1',
   )
   const bootstrapped = useRef(false)
 
   const login = useCallback(async (email: string, password: string) => {
-    const { accessToken, refreshToken, user } = await authApi.login(email, password)
-    saveRefreshToken(refreshToken)
-    setState({ user, accessToken, refreshToken })
+    const { accessToken, user } = await authApi.login(email, password)
+    localStorage.setItem(SESSION_HINT_KEY, '1')
+    setState({ user, accessToken })
   }, [])
 
   const register = useCallback(async (payload: RegisterCouplePayload) => {
-    const { accessToken, refreshToken, user } = await authApi.register(payload)
-    saveRefreshToken(refreshToken)
-    setState({ user, accessToken, refreshToken })
+    const { accessToken, user } = await authApi.register(payload)
+    localStorage.setItem(SESSION_HINT_KEY, '1')
+    setState({ user, accessToken })
   }, [])
 
   const registerVendor = useCallback(async (payload: RegisterVendorPayload) => {
-    const { accessToken, refreshToken, user } = await authApi.registerVendor(payload)
-    saveRefreshToken(refreshToken)
-    setState({ user, accessToken, refreshToken })
+    const { accessToken, user } = await authApi.registerVendor(payload)
+    localStorage.setItem(SESSION_HINT_KEY, '1')
+    setState({ user, accessToken })
   }, [])
 
   const logout = useCallback(async () => {
-    await authApi.logout(state.refreshToken).catch(() => {})
-    saveRefreshToken(null)
-    setState({ user: null, accessToken: null, refreshToken: null })
+    await authApi.logout().catch(() => {})
+    localStorage.removeItem(SESSION_HINT_KEY)
+    setState({ user: null, accessToken: null })
     // Unlink the analytics identity so the next person on a shared browser is a
     // fresh anonymous visitor, not a continuation of this couple's session.
     resetAnalytics()
-  }, [state.refreshToken])
+  }, [])
 
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
     // Deduplicate concurrent refresh calls
     if (refreshPromise.current) return refreshPromise.current
 
-    const currentRefreshToken = state.refreshToken
-    if (!currentRefreshToken) {
-      setState({ user: null, accessToken: null, refreshToken: null })
-      return null
-    }
-
     refreshPromise.current = authApi
-      .refresh(currentRefreshToken)
-      .then(({ accessToken, refreshToken, user }) => {
-        saveRefreshToken(refreshToken)
-        setState({ user, accessToken, refreshToken })
+      .refresh()
+      .then(({ accessToken, user }) => {
+        localStorage.setItem(SESSION_HINT_KEY, '1')
+        setState({ user, accessToken })
         return accessToken
       })
       .catch((err: unknown) => {
         const status = (err as { response?: { status?: number } })?.response?.status
         // Only destroy the stored session when the server authoritatively rejects
         // the token (expired/revoked/malformed). A network blip or a 5xx is
-        // transient, so we keep the 7-day refresh token and stay unauthenticated
-        // for now; the next request (or app reload) retries instead of forcing a
-        // full re-login. Without this, a momentary outage on the bootstrap refresh
+        // transient -- keep the hint so the next reload can retry instead of
+        // forcing a full re-login. Without this, a momentary outage on bootstrap
         // would silently log a returning couple out.
         const authoritativeReject = status === 400 || status === 401 || status === 403
         if (authoritativeReject) {
-          saveRefreshToken(null)
-          setState({ user: null, accessToken: null, refreshToken: null })
+          localStorage.removeItem(SESSION_HINT_KEY)
+          setState({ user: null, accessToken: null })
         }
         return null
       })
@@ -136,10 +116,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
 
     return refreshPromise.current
-  }, [state.refreshToken])
+  }, [])
 
   // Wire the axios interceptor so every request gets the current token,
-  // and 401/403 responses trigger a silent refresh via the httpOnly cookie.
+  // and 401/403 responses trigger a silent refresh via the HttpOnly cookie.
   useEffect(() => {
     setupAuthInterceptor(
       () => state.accessToken,
@@ -150,11 +130,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // One-time silent refresh on mount to rehydrate a persisted session. The ref
   // guard makes this run exactly once even under React StrictMode's double-invoke,
   // and refreshAccessToken is itself single-flight, so a rotated refresh token is
-  // never spent twice (which previously could log a returning user out).
+  // never spent twice.
+  //
+  // We only attempt the network call when the session hint is present (bootstrapping=true).
+  // No hint means the user is definitely logged out; skip the call entirely.
   useEffect(() => {
     if (bootstrapped.current) return
     bootstrapped.current = true
-    if (state.refreshToken && !state.user) {
+    if (bootstrapping) {
       refreshAccessToken().finally(() => setBootstrapping(false))
     } else {
       setBootstrapping(false)

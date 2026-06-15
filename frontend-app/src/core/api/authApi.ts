@@ -2,10 +2,10 @@ import { apiClient } from './client'
 import type { UserRole } from '@/core/auth/AuthContext'
 import type { Acquisition } from '@/core/analytics/utm'
 
-// Shape the backend actually returns
+// Shape the backend actually returns (refreshToken excluded from JSON via @JsonIgnore;
+// it is set as an HttpOnly session cookie by the server on login/register/refresh).
 interface BackendAuthResponse {
   accessToken: string
-  refreshToken: string
   tokenType: string
   userId: string
   email: string
@@ -19,7 +19,6 @@ interface BackendAuthResponse {
 // Shape AuthContext expects
 export interface AuthResponse {
   accessToken: string
-  refreshToken: string
   user: {
     id: string
     email: string
@@ -34,7 +33,6 @@ export interface AuthResponse {
 function mapResponse(data: BackendAuthResponse): AuthResponse {
   return {
     accessToken: data.accessToken,
-    refreshToken: data.refreshToken,
     user: {
       id: data.userId,
       email: data.email,
@@ -84,12 +82,14 @@ export const authApi = {
     return mapResponse(data)
   },
 
-  refresh: async (refreshToken: string): Promise<AuthResponse> => {
-    const { data } = await apiClient.post<BackendAuthResponse>('/api/v1/auth/refresh', { refreshToken })
+  // No body needed: the browser sends the HttpOnly session cookie automatically.
+  refresh: async (): Promise<AuthResponse> => {
+    const { data } = await apiClient.post<BackendAuthResponse>('/api/v1/auth/refresh', {})
     return mapResponse(data)
   },
 
-  logout: async (refreshToken: string | null): Promise<void> => {
-    if (refreshToken) await apiClient.post('/api/v1/auth/logout', { refreshToken })
+  // No body needed: server reads the cookie and clears it in the response.
+  logout: async (): Promise<void> => {
+    await apiClient.post('/api/v1/auth/logout', {})
   },
 }

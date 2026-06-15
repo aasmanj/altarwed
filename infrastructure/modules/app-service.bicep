@@ -59,6 +59,14 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           value: 'https://altarwed.com,https://www.altarwed.com,https://app.altarwed.com'
         }
         {
+          name: 'COOKIE_SECURE'
+          value: 'true'
+        }
+        {
+          name: 'COOKIE_SAME_SITE'
+          value: 'None'
+        }
+        {
           name: 'SPRING_PROFILES_ACTIVE'
           value: 'prod'
         }

@@ -1,11 +1,12 @@
 package com.altarwed.application.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.LocalDate;
 import java.util.UUID;
 
 public record AuthResponse(
         String accessToken,
-        String refreshToken,
+        @JsonIgnore String refreshToken,   // extracted by controllers to set as HttpOnly cookie; never sent in JSON
         String tokenType,
         UUID userId,
         String email,

@@ -7,9 +7,12 @@ import com.altarwed.application.dto.UpdateDenominationRequest;
 import com.altarwed.application.dto.UpdateWeddingDateRequest;
 import com.altarwed.application.service.AuthService;
 import com.altarwed.application.service.CoupleService;
+import com.altarwed.web.security.CookieService;
 import com.altarwed.web.mapper.CoupleMapper;
 import com.altarwed.web.security.CoupleAccessGuard;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,17 +28,23 @@ public class CoupleController {
     private final AuthService authService;
     private final CoupleMapper coupleMapper;
     private final CoupleAccessGuard accessGuard;
+    private final CookieService cookieService;
 
-    public CoupleController(CoupleService coupleService, AuthService authService, CoupleMapper coupleMapper, CoupleAccessGuard accessGuard) {
+    public CoupleController(CoupleService coupleService, AuthService authService, CoupleMapper coupleMapper, CoupleAccessGuard accessGuard, CookieService cookieService) {
         this.coupleService = coupleService;
         this.authService = authService;
         this.coupleMapper = coupleMapper;
         this.accessGuard = accessGuard;
+        this.cookieService = cookieService;
     }
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterCoupleRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
+    public ResponseEntity<AuthResponse> register(
+            @Valid @RequestBody RegisterCoupleRequest request,
+            HttpServletResponse response) {
+        AuthResponse auth = authService.register(request);
+        response.addHeader(HttpHeaders.SET_COOKIE, cookieService.createRefreshCookie(auth.refreshToken()).toString());
+        return ResponseEntity.status(HttpStatus.CREATED).body(auth);
     }
 
     @GetMapping("/{id}")
