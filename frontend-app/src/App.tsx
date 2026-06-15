@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { AnimatePresence, motion, MotionConfig } from 'framer-motion'
@@ -32,10 +33,20 @@ import CommunicationsPage from '@/features/couple/communications/CommunicationsP
 import AdminMetricsPage from '@/features/admin/AdminMetricsPage'
 import SettingsPage from '@/features/couple/settings/SettingsPage'
 
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }, [pathname])
+  return null
+}
+
 function AnimatedRoutes() {
   const location = useLocation()
   return (
-    <AnimatePresence mode="wait" initial={false}>
+    <>
+      <ScrollToTop />
+      <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={location.pathname}
         initial={{ opacity: 0 }}
@@ -240,6 +251,7 @@ function AnimatedRoutes() {
         </Routes>
       </motion.div>
     </AnimatePresence>
+    </>
   )
 }
 

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Mail, Send, AlertCircle, Loader2 } from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
+import { useConfirm } from '@/components/ConfirmDialog'
 import PageHeader from '@/components/PageHeader'
 import { useGuests } from '@/features/couple/guests/useGuests'
 import {
@@ -27,14 +29,22 @@ const TEMPLATES: Record<PrintOrderType, { key: TemplateKey; label: string; descr
   ],
 }
 
+const TEMPLATE_LABELS: Record<TemplateKey, string> = {
+  SAVE_THE_DATE_CLASSIC: 'Save the Date - Classic',
+  SAVE_THE_DATE_PHOTO: 'Save the Date - Photo',
+  INVITATION_CLASSIC: 'Invitation - Classic',
+  INVITATION_PHOTO: 'Invitation - Photo',
+}
+
 // Mirrors backend COST_PER_POSTCARD_CENTS = 150 in PrintOrderService.
 const COST_PER_POSTCARD_CENTS = 150
 
 export default function CommunicationsPage() {
   const { user } = useAuth()
+  const confirm = useConfirm()
   const coupleId = user?.id ?? ''
-  const { data: guests = [] } = useGuests(coupleId)
-  const { data: orders = [] } = usePrintOrders(coupleId)
+  const { data: guests = [], isLoading: guestsLoading, isError: guestsError, refetch: refetchGuests } = useGuests(coupleId)
+  const { data: orders = [], isLoading: ordersLoading, isError: ordersError, refetch: refetchOrders } = usePrintOrders(coupleId)
   const createOrder = useCreatePrintOrder(coupleId)
 
   const [orderType, setOrderType] = useState<PrintOrderType>('SAVE_THE_DATE')
@@ -50,11 +60,10 @@ export default function CommunicationsPage() {
   const [returnCity, setReturnCity] = useState('')
   const [returnState, setReturnState] = useState('')
   const [returnZip, setReturnZip] = useState('')
-  const [confirmOpen, setConfirmOpen] = useState(false)
   const [lastResult, setLastResult] = useState<string | null>(null)
-  // Dedup token for the in-flight submit. Generated when the confirm dialog
-  // opens and regenerated after a successful send, so a retry of the SAME
-  // submit is deduped server-side while a deliberate new batch gets a fresh key.
+  // Dedup token regenerated whenever the batch contents change (see effect below),
+  // so each distinct batch is a new order server-side. A retry of the SAME batch
+  // keeps the key and is deduped by the backend.
   const [idempotencyKey, setIdempotencyKey] = useState<string>(() => crypto.randomUUID())
 
   // Regenerate the dedup key whenever the batch contents change, so each distinct
@@ -67,6 +76,11 @@ export default function CommunicationsPage() {
 
   const mailableGuests = useMemo(
     () => guests.filter(g => g.mailLine1 && g.mailLine1.trim().length > 0),
+    [guests]
+  )
+
+  const guestById = useMemo(
+    () => new Map(guests.map(g => [g.id, g])),
     [guests]
   )
 
@@ -90,12 +104,36 @@ export default function CommunicationsPage() {
     setSelectedIds([])
   }
 
-  async function submit() {
-    // Re-entry guard: ignore a second click while the first request is in flight.
-    // The idempotency key makes a duplicate harmless server-side; this just avoids
-    // firing a redundant request at all.
+  // Inline validation hints shown below each relevant field when the form has
+  // been touched but the field is still invalid.
+  const stateInvalid = returnState.trim().length > 0 && returnState.trim().length !== 2
+  const zipInvalid = returnZip.trim().length > 0 && !/^\d{5}(-\d{4})?$/.test(returnZip.trim())
+
+  // Single source of truth for submit readiness. `canSubmit` is derived from
+  // the hint so the validation rules can't drift between the two.
+  function submitBlockerHint(): string | null {
+    if (eligibleSelected.length === 0) return 'Select at least one recipient above'
+    if (!returnName.trim()) return 'Enter a name for the return address'
+    if (!returnAddressLine1.trim()) return 'Enter address line 1'
+    if (!returnCity.trim()) return 'Enter the city'
+    if (returnState.trim().length !== 2) return 'Enter a 2-letter state code (e.g. CA)'
+    if (!/^\d{5}(-\d{4})?$/.test(returnZip.trim())) return 'Enter a valid 5-digit ZIP'
+    return null
+  }
+
+  const blocker = submitBlockerHint()
+  const canSubmit = blocker === null
+
+  async function handleSubmit() {
     if (createOrder.isPending) return
-    setConfirmOpen(false)
+    const confirmed = await confirm({
+      title: 'Confirm print order',
+      message: `You are about to send ${eligibleSelected.length} ${orderType === 'SAVE_THE_DATE' ? 'save-the-date' : 'invitation'} postcards. Estimated cost: $${estimatedCostDollars.toFixed(2)}. This action cannot be undone once postcards are submitted to the printer.`,
+      confirmLabel: 'Submit order',
+      tone: 'danger',
+    })
+    if (!confirmed) return
+
     const payload: CreatePrintOrderPayload = {
       orderType,
       templateKey,
@@ -134,11 +172,6 @@ export default function CommunicationsPage() {
     }
   }
 
-  const canSubmit =
-    eligibleSelected.length > 0 &&
-    returnName.trim() && returnAddressLine1.trim() &&
-    returnCity.trim() && returnState.trim().length === 2 && /^\d{5}(-\d{4})?$/.test(returnZip.trim())
-
   return (
     <div className="min-h-screen bg-ivory">
       <PageHeader
@@ -148,17 +181,16 @@ export default function CommunicationsPage() {
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-10">
 
-        {/* Step 1: channel choice */}
-        <section>
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Step 1</p>
-          <h2 className="font-serif text-2xl font-bold text-brown mb-2">How would you like to reach your guests?</h2>
+        {/* Channel chooser */}
+        <section aria-labelledby="channel-heading">
+          <h2 id="channel-heading" className="font-serif text-2xl font-bold text-brown mb-2">How would you like to reach your guests?</h2>
           <p className="text-sm text-stone-500 mb-5">Choose email for instant free delivery, or order printed postcards mailed to their door.</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <a
               href="#email-section"
               className="flex items-start gap-4 rounded-xl border-2 border-gold-light bg-white p-5 hover:border-amber-400 hover:shadow-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
             >
-              <span className="text-2xl mt-0.5" aria-hidden="true">📧</span>
+              <Mail className="w-6 h-6 text-amber-600 mt-0.5 flex-shrink-0" aria-hidden="true" />
               <div>
                 <p className="font-semibold text-brown mb-0.5">Email <span className="text-xs font-normal text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5 ml-1">Free</span></p>
                 <p className="text-sm text-stone-500">Send save-the-dates and RSVP invitations straight to your guests&apos; inboxes.</p>
@@ -168,7 +200,7 @@ export default function CommunicationsPage() {
               href="#print-section"
               className="flex items-start gap-4 rounded-xl border-2 border-gold-light bg-white p-5 hover:border-amber-400 hover:shadow-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
             >
-              <span className="text-2xl mt-0.5" aria-hidden="true">📮</span>
+              <Send className="w-6 h-6 text-amber-600 mt-0.5 flex-shrink-0" aria-hidden="true" />
               <div>
                 <p className="font-semibold text-brown mb-0.5">Print &amp; Mail <span className="text-xs font-normal text-stone-500">$1.50/card</span></p>
                 <p className="text-sm text-stone-500">We print and mail physical postcards to guests who have a mailing address on file.</p>
@@ -177,50 +209,51 @@ export default function CommunicationsPage() {
           </div>
         </section>
 
-        {/* Step 2: email sub-steps */}
-        <section id="email-section">
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Step 2 · Email</p>
-          <h2 className="font-serif text-xl font-bold text-brown mb-1">Email your guests</h2>
+        {/* Email section */}
+        <section id="email-section" aria-labelledby="email-heading">
+          <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">Email</span>
+          <h2 id="email-heading" className="font-serif text-xl font-bold text-brown mb-1 mt-1">Email your guests</h2>
           <p className="text-sm text-stone-500 mb-4">Two faith-themed emails, both free. Send the save-the-date first, then RSVP invitations closer to the day.</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <Link
               to="/dashboard/save-the-date"
               className="flex flex-col rounded-xl border border-gold-light bg-white p-5 hover:shadow-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
             >
-              <span className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">First · Free</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">First - Free</span>
               <h3 className="font-serif text-lg font-semibold text-brown mb-1">Save-the-dates</h3>
               <p className="text-sm text-brown-light flex-1">A one-time announcement emailed to everyone with an email address. Send it months ahead so guests can plan.</p>
-              <span className="mt-3 text-sm font-medium text-amber-700">Go to save-the-dates →</span>
+              <span className="mt-3 text-sm font-medium text-amber-700">Go to save-the-dates &rarr;</span>
             </Link>
             <Link
               to="/dashboard/guests"
               className="flex flex-col rounded-xl border border-gold-light bg-white p-5 hover:shadow-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
             >
-              <span className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Then · Free</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Then - Free</span>
               <h3 className="font-serif text-lg font-semibold text-brown mb-1">RSVP invitations</h3>
               <p className="text-sm text-brown-light flex-1">Sent guest by guest from your guest list, each person gets their own RSVP link. Up to 3 sends per guest.</p>
-              <span className="mt-3 text-sm font-medium text-amber-700">Open guest list to send →</span>
+              <span className="mt-3 text-sm font-medium text-amber-700">Open guest list to send &rarr;</span>
             </Link>
           </div>
         </section>
 
-        {/* Step 3: print order */}
-        <section id="print-section" className="rounded-xl border border-stone-200 bg-white p-6">
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Step 3 · Print &amp; Mail</p>
-          <h2 className="font-serif text-xl font-bold text-brown mb-1">Order physical postcards</h2>
+        {/* Print & Mail section */}
+        <section id="print-section" className="rounded-xl border border-stone-200 bg-white p-6" aria-labelledby="print-heading">
+          <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">Print &amp; Mail</span>
+          <h2 id="print-heading" className="font-serif text-xl font-bold text-brown mb-1 mt-1">Order physical postcards</h2>
           <p className="text-sm text-stone-500 mb-6">
-            Printed postcards are mailed to your guests via a third-party service. First-class postage included.
-            We charge a flat estimate of $1.50 per postcard at submit time; actual provider cost is billed monthly.
+            Postcards are printed and mailed via a third-party service with first-class postage included.
+            You are charged a flat $1.50 per postcard when you submit. No card is required until Stripe billing launches.
           </p>
 
           {/* 1. Order type */}
-          <div className="mb-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-2">1. What are you sending?</p>
+          <div className="mb-5" role="group" aria-labelledby="order-type-label">
+            <p id="order-type-label" className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-2">1. What are you sending?</p>
             <div className="flex flex-wrap gap-2">
               {(['SAVE_THE_DATE', 'INVITATION'] as PrintOrderType[]).map(t => (
                 <button
                   key={t}
                   onClick={() => toggleType(t)}
+                  aria-pressed={orderType === t}
                   className={`px-4 py-2 rounded-lg text-sm font-medium border ${
                     orderType === t
                       ? 'bg-amber-600 text-white border-amber-600'
@@ -234,13 +267,14 @@ export default function CommunicationsPage() {
           </div>
 
           {/* 2. Template picker */}
-          <div className="mb-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-2">2. Choose a template</p>
+          <div className="mb-5" role="group" aria-labelledby="template-label">
+            <p id="template-label" className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-2">2. Choose a template</p>
             <div className="grid gap-3 sm:grid-cols-2">
               {TEMPLATES[orderType].map(t => (
                 <button
                   key={t.key}
                   onClick={() => setTemplateKey(t.key)}
+                  aria-pressed={templateKey === t.key}
                   className={`text-left p-4 rounded-lg border ${
                     templateKey === t.key
                       ? 'border-amber-600 bg-amber-50'
@@ -257,22 +291,53 @@ export default function CommunicationsPage() {
           {/* 3. Guest list */}
           <div className="mb-5">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
-                3. Pick recipients ({mailableGuests.length} have a mailing address)
+              <p id="recipients-label" className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+                3. Pick recipients
+                {!guestsLoading && !guestsError && ` (${mailableGuests.length} have a mailing address)`}
               </p>
-              <div className="flex gap-2 text-xs">
-                <button onClick={selectAllMailable} className="text-amber-700 hover:underline">Select all</button>
-                <button onClick={clearSelection} className="text-stone-500 hover:underline">Clear</button>
-              </div>
+              {!guestsLoading && !guestsError && mailableGuests.length > 0 && (
+                <div className="flex gap-3">
+                  <button
+                    onClick={selectAllMailable}
+                    className="text-sm text-amber-700 hover:underline py-1 px-2 min-h-[36px]"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    onClick={clearSelection}
+                    className="text-sm text-stone-500 hover:underline py-1 px-2 min-h-[36px]"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
             </div>
-            {mailableGuests.length === 0 ? (
+
+            {guestsLoading ? (
+              <div className="flex items-center gap-2 py-4 text-sm text-stone-500" aria-busy="true">
+                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                Loading guest list...
+              </div>
+            ) : guestsError ? (
+              <div className="rounded-lg bg-rose-50 border border-rose-200 p-4 text-sm text-rose-700 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
+                <span>
+                  Could not load guest list.{' '}
+                  <button onClick={() => refetchGuests()} className="underline font-medium">Try again</button>
+                </span>
+              </div>
+            ) : mailableGuests.length === 0 ? (
               <div className="rounded-lg bg-amber-50 border border-amber-100 p-4 text-sm text-amber-800">
                 No guests have a mailing address yet.{' '}
                 <Link to="/dashboard/guests" className="underline font-medium">Add addresses on the guest list</Link>{' '}
                 so they show up here.
               </div>
             ) : (
-              <div className="max-h-72 overflow-y-auto rounded-lg border border-stone-200 divide-y divide-stone-100">
+              <div
+                className="max-h-72 overflow-y-auto rounded-lg border border-stone-200 divide-y divide-stone-100"
+                role="group"
+                aria-labelledby="recipients-label"
+              >
                 {mailableGuests.map(g => {
                   const checked = selectedIds.includes(g.id)
                   return (
@@ -281,7 +346,8 @@ export default function CommunicationsPage() {
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleGuest(g.id)}
-                        className="mt-0.5"
+                        className="mt-1 w-4 h-4"
+                        aria-label={`Select ${g.name}`}
                       />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-stone-800">{g.name}</p>
@@ -298,72 +364,128 @@ export default function CommunicationsPage() {
 
           {/* 4. Return address */}
           <div className="mb-6">
-            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-2">4. Return address</p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input
-                value={returnName} onChange={e => setReturnName(e.target.value)}
-                placeholder="Name or couple"
-                className="rounded border border-stone-300 px-3 py-2 text-sm sm:col-span-2"
-              />
-              <input
-                value={returnAddressLine1} onChange={e => setReturnAddressLine1(e.target.value)}
-                placeholder="Address line 1"
-                className="rounded border border-stone-300 px-3 py-2 text-sm sm:col-span-2"
-              />
-              <input
-                value={returnAddressLine2} onChange={e => setReturnAddressLine2(e.target.value)}
-                placeholder="Apt / suite (optional)"
-                className="rounded border border-stone-300 px-3 py-2 text-sm sm:col-span-2"
-              />
-              <input
-                value={returnCity} onChange={e => setReturnCity(e.target.value)}
-                placeholder="City"
-                className="rounded border border-stone-300 px-3 py-2 text-sm"
-              />
+            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-2" id="return-address-label">
+              4. Return address <span className="font-normal normal-case text-stone-400">(required)</span>
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2" role="group" aria-labelledby="return-address-label">
+              <div className="sm:col-span-2">
+                <label htmlFor="returnName" className="sr-only">Name or couple</label>
+                <input
+                  id="returnName"
+                  value={returnName} onChange={e => setReturnName(e.target.value)}
+                  placeholder="Name or couple"
+                  aria-required="true"
+                  className="w-full rounded border border-stone-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="returnAddressLine1" className="sr-only">Address line 1</label>
+                <input
+                  id="returnAddressLine1"
+                  value={returnAddressLine1} onChange={e => setReturnAddressLine1(e.target.value)}
+                  placeholder="Address line 1"
+                  aria-required="true"
+                  className="w-full rounded border border-stone-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="returnAddressLine2" className="sr-only">Apt / suite (optional)</label>
+                <input
+                  id="returnAddressLine2"
+                  value={returnAddressLine2} onChange={e => setReturnAddressLine2(e.target.value)}
+                  placeholder="Apt / suite (optional)"
+                  className="w-full rounded border border-stone-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="returnCity" className="sr-only">City</label>
+                <input
+                  id="returnCity"
+                  value={returnCity} onChange={e => setReturnCity(e.target.value)}
+                  placeholder="City"
+                  aria-required="true"
+                  className="w-full rounded border border-stone-300 px-3 py-2 text-sm"
+                />
+              </div>
               <div className="grid grid-cols-2 gap-3">
-                <input
-                  value={returnState} onChange={e => setReturnState(e.target.value.toUpperCase())}
-                  maxLength={2} placeholder="State"
-                  className="rounded border border-stone-300 px-3 py-2 text-sm uppercase"
-                />
-                <input
-                  value={returnZip} onChange={e => setReturnZip(e.target.value)}
-                  placeholder="ZIP"
-                  className="rounded border border-stone-300 px-3 py-2 text-sm"
-                />
+                <div>
+                  <label htmlFor="returnState" className="sr-only">State (2-letter code)</label>
+                  <input
+                    id="returnState"
+                    value={returnState} onChange={e => setReturnState(e.target.value.toUpperCase())}
+                    maxLength={2} placeholder="State"
+                    aria-required="true"
+                    aria-invalid={stateInvalid}
+                    className={`w-full rounded border px-3 py-2 text-sm uppercase ${stateInvalid ? 'border-rose-400 bg-rose-50' : 'border-stone-300'}`}
+                  />
+                  {stateInvalid && (
+                    <p className="text-xs text-rose-600 mt-1">Use 2-letter code (e.g. CA)</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="returnZip" className="sr-only">ZIP code</label>
+                  <input
+                    id="returnZip"
+                    value={returnZip} onChange={e => setReturnZip(e.target.value)}
+                    placeholder="ZIP"
+                    aria-required="true"
+                    aria-invalid={zipInvalid}
+                    className={`w-full rounded border px-3 py-2 text-sm ${zipInvalid ? 'border-rose-400 bg-rose-50' : 'border-stone-300'}`}
+                  />
+                  {zipInvalid && (
+                    <p className="text-xs text-rose-600 mt-1">Enter a valid 5-digit ZIP</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
           {/* Submit */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-stone-100">
-            <div className="text-sm text-stone-600">
-              {eligibleSelected.length > 0 ? (
-                <>Estimated cost: <span className="font-semibold text-stone-900">${estimatedCostDollars.toFixed(2)}</span> ({eligibleSelected.length} postcards)</>
-              ) : (
-                <span className="text-stone-400">Pick at least one guest to see cost.</span>
-              )}
+          <div className="pt-4 border-t border-stone-100 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="text-sm text-stone-600">
+                {eligibleSelected.length > 0 ? (
+                  <>Estimated cost: <span className="font-semibold text-stone-900">${estimatedCostDollars.toFixed(2)}</span> ({eligibleSelected.length} postcards)</>
+                ) : (
+                  <span className="text-stone-400">Pick at least one guest to see cost.</span>
+                )}
+              </div>
+              <button
+                onClick={handleSubmit}
+                disabled={!canSubmit || createOrder.isPending}
+                className="w-full sm:w-auto px-5 py-2.5 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50 min-h-[44px]"
+              >
+                {createOrder.isPending ? 'Submitting...' : 'Submit print order'}
+              </button>
             </div>
-            <button
-              onClick={() => setConfirmOpen(true)}
-              disabled={!canSubmit || createOrder.isPending}
-              className="w-full sm:w-auto px-5 py-2.5 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50 min-h-[44px]"
-            >
-              {createOrder.isPending ? 'Submitting…' : 'Submit print order'}
-            </button>
+            {!canSubmit && blocker && (
+              <p className="text-xs text-stone-500">{blocker}</p>
+            )}
           </div>
 
-          {lastResult && (
-            <div className="mt-4 p-3 bg-stone-50 rounded-lg text-sm text-stone-700">
-              {lastResult}
-            </div>
-          )}
+          {/* Always in the DOM so screen readers catch content changes in the live region. */}
+          <div role="status" aria-live="polite" className={lastResult ? 'mt-4 p-3 bg-stone-50 rounded-lg text-sm text-stone-700' : 'sr-only'}>
+            {lastResult}
+          </div>
         </section>
 
         {/* Past orders */}
-        <section>
-          <h2 className="font-serif text-xl font-bold text-brown mb-3">Past print orders</h2>
-          {orders.length === 0 ? (
+        <section aria-labelledby="past-orders-heading">
+          <h2 id="past-orders-heading" className="font-serif text-xl font-bold text-brown mb-3">Past print orders</h2>
+          {ordersLoading ? (
+            <div className="flex items-center gap-2 py-4 text-sm text-stone-500" aria-busy="true">
+              <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+              Loading orders...
+            </div>
+          ) : ordersError ? (
+            <div className="rounded-lg bg-rose-50 border border-rose-200 p-4 text-sm text-rose-700 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
+              <span>
+                Could not load past orders.{' '}
+                <button onClick={() => refetchOrders()} className="underline font-medium">Try again</button>
+              </span>
+            </div>
+          ) : orders.length === 0 ? (
             <p className="text-sm text-stone-500">No print orders yet.</p>
           ) : (
             <div className="space-y-3">
@@ -374,11 +496,13 @@ export default function CommunicationsPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-medium text-stone-800">
-                          {o.orderType === 'SAVE_THE_DATE' ? 'Save the Date' : 'Invitation'} ·{' '}
-                          <span className="text-stone-500 text-sm">{o.templateKey}</span>
+                          {o.orderType === 'SAVE_THE_DATE' ? 'Save the Date' : 'Invitation'} &middot;{' '}
+                          <span className="text-stone-500 text-sm">
+                            {TEMPLATE_LABELS[o.templateKey as TemplateKey] ?? o.templateKey}
+                          </span>
                         </p>
                         <p className="text-xs text-stone-500 mt-0.5">
-                          {new Date(o.createdAt).toLocaleString()} · {o.recipientCount} recipients · ${(o.costCents / 100).toFixed(2)}
+                          {new Date(o.createdAt).toLocaleString()} &middot; {o.recipientCount} recipients &middot; ${(o.costCents / 100).toFixed(2)}
                         </p>
                       </div>
                       <StatusBadge status={o.status} />
@@ -392,11 +516,14 @@ export default function CommunicationsPage() {
                           {failed.length} failed - see details
                         </summary>
                         <ul className="mt-1 space-y-0.5 list-disc list-inside">
-                          {failed.map(r => (
-                            <li key={r.guestId}>
-                              Guest {r.guestId.slice(0, 8)}: {r.errorMessage}
-                            </li>
-                          ))}
+                          {failed.map(r => {
+                            const guestName = guestById.get(r.guestId)?.name ?? `Guest ${r.guestId.slice(0, 8)}`
+                            return (
+                              <li key={r.guestId}>
+                                {guestName}: {r.errorMessage}
+                              </li>
+                            )
+                          })}
                         </ul>
                       </details>
                     )}
@@ -407,37 +534,6 @@ export default function CommunicationsPage() {
           )}
         </section>
       </div>
-
-      {/* Confirm modal */}
-      {confirmOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h3 className="font-serif text-lg font-bold text-brown mb-2">Confirm print order</h3>
-            <p className="text-sm text-stone-600 mb-4">
-              You are about to send <span className="font-semibold">{eligibleSelected.length}</span>{' '}
-              {orderType === 'SAVE_THE_DATE' ? 'save-the-date' : 'invitation'} postcards.
-              Estimated cost: <span className="font-semibold">${estimatedCostDollars.toFixed(2)}</span>.
-              This action cannot be undone once postcards are submitted to the printer.
-            </p>
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setConfirmOpen(false)}
-                disabled={createOrder.isPending}
-                className="px-4 py-2 text-sm text-stone-700 hover:bg-stone-100 rounded-lg disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={submit}
-                disabled={createOrder.isPending}
-                className="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50"
-              >
-                {createOrder.isPending ? 'Submitting…' : 'Submit order'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
