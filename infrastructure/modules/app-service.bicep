@@ -51,11 +51,8 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           value: 'altarwed-media'
         }
         {
-          // Set to https://media.altarwed.com once Azure CDN custom domain is configured.
-          // Empty string is safe: falls back to native blob storage URLs (works, but triggers
-          // spam filter warnings for email image embeds).
           name: 'BLOB_PUBLIC_BASE_URL'
-          value: ''
+          value: 'https://media.altarwed.com'
         }
         {
           name: 'CORS_ALLOWED_ORIGINS'
