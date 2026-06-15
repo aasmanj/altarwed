@@ -14,6 +14,7 @@ type PartyStatus = 'ATTENDING' | 'DECLINING' | 'PENDING'
 
 export default function RsvpForm({
   token, plusOneAllowed, weddingSlug, hasRegistry, apiUrl, partyMembers,
+  currentRsvpStatus, currentPlusOneName, currentDietary, currentSongRequest, currentNoteForCouple,
 }: {
   token: string
   plusOneAllowed: boolean
@@ -21,8 +22,17 @@ export default function RsvpForm({
   hasRegistry: boolean
   apiUrl: string
   partyMembers?: PartyMemberInfo[]
+  currentRsvpStatus?: string
+  currentPlusOneName?: string
+  currentDietary?: string
+  currentSongRequest?: string
+  currentNoteForCouple?: string
 }) {
-  const [status, setStatus]             = useState<Status | null>(null)
+  const hasExistingResponse = currentRsvpStatus === 'ATTENDING' || currentRsvpStatus === 'DECLINING'
+
+  const [status, setStatus]             = useState<Status | null>(
+    hasExistingResponse ? (currentRsvpStatus as Status) : null
+  )
   const [remindInDays, setRemindInDays] = useState<number | null>(null)
   // partyStatuses: keyed by guestId, value is ATTENDING/DECLINING/PENDING
   const [partyStatuses, setPartyStatuses] = useState<Record<string, PartyStatus>>(() => {
@@ -30,10 +40,10 @@ export default function RsvpForm({
     partyMembers?.forEach(m => { init[m.guestId] = 'ATTENDING' })
     return init
   })
-  const [plusOne, setPlusOne]           = useState('')
-  const [dietary, setDietary]           = useState('')
-  const [song, setSong]                 = useState('')
-  const [noteForCouple, setNoteForCouple] = useState('')
+  const [plusOne, setPlusOne]           = useState(currentPlusOneName ?? '')
+  const [dietary, setDietary]           = useState(currentDietary ?? '')
+  const [song, setSong]                 = useState(currentSongRequest ?? '')
+  const [noteForCouple, setNoteForCouple] = useState(currentNoteForCouple ?? '')
   const [submitting, setSubmitting]     = useState(false)
   const [done, setDone]                 = useState(false)
   const [error, setError]               = useState('')
@@ -118,6 +128,11 @@ export default function RsvpForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {hasExistingResponse && (
+        <div className="rounded-xl bg-[#f5ede0] border border-[#e8dcc8] px-4 py-3 text-sm text-[#6b5344] text-center">
+          You already responded: <strong className="text-[#3b2f2f]">{currentRsvpStatus === 'ATTENDING' ? 'Attending' : 'Declining'}</strong>. Update your response below.
+        </div>
+      )}
       {/* Status selection */}
       <div>
         <p className="text-sm font-medium text-[#3b2f2f] mb-3 text-center">Will you be attending?</p>

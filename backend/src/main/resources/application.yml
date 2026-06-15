@@ -121,6 +121,7 @@ altarwed:
     storage:
       connection-string: ${AZURE_STORAGE_CONNECTION_STRING}
       container-name: ${AZURE_STORAGE_CONTAINER_NAME:altarwed-media}
+      public-base-url: ${BLOB_PUBLIC_BASE_URL:}
 
 # SpringDoc / Swagger UI
 springdoc:

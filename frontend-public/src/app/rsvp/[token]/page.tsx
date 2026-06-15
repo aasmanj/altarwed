@@ -21,6 +21,11 @@ interface RsvpPageData {
   hasRegistry: boolean
   partyMembers: PartyMemberInfo[] | null
   partyName: string | null
+  currentRsvpStatus: string | null
+  currentPlusOneName: string | null
+  currentDietary: string | null
+  currentSongRequest: string | null
+  currentNoteForCouple: string | null
 }
 
 async function getRsvpData(token: string): Promise<RsvpPageData | null> {
@@ -102,6 +107,11 @@ export default async function RsvpPage(
             hasRegistry={data.hasRegistry}
             apiUrl={API}
             partyMembers={data.partyMembers ?? undefined}
+            currentRsvpStatus={data.currentRsvpStatus ?? undefined}
+            currentPlusOneName={data.currentPlusOneName ?? undefined}
+            currentDietary={data.currentDietary ?? undefined}
+            currentSongRequest={data.currentSongRequest ?? undefined}
+            currentNoteForCouple={data.currentNoteForCouple ?? undefined}
           />
         </div>
       </div>

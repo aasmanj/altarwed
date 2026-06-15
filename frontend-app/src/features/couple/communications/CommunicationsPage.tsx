@@ -148,20 +148,46 @@ export default function CommunicationsPage() {
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-10">
 
-        {/* Digital quick links.
-            These used to be two unlabelled tiles, one of which silently jumped to
-            the guest list and confused couples. Now each card names its destination
-            and the order it happens in, so a first-time planner knows exactly what
-            clicking does before they click. */}
+        {/* Step 1: channel choice */}
         <section>
-          <h2 className="font-serif text-xl font-bold text-brown mb-1">Reach your guests by email</h2>
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Step 1</p>
+          <h2 className="font-serif text-2xl font-bold text-brown mb-2">How would you like to reach your guests?</h2>
+          <p className="text-sm text-stone-500 mb-5">Choose email for instant free delivery, or order printed postcards mailed to their door.</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <a
+              href="#email-section"
+              className="flex items-start gap-4 rounded-xl border-2 border-gold-light bg-white p-5 hover:border-amber-400 hover:shadow-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            >
+              <span className="text-2xl mt-0.5" aria-hidden="true">📧</span>
+              <div>
+                <p className="font-semibold text-brown mb-0.5">Email <span className="text-xs font-normal text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5 ml-1">Free</span></p>
+                <p className="text-sm text-stone-500">Send save-the-dates and RSVP invitations straight to your guests&apos; inboxes.</p>
+              </div>
+            </a>
+            <a
+              href="#print-section"
+              className="flex items-start gap-4 rounded-xl border-2 border-gold-light bg-white p-5 hover:border-amber-400 hover:shadow-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            >
+              <span className="text-2xl mt-0.5" aria-hidden="true">📮</span>
+              <div>
+                <p className="font-semibold text-brown mb-0.5">Print &amp; Mail <span className="text-xs font-normal text-stone-500">$1.50/card</span></p>
+                <p className="text-sm text-stone-500">We print and mail physical postcards to guests who have a mailing address on file.</p>
+              </div>
+            </a>
+          </div>
+        </section>
+
+        {/* Step 2: email sub-steps */}
+        <section id="email-section">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Step 2 · Email</p>
+          <h2 className="font-serif text-xl font-bold text-brown mb-1">Email your guests</h2>
           <p className="text-sm text-stone-500 mb-4">Two faith-themed emails, both free. Send the save-the-date first, then RSVP invitations closer to the day.</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <Link
               to="/dashboard/save-the-date"
               className="flex flex-col rounded-xl border border-gold-light bg-white p-5 hover:shadow-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
             >
-              <span className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Step 1 · Free</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">First · Free</span>
               <h3 className="font-serif text-lg font-semibold text-brown mb-1">Save-the-dates</h3>
               <p className="text-sm text-brown-light flex-1">A one-time announcement emailed to everyone with an email address. Send it months ahead so guests can plan.</p>
               <span className="mt-3 text-sm font-medium text-amber-700">Go to save-the-dates →</span>
@@ -170,7 +196,7 @@ export default function CommunicationsPage() {
               to="/dashboard/guests"
               className="flex flex-col rounded-xl border border-gold-light bg-white p-5 hover:shadow-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
             >
-              <span className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Step 2 · Free</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Then · Free</span>
               <h3 className="font-serif text-lg font-semibold text-brown mb-1">RSVP invitations</h3>
               <p className="text-sm text-brown-light flex-1">Sent guest by guest from your guest list, each person gets their own RSVP link. Up to 3 sends per guest.</p>
               <span className="mt-3 text-sm font-medium text-amber-700">Open guest list to send →</span>
@@ -178,8 +204,9 @@ export default function CommunicationsPage() {
           </div>
         </section>
 
-        {/* Physical print order */}
-        <section className="rounded-xl border border-stone-200 bg-white p-6">
+        {/* Step 3: print order */}
+        <section id="print-section" className="rounded-xl border border-stone-200 bg-white p-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Step 3 · Print &amp; Mail</p>
           <h2 className="font-serif text-xl font-bold text-brown mb-1">Order physical postcards</h2>
           <p className="text-sm text-stone-500 mb-6">
             Printed postcards are mailed to your guests via a third-party service. First-class postage included.

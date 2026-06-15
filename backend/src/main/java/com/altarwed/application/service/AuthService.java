@@ -127,9 +127,6 @@ public class AuthService {
         Couple couple = coupleRepository.findByEmail(request.email())
                 .orElseThrow(() -> new IllegalStateException("Couple not found after authentication"));
 
-        // revoke all existing refresh tokens for this user on new login
-        refreshTokenRepository.deleteAllByUserId(couple.id());
-
         String accessToken = jwtService.generateAccessToken(couple.email(), ROLE_COUPLE, couple.id());
         String rawRefresh = jwtService.generateRefreshToken(couple.email(), ROLE_COUPLE, couple.id());
         persistRefreshToken(rawRefresh, couple.id(), ROLE_COUPLE);

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import ImageDropzone from '@/components/ImageDropzone'
 import { Link } from 'react-router-dom'
 import confetti from 'canvas-confetti'
 import { useAuth } from '@/core/auth/AuthContext'
@@ -127,23 +128,24 @@ export default function SaveTheDatePage() {
               </div>
             </div>
           ) : (
-            <label className={`cursor-pointer flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-stone-300 px-6 py-8 hover:border-amber-400 hover:bg-amber-50 transition ${(uploadStdImage.isPending || !website) ? 'opacity-50 pointer-events-none' : ''}`}>
+            <ImageDropzone
+              onPick={file => uploadStdImage.mutate(file)}
+              disabled={uploadStdImage.isPending || !website}
+              ariaLabel="Upload save-the-date design image"
+              className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-stone-300 px-6 py-8 hover:border-amber-400 hover:bg-amber-50 transition ${(uploadStdImage.isPending || !website) ? 'opacity-50' : ''}`}
+            >
               {uploadStdImage.isPending ? (
                 <p className="text-sm text-stone-500">Uploading…</p>
               ) : (
                 <>
-                  <p className="text-sm font-medium text-stone-700">Click to upload your design</p>
+                  <svg className="w-8 h-8 text-stone-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                  </svg>
+                  <p className="text-sm font-medium text-stone-700">Drag and drop or click to upload</p>
                   <p className="text-xs text-stone-400 mt-1">JPEG, PNG, or WebP up to 15 MB</p>
                 </>
               )}
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="sr-only"
-                disabled={uploadStdImage.isPending || !website}
-                onChange={e => { const f = e.target.files?.[0]; if (f) uploadStdImage.mutate(f) }}
-              />
-            </label>
+            </ImageDropzone>
           )}
           {uploadStdImage.isError && (
             <p className="mt-2 text-xs text-red-600">Upload failed. Check the file type and size and try again.</p>

@@ -19,10 +19,15 @@ public class AzureBlobStorageAdapter implements BlobStoragePort {
     private static final Logger log = LoggerFactory.getLogger(AzureBlobStorageAdapter.class);
 
     private final BlobContainerClient containerClient;
+    // Optional CDN/custom-domain prefix (e.g. https://media.altarwed.com).
+    // When set, returned blob URLs use this origin instead of the Azure storage hostname,
+    // so email image URLs share the altarwed.com domain and don't trigger spam filters.
+    private final String publicBaseUrl;
 
     public AzureBlobStorageAdapter(
             @Value("${altarwed.azure.storage.connection-string}") String connectionString,
-            @Value("${altarwed.azure.storage.container-name}") String containerName
+            @Value("${altarwed.azure.storage.container-name}") String containerName,
+            @Value("${altarwed.azure.storage.public-base-url:}") String publicBaseUrl
     ) {
         BlobServiceClient serviceClient = new BlobServiceClientBuilder()
                 .connectionString(connectionString)
@@ -30,6 +35,10 @@ public class AzureBlobStorageAdapter implements BlobStoragePort {
         this.containerClient = serviceClient.getBlobContainerClient(containerName);
         if (!this.containerClient.exists()) {
             this.containerClient.create();
+        }
+        this.publicBaseUrl = publicBaseUrl == null ? "" : publicBaseUrl.stripTrailing().replaceAll("/+$", "");
+        if (this.publicBaseUrl.isBlank()) {
+            log.info("BLOB_PUBLIC_BASE_URL not set; blob image URLs use Azure storage hostname (set to CDN domain for email deliverability)");
         }
     }
 
@@ -42,7 +51,14 @@ public class AzureBlobStorageAdapter implements BlobStoragePort {
             blobClient.upload(data, length, true);
             blobClient.setHttpHeaders(headers);
             log.info("blob upload succeeded, blobName={}", blobName);
-            return blobClient.getBlobUrl();
+            String blobUrl = blobClient.getBlobUrl();
+            if (!publicBaseUrl.isBlank()) {
+                // Replace the Azure storage origin (https://{account}.blob.core.windows.net)
+                // with the CDN/custom-domain origin, preserving the full path.
+                int pathStart = blobUrl.indexOf('/', 8); // skip past "https://"
+                blobUrl = publicBaseUrl + blobUrl.substring(pathStart);
+            }
+            return blobUrl;
         } catch (BlobStorageException ex) {
             log.error("blob upload failed, blobName={}, statusCode={}", blobName, ex.getStatusCode(), ex);
             throw ex;
@@ -51,13 +67,21 @@ public class AzureBlobStorageAdapter implements BlobStoragePort {
 
     @Override
     public void delete(String blobUrl) {
-        // Extract blob name from full URL: everything after the container URL
-        String prefix = containerClient.getBlobContainerUrl() + "/";
-        if (!blobUrl.startsWith(prefix)) {
-            log.warn("blob delete skipped, url does not match container, prefix={}", prefix);
+        // Accept both the native Azure blob URL and the CDN/custom-domain URL.
+        String blobStoragePrefix = containerClient.getBlobContainerUrl() + "/";
+        String cdnPrefix = publicBaseUrl.isBlank() ? null
+                : publicBaseUrl + "/" + containerClient.getBlobContainerUrl()
+                        .replaceFirst("^https?://[^/]+/", "") + "/";
+
+        String blobName;
+        if (blobUrl.startsWith(blobStoragePrefix)) {
+            blobName = blobUrl.substring(blobStoragePrefix.length());
+        } else if (cdnPrefix != null && blobUrl.startsWith(cdnPrefix)) {
+            blobName = blobUrl.substring(cdnPrefix.length());
+        } else {
+            log.warn("blob delete skipped, url does not match container, url={}", blobUrl);
             return;
         }
-        String blobName = blobUrl.substring(prefix.length());
         log.info("blob delete started, blobName={}", blobName);
         try {
             var blobClient = containerClient.getBlobClient(blobName);

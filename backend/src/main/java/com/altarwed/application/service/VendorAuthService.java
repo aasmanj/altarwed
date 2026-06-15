@@ -123,9 +123,6 @@ public class VendorAuthService {
             throw new BadCredentialsException("Invalid email or password");
         }
 
-        // Rotate refresh tokens on every login
-        refreshTokenRepository.deleteAllByUserId(vendor.id());
-
         String accessToken = jwtService.generateAccessToken(vendor.email(), ROLE_VENDOR, vendor.id());
         String rawRefresh = jwtService.generateRefreshToken(vendor.email(), ROLE_VENDOR, vendor.id());
         persistRefreshToken(rawRefresh, vendor.id(), ROLE_VENDOR);

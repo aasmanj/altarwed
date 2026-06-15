@@ -298,7 +298,9 @@ public class GuestService {
                 && website.isPublished()
                 && (website.registryUrl1() != null || website.registryUrl2() != null || website.registryUrl3() != null);
 
-        log.info("rsvp page data fetched, guestId={}, coupleId={}, hasRegistry={}", guest.id(), guest.coupleId(), hasRegistry);
+        String currentStatus = guest.rsvpStatus() != null ? guest.rsvpStatus().name() : null;
+        log.info("rsvp page data fetched, guestId={}, coupleId={}, hasRegistry={}, currentStatus={}",
+                 guest.id(), guest.coupleId(), hasRegistry, currentStatus);
 
         return new RsvpPageDataResponse(
                 guest.name(), coupleNames, weddingDate,
@@ -309,7 +311,12 @@ public class GuestService {
                 website != null ? website.slug() : null,
                 hasRegistry,
                 partyMembers,
-                partyName
+                partyName,
+                currentStatus,
+                guest.plusOneName(),
+                guest.dietaryRestrictions(),
+                guest.songRequest(),
+                guest.noteForCouple()
         );
     }
 

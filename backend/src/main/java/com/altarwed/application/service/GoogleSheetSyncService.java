@@ -234,6 +234,13 @@ public class GoogleSheetSyncService {
                             "Paste the URL from your browser address bar while the sheet is open.");
                 }
                 counts = upsertGuestsWithWriteBack(sync.coupleId(), spreadsheetId, sync.sheetUrl());
+                // Apply dropdown validation to column B on every OAuth sync (idempotent).
+                // Non-fatal: a failure here should not mark the sync as errored.
+                try {
+                    googleOAuthService.applySheetValidation(sync.coupleId(), spreadsheetId);
+                } catch (Exception ex) {
+                    log.warn("google sheet validation apply failed (non-fatal), coupleId={}", sync.coupleId(), ex);
+                }
             } else {
                 // No-OAuth fallback: read public CSV, upsert by name
                 log.info("google sheet sync using public csv url, coupleId={}", sync.coupleId());

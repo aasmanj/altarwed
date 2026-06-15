@@ -114,25 +114,6 @@ export default function VendorPageClient({ vendor, portfolioPhotos, category }: 
 
   return (
     <>
-      {bannerPhotos.length > 0 && (
-        <div className={`grid h-52 sm:h-64 overflow-hidden ${bannerCols}`}>
-          {bannerPhotos.map((photo, idx) => (
-            <button
-              key={photo.id}
-              onClick={e => openLightbox(idx, e.currentTarget)}
-              className="relative overflow-hidden group focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#d4af6a]"
-              aria-label={`View photo ${idx + 1} of ${vendor.businessName} portfolio`}
-            >
-              <img
-                src={photo.photoUrl}
-                alt=""
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-            </button>
-          ))}
-        </div>
-      )}
-
       <main className="max-w-3xl mx-auto px-6 py-12">
         <Link
           href="/vendors"
@@ -169,6 +150,25 @@ export default function VendorPageClient({ vendor, portfolioPhotos, category }: 
             </div>
           </div>
         </div>
+
+        {bannerPhotos.length > 0 && (
+          <div className={`-mx-6 grid h-52 sm:h-64 overflow-hidden mb-8 ${bannerCols}`}>
+            {bannerPhotos.map((photo, idx) => (
+              <button
+                key={photo.id}
+                onClick={e => openLightbox(idx, e.currentTarget)}
+                className="relative overflow-hidden group focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#d4af6a]"
+                aria-label={`View photo ${idx + 1} of ${vendor.businessName} portfolio`}
+              >
+                <img
+                  src={photo.photoUrl}
+                  alt=""
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+              </button>
+            ))}
+          </div>
+        )}
 
         {(vendor.bio || vendor.description) && (
           <div className="mb-8 rounded-2xl border border-[#e8dcc8] bg-white p-6">

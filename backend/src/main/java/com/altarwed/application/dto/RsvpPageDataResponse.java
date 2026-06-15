@@ -18,5 +18,13 @@ public record RsvpPageDataResponse(
         // Non-null when this guest belongs to a party. Lists all other party members
         // so the RSVP form can show per-member attendance toggles.
         List<PartyMemberInfo> partyMembers,
-        String partyName
+        String partyName,
+        // Current RSVP state -- non-null when the guest has already responded (ATTENDING or
+        // DECLINING). The frontend uses these to pre-populate the form and show an "update
+        // your response" banner instead of presenting a blank form.
+        String currentRsvpStatus,
+        String currentPlusOneName,
+        String currentDietary,
+        String currentSongRequest,
+        String currentNoteForCouple
 ) {}

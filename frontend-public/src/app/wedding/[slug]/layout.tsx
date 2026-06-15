@@ -4,7 +4,6 @@ import Image from 'next/image'
 import WeddingNav from './WeddingNav'
 import ComingSoon from './ComingSoon'
 import { parseTabCustomisation, hasWeddingPartyMembers, hasWeddingPhotos } from './data'
-import FloatingEditButton from '@/components/FloatingEditButton'
 import { getWedding } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
 
@@ -280,8 +279,6 @@ export default async function WeddingLayout({
         </div>
       </footer>
 
-      {/* Floating edit button, always shown so the couple can jump into the editor */}
-      <FloatingEditButton />
     </div>
   )
 }

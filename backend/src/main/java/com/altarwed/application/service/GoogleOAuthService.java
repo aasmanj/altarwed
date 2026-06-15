@@ -335,6 +335,82 @@ public class GoogleOAuthService {
         log.info("google sheets write-back succeeded, coupleId={}, spreadsheetId={}", coupleId, spreadsheetId);
     }
 
+    /**
+     * Applies a dropdown data validation rule to column B (index 1) of the first sheet,
+     * restricting values to "Bride", "Groom", or "Both" (the values parseSide() accepts).
+     * Idempotent -- safe to call on every sync run.
+     * Uses the spreadsheet-level batchUpdate endpoint (not the values endpoint).
+     */
+    @SuppressWarnings("unchecked")
+    public void applySheetValidation(UUID coupleId, String spreadsheetId) {
+        String accessToken = getValidAccessToken(coupleId);
+
+        // Fetch the numeric sheetId for the first tab; cannot assume 0 if the user renamed it.
+        // Also read rowCount so the validation range never exceeds the grid (setDataValidation
+        // returns 400 if endRowIndex is beyond the sheet's actual row count).
+        String metaUrl = SHEETS_API_URL + "/" + spreadsheetId + "?fields=sheets.properties";
+        log.info("google sheets validation started, coupleId={}, spreadsheetId={}", coupleId, spreadsheetId);
+        Map<String, Object> meta = restClient.get()
+                .uri(metaUrl)
+                .header("Authorization", "Bearer " + accessToken)
+                .retrieve()
+                .body(Map.class);
+
+        int sheetId = 0;
+        int rowCount = 1000; // Google Sheets default
+        if (meta != null && meta.containsKey("sheets")) {
+            List<Map<String, Object>> sheets = (List<Map<String, Object>>) meta.get("sheets");
+            if (!sheets.isEmpty()) {
+                Map<String, Object> props = (Map<String, Object>) sheets.get(0).get("properties");
+                if (props != null) {
+                    if (props.get("sheetId") instanceof Number n) sheetId = n.intValue();
+                    if (props.get("gridProperties") instanceof Map<?, ?> grid) {
+                        Object rc = grid.get("rowCount");
+                        if (rc instanceof Number n) rowCount = n.intValue();
+                    }
+                }
+            }
+        }
+
+        Map<String, Object> range = Map.of(
+                "sheetId", sheetId,
+                "startRowIndex", 1,       // skip header row
+                "endRowIndex", rowCount,  // use actual sheet row count to avoid 400
+                "startColumnIndex", 1,    // column B
+                "endColumnIndex", 2
+        );
+        Map<String, Object> condition = Map.of(
+                "type", "ONE_OF_LIST",
+                "values", List.of(
+                        Map.of("userEnteredValue", "Bride"),
+                        Map.of("userEnteredValue", "Groom"),
+                        Map.of("userEnteredValue", "Both")
+                )
+        );
+        Map<String, Object> rule = Map.of(
+                "condition", condition,
+                "inputMessage", "Enter Bride, Groom, or Both",
+                "strict", false,
+                "showCustomUi", true
+        );
+        Map<String, Object> request = Map.of(
+                "setDataValidation", Map.of("range", range, "rule", rule)
+        );
+        Map<String, Object> body = Map.of("requests", List.of(request));
+
+        String batchUrl = SHEETS_API_URL + "/" + spreadsheetId + ":batchUpdate";
+        restClient.post()
+                .uri(batchUrl)
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .toBodilessEntity();
+
+        log.info("google sheets validation applied, coupleId={}, spreadsheetId={}, sheetId={}",
+                 coupleId, spreadsheetId, sheetId);
+    }
+
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
