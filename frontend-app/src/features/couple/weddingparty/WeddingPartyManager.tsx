@@ -213,7 +213,7 @@ function MemberCard({ member, onEdit, onDelete, onPhotoUpload, isUploading, reor
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
-          className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center disabled:cursor-wait"
+          className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition flex items-center justify-center disabled:cursor-wait"
           title="Upload photo"
         >
           <span className="text-white text-xs font-medium">{isUploading ? '…' : '📷'}</span>

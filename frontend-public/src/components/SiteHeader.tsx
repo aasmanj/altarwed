@@ -25,7 +25,7 @@ export default function SiteHeader() {
         <div className="flex items-center gap-3 shrink-0">
           <a
             href="https://app.altarwed.com/login"
-            className="hidden sm:block text-sm font-medium text-[#6b5344] hover:text-[#3b2f2f] transition"
+            className="text-sm font-medium text-[#6b5344] hover:text-[#3b2f2f] transition"
           >
             Sign in
           </a>
