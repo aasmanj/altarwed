@@ -128,7 +128,24 @@ public class WeddingWebsiteService {
     @Transactional
     public void delete(UUID coupleId) {
         log.info("wedding website deletion started, coupleId={}", coupleId);
-        websiteRepository.save(getByCoupleId(coupleId).deleted());
+        WeddingWebsite existing = getByCoupleId(coupleId);
+        websiteRepository.save(existing.deleted());
+        revalidationPort.revalidateWeddingPage(existing.slug());
+        log.info("wedding website deletion completed, coupleId={}", coupleId);
+    }
+
+    @Transactional
+    public void deleteBySlug(String slug) {
+        String normalised = slug.toLowerCase();
+        log.info("admin website deletion started, slug={}", normalised);
+        WeddingWebsite existing = websiteRepository.findBySlug(normalised)
+                .orElseThrow(() -> new WeddingWebsiteNotFoundException(normalised));
+        if (existing.isDeleted()) {
+            log.info("admin website deletion skipped, already deleted, slug={}", normalised);
+            return;
+        }
+        websiteRepository.save(existing.deleted());
+        revalidationPort.revalidateWeddingPage(normalised);
     }
 
     @Transactional
