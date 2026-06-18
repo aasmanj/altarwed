@@ -1,7 +1,10 @@
 package com.altarwed.web.security;
 
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
@@ -11,6 +14,8 @@ import java.util.Optional;
 
 @Component
 public class CookieService {
+
+    private static final Logger log = LoggerFactory.getLogger(CookieService.class);
 
     static final String REFRESH_COOKIE_NAME = "altarwed_rt";
 
@@ -27,6 +32,18 @@ public class CookieService {
     // silently drop the cookie on every refresh call.
     @Value("${altarwed.cookie.same-site:Strict}")
     private String sameSite;
+
+    @Value("${altarwed.cors.allowed-origins}")
+    private String corsAllowedOrigins;
+
+    @PostConstruct
+    public void validateCookieConfig() {
+        if ("Strict".equalsIgnoreCase(sameSite) && corsAllowedOrigins.contains(".com")) {
+            log.warn("cookie misconfigured for production: sameSite=Strict with cross-origin " +
+                    "allowed origins; refresh token cookie will be silently dropped by browsers; " +
+                    "set COOKIE_SAME_SITE=None and COOKIE_SECURE=true in Azure App Service");
+        }
+    }
 
     // Creates a session cookie (no Max-Age / Expires) so the browser discards
     // it when the browser process exits. Survives tab close within the same session.

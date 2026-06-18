@@ -182,11 +182,10 @@ public class ResendEmailAdapter implements EmailPort {
                   %s
                   <p style="text-align:center; color:#a08060; font-size:12px; letter-spacing:0.2em; text-transform:uppercase; margin-bottom:8px;">Save the Date</p>
                   <h1 style="text-align:center; color:#3b2f2f; font-size:36px; margin:0 0 8px;">%s</h1>
-                  <p style="text-align:center; color:#d4af6a; font-size:22px; margin:0 0 24px;">&amp;</p>
                   <p style="text-align:center; color:#3b2f2f; font-size:18px; margin:0 0 32px;">are getting married on <strong>%s</strong></p>
                   <div style="border-top:1px solid #e8dcc8; border-bottom:1px solid #e8dcc8; padding:20px 0; margin-bottom:32px; text-align:center;">
                     <p style="color:#a08060; font-size:13px; margin:0 0 4px;">Dear %s,</p>
-                    <p style="color:#3b2f2f; margin:0;">You are joyfully invited to celebrate their covenant. Formal invitation to follow.</p>
+                    <p style="color:#3b2f2f; margin:0;">You are joyfully invited to celebrate their marriage. Formal invitation to follow.</p>
                   </div>
                   <div style="text-align:center;">
                     <a href="%s"
@@ -209,7 +208,7 @@ public class ResendEmailAdapter implements EmailPort {
 
                 %s are getting married on %s!
 
-                Dear %s, you are joyfully invited to celebrate their covenant. Formal invitation to follow.
+                Dear %s, you are joyfully invited to celebrate their marriage. Formal invitation to follow.
 
                 Visit their wedding website: %s
 

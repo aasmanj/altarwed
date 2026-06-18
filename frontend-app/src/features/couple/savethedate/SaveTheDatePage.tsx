@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import ImageDropzone from '@/components/ImageDropzone'
 import { Link } from 'react-router-dom'
 import confetti from 'canvas-confetti'
@@ -19,6 +19,12 @@ export default function SaveTheDatePage() {
   const { data: guests = [] } = useGuests(coupleId)
   const [sent, setSent] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[] | null>(null)
+
+  useEffect(() => {
+    if (!sent) return
+    const timer = setTimeout(() => setSent(false), 5000)
+    return () => clearTimeout(timer)
+  }, [sent])
   const qrRef = useRef<HTMLCanvasElement>(null)
   const confirm = useConfirm()
 
