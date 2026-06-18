@@ -40,11 +40,12 @@ class ResendWebhookVerifierTest {
         String ts = String.valueOf(Instant.now().getEpochSecond());
         byte[] body = "{\"type\":\"email.delivered\"}".getBytes(StandardCharsets.UTF_8);
 
-        assertThat(verifier.verify(id, ts, sign(id, ts, body), body)).isTrue();
+        assertThat(verifier.verify(id, ts, sign(id, ts, body), body))
+                .isEqualTo(ResendWebhookVerifier.Result.VALID);
     }
 
     @Test
-    void tamperedBody_fails() {
+    void tamperedBody_isBadSignature() {
         var verifier = new ResendWebhookVerifier(SECRET);
         String id = "msg_1";
         String ts = String.valueOf(Instant.now().getEpochSecond());
@@ -52,33 +53,37 @@ class ResendWebhookVerifierTest {
         String header = sign(id, ts, body);
 
         byte[] forged = "{\"type\":\"email.bounced\"}".getBytes(StandardCharsets.UTF_8);
-        assertThat(verifier.verify(id, ts, header, forged)).isFalse();
+        assertThat(verifier.verify(id, ts, header, forged))
+                .isEqualTo(ResendWebhookVerifier.Result.BAD_SIGNATURE);
     }
 
     @Test
-    void staleTimestamp_fails() {
+    void staleTimestamp_isRejected() {
         var verifier = new ResendWebhookVerifier(SECRET);
         String id = "msg_1";
         String ts = String.valueOf(Instant.now().getEpochSecond() - 3600); // an hour old
         byte[] body = "{\"type\":\"email.delivered\"}".getBytes(StandardCharsets.UTF_8);
 
-        assertThat(verifier.verify(id, ts, sign(id, ts, body), body)).isFalse();
+        assertThat(verifier.verify(id, ts, sign(id, ts, body), body))
+                .isEqualTo(ResendWebhookVerifier.Result.STALE_TIMESTAMP);
     }
 
     @Test
-    void unconfiguredSecret_failsClosed() {
+    void unconfiguredSecret_isNotConfigured() {
         var verifier = new ResendWebhookVerifier("");
         String id = "msg_1";
         String ts = String.valueOf(Instant.now().getEpochSecond());
         byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
 
-        assertThat(verifier.verify(id, ts, sign(id, ts, body), body)).isFalse();
+        assertThat(verifier.verify(id, ts, sign(id, ts, body), body))
+                .isEqualTo(ResendWebhookVerifier.Result.NOT_CONFIGURED);
     }
 
     @Test
-    void missingHeaders_fail() {
+    void missingHeaders_areRejected() {
         var verifier = new ResendWebhookVerifier(SECRET);
         byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
-        assertThat(verifier.verify(null, null, null, body)).isFalse();
+        assertThat(verifier.verify(null, null, null, body))
+                .isEqualTo(ResendWebhookVerifier.Result.MISSING_HEADERS);
     }
 }

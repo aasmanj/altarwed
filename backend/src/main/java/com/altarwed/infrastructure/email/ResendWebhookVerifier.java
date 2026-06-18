@@ -53,10 +53,30 @@ public class ResendWebhookVerifier {
         this.configured = key != null && key.length > 0;
     }
 
-    public boolean verify(String svixId, String svixTimestamp, String svixSignature, byte[] rawBody) {
-        if (!configured) return false;
-        if (svixId == null || svixTimestamp == null || svixSignature == null || rawBody == null) return false;
-        if (!timestampWithinTolerance(svixTimestamp)) return false;
+    /**
+     * Outcome of verification. Distinct values so the caller can log exactly why a
+     * webhook was rejected (configuration problem vs forgery vs replay) instead of a
+     * single ambiguous "verification failed".
+     */
+    public enum Result {
+        VALID,
+        // The app has no signing secret, so it cannot verify anything yet. Almost
+        // always means RESEND_WEBHOOK_SECRET is not set on this instance.
+        NOT_CONFIGURED,
+        // Resend always sends svix-id/svix-timestamp/svix-signature; their absence
+        // means the caller is not Resend (or the body never arrived).
+        MISSING_HEADERS,
+        // Timestamp outside the replay window.
+        STALE_TIMESTAMP,
+        // Headers present and fresh, but the HMAC does not match: wrong secret
+        // (the KV value differs from this endpoint's signing secret) or a forgery.
+        BAD_SIGNATURE
+    }
+
+    public Result verify(String svixId, String svixTimestamp, String svixSignature, byte[] rawBody) {
+        if (!configured) return Result.NOT_CONFIGURED;
+        if (svixId == null || svixTimestamp == null || svixSignature == null || rawBody == null) return Result.MISSING_HEADERS;
+        if (!timestampWithinTolerance(svixTimestamp)) return Result.STALE_TIMESTAMP;
 
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
@@ -71,10 +91,10 @@ public class ResendWebhookVerifier {
                 int comma = entry.indexOf(',');
                 String sig = comma >= 0 ? entry.substring(comma + 1) : entry;
                 if (constantTimeEquals(sig, expected)) {
-                    return true;
+                    return Result.VALID;
                 }
             }
-            return false;
+            return Result.BAD_SIGNATURE;
         } catch (NoSuchAlgorithmException | InvalidKeyException ex) {
             throw new IllegalStateException("HmacSHA256 unavailable", ex);
         }

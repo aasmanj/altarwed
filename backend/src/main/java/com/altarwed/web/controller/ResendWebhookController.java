@@ -48,8 +48,16 @@ public class ResendWebhookController {
             @RequestHeader(value = "svix-timestamp", required = false) String svixTimestamp,
             @RequestHeader(value = "svix-signature", required = false) String svixSignature
     ) {
-        if (body == null || !verifier.verify(svixId, svixTimestamp, svixSignature, body)) {
-            log.warn("resend webhook rejected, reason=signature verification failed");
+        if (body == null) {
+            log.warn("resend webhook rejected, reason=EMPTY_BODY");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        ResendWebhookVerifier.Result verification = verifier.verify(svixId, svixTimestamp, svixSignature, body);
+        if (verification != ResendWebhookVerifier.Result.VALID) {
+            // reason is one of NOT_CONFIGURED / MISSING_HEADERS / STALE_TIMESTAMP /
+            // BAD_SIGNATURE, so the log says whether this is a config gap or a real
+            // signature failure without further digging.
+            log.warn("resend webhook rejected, reason={}", verification);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
