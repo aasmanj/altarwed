@@ -72,6 +72,9 @@ altarwed:
   resend:
     api-key: ${RESEND_API_KEY}
     from-email: ${RESEND_FROM_EMAIL:noreply@altarwed.com}
+    # Max outbound sends/sec across ALL email types. Stays under Resend's 5 req/sec
+    # account cap; raise alongside the Resend plan. Per-instance (see ResendEmailAdapter).
+    rate-limit-per-second: ${RESEND_RATE_LIMIT_PER_SECOND:2}
 
   app:
     base-url: ${APP_BASE_URL:https://app.altarwed.com}

@@ -11,6 +11,18 @@ param nextjsBaseUrl string
 param googleOauthRedirectUri string
 param googlePickerAppId string
 
+// Custom domain api.altarwed.com is bound to this App Service with a free
+// App Service Managed Certificate (SNI SSL). It is intentionally NOT declared
+// here: the managed cert can only be issued after the hostname is bound and the
+// DNS records (CNAME api -> *.azurewebsites.net, TXT asuid.api -> the site's
+// customDomainVerificationId) exist, so a single declarative pass cannot create
+// all three in order. Managed out-of-band and reproducible via:
+//   az webapp config hostname add  --webapp-name <name> -g <rg> --hostname api.altarwed.com
+//   az webapp config ssl create    -g <rg> --name <name> --hostname api.altarwed.com
+//   az webapp config ssl bind      -g <rg> --name <name> --certificate-thumbprint <tb> --ssl-type SNI
+// Putting the API on the altarwed.com registrable domain makes it same-site with
+// the SPA (app.altarwed.com) so the HttpOnly refresh cookie is first-party, not a
+// third-party cookie that Safari/Firefox/Chrome drop on the cross-site refresh call.
 resource appService 'Microsoft.Web/sites@2023-12-01' = {
   name: name
   location: location
@@ -78,6 +90,12 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'RESEND_API_KEY'
           value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=RESEND-API-KEY)'
+        }
+        {
+          // Outbound Resend send rate (req/sec) per instance; keep under the 5/sec
+          // account cap. Bump when the Resend plan is upgraded.
+          name: 'RESEND_RATE_LIMIT_PER_SECOND'
+          value: '2'
         }
         {
           name: 'REVALIDATION_SECRET'

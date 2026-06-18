@@ -4,6 +4,8 @@ import com.altarwed.application.service.EmailSuppressionService;
 import com.altarwed.domain.port.EmailPort;
 import com.altarwed.domain.port.EmailSuppressionPort;
 import com.altarwed.infrastructure.observability.LogSanitizer;
+import io.github.bucket4j.Bandwidth;
+import io.github.bucket4j.Bucket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,6 +45,19 @@ public class ResendEmailAdapter implements EmailPort {
     private final String adminAlertEmail;
     private final EmailSuppressionPort suppressionPort;
 
+    // Shared token bucket that paces ALL outbound Resend calls (every email type)
+    // so a bulk send (e.g. 200 save-the-dates fired concurrently on emailExecutor)
+    // stays under Resend's account limit of 5 requests/second. Without this the
+    // pool blasts every email at once, Resend returns 429, and the surplus mail is
+    // silently dropped. Same in-memory-per-instance caveat as RateLimitingFilter:
+    // with multiple App Service instances the effective rate is rate x instanceCount,
+    // so keep the default comfortably under the provider limit.
+    private final Bucket resendRateLimiter;
+
+    // A 429 means we momentarily outran the limit (a burst, or another instance's
+    // traffic). Retry with backoff so the email is delivered rather than lost.
+    private static final int MAX_SEND_ATTEMPTS = 4;
+
     public ResendEmailAdapter(
             @Value("${altarwed.resend.api-key}") String apiKey,
             @Value("${altarwed.resend.from-email}") String fromEmail,
@@ -51,6 +66,7 @@ public class ResendEmailAdapter implements EmailPort {
             @Value("${altarwed.unsubscribe.secret}") String unsubscribeSecret,
             @Value("${altarwed.postal-address}") String postalAddress,
             @Value("${altarwed.admin.alert-email:hello@altarwed.com}") String adminAlertEmail,
+            @Value("${altarwed.resend.rate-limit-per-second:2}") int rateLimitPerSecond,
             EmailSuppressionPort suppressionPort
     ) {
         this.fromEmail = fromEmail;
@@ -61,6 +77,17 @@ public class ResendEmailAdapter implements EmailPort {
         this.postalAddress = postalAddress;
         this.adminAlertEmail = adminAlertEmail;
         this.suppressionPort = suppressionPort;
+        // Clamp to >= 1 so a fat-fingered env value (0, negative) degrades to a slow
+        // trickle instead of bricking the JVM at startup (Bucket4j rejects capacity < 1),
+        // the exact startup-crash failure mode documented in backend/CLAUDE.md.
+        int safeRate = Math.max(1, rateLimitPerSecond);
+        // capacity == refill rate, so the burst ceiling equals the steady rate:
+        // no big initial spike that would trip the provider limit on the first batch.
+        Bandwidth limit = Bandwidth.builder()
+                .capacity(safeRate)
+                .refillGreedy(safeRate, Duration.ofSeconds(1))
+                .build();
+        this.resendRateLimiter = Bucket.builder().addLimit(limit).build();
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(5));
         factory.setReadTimeout(Duration.ofSeconds(15));
@@ -745,21 +772,69 @@ public class ResendEmailAdapter implements EmailPort {
     private void postEmail(String emailType, String toEmail, Map<String, Object> body) {
         String maskedTo = LogSanitizer.maskEmail(toEmail);
         log.debug("sending email via resend, type={}, to={}", emailType, maskedTo);
+
+        for (int attempt = 1; attempt <= MAX_SEND_ATTEMPTS; attempt++) {
+            // Spend a token before every attempt (first send and each retry) so we
+            // never outrun Resend's rate limit. This runs on emailExecutor or a
+            // virtual thread, so parking here costs nothing but pacing; throughput
+            // is governed by the bucket, not the pool size.
+            try {
+                resendRateLimiter.asBlocking().consume(1);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                log.warn("resend send interrupted awaiting rate-limit token, type={}, to={}, attempt={}", emailType, maskedTo, attempt);
+                return;
+            }
+            try {
+                ResponseEntity<Map> response = restClient.post()
+                        .uri("/emails")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(body)
+                        .retrieve()
+                        .toEntity(Map.class);
+                Object id = response.getBody() == null ? null : response.getBody().get("id");
+                log.debug("resend accepted email, type={}, to={}, resendId={}, attempt={}", emailType, maskedTo, id, attempt);
+                return;
+            } catch (RestClientResponseException ex) {
+                boolean rateLimited = ex.getStatusCode().value() == 429;
+                if (!rateLimited || attempt == MAX_SEND_ATTEMPTS) {
+                    log.warn("resend rejected email, type={}, to={}, status={}, attempts={}", emailType, maskedTo, ex.getStatusCode(), attempt);
+                    throw ex;
+                }
+                long backoffMs = retryAfterMillis(ex, attempt);
+                log.warn("resend rate limited, backing off, type={}, attempt={}, backoffMs={}", emailType, attempt, backoffMs);
+                if (!sleepQuietly(backoffMs)) {
+                    log.warn("resend send interrupted during backoff, type={}, to={}, attempt={}", emailType, maskedTo, attempt);
+                    return;
+                }
+            } catch (RestClientException ex) {
+                log.error("resend call failed, type={}, to={}", emailType, maskedTo, ex);
+                throw ex;
+            }
+        }
+    }
+
+    // Honour Resend's Retry-After header (seconds) when present; otherwise fall
+    // back to exponential backoff (500ms, 1s, 2s) keyed on the attempt number.
+    private long retryAfterMillis(RestClientResponseException ex, int attempt) {
+        String retryAfter = ex.getResponseHeaders() == null ? null : ex.getResponseHeaders().getFirst("Retry-After");
+        if (retryAfter != null) {
+            try {
+                return Math.max(1L, Long.parseLong(retryAfter.trim())) * 1000L;
+            } catch (NumberFormatException ignored) {
+                // Header was an HTTP-date or malformed; use computed backoff below.
+            }
+        }
+        return 500L * (1L << (attempt - 1));
+    }
+
+    private boolean sleepQuietly(long millis) {
         try {
-            ResponseEntity<Map> response = restClient.post()
-                    .uri("/emails")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(body)
-                    .retrieve()
-                    .toEntity(Map.class);
-            Object id = response.getBody() == null ? null : response.getBody().get("id");
-            log.debug("resend accepted email, type={}, to={}, resendId={}", emailType, maskedTo, id);
-        } catch (RestClientResponseException ex) {
-            log.warn("resend rejected email, type={}, to={}, status={}", emailType, maskedTo, ex.getStatusCode());
-            throw ex;
-        } catch (RestClientException ex) {
-            log.error("resend call failed, type={}, to={}", emailType, maskedTo, ex);
-            throw ex;
+            Thread.sleep(millis);
+            return true;
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            return false;
         }
     }
 }
