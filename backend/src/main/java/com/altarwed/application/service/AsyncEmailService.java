@@ -1,8 +1,11 @@
 package com.altarwed.application.service;
 
+import com.altarwed.domain.model.EmailRecipient;
 import com.altarwed.domain.port.EmailPort;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 /**
  * Thin async wrapper around EmailPort.
@@ -25,11 +28,12 @@ public class AsyncEmailService {
         emailPort.sendRsvpInviteEmail(toEmail, guestName, coupleNames, weddingDate, rsvpToken);
     }
 
+    // One background task fans the whole guest list into batched provider calls,
+    // rather than queueing one async task (and one API call) per recipient.
     @Async("emailExecutor")
-    public void sendSaveTheDateEmail(String toEmail, String guestName,
-                                     String coupleNames, String weddingDate, String weddingUrl,
-                                     String stdImageUrl) {
-        emailPort.sendSaveTheDateEmail(toEmail, guestName, coupleNames, weddingDate, weddingUrl, stdImageUrl);
+    public void sendSaveTheDateEmails(List<EmailRecipient> recipients, String coupleNames,
+                                      String weddingDate, String weddingUrl, String stdImageUrl) {
+        emailPort.sendSaveTheDateEmails(recipients, coupleNames, weddingDate, weddingUrl, stdImageUrl);
     }
 
     @Async("emailExecutor")

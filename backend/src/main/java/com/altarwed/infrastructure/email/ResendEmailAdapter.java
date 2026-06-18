@@ -1,6 +1,7 @@
 package com.altarwed.infrastructure.email;
 
 import com.altarwed.application.service.EmailSuppressionService;
+import com.altarwed.domain.model.EmailRecipient;
 import com.altarwed.domain.port.EmailPort;
 import com.altarwed.domain.port.EmailSuppressionPort;
 import com.altarwed.infrastructure.observability.LogSanitizer;
@@ -57,6 +58,9 @@ public class ResendEmailAdapter implements EmailPort {
     // A 429 means we momentarily outran the limit (a burst, or another instance's
     // traffic). Retry with backoff so the email is delivered rather than lost.
     private static final int MAX_SEND_ATTEMPTS = 4;
+
+    // Resend's /emails/batch endpoint accepts up to 100 messages per call.
+    private static final int MAX_BATCH_SIZE = 100;
 
     public ResendEmailAdapter(
             @Value("${altarwed.resend.api-key}") String apiKey,
@@ -199,8 +203,21 @@ public class ResendEmailAdapter implements EmailPort {
     }
 
     @Override
-    public void sendSaveTheDateEmail(String toEmail, String guestName, String coupleNames,
-                                     String weddingDate, String weddingUrl, String stdImageUrl) {
+    public void sendSaveTheDateEmails(List<EmailRecipient> recipients, String coupleNames,
+                                      String weddingDate, String weddingUrl, String stdImageUrl) {
+        // Drop blanks and suppressed recipients up front so opt-outs are honoured
+        // exactly as in the single-send path (postMarketingEmail), then hand the
+        // fully personalised message bodies to the batch sender.
+        List<Map<String, Object>> messages = recipients.stream()
+                .filter(r -> r.email() != null && !r.email().isBlank())
+                .filter(r -> !suppressionPort.isSuppressed(emailHash(r.email())))
+                .map(r -> buildSaveTheDateBody(r.email(), r.name(), coupleNames, weddingDate, weddingUrl, stdImageUrl))
+                .toList();
+        postBatch("save-the-date", messages);
+    }
+
+    private Map<String, Object> buildSaveTheDateBody(String toEmail, String guestName, String coupleNames,
+                                                     String weddingDate, String weddingUrl, String stdImageUrl) {
         String imageBlock = (stdImageUrl != null && !stdImageUrl.isBlank())
                 ? "<img src=\"" + stdImageUrl + "\" alt=\"Save the Date\" style=\"display:block;width:100%;max-width:540px;margin:0 auto 32px;border-radius:6px;\" />"
                 : "";
@@ -253,8 +270,7 @@ public class ResendEmailAdapter implements EmailPort {
                 "List-Unsubscribe", "<" + oneClickUnsubUrl + ">",
                 "List-Unsubscribe-Post", "List-Unsubscribe=One-Click"
         ));
-
-        postMarketingEmail("save-the-date", toEmail, body);
+        return body;
     }
 
     @Override
@@ -836,5 +852,91 @@ public class ResendEmailAdapter implements EmailPort {
             Thread.currentThread().interrupt();
             return false;
         }
+    }
+
+    // Sends pre-built, per-recipient message bodies through Resend's POST
+    // /emails/batch endpoint in chunks of <= 100. Each chunk is one API call paced
+    // by the shared rate limiter, so 200 emails cost ~2 tokens instead of 200.
+    private void postBatch(String emailType, List<Map<String, Object>> messages) {
+        if (messages.isEmpty()) {
+            log.info("resend batch empty after suppression filter, nothing to send, type={}", emailType);
+            return;
+        }
+        int total = messages.size();
+        for (int start = 0; start < total; start += MAX_BATCH_SIZE) {
+            sendChunk(emailType, messages.subList(start, Math.min(start + MAX_BATCH_SIZE, total)));
+        }
+        log.info("resend batch send completed, type={}, recipients={}", emailType, total);
+    }
+
+    private void sendChunk(String emailType, List<Map<String, Object>> chunk) {
+        for (int attempt = 1; attempt <= MAX_SEND_ATTEMPTS; attempt++) {
+            try {
+                resendRateLimiter.asBlocking().consume(1);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                log.warn("resend batch interrupted awaiting rate-limit token, type={}, size={}, attempt={}", emailType, chunk.size(), attempt);
+                return;
+            }
+            try {
+                restClient.post()
+                        .uri("/emails/batch")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(chunk)
+                        .retrieve()
+                        .toBodilessEntity();
+                log.info("resend batch accepted, type={}, size={}, attempt={}", emailType, chunk.size(), attempt);
+                return;
+            } catch (RestClientResponseException ex) {
+                if (ex.getStatusCode().value() == 429 && attempt < MAX_SEND_ATTEMPTS) {
+                    long backoffMs = retryAfterMillis(ex, attempt);
+                    log.warn("resend batch rate limited, backing off, type={}, attempt={}, backoffMs={}", emailType, attempt, backoffMs);
+                    if (!sleepQuietly(backoffMs)) {
+                        log.warn("resend batch interrupted during backoff, type={}, size={}, attempt={}", emailType, chunk.size(), attempt);
+                        return;
+                    }
+                    continue;
+                }
+                // A 4xx (validation error, e.g. one malformed address, or an exhausted
+                // 429) means Resend accepted nothing, so re-sending the chunk one-by-one
+                // is safe and lets the good addresses through while isolating the bad one.
+                if (ex.getStatusCode().is4xxClientError()) {
+                    log.warn("resend batch rejected, falling back to individual sends, type={}, status={}, size={}", emailType, ex.getStatusCode(), chunk.size());
+                    sendChunkIndividually(emailType, chunk);
+                    return;
+                }
+                // A 5xx is ambiguous: Resend may have already processed the batch before
+                // failing. Re-sending could double-send up to 100 guests, so stop and
+                // surface it for a deliberate re-send rather than risk duplicates.
+                log.error("resend batch failed with server error, delivery unknown, not retrying, type={}, status={}, size={}", emailType, ex.getStatusCode(), chunk.size());
+                return;
+            } catch (RestClientException ex) {
+                // Transport failure (e.g. read timeout) with no response body: the batch
+                // may already have been delivered. Re-sending would risk duplicating the
+                // whole chunk, so we surface it rather than blindly fall back.
+                log.error("resend batch transport failure, delivery unknown, not retrying, type={}, size={}", emailType, chunk.size(), ex);
+                return;
+            }
+        }
+    }
+
+    // Per-recipient fallback for a rejected batch: each send is isolated and
+    // rate-limited via postEmail, so one bad address does not abort the others.
+    private void sendChunkIndividually(String emailType, List<Map<String, Object>> chunk) {
+        for (Map<String, Object> message : chunk) {
+            try {
+                postEmail(emailType, firstRecipient(message), message);
+            } catch (RestClientException ex) {
+                // postEmail already logged this recipient's failure; continue.
+            }
+        }
+    }
+
+    private String firstRecipient(Map<String, Object> message) {
+        Object to = message.get("to");
+        if (to instanceof List<?> list && !list.isEmpty()) {
+            return String.valueOf(list.get(0));
+        }
+        return String.valueOf(to);
     }
 }

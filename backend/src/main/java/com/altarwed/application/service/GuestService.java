@@ -184,9 +184,10 @@ public class GuestService {
                 .filter(g -> guestIdSet == null || guestIdSet.contains(g.id()))
                 .toList();
 
-        for (Guest guest : toSend) {
-            asyncEmailService.sendSaveTheDateEmail(guest.email(), guest.name(), coupleNames, weddingDate, weddingUrl, stdImageUrl);
-        }
+        List<EmailRecipient> recipients = toSend.stream()
+                .map(g -> new EmailRecipient(g.email(), g.name()))
+                .toList();
+        asyncEmailService.sendSaveTheDateEmails(recipients, coupleNames, weddingDate, weddingUrl, stdImageUrl);
         log.info("save-the-date send batch queued, coupleId={}, queued={}", coupleId, toSend.size());
         return toSend.size();
     }
