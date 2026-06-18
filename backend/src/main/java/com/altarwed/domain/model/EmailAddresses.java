@@ -16,7 +16,7 @@ public final class EmailAddresses {
 
     public static boolean isValid(String email) {
         if (email == null) return false;
-        String trimmed = email.trim();
+        String trimmed = normalize(email);
         if (trimmed.isEmpty() || trimmed.chars().anyMatch(Character::isWhitespace)) return false;
         int at = trimmed.indexOf('@');
         if (at <= 0) return false;                            // missing @ or empty local part
@@ -24,5 +24,17 @@ public final class EmailAddresses {
         String domain = trimmed.substring(at + 1);
         int dot = domain.indexOf('.');
         return dot > 0 && dot < domain.length() - 1;          // domain has a dot, not at either edge
+    }
+
+    /**
+     * The address to actually send to: surrounding whitespace removed. Validation
+     * trims before checking, so a padded-but-otherwise-valid address (common in
+     * spreadsheet-imported guest lists) passes isValid; this guarantees the same
+     * trimmed value is what reaches the provider, so it never lands in a "to" field
+     * with leading/trailing spaces and 422s the batch. strip() (not trim()) also
+     * removes Unicode whitespace. Null-safe: returns null for null input.
+     */
+    public static String normalize(String email) {
+        return email == null ? null : email.strip();
     }
 }

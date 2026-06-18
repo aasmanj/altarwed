@@ -200,7 +200,7 @@ public class ResendEmailAdapter implements EmailPort {
 
         Map<String, Object> body = Map.of(
                 "from", coupleNames + " <" + fromEmail + ">",
-                "to", List.of(toEmail),
+                "to", List.of(EmailAddresses.normalize(toEmail)),
                 "subject", "You're invited to " + coupleNames + "'s wedding!",
                 "html", html,
                 "text", text,
@@ -281,7 +281,7 @@ public class ResendEmailAdapter implements EmailPort {
 
         Map<String, Object> body = new HashMap<>();
         body.put("from", coupleNames + " <" + fromEmail + ">");
-        body.put("to", List.of(toEmail));
+        body.put("to", List.of(EmailAddresses.normalize(toEmail)));
         body.put("subject", "Save the Date: " + coupleNames + " are getting married!");
         body.put("html", html + unsubscribeFooterHtml(displayUnsubUrl));
         body.put("text", text);
