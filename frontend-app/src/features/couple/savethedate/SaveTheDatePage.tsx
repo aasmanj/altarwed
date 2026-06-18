@@ -47,12 +47,17 @@ export default function SaveTheDatePage() {
 
   const emailGuests = guests.filter(g => g.email)
   const eligibleCount = emailGuests.length
+  const alreadySentCount = emailGuests.filter(g => g.saveTheDateSentAt).length
 
-  const activeIds = selectedIds ?? emailGuests.map(g => g.id)
+  // Default selection is everyone who has NOT been sent a save-the-date yet, so a
+  // couple who adds guests after a first send does not accidentally re-email the
+  // whole list. The All / Unsent / None buttons still let them override.
+  const unsentIds = emailGuests.filter(g => !g.saveTheDateSentAt).map(g => g.id)
+  const activeIds = selectedIds ?? unsentIds
   const sendCount = activeIds.length
 
   function toggleGuest(id: string) {
-    const current = selectedIds ?? emailGuests.map(g => g.id)
+    const current = selectedIds ?? unsentIds
     setSelectedIds(current.includes(id) ? current.filter(x => x !== id) : [...current, id])
   }
 
@@ -73,6 +78,10 @@ export default function SaveTheDatePage() {
       ).then(r => r.data),
     onSuccess: () => {
       setSent(true)
+      // Reset to the default (unsent) selection and refetch so the just-sent guests
+      // pick up their "Sent" badge and drop out of the default recipient set.
+      setSelectedIds(null)
+      qc.invalidateQueries({ queryKey: ['guests', coupleId] })
       confetti({
         particleCount: 180,
         spread: 90,
@@ -208,11 +217,19 @@ export default function SaveTheDatePage() {
                   </p>
                   <div className="flex gap-2 text-xs">
                     <button
-                      onClick={() => setSelectedIds(null)}
+                      onClick={() => setSelectedIds(emailGuests.map(g => g.id))}
                       className="text-amber-700 hover:underline"
                     >
                       All
                     </button>
+                    {alreadySentCount > 0 && (
+                      <button
+                        onClick={() => setSelectedIds(null)}
+                        className="text-amber-700 hover:underline"
+                      >
+                        Unsent
+                      </button>
+                    )}
                     <button
                       onClick={() => setSelectedIds([])}
                       className="text-stone-500 hover:underline"
@@ -234,6 +251,14 @@ export default function SaveTheDatePage() {
                         <p className="text-sm font-medium text-stone-800">{g.name}</p>
                         <p className="text-xs text-stone-400 truncate">{g.email}</p>
                       </div>
+                      {g.saveTheDateSentAt && (
+                        <span className="ml-auto flex-shrink-0 inline-flex items-center gap-1 text-xs font-medium text-green-600">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                          Sent {new Date(g.saveTheDateSentAt).toLocaleDateString()}
+                        </span>
+                      )}
                     </label>
                   ))}
                 </div>

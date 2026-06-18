@@ -26,6 +26,7 @@ export interface Guest {
   noteForCouple: string | null
   inviteSendCount: number | null
   inviteSentAt: string | null
+  saveTheDateSentAt: string | null
   respondedAt: string | null
   partyId: string | null
   partyName: string | null

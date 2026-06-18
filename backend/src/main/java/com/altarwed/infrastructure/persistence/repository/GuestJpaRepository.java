@@ -3,10 +3,12 @@ package com.altarwed.infrastructure.persistence.repository;
 import com.altarwed.domain.model.GuestRsvpStatus;
 import com.altarwed.infrastructure.persistence.entity.GuestEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,4 +25,13 @@ public interface GuestJpaRepository extends JpaRepository<GuestEntity, UUID> {
     List<GuestEntity> findAllByPartyIdOrderByCreatedAt(UUID partyId);
 
     List<GuestEntity> findAllByCoupleIdAndNameContainingIgnoreCase(UUID coupleId, String name);
+
+    // Bulk stamp of save_the_date_sent_at for a batch of guests in one UPDATE.
+    // clearAutomatically = true evicts the L1 persistence context after the JPQL
+    // UPDATE so any guest already loaded in this transaction is re-read fresh rather
+    // than keeping its stale (pre-update) saveTheDateSentAt. A bulk UPDATE bypasses
+    // @PreUpdate, so we set updated_at here too to keep it honest with the new stamp.
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE GuestEntity g SET g.saveTheDateSentAt = :sentAt, g.updatedAt = :sentAt WHERE g.id IN :ids")
+    void markSaveTheDatesSent(@Param("ids") Collection<UUID> ids, @Param("sentAt") LocalDateTime sentAt);
 }

@@ -57,7 +57,7 @@ public class GuestService {
                 null, req.side(), req.notes(),
                 req.mailLine1(), req.mailCity(), req.mailState(), req.mailZip(), req.mailCountry(),
                 null, 0,
-                null, null, null, LocalDateTime.now(), LocalDateTime.now(),
+                null, null, null, null, LocalDateTime.now(), LocalDateTime.now(),
                 req.partyId(), req.partyName(),
                 req.partyContact() != null ? req.partyContact() : false,
                 null, false  // sheetSyncId, syncedFromSheet: manually added guest
@@ -74,7 +74,7 @@ public class GuestService {
                 null, req.side(), req.notes(),
                 req.mailLine1(), req.mailCity(), req.mailState(), req.mailZip(), req.mailCountry(),
                 null, 0,
-                null, null, null, LocalDateTime.now(), LocalDateTime.now(),
+                null, null, null, null, LocalDateTime.now(), LocalDateTime.now(),
                 req.partyId(), req.partyName(),
                 req.partyContact() != null ? req.partyContact() : false,
                 null, false  // sheetSyncId, syncedFromSheet: manually added guest
@@ -102,7 +102,7 @@ public class GuestService {
                     null, m.side(), m.notes(),
                     m.mailLine1(), m.mailCity(), m.mailState(), m.mailZip(), m.mailCountry(),
                     null, 0,
-                    null, null, null, LocalDateTime.now(), LocalDateTime.now(),
+                    null, null, null, null, LocalDateTime.now(), LocalDateTime.now(),
                     partyId, req.partyName(), isContact,
                     null, false  // sheetSyncId, syncedFromSheet: manually added guest
             ));
@@ -137,7 +137,7 @@ public class GuestService {
                 req.mailZip()            != null ? (req.mailZip().isBlank()            ? null : req.mailZip())            : existing.mailZip(),
                 req.mailCountry()        != null ? (req.mailCountry().isBlank()        ? null : req.mailCountry())        : existing.mailCountry(),
                 existing.noteForCouple(), existing.inviteSendCount(),
-                existing.inviteSentAt(), existing.respondedAt(), existing.remindAt(),
+                existing.inviteSentAt(), existing.saveTheDateSentAt(), existing.respondedAt(), existing.remindAt(),
                 existing.createdAt(), LocalDateTime.now(),
                 req.partyId()    != null ? req.partyId()    : existing.partyId(),
                 req.partyName()  != null ? req.partyName()  : existing.partyName(),
@@ -165,6 +165,20 @@ public class GuestService {
     public int sendSaveDates(UUID coupleId, List<UUID> guestIds) {
         log.info("save-the-date send batch started, coupleId={}, targetCount={}", coupleId,
                 guestIds == null ? "all" : guestIds.size());
+
+        Set<UUID> guestIdSet = guestIds != null ? new HashSet<>(guestIds) : null;
+        List<Guest> toSend = guestRepository.findAllByCoupleId(coupleId).stream()
+                .filter(g -> g.email() != null && !g.email().isBlank())
+                .filter(g -> guestIdSet == null || guestIdSet.contains(g.id()))
+                .toList();
+
+        // Nobody eligible (no guests, or none in the requested subset have an email):
+        // skip the website/couple lookups, the async dispatch, and the stamp entirely.
+        if (toSend.isEmpty()) {
+            log.info("save-the-date send batch queued, coupleId={}, queued={}", coupleId, 0);
+            return 0;
+        }
+
         var website = websiteRepository.findByCoupleId(coupleId).orElse(null);
         var couple  = coupleRepository.findById(coupleId).orElse(null);
         String coupleNames = couple != null
@@ -178,16 +192,17 @@ public class GuestService {
                 : "https://www.altarwed.com";
         String stdImageUrl = website != null ? website.stdImageUrl() : null;
 
-        Set<UUID> guestIdSet = guestIds != null ? new HashSet<>(guestIds) : null;
-        List<Guest> toSend = guestRepository.findAllByCoupleId(coupleId).stream()
-                .filter(g -> g.email() != null && !g.email().isBlank())
-                .filter(g -> guestIdSet == null || guestIdSet.contains(g.id()))
-                .toList();
-
         List<EmailRecipient> recipients = toSend.stream()
                 .map(g -> new EmailRecipient(g.email(), g.name()))
                 .toList();
         asyncEmailService.sendSaveTheDateEmails(recipients, coupleNames, weddingDate, weddingUrl, stdImageUrl);
+
+        // Stamp save_the_date_sent_at optimistically on queue, mirroring how issueInvite
+        // stamps invite_sent_at. The async send may still fail per-recipient, but the
+        // dashboard "sent" indicator tracks intent-to-send, consistent with invites.
+        // One bulk UPDATE instead of N row saves keeps a 200-guest send to a single statement.
+        guestRepository.markSaveTheDatesSent(toSend.stream().map(Guest::id).toList(), LocalDateTime.now());
+
         log.info("save-the-date send batch queued, coupleId={}, queued={}", coupleId, toSend.size());
         return toSend.size();
     }
@@ -256,7 +271,7 @@ public class GuestService {
                 existing.side(), existing.notes(),
                 existing.mailLine1(), existing.mailCity(), existing.mailState(), existing.mailZip(), existing.mailCountry(),
                 existing.noteForCouple(), existing.inviteSendCount(),
-                existing.inviteSentAt(), existing.respondedAt(), existing.remindAt(),
+                existing.inviteSentAt(), existing.saveTheDateSentAt(), existing.respondedAt(), existing.remindAt(),
                 existing.createdAt(), LocalDateTime.now(),
                 existing.partyId(), existing.partyName(), existing.partyContact(),
                 existing.sheetSyncId(), existing.syncedFromSheet()
@@ -347,7 +362,7 @@ public class GuestService {
                 guest.mailLine1(), guest.mailCity(), guest.mailState(), guest.mailZip(), guest.mailCountry(),
                 req.noteForCouple()       != null ? req.noteForCouple()       : guest.noteForCouple(),
                 guest.inviteSendCount(),
-                guest.inviteSentAt(), LocalDateTime.now(), remindAt,
+                guest.inviteSentAt(), guest.saveTheDateSentAt(), LocalDateTime.now(), remindAt,
                 guest.createdAt(), LocalDateTime.now(),
                 guest.partyId(), guest.partyName(), guest.partyContact(),
                 guest.sheetSyncId(), guest.syncedFromSheet()
@@ -370,7 +385,7 @@ public class GuestService {
                             member.tableNumber(), member.side(), member.notes(),
                             member.mailLine1(), member.mailCity(), member.mailState(), member.mailZip(), member.mailCountry(),
                             member.noteForCouple(), member.inviteSendCount(),
-                            member.inviteSentAt(), LocalDateTime.now(), memberRemindAt,
+                            member.inviteSentAt(), member.saveTheDateSentAt(), LocalDateTime.now(), memberRemindAt,
                             member.createdAt(), LocalDateTime.now(),
                             member.partyId(), member.partyName(), member.partyContact(),
                             member.sheetSyncId(), member.syncedFromSheet()
@@ -460,7 +475,7 @@ public class GuestService {
                 guest.tableNumber(), guest.side(), guest.notes(),
                 guest.mailLine1(), guest.mailCity(), guest.mailState(), guest.mailZip(), guest.mailCountry(),
                 guest.noteForCouple(), currentSends + 1,
-                LocalDateTime.now(), guest.respondedAt(),
+                LocalDateTime.now(), guest.saveTheDateSentAt(), guest.respondedAt(),
                 null, // clear remindAt, the reminder was just fulfilled
                 guest.createdAt(), LocalDateTime.now(),
                 guest.partyId(), guest.partyName(), guest.partyContact(),

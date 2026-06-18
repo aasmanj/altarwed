@@ -497,7 +497,7 @@ public class GoogleSheetSyncService {
                         notes,
                         mailLine1, city, state, zip, country,
                         null, 0,    // noteForCouple, inviteSendCount
-                        null, null, null, null, null,  // inviteSentAt, respondedAt, remindAt, createdAt, updatedAt
+                        null, null, null, null, null, null,  // inviteSentAt, saveTheDateSentAt, respondedAt, remindAt, createdAt, updatedAt
                         null, null, null,  // partyId, partyName, partyContact
                         syncId, true  // sheetSyncId, syncedFromSheet
                 ));
@@ -525,7 +525,7 @@ public class GoogleSheetSyncService {
                         zip         != null ? zip         : g.mailZip(),
                         country     != null ? country     : g.mailCountry(),
                         g.noteForCouple(),
-                        g.inviteSendCount(), g.inviteSentAt(), g.respondedAt(), g.remindAt(),
+                        g.inviteSendCount(), g.inviteSentAt(), g.saveTheDateSentAt(), g.respondedAt(), g.remindAt(),
                         g.createdAt(), g.updatedAt(),
                         g.partyId(), g.partyName(), g.partyContact(),
                         syncId, g.syncedFromSheet()  // preserve creation provenance; the CSV-path delete filter still relies on it
@@ -648,7 +648,7 @@ public class GoogleSheetSyncService {
                         null, tableNumber, sideVal, notes,
                         mailLine1, city, state, zip, country,
                         null, 0,
-                        null, null, null, null, null,
+                        null, null, null, null, null, null,
                         null, null, null,
                         null, true  // sheetSyncId (CSV can't write-back), syncedFromSheet
                 ));
@@ -676,7 +676,7 @@ public class GoogleSheetSyncService {
                         zip         != null ? zip         : g.mailZip(),
                         country     != null ? country     : g.mailCountry(),
                         g.noteForCouple(),
-                        g.inviteSendCount(), g.inviteSentAt(), g.respondedAt(), g.remindAt(),
+                        g.inviteSendCount(), g.inviteSentAt(), g.saveTheDateSentAt(), g.respondedAt(), g.remindAt(),
                         g.createdAt(), g.updatedAt(),
                         g.partyId(), g.partyName(), g.partyContact(),
                         g.sheetSyncId(), g.syncedFromSheet()  // preserve creation provenance; this path's delete filter relies on it

@@ -87,6 +87,9 @@ public class GuestEntity {
     @Column(name = "invite_sent_at")
     private LocalDateTime inviteSentAt;
 
+    @Column(name = "save_the_date_sent_at")
+    private LocalDateTime saveTheDateSentAt;
+
     @Column(name = "responded_at")
     private LocalDateTime respondedAt;
 

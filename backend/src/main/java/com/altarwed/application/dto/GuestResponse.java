@@ -30,6 +30,7 @@ public record GuestResponse(
         String noteForCouple,
         Integer inviteSendCount,
         LocalDateTime inviteSentAt,
+        LocalDateTime saveTheDateSentAt,
         LocalDateTime respondedAt,
         LocalDateTime remindAt,
         LocalDateTime createdAt,

@@ -8,6 +8,7 @@ import com.altarwed.infrastructure.persistence.repository.GuestJpaRepository;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -68,6 +69,12 @@ public class GuestRepositoryAdapter implements GuestRepository {
                   .stream().map(this::toDomain).toList();
     }
 
+    @Override
+    public void markSaveTheDatesSent(Collection<UUID> guestIds, LocalDateTime sentAt) {
+        if (guestIds.isEmpty()) return;
+        jpa.markSaveTheDatesSent(guestIds, sentAt);
+    }
+
     private Guest toDomain(GuestEntity e) {
         return new Guest(
                 e.getId(), e.getCoupleId(), e.getName(), e.getEmail(), e.getPhone(),
@@ -76,7 +83,7 @@ public class GuestRepositoryAdapter implements GuestRepository {
                 e.getTableNumber(), e.getSide(), e.getNotes(),
                 e.getMailLine1(), e.getMailCity(), e.getMailState(), e.getMailZip(), e.getMailCountry(),
                 e.getNoteForCouple(), e.getInviteSendCount(),
-                e.getInviteSentAt(), e.getRespondedAt(), e.getRemindAt(),
+                e.getInviteSentAt(), e.getSaveTheDateSentAt(), e.getRespondedAt(), e.getRemindAt(),
                 e.getCreatedAt(), e.getUpdatedAt(),
                 e.getPartyId(), e.getPartyName(), e.getPartyContact(),
                 e.getSheetSyncId(), e.isSyncedFromSheet()
@@ -106,6 +113,7 @@ public class GuestRepositoryAdapter implements GuestRepository {
                 .noteForCouple(g.noteForCouple())
                 .inviteSendCount(g.inviteSendCount() != null ? g.inviteSendCount() : 0)
                 .inviteSentAt(g.inviteSentAt())
+                .saveTheDateSentAt(g.saveTheDateSentAt())
                 .respondedAt(g.respondedAt())
                 .remindAt(g.remindAt())
                 .createdAt(g.createdAt())

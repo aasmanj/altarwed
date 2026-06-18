@@ -3,6 +3,7 @@ package com.altarwed.domain.port;
 import com.altarwed.domain.model.Guest;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,4 +22,7 @@ public interface GuestRepository {
     List<Guest> saveAll(List<Guest> guests);
     // Returns guests for a couple whose name contains the search term (case-insensitive).
     List<Guest> findByCoupleIdAndNameContaining(UUID coupleId, String name);
+    // Stamps save_the_date_sent_at = sentAt for the given guests in a single bulk
+    // UPDATE, so a 200-guest send is one statement rather than 200 row saves.
+    void markSaveTheDatesSent(Collection<UUID> guestIds, LocalDateTime sentAt);
 }

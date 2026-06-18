@@ -30,6 +30,8 @@ public record Guest(
         // number of invite emails sent for this guest; capped to prevent spamming
         Integer inviteSendCount,
         LocalDateTime inviteSentAt,
+        // when the save-the-date email was last sent to this guest; null = never sent
+        LocalDateTime saveTheDateSentAt,
         LocalDateTime respondedAt,
         // when set, the scheduler re-sends the RSVP invite at this time and then clears the field
         LocalDateTime remindAt,

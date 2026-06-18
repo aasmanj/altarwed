@@ -248,7 +248,7 @@ class GoogleSheetSyncServiceTest {
                 null, null, null,
                 null, null, null, null, null,
                 null, 0,
-                null, null, null, null, null,
+                null, null, null, null, null, null,
                 null, null, null,
                 sheetSyncId, syncedFromSheet);
     }
