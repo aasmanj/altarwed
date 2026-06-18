@@ -98,6 +98,13 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           value: '2'
         }
         {
+          // Svix signing secret for the Resend delivery webhook (whsec_...). Requires
+          // a RESEND-WEBHOOK-SECRET secret in Key Vault; until set, the webhook fails
+          // closed (rejects all events) rather than trusting unsigned bounces.
+          name: 'RESEND_WEBHOOK_SECRET'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=RESEND-WEBHOOK-SECRET)'
+        }
+        {
           name: 'REVALIDATION_SECRET'
           value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=REVALIDATION-SECRET)'
         }

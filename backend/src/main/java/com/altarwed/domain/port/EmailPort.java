@@ -3,6 +3,7 @@ package com.altarwed.domain.port;
 import com.altarwed.domain.model.EmailRecipient;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface EmailPort {
     void sendPasswordResetEmail(String toEmail, String resetToken);
@@ -20,13 +21,17 @@ public interface EmailPort {
     // (and on every re-publish). Congratulates them and surfaces the shareable URL.
     void sendWeddingPublishedEmail(String toEmail, String partnerOneName, String partnerTwoName, String weddingUrl);
 
-    void sendRsvpInviteEmail(String toEmail, String guestName, String coupleNames, String weddingDate, String rsvpToken);
+    // guestId/coupleId tag the outgoing message so the Resend delivery webhook can
+    // map a delivery/bounce event back to this guest (see EmailDeliveryService).
+    void sendRsvpInviteEmail(String toEmail, String guestName, String coupleNames, String weddingDate,
+                             String rsvpToken, UUID guestId, UUID coupleId);
 
     // Bulk save-the-date send. Implementations fan the recipients out through the
     // provider's batch API so a 200-guest send is a couple of API calls rather than
     // 200, instead of tripping the per-second rate limit. Shared fields (coupleNames,
-    // weddingDate, weddingUrl, stdImageUrl) are identical for every recipient.
-    void sendSaveTheDateEmails(List<EmailRecipient> recipients, String coupleNames,
+    // weddingDate, weddingUrl, stdImageUrl) are identical for every recipient; coupleId
+    // and each recipient's guestId tag the message for delivery-webhook mapping.
+    void sendSaveTheDateEmails(List<EmailRecipient> recipients, UUID coupleId, String coupleNames,
                                String weddingDate, String weddingUrl, String stdImageUrl);
     void sendRsvpNotificationToCouple(String coupleEmail, String coupleNames,
                                       String guestName, String rsvpStatus,

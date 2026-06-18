@@ -31,6 +31,20 @@ export interface Guest {
   partyId: string | null
   partyName: string | null
   partyContact: boolean | null
+  // Latest Resend delivery outcome per email type (from the delivery webhook):
+  // DELIVERED / BOUNCED / COMPLAINED / DELAYED / SENT, or null if no event yet.
+  // Distinct from the *SentAt stamps, which only mean "we attempted the send".
+  saveTheDateDeliveryStatus: string | null
+  inviteDeliveryStatus: string | null
+}
+
+// Synchronous result of a save-the-date send: what was queued vs skipped, plus the
+// exact malformed addresses the couple must fix before they will send.
+export interface SaveTheDateSendResult {
+  queued: number
+  invalidCount: number
+  suppressedCount: number
+  invalidEmails: { guestId: string; name: string; email: string }[]
 }
 
 export interface CreateGuestPayload {

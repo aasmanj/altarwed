@@ -33,19 +33,22 @@ public class GuestService {
     private final WeddingWebsiteRepository websiteRepository;
     private final CoupleRepository coupleRepository;
     private final AsyncEmailService asyncEmailService;
+    private final EmailSuppressionService suppressionService;
 
     public GuestService(
             GuestRepository guestRepository,
             RsvpInviteTokenRepository tokenRepository,
             WeddingWebsiteRepository websiteRepository,
             CoupleRepository coupleRepository,
-            AsyncEmailService asyncEmailService
+            AsyncEmailService asyncEmailService,
+            EmailSuppressionService suppressionService
     ) {
         this.guestRepository = guestRepository;
         this.tokenRepository = tokenRepository;
         this.websiteRepository = websiteRepository;
         this.coupleRepository = coupleRepository;
         this.asyncEmailService = asyncEmailService;
+        this.suppressionService = suppressionService;
     }
 
     @Transactional
@@ -162,49 +165,59 @@ public class GuestService {
     }
 
     @Transactional
-    public int sendSaveDates(UUID coupleId, List<UUID> guestIds) {
+    public SaveTheDateSendResult sendSaveDates(UUID coupleId, List<UUID> guestIds) {
         log.info("save-the-date send batch started, coupleId={}, targetCount={}", coupleId,
                 guestIds == null ? "all" : guestIds.size());
 
         Set<UUID> guestIdSet = guestIds != null ? new HashSet<>(guestIds) : null;
-        List<Guest> toSend = guestRepository.findAllByCoupleId(coupleId).stream()
+        List<Guest> withEmail = guestRepository.findAllByCoupleId(coupleId).stream()
                 .filter(g -> g.email() != null && !g.email().isBlank())
                 .filter(g -> guestIdSet == null || guestIdSet.contains(g.id()))
                 .toList();
 
-        // Nobody eligible (no guests, or none in the requested subset have an email):
-        // skip the website/couple lookups, the async dispatch, and the stamp entirely.
-        if (toSend.isEmpty()) {
-            log.info("save-the-date send batch queued, coupleId={}, queued={}", coupleId, 0);
-            return 0;
+        // Surface syntactically bad addresses so the couple can fix them at the source
+        // (Google Sheet) and re-sync, instead of letting them silently 422 the batch.
+        List<SaveTheDateSendResult.InvalidGuestEmail> invalid = withEmail.stream()
+                .filter(g -> !EmailAddresses.isValid(g.email()))
+                .map(g -> new SaveTheDateSendResult.InvalidGuestEmail(g.id(), g.name(), g.email()))
+                .toList();
+
+        // Of the valid addresses, drop opt-outs; only the remainder is actually queued.
+        List<Guest> queueable = withEmail.stream()
+                .filter(g -> EmailAddresses.isValid(g.email()))
+                .filter(g -> !suppressionService.isSuppressed(EmailSuppressionService.emailHash(g.email())))
+                .toList();
+        int validCount = (int) withEmail.stream().filter(g -> EmailAddresses.isValid(g.email())).count();
+        int suppressedCount = validCount - queueable.size();
+
+        if (!queueable.isEmpty()) {
+            var website = websiteRepository.findByCoupleId(coupleId).orElse(null);
+            var couple  = coupleRepository.findById(coupleId).orElse(null);
+            String coupleNames = couple != null
+                    ? couple.partnerTwoName() + " & " + couple.partnerOneName()
+                    : "The Couple";
+            String weddingDate = (website != null && website.weddingDate() != null)
+                    ? website.weddingDate().format(DateTimeFormatter.ofPattern("MMMM d, yyyy"))
+                    : "TBD";
+            String weddingUrl = website != null
+                    ? "https://www.altarwed.com/wedding/" + website.slug()
+                    : "https://www.altarwed.com";
+            String stdImageUrl = website != null ? website.stdImageUrl() : null;
+
+            List<EmailRecipient> recipients = queueable.stream()
+                    .map(g -> new EmailRecipient(g.email(), g.name(), g.id()))
+                    .toList();
+            asyncEmailService.sendSaveTheDateEmails(recipients, coupleId, coupleNames, weddingDate, weddingUrl, stdImageUrl);
+
+            // Stamp save_the_date_sent_at only for guests we actually queued (valid and
+            // not unsubscribed), so the dashboard never shows "sent" for an address we
+            // skipped. Final delivered/bounced status arrives later via the delivery webhook.
+            guestRepository.markSaveTheDatesSent(queueable.stream().map(Guest::id).toList(), LocalDateTime.now());
         }
 
-        var website = websiteRepository.findByCoupleId(coupleId).orElse(null);
-        var couple  = coupleRepository.findById(coupleId).orElse(null);
-        String coupleNames = couple != null
-                ? couple.partnerTwoName() + " & " + couple.partnerOneName()
-                : "The Couple";
-        String weddingDate = (website != null && website.weddingDate() != null)
-                ? website.weddingDate().format(java.time.format.DateTimeFormatter.ofPattern("MMMM d, yyyy"))
-                : "TBD";
-        String weddingUrl = website != null
-                ? "https://www.altarwed.com/wedding/" + website.slug()
-                : "https://www.altarwed.com";
-        String stdImageUrl = website != null ? website.stdImageUrl() : null;
-
-        List<EmailRecipient> recipients = toSend.stream()
-                .map(g -> new EmailRecipient(g.email(), g.name()))
-                .toList();
-        asyncEmailService.sendSaveTheDateEmails(recipients, coupleNames, weddingDate, weddingUrl, stdImageUrl);
-
-        // Stamp save_the_date_sent_at optimistically on queue, mirroring how issueInvite
-        // stamps invite_sent_at. The async send may still fail per-recipient, but the
-        // dashboard "sent" indicator tracks intent-to-send, consistent with invites.
-        // One bulk UPDATE instead of N row saves keeps a 200-guest send to a single statement.
-        guestRepository.markSaveTheDatesSent(toSend.stream().map(Guest::id).toList(), LocalDateTime.now());
-
-        log.info("save-the-date send batch queued, coupleId={}, queued={}", coupleId, toSend.size());
-        return toSend.size();
+        log.info("save-the-date send batch queued, coupleId={}, queued={}, invalid={}, suppressed={}",
+                coupleId, queueable.size(), invalid.size(), suppressedCount);
+        return new SaveTheDateSendResult(queueable.size(), invalid.size(), suppressedCount, invalid);
     }
 
     @Transactional
@@ -464,7 +477,8 @@ public class GuestService {
                 ? website.weddingDate().format(DateTimeFormatter.ofPattern("MMMM d, yyyy"))
                 : "TBD";
 
-        asyncEmailService.sendRsvpInviteEmail(guest.email(), guest.name(), coupleNames, weddingDate, rawToken);
+        asyncEmailService.sendRsvpInviteEmail(guest.email(), guest.name(), coupleNames, weddingDate, rawToken,
+                guest.id(), coupleId);
         log.info("rsvp invite queued, guestId={}, coupleId={}, sendNumber={}",
                  guest.id(), coupleId, currentSends + 1);
 

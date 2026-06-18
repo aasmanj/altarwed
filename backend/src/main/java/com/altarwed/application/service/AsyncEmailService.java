@@ -6,6 +6,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Thin async wrapper around EmailPort.
@@ -24,16 +25,17 @@ public class AsyncEmailService {
 
     @Async("emailExecutor")
     public void sendRsvpInviteEmail(String toEmail, String guestName,
-                                    String coupleNames, String weddingDate, String rsvpToken) {
-        emailPort.sendRsvpInviteEmail(toEmail, guestName, coupleNames, weddingDate, rsvpToken);
+                                    String coupleNames, String weddingDate, String rsvpToken,
+                                    UUID guestId, UUID coupleId) {
+        emailPort.sendRsvpInviteEmail(toEmail, guestName, coupleNames, weddingDate, rsvpToken, guestId, coupleId);
     }
 
     // One background task fans the whole guest list into batched provider calls,
     // rather than queueing one async task (and one API call) per recipient.
     @Async("emailExecutor")
-    public void sendSaveTheDateEmails(List<EmailRecipient> recipients, String coupleNames,
+    public void sendSaveTheDateEmails(List<EmailRecipient> recipients, UUID coupleId, String coupleNames,
                                       String weddingDate, String weddingUrl, String stdImageUrl) {
-        emailPort.sendSaveTheDateEmails(recipients, coupleNames, weddingDate, weddingUrl, stdImageUrl);
+        emailPort.sendSaveTheDateEmails(recipients, coupleId, coupleNames, weddingDate, weddingUrl, stdImageUrl);
     }
 
     @Async("emailExecutor")

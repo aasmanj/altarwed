@@ -75,6 +75,10 @@ altarwed:
     # Max outbound sends/sec across ALL email types. Stays under Resend's 5 req/sec
     # account cap; raise alongside the Resend plan. Per-instance (see ResendEmailAdapter).
     rate-limit-per-second: ${RESEND_RATE_LIMIT_PER_SECOND:2}
+    # Svix signing secret for the delivery webhook (whsec_...). No default: an empty
+    # value rejects every webhook (ResendWebhookVerifier fails closed) so we never
+    # trust an unsigned bounce, but its absence must not crash startup.
+    webhook-secret: ${RESEND_WEBHOOK_SECRET:}
 
   app:
     base-url: ${APP_BASE_URL:https://app.altarwed.com}

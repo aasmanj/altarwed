@@ -8,8 +8,22 @@ import { useConfirm } from '@/components/ConfirmDialog'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
-import { useGuests } from '@/features/couple/guests/useGuests'
+import { useGuests, type SaveTheDateSendResult } from '@/features/couple/guests/useGuests'
+import InvalidEmailsModal from './InvalidEmailsModal'
 import { QRCodeCanvas } from 'qrcode.react'
+
+// Maps the latest delivery status (from the Resend webhook) to a recipient badge.
+// Falls back to the optimistic "Sent" stamp until a delivery/bounce event arrives.
+function stdBadge(status: string | null, sentAt: string | null): { label: string; cls: string } | null {
+  switch (status) {
+    case 'DELIVERED': return { label: 'Delivered', cls: 'text-green-600' }
+    case 'BOUNCED': return { label: 'Bounced', cls: 'text-rose-600' }
+    case 'COMPLAINED': return { label: 'Marked spam', cls: 'text-rose-600' }
+    case 'DELAYED': return { label: 'Delivery delayed', cls: 'text-amber-600' }
+    default:
+      return sentAt ? { label: `Sent ${new Date(sentAt).toLocaleDateString()}`, cls: 'text-stone-500' } : null
+  }
+}
 
 export default function SaveTheDatePage() {
   const { user } = useAuth()
@@ -19,6 +33,9 @@ export default function SaveTheDatePage() {
   const { data: guests = [] } = useGuests(coupleId)
   const [sent, setSent] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[] | null>(null)
+  // Post-send breakdown (queued vs skipped) and the malformed addresses to surface.
+  const [result, setResult] = useState<SaveTheDateSendResult | null>(null)
+  const [showInvalidModal, setShowInvalidModal] = useState(false)
 
   useEffect(() => {
     if (!sent) return
@@ -75,19 +92,25 @@ export default function SaveTheDatePage() {
     mutationFn: () =>
       apiClient.post(`/api/v1/save-the-dates/couple/${coupleId}/send`,
         selectedIds !== null ? { guestIds: selectedIds } : {}
-      ).then(r => r.data),
-    onSuccess: () => {
-      setSent(true)
+      ).then(r => r.data as SaveTheDateSendResult),
+    onSuccess: (data) => {
+      setResult(data)
       // Reset to the default (unsent) selection and refetch so the just-sent guests
       // pick up their "Sent" badge and drop out of the default recipient set.
       setSelectedIds(null)
       qc.invalidateQueries({ queryKey: ['guests', coupleId] })
-      confetti({
-        particleCount: 180,
-        spread: 90,
-        origin: { y: 0.5 },
-        colors: ['#d4af6a', '#3b2f2f', '#f5ede0', '#fbbf24', '#fde68a'],
-      })
+      // Malformed addresses are the couple's to fix, so pop them up immediately.
+      if (data.invalidEmails.length > 0) setShowInvalidModal(true)
+      // Only celebrate (and show "Sent!") when something was actually queued.
+      if (data.queued > 0) {
+        setSent(true)
+        confetti({
+          particleCount: 180,
+          spread: 90,
+          origin: { y: 0.5 },
+          colors: ['#d4af6a', '#3b2f2f', '#f5ede0', '#fbbf24', '#fde68a'],
+        })
+      }
     },
   })
 
@@ -239,28 +262,34 @@ export default function SaveTheDatePage() {
                   </div>
                 </div>
                 <div className="max-h-52 overflow-y-auto rounded-lg border border-stone-200 divide-y divide-stone-100">
-                  {emailGuests.map(g => (
-                    <label key={g.id} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-stone-50">
-                      <input
-                        type="checkbox"
-                        checked={activeIds.includes(g.id)}
-                        onChange={() => toggleGuest(g.id)}
-                        className="h-4 w-4 rounded border-stone-300 accent-amber-600"
-                      />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-stone-800">{g.name}</p>
-                        <p className="text-xs text-stone-400 truncate">{g.email}</p>
-                      </div>
-                      {g.saveTheDateSentAt && (
-                        <span className="ml-auto flex-shrink-0 inline-flex items-center gap-1 text-xs font-medium text-green-600">
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                          Sent {new Date(g.saveTheDateSentAt).toLocaleDateString()}
-                        </span>
-                      )}
-                    </label>
-                  ))}
+                  {emailGuests.map(g => {
+                    const badge = stdBadge(g.saveTheDateDeliveryStatus, g.saveTheDateSentAt)
+                    const bounced = g.saveTheDateDeliveryStatus === 'BOUNCED' || g.saveTheDateDeliveryStatus === 'COMPLAINED'
+                    return (
+                      <label key={g.id} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-stone-50">
+                        <input
+                          type="checkbox"
+                          checked={activeIds.includes(g.id)}
+                          onChange={() => toggleGuest(g.id)}
+                          className="h-4 w-4 rounded border-stone-300 accent-amber-600"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-stone-800">{g.name}</p>
+                          <p className="text-xs text-stone-400 truncate">{g.email}</p>
+                        </div>
+                        {badge && (
+                          <span className={`ml-auto flex-shrink-0 inline-flex items-center gap-1 text-xs font-medium ${badge.cls}`}>
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                              {bounced
+                                ? <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                : <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />}
+                            </svg>
+                            {badge.label}
+                          </span>
+                        )}
+                      </label>
+                    )
+                  })}
                 </div>
               </div>
 
@@ -292,10 +321,40 @@ export default function SaveTheDatePage() {
             </>
           )}
 
-          {sent && (
-            <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
-              Save-the-dates sent to {sendMutation.data?.sent ?? sendCount} guests.{' '}
-              <Link to="/dashboard/guests" className="underline">View guest list</Link>
+          {result && (
+            <div className={`p-3 rounded-lg text-sm ${result.queued > 0 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-800'}`}>
+              {result.queued > 0 ? (
+                <>
+                  Queued {result.queued} save-the-date{result.queued !== 1 ? 's' : ''}.{' '}
+                  <Link to="/dashboard/guests" className="underline">View guest list</Link>
+                </>
+              ) : (
+                <>No save-the-dates were sent.</>
+              )}
+              {(result.invalidCount > 0 || result.suppressedCount > 0) && (
+                <ul className="mt-1.5 list-disc pl-5 space-y-0.5">
+                  {result.invalidCount > 0 && (
+                    <li>
+                      {result.invalidCount} skipped (invalid email address).{' '}
+                      <button
+                        type="button"
+                        onClick={() => setShowInvalidModal(true)}
+                        className="underline font-medium"
+                      >
+                        View {result.invalidCount === 1 ? 'it' : 'them'}
+                      </button>
+                    </li>
+                  )}
+                  {result.suppressedCount > 0 && (
+                    <li>{result.suppressedCount} skipped (guest unsubscribed).</li>
+                  )}
+                </ul>
+              )}
+              {result.queued > 0 && (
+                <p className="mt-1.5 text-xs opacity-80">
+                  Delivered and bounced confirmations will appear next to each guest as they arrive.
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -350,6 +409,13 @@ export default function SaveTheDatePage() {
           <p>· Formal invitations with RSVP links can be sent separately from the Guest List page.</p>
         </div>
       </div>
+
+      {showInvalidModal && result && result.invalidEmails.length > 0 && (
+        <InvalidEmailsModal
+          emails={result.invalidEmails}
+          onClose={() => setShowInvalidModal(false)}
+        />
+      )}
     </div>
   )
 }

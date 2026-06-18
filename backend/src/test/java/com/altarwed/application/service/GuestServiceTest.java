@@ -1,5 +1,6 @@
 package com.altarwed.application.service;
 
+import com.altarwed.application.dto.SaveTheDateSendResult;
 import com.altarwed.domain.model.EmailRecipient;
 import com.altarwed.domain.model.Guest;
 import com.altarwed.domain.model.GuestRsvpStatus;
@@ -28,12 +29,14 @@ import static org.mockito.Mockito.when;
 /**
  * Unit tests for {@link GuestService#sendSaveDates}, the save-the-date batch send.
  *
- * These lock in the behavior added with the save_the_date_sent_at column (V66):
+ * These lock in:
  *   1. Only guests with a usable email are sent to (and stamped).
  *   2. An optional guestIds subset narrows the batch.
- *   3. The send stamps save_the_date_sent_at for exactly the sent guests, in one
+ *   3. The send stamps save_the_date_sent_at for exactly the queued guests, in one
  *      bulk UPDATE, so the dashboard can show who has and has not been emailed.
  *   4. An empty eligible set is a clean no-op (no async email, no stamp).
+ *   5. Syntactically invalid addresses are reported back (so the couple can fix them
+ *      in the source sheet) and are neither queued nor stamped.
  */
 @ExtendWith(MockitoExtension.class)
 class GuestServiceTest {
@@ -43,10 +46,11 @@ class GuestServiceTest {
     @Mock private WeddingWebsiteRepository websiteRepository;
     @Mock private CoupleRepository coupleRepository;
     @Mock private AsyncEmailService asyncEmailService;
+    @Mock private EmailSuppressionService suppressionService;
 
     private GuestService service() {
         return new GuestService(guestRepository, tokenRepository, websiteRepository,
-                coupleRepository, asyncEmailService);
+                coupleRepository, asyncEmailService, suppressionService);
     }
 
     private Guest guest(UUID coupleId, String name, String email) {
@@ -74,14 +78,16 @@ class GuestServiceTest {
         when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
         when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
 
-        int sent = service().sendSaveDates(coupleId, null);
+        SaveTheDateSendResult result = service().sendSaveDates(coupleId, null);
 
-        assertThat(sent).isEqualTo(2);
+        assertThat(result.queued()).isEqualTo(2);
+        assertThat(result.invalidCount()).isZero();
+        assertThat(result.invalidEmails()).isEmpty();
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<EmailRecipient>> recipients = ArgumentCaptor.forClass(List.class);
         verify(asyncEmailService).sendSaveTheDateEmails(
-                recipients.capture(), anyString(), anyString(), anyString(), any());
+                recipients.capture(), any(), anyString(), anyString(), anyString(), any());
         assertThat(recipients.getValue())
                 .extracting(EmailRecipient::email)
                 .containsExactlyInAnyOrder("anna@example.com", "bo@example.com");
@@ -103,9 +109,9 @@ class GuestServiceTest {
         when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
         when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
 
-        int sent = service().sendSaveDates(coupleId, List.of(a.id()));
+        SaveTheDateSendResult result = service().sendSaveDates(coupleId, List.of(a.id()));
 
-        assertThat(sent).isEqualTo(1);
+        assertThat(result.queued()).isEqualTo(1);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<UUID>> stamped = ArgumentCaptor.forClass(List.class);
@@ -121,10 +127,37 @@ class GuestServiceTest {
         when(guestRepository.findAllByCoupleId(coupleId))
                 .thenReturn(List.of(guest(coupleId, "Cy", null)));
 
-        int sent = service().sendSaveDates(coupleId, null);
+        SaveTheDateSendResult result = service().sendSaveDates(coupleId, null);
 
-        assertThat(sent).isZero();
-        verify(asyncEmailService, never()).sendSaveTheDateEmails(any(), any(), any(), any(), any());
+        assertThat(result.queued()).isZero();
+        verify(asyncEmailService, never()).sendSaveTheDateEmails(any(), any(), any(), any(), any(), any());
         verify(guestRepository, never()).markSaveTheDatesSent(any(), any());
+    }
+
+    @Test
+    void sendSaveDates_reportsInvalidAddresses_andDoesNotQueueOrStampThem() {
+        UUID coupleId = UUID.randomUUID();
+        Guest good = guest(coupleId, "Anna", "anna@example.com");
+        Guest doubleAt = guest(coupleId, "Bad Bo", "j@22@gmail.com"); // two @ signs
+        Guest noDot = guest(coupleId, "Cy", "cy@localhost");          // domain has no dot
+
+        when(guestRepository.findAllByCoupleId(coupleId))
+                .thenReturn(List.of(good, doubleAt, noDot));
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
+
+        SaveTheDateSendResult result = service().sendSaveDates(coupleId, null);
+
+        assertThat(result.queued()).isEqualTo(1);
+        assertThat(result.invalidCount()).isEqualTo(2);
+        assertThat(result.invalidEmails())
+                .extracting(SaveTheDateSendResult.InvalidGuestEmail::email)
+                .containsExactlyInAnyOrder("j@22@gmail.com", "cy@localhost");
+
+        // Only the one good address is stamped as sent.
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<UUID>> stamped = ArgumentCaptor.forClass(List.class);
+        verify(guestRepository).markSaveTheDatesSent(stamped.capture(), any(LocalDateTime.class));
+        assertThat(stamped.getValue()).containsExactly(good.id());
     }
 }

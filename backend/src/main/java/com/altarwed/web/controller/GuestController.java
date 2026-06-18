@@ -1,6 +1,7 @@
 package com.altarwed.web.controller;
 
 import com.altarwed.application.dto.*;
+import com.altarwed.application.service.EmailDeliveryService;
 import com.altarwed.application.service.GuestService;
 import com.altarwed.web.mapper.GuestMapper;
 import com.altarwed.web.security.CoupleAccessGuard;
@@ -19,11 +20,14 @@ import java.util.UUID;
 public class GuestController {
 
     private final GuestService guestService;
+    private final EmailDeliveryService emailDeliveryService;
     private final GuestMapper mapper;
     private final CoupleAccessGuard accessGuard;
 
-    public GuestController(GuestService guestService, GuestMapper mapper, CoupleAccessGuard accessGuard) {
+    public GuestController(GuestService guestService, EmailDeliveryService emailDeliveryService,
+                           GuestMapper mapper, CoupleAccessGuard accessGuard) {
         this.guestService = guestService;
+        this.emailDeliveryService = emailDeliveryService;
         this.mapper = mapper;
         this.accessGuard = accessGuard;
     }
@@ -34,7 +38,10 @@ public class GuestController {
             @AuthenticationPrincipal String email
     ) {
         accessGuard.assertOwns(coupleId, email);
-        return ResponseEntity.ok(guestService.listGuests(coupleId).stream().map(mapper::toResponse).toList());
+        Map<UUID, GuestDeliverySummary> deliveries = emailDeliveryService.deliveryStatusesByGuest(coupleId);
+        return ResponseEntity.ok(guestService.listGuests(coupleId).stream()
+                .map(g -> mapper.toResponse(g, deliveries.get(g.id())))
+                .toList());
     }
 
     @PostMapping("/couple/{coupleId}")

@@ -37,5 +37,11 @@ public record GuestResponse(
         LocalDateTime updatedAt,
         UUID partyId,
         String partyName,
-        Boolean partyContact
+        Boolean partyContact,
+        // Latest Resend delivery outcome per email type (DELIVERED / BOUNCED /
+        // COMPLAINED / DELAYED / SENT), or null when no webhook event has arrived.
+        // Distinct from saveTheDateSentAt/inviteSentAt, which only record that we
+        // attempted the send.
+        String saveTheDateDeliveryStatus,
+        String inviteDeliveryStatus
 ) {}

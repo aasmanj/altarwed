@@ -1,5 +1,6 @@
 package com.altarwed.web.controller;
 
+import com.altarwed.application.dto.SaveTheDateSendResult;
 import com.altarwed.application.service.GuestService;
 import com.altarwed.web.security.CoupleAccessGuard;
 import org.springframework.http.ResponseEntity;
@@ -7,7 +8,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -26,13 +26,13 @@ public class SaveTheDateController {
     record SendRequest(List<UUID> guestIds) {}
 
     @PostMapping("/couple/{coupleId}/send")
-    public ResponseEntity<Map<String, Integer>> sendAll(
+    public ResponseEntity<SaveTheDateSendResult> sendAll(
             @PathVariable UUID coupleId,
             @RequestBody(required = false) SendRequest body,
             @AuthenticationPrincipal String email
     ) {
         accessGuard.assertOwns(coupleId, email);
-        int count = guestService.sendSaveDates(coupleId, body != null ? body.guestIds() : null);
-        return ResponseEntity.ok(Map.of("sent", count));
+        SaveTheDateSendResult result = guestService.sendSaveDates(coupleId, body != null ? body.guestIds() : null);
+        return ResponseEntity.ok(result);
     }
 }

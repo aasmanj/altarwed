@@ -1,6 +1,7 @@
 package com.altarwed.infrastructure.email;
 
 import com.altarwed.application.service.EmailSuppressionService;
+import com.altarwed.domain.model.EmailAddresses;
 import com.altarwed.domain.model.EmailRecipient;
 import com.altarwed.domain.port.EmailPort;
 import com.altarwed.domain.port.EmailSuppressionPort;
@@ -30,6 +31,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Component
 public class ResendEmailAdapter implements EmailPort {
@@ -147,7 +149,12 @@ public class ResendEmailAdapter implements EmailPort {
 
     @Override
     public void sendRsvpInviteEmail(String toEmail, String guestName, String coupleNames,
-                                    String weddingDate, String rsvpToken) {
+                                    String weddingDate, String rsvpToken, UUID guestId, UUID coupleId) {
+        if (!isValidEmailAddress(toEmail)) {
+            log.warn("rsvp invite skipped, invalid recipient address, type=rsvp-invite, to={}",
+                    LogSanitizer.maskEmail(toEmail));
+            return;
+        }
         String rsvpUrl = appBaseUrl.replace("app.", "www.") + "/rsvp/" + rsvpToken;
 
         String viralCtaUrl = publicBaseUrl + "?utm_source=rsvp_email&utm_medium=email&utm_campaign=viral_invite&utm_content=footer";
@@ -196,28 +203,40 @@ public class ResendEmailAdapter implements EmailPort {
                 "to", List.of(toEmail),
                 "subject", "You're invited to " + coupleNames + "'s wedding!",
                 "html", html,
-                "text", text
+                "text", text,
+                "tags", guestTags(guestId, coupleId, "rsvp-invite")
         );
 
         postEmail("rsvp-invite", toEmail, body);
     }
 
     @Override
-    public void sendSaveTheDateEmails(List<EmailRecipient> recipients, String coupleNames,
+    public void sendSaveTheDateEmails(List<EmailRecipient> recipients, UUID coupleId, String coupleNames,
                                       String weddingDate, String weddingUrl, String stdImageUrl) {
-        // Drop blanks and suppressed recipients up front so opt-outs are honoured
-        // exactly as in the single-send path (postMarketingEmail), then hand the
-        // fully personalised message bodies to the batch sender.
-        List<Map<String, Object>> messages = recipients.stream()
+        // Drop malformed and suppressed recipients up front. Resend's /emails/batch is
+        // all-or-nothing: a single invalid address (a double-@ typo, a stray space)
+        // rejects the entire 100-message batch with 422 and forces a slow per-recipient
+        // fallback. Filtering here keeps every batch clean so the good mail goes through,
+        // and honours opt-outs exactly as the single-send path (postMarketingEmail) does.
+        long invalid = recipients.stream()
                 .filter(r -> r.email() != null && !r.email().isBlank())
+                .filter(r -> !isValidEmailAddress(r.email()))
+                .count();
+        if (invalid > 0) {
+            log.warn("save-the-date recipients skipped, reason=invalid address, type=save-the-date, skipped={}", invalid);
+        }
+        List<Map<String, Object>> messages = recipients.stream()
+                .filter(r -> isValidEmailAddress(r.email()))
                 .filter(r -> !suppressionPort.isSuppressed(emailHash(r.email())))
-                .map(r -> buildSaveTheDateBody(r.email(), r.name(), coupleNames, weddingDate, weddingUrl, stdImageUrl))
+                .map(r -> buildSaveTheDateBody(r.email(), r.name(), r.guestId(), coupleId,
+                        coupleNames, weddingDate, weddingUrl, stdImageUrl))
                 .toList();
         postBatch("save-the-date", messages);
     }
 
-    private Map<String, Object> buildSaveTheDateBody(String toEmail, String guestName, String coupleNames,
-                                                     String weddingDate, String weddingUrl, String stdImageUrl) {
+    private Map<String, Object> buildSaveTheDateBody(String toEmail, String guestName, UUID guestId, UUID coupleId,
+                                                     String coupleNames, String weddingDate, String weddingUrl,
+                                                     String stdImageUrl) {
         String imageBlock = (stdImageUrl != null && !stdImageUrl.isBlank())
                 ? "<img src=\"" + stdImageUrl + "\" alt=\"Save the Date\" style=\"display:block;width:100%;max-width:540px;margin:0 auto 32px;border-radius:6px;\" />"
                 : "";
@@ -270,6 +289,7 @@ public class ResendEmailAdapter implements EmailPort {
                 "List-Unsubscribe", "<" + oneClickUnsubUrl + ">",
                 "List-Unsubscribe-Post", "List-Unsubscribe=One-Click"
         ));
+        body.put("tags", guestTags(guestId, coupleId, "save-the-date"));
         return body;
     }
 
@@ -551,6 +571,34 @@ public class ResendEmailAdapter implements EmailPort {
         postEmail("vendor-registration-alert", adminAlertEmail, body);
     }
 
+    // Tags travel with the message and are echoed back in Resend's delivery webhook,
+    // letting EmailDeliveryService map a delivery/bounce event to the right guest.
+    // Resend tag names/values accept only [A-Za-z0-9_-]; UUIDs and our email-type
+    // slugs ("save-the-date", "rsvp-invite") already satisfy that.
+    private static List<Map<String, String>> guestTags(UUID guestId, UUID coupleId, String emailType) {
+        List<Map<String, String>> tags = new ArrayList<>();
+        if (guestId != null) tags.add(Map.of("name", "guest_id", "value", guestId.toString()));
+        if (coupleId != null) tags.add(Map.of("name", "couple_id", "value", coupleId.toString()));
+        tags.add(Map.of("name", "email_type", "value", emailType));
+        return tags;
+    }
+
+    // Keeps malformed addresses out of a batch (where one bad address 422s all 100).
+    // Shares the exact rule the guest service uses to flag bad addresses to the couple.
+    private static boolean isValidEmailAddress(String email) {
+        return EmailAddresses.isValid(email);
+    }
+
+    // A 429 from Resend means one of two very different things: a per-second rate-limit
+    // (transient, worth a short backoff) or daily/monthly quota exhaustion (won't recover
+    // for hours, so retrying just burns attempts and, on the transactional path, throws
+    // an uncaught async ERROR per send). The response body's name/message carries "quota"
+    // only in the latter case, so we branch on that.
+    private static boolean isQuotaExhausted(RestClientResponseException ex) {
+        String body = ex.getResponseBodyAsString();
+        return body != null && body.toLowerCase().contains("quota");
+    }
+
     // Minimal HTML escape for fields we interpolate into email markup. We do
     // NOT interpolate untrusted input into href/src attributes or into <script>
     // contexts; only into text content and innerHTML-equivalent positions.
@@ -813,6 +861,13 @@ public class ResendEmailAdapter implements EmailPort {
                 return;
             } catch (RestClientResponseException ex) {
                 boolean rateLimited = ex.getStatusCode().value() == 429;
+                // Quota exhaustion is not retryable within this send and must not bubble
+                // up as an ERROR (it would fire on every subsequent transactional send for
+                // the rest of the period). Log once at WARN and drop this message.
+                if (rateLimited && isQuotaExhausted(ex)) {
+                    log.warn("resend quota exhausted, dropping send, type={}, to={}", emailType, maskedTo);
+                    return;
+                }
                 if (!rateLimited || attempt == MAX_SEND_ATTEMPTS) {
                     log.warn("resend rejected email, type={}, to={}, status={}, attempts={}", emailType, maskedTo, ex.getStatusCode(), attempt);
                     throw ex;
@@ -864,19 +919,29 @@ public class ResendEmailAdapter implements EmailPort {
         }
         int total = messages.size();
         for (int start = 0; start < total; start += MAX_BATCH_SIZE) {
-            sendChunk(emailType, messages.subList(start, Math.min(start + MAX_BATCH_SIZE, total)));
+            boolean keepGoing = sendChunk(emailType, messages.subList(start, Math.min(start + MAX_BATCH_SIZE, total)));
+            if (!keepGoing) {
+                // Quota hit mid-send: the remaining chunks would all fail the same way,
+                // so stop rather than fire doomed calls.
+                log.warn("resend batch aborted, reason=quota exhausted, type={}, sentBefore={}, total={}",
+                        emailType, start, total);
+                return;
+            }
         }
         log.info("resend batch send completed, type={}, recipients={}", emailType, total);
     }
 
-    private void sendChunk(String emailType, List<Map<String, Object>> chunk) {
+    // Returns true to continue with the next chunk, false to abort the whole batch
+    // (quota exhausted). Per-chunk terminal outcomes (validation fallback, 5xx,
+    // transport failure) still return true: they affect only this chunk.
+    private boolean sendChunk(String emailType, List<Map<String, Object>> chunk) {
         for (int attempt = 1; attempt <= MAX_SEND_ATTEMPTS; attempt++) {
             try {
                 resendRateLimiter.asBlocking().consume(1);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 log.warn("resend batch interrupted awaiting rate-limit token, type={}, size={}, attempt={}", emailType, chunk.size(), attempt);
-                return;
+                return true;
             }
             try {
                 restClient.post()
@@ -886,16 +951,25 @@ public class ResendEmailAdapter implements EmailPort {
                         .retrieve()
                         .toBodilessEntity();
                 log.info("resend batch accepted, type={}, size={}, attempt={}", emailType, chunk.size(), attempt);
-                return;
+                return true;
             } catch (RestClientResponseException ex) {
-                if (ex.getStatusCode().value() == 429 && attempt < MAX_SEND_ATTEMPTS) {
-                    long backoffMs = retryAfterMillis(ex, attempt);
-                    log.warn("resend batch rate limited, backing off, type={}, attempt={}, backoffMs={}", emailType, attempt, backoffMs);
-                    if (!sleepQuietly(backoffMs)) {
-                        log.warn("resend batch interrupted during backoff, type={}, size={}, attempt={}", emailType, chunk.size(), attempt);
-                        return;
+                if (ex.getStatusCode().value() == 429) {
+                    // Quota exhaustion will not recover within a backoff window and dooms
+                    // every remaining chunk, so abort the whole send rather than retry.
+                    if (isQuotaExhausted(ex)) {
+                        return false;
                     }
-                    continue;
+                    if (attempt < MAX_SEND_ATTEMPTS) {
+                        long backoffMs = retryAfterMillis(ex, attempt);
+                        log.warn("resend batch rate limited, backing off, type={}, attempt={}, backoffMs={}", emailType, attempt, backoffMs);
+                        if (!sleepQuietly(backoffMs)) {
+                            log.warn("resend batch interrupted during backoff, type={}, size={}, attempt={}", emailType, chunk.size(), attempt);
+                            return true;
+                        }
+                        continue;
+                    }
+                    // Retries exhausted on a genuine rate-limit: fall through to the
+                    // per-recipient path below, which paces each send individually.
                 }
                 // A 4xx (validation error, e.g. one malformed address, or an exhausted
                 // 429) means Resend accepted nothing, so re-sending the chunk one-by-one
@@ -903,21 +977,22 @@ public class ResendEmailAdapter implements EmailPort {
                 if (ex.getStatusCode().is4xxClientError()) {
                     log.warn("resend batch rejected, falling back to individual sends, type={}, status={}, size={}", emailType, ex.getStatusCode(), chunk.size());
                     sendChunkIndividually(emailType, chunk);
-                    return;
+                    return true;
                 }
                 // A 5xx is ambiguous: Resend may have already processed the batch before
                 // failing. Re-sending could double-send up to 100 guests, so stop and
                 // surface it for a deliberate re-send rather than risk duplicates.
                 log.error("resend batch failed with server error, delivery unknown, not retrying, type={}, status={}, size={}", emailType, ex.getStatusCode(), chunk.size());
-                return;
+                return true;
             } catch (RestClientException ex) {
                 // Transport failure (e.g. read timeout) with no response body: the batch
                 // may already have been delivered. Re-sending would risk duplicating the
                 // whole chunk, so we surface it rather than blindly fall back.
                 log.error("resend batch transport failure, delivery unknown, not retrying, type={}, size={}", emailType, chunk.size(), ex);
-                return;
+                return true;
             }
         }
+        return true;
     }
 
     // Per-recipient fallback for a rejected batch: each send is isolated and
