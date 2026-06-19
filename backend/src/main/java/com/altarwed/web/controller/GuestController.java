@@ -3,6 +3,7 @@ package com.altarwed.web.controller;
 import com.altarwed.application.dto.*;
 import com.altarwed.application.service.EmailDeliveryService;
 import com.altarwed.application.service.GuestService;
+import com.altarwed.domain.model.Guest;
 import com.altarwed.web.mapper.GuestMapper;
 import com.altarwed.web.security.CoupleAccessGuard;
 import jakarta.validation.Valid;
@@ -38,9 +39,11 @@ public class GuestController {
             @AuthenticationPrincipal String email
     ) {
         accessGuard.assertOwns(coupleId, email);
+        List<Guest> guests = guestService.listGuests(coupleId);
         Map<UUID, GuestDeliverySummary> deliveries = emailDeliveryService.deliveryStatusesByGuest(coupleId);
-        return ResponseEntity.ok(guestService.listGuests(coupleId).stream()
-                .map(g -> mapper.toResponse(g, deliveries.get(g.id())))
+        Map<UUID, String> unsubscribed = guestService.unsubscribedSourcesByGuest(guests);
+        return ResponseEntity.ok(guests.stream()
+                .map(g -> mapper.toResponse(g, deliveries.get(g.id()), unsubscribed.get(g.id())))
                 .toList());
     }
 
@@ -51,8 +54,9 @@ public class GuestController {
             @AuthenticationPrincipal String email
     ) {
         accessGuard.assertOwns(coupleId, email);
+        Guest added = guestService.addGuest(coupleId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(mapper.toResponse(guestService.addGuest(coupleId, request)));
+                .body(mapper.toResponse(added, guestService.unsubscribedReason(added)));
     }
 
     @PatchMapping("/couple/{coupleId}/{guestId}")
@@ -63,7 +67,8 @@ public class GuestController {
             @AuthenticationPrincipal String email
     ) {
         accessGuard.assertOwns(coupleId, email);
-        return ResponseEntity.ok(mapper.toResponse(guestService.updateGuest(coupleId, guestId, request)));
+        Guest updated = guestService.updateGuest(coupleId, guestId, request);
+        return ResponseEntity.ok(mapper.toResponse(updated, guestService.unsubscribedReason(updated)));
     }
 
     @DeleteMapping("/couple/{coupleId}/{guestId}")
@@ -89,7 +94,8 @@ public class GuestController {
             @AuthenticationPrincipal String email
     ) {
         accessGuard.assertOwns(coupleId, email);
-        return ResponseEntity.ok(mapper.toResponse(guestService.assignTable(coupleId, guestId, request.tableNumber())));
+        Guest assigned = guestService.assignTable(coupleId, guestId, request.tableNumber());
+        return ResponseEntity.ok(mapper.toResponse(assigned, guestService.unsubscribedReason(assigned)));
     }
 
     @PostMapping("/couple/{coupleId}/{guestId}/invite")
@@ -99,7 +105,22 @@ public class GuestController {
             @AuthenticationPrincipal String email
     ) {
         accessGuard.assertOwns(coupleId, email);
-        return ResponseEntity.ok(mapper.toResponse(guestService.sendInvite(coupleId, guestId)));
+        Guest invited = guestService.sendInvite(coupleId, guestId);
+        return ResponseEntity.ok(mapper.toResponse(invited, guestService.unsubscribedReason(invited)));
+    }
+
+    // Reverses an email unsubscribe at the couple's request (the guest asked them
+    // directly). Ownership-guarded like every couple-scoped write. The service refuses
+    // to reverse a spam complaint (422 via GlobalExceptionHandler).
+    @PostMapping("/couple/{coupleId}/{guestId}/resubscribe")
+    public ResponseEntity<GuestResponse> resubscribe(
+            @PathVariable UUID coupleId,
+            @PathVariable UUID guestId,
+            @AuthenticationPrincipal String email
+    ) {
+        accessGuard.assertOwns(coupleId, email);
+        Guest guest = guestService.resubscribeGuest(coupleId, guestId);
+        return ResponseEntity.ok(mapper.toResponse(guest, guestService.unsubscribedReason(guest)));
     }
 
     @PostMapping("/couple/{coupleId}/bulk")
