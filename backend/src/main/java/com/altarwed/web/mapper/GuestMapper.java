@@ -8,13 +8,20 @@ import org.springframework.stereotype.Component;
 @Component
 public class GuestMapper {
 
-    // Single-guest responses (add/update/invite/table) have no delivery rollup to
-    // merge; the list endpoint uses the overload below.
+    // Bulk/party responses for brand-new guests carry no delivery rollup or
+    // suppression status; those resolve on the next guest-list fetch.
     public GuestResponse toResponse(Guest g) {
-        return toResponse(g, null);
+        return toResponse(g, null, null);
     }
 
-    public GuestResponse toResponse(Guest g, GuestDeliverySummary delivery) {
+    // Single-guest write responses (add/update/invite/table/resubscribe): no delivery
+    // rollup, but carry the suppression reason so the dashboard's optimistic cache keeps
+    // the unsubscribe badge accurate after the mutation.
+    public GuestResponse toResponse(Guest g, String unsubscribedReason) {
+        return toResponse(g, null, unsubscribedReason);
+    }
+
+    public GuestResponse toResponse(Guest g, GuestDeliverySummary delivery, String unsubscribedReason) {
         return new GuestResponse(
                 g.id(), g.coupleId(), g.name(), g.email(), g.phone(),
                 g.rsvpStatus(), g.plusOneAllowed(), g.plusOneName(),
@@ -25,7 +32,9 @@ public class GuestMapper {
                 g.inviteSentAt(), g.saveTheDateSentAt(), g.respondedAt(), g.remindAt(), g.createdAt(), g.updatedAt(),
                 g.partyId(), g.partyName(), g.partyContact(),
                 delivery != null ? delivery.saveTheDateDeliveryStatus() : null,
-                delivery != null ? delivery.inviteDeliveryStatus() : null
+                delivery != null ? delivery.inviteDeliveryStatus() : null,
+                unsubscribedReason != null,
+                unsubscribedReason
         );
     }
 }

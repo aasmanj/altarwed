@@ -1,7 +1,9 @@
 package com.altarwed.application.service;
 
 import com.altarwed.application.dto.*;
+import com.altarwed.domain.exception.EmailComplaintResubscribeException;
 import com.altarwed.domain.exception.GuestNotFoundException;
+import com.altarwed.domain.exception.GuestUnsubscribedException;
 import com.altarwed.domain.exception.InvalidRsvpTokenException;
 import com.altarwed.domain.model.*;
 import com.altarwed.domain.port.*;
@@ -15,9 +17,11 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -161,6 +165,16 @@ public class GuestService {
     @Transactional
     public Guest sendInvite(UUID coupleId, UUID guestId) {
         Guest guest = getGuest(coupleId, guestId);
+        // Honour the unsubscribe for RSVP invites too: a guest who opted out (or whose
+        // address bounced or complained) must not be emailed, full stop. The couple
+        // invites them another way, or resubscribes them if they asked.
+        if (guest.email() != null && !guest.email().isBlank()
+                && suppressionService.isSuppressed(EmailSuppressionService.emailHash(guest.email()))) {
+            log.warn("invite rejected, guest email unsubscribed, guestId={}, coupleId={}", guestId, coupleId);
+            throw new GuestUnsubscribedException(
+                    "This guest unsubscribed from email, so we can't send them an invite. "
+                    + "Invite them another way, or resubscribe them if they asked you to.");
+        }
         return issueInvite(guest, coupleId);
     }
 
@@ -220,11 +234,75 @@ public class GuestService {
         return new SaveTheDateSendResult(queueable.size(), invalid.size(), suppressedCount, invalid);
     }
 
+    /**
+     * Reverses a guest's email suppression so they receive marketing email again, at the
+     * couple's request (the couple attests in the UI that the guest personally asked).
+     * Ownership is enforced by {@link #getGuest}. Refuses to reverse a spam complaint
+     * (see {@link EmailSuppressionService#resubscribe}). NOT_SUPPRESSED is treated as a
+     * no-op success so the action is idempotent. Returns the guest unchanged (resubscribe
+     * only touches the suppression list, not the guest row).
+     */
+    @Transactional
+    public Guest resubscribeGuest(UUID coupleId, UUID guestId) {
+        Guest guest = getGuest(coupleId, guestId);
+        if (guest.email() == null || guest.email().isBlank()) {
+            log.warn("guest resubscribe rejected, no email, guestId={}, coupleId={}", guestId, coupleId);
+            throw new IllegalArgumentException("This guest has no email address to resubscribe.");
+        }
+        EmailSuppressionService.ResubscribeOutcome outcome =
+                suppressionService.resubscribe(EmailSuppressionService.emailHash(guest.email()));
+        if (outcome == EmailSuppressionService.ResubscribeOutcome.BLOCKED_COMPLAINT) {
+            log.warn("guest resubscribe blocked, reason=prior spam complaint, guestId={}, coupleId={}", guestId, coupleId);
+            throw new EmailComplaintResubscribeException(
+                    "This guest previously marked one of these emails as spam, so we can't resubscribe them "
+                    + "automatically. Ask them to add your address to their contacts, or update their email here.");
+        }
+        log.info("guest resubscribed, guestId={}, coupleId={}, outcome={}", guestId, coupleId, outcome);
+        return guest;
+    }
+
+    /**
+     * Suppression source for a single guest's email (USER_REQUEST / BOUNCE / COMPLAINT),
+     * or null when the guest has no email or is deliverable. Used to stamp the
+     * unsubscribe badge onto single-guest write responses so the dashboard's optimistic
+     * cache stays accurate after an edit/invite without a full list refetch.
+     */
+    @Transactional(readOnly = true)
+    public String unsubscribedReason(Guest guest) {
+        if (guest == null || guest.email() == null || guest.email().isBlank()) return null;
+        return suppressionService.suppressionSource(EmailSuppressionService.emailHash(guest.email())).orElse(null);
+    }
+
+    /**
+     * Maps each suppressed guest in the list to its suppression source, in a single
+     * batch query (no N+1). Takes already-loaded guests so the list endpoint does not
+     * re-read the guest table. A blank/absent email yields no entry.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> unsubscribedSourcesByGuest(List<Guest> guests) {
+        Map<String, UUID> hashToGuest = new HashMap<>();
+        for (Guest g : guests) {
+            if (g.email() != null && !g.email().isBlank()) {
+                hashToGuest.put(EmailSuppressionService.emailHash(g.email()), g.id());
+            }
+        }
+        if (hashToGuest.isEmpty()) return Map.of();
+        Map<UUID, String> out = new HashMap<>();
+        suppressionService.suppressionSources(hashToGuest.keySet()).forEach((hash, source) -> {
+            UUID guestId = hashToGuest.get(hash);
+            if (guestId != null) out.put(guestId, source);
+        });
+        return out;
+    }
+
     @Transactional
     public int sendAllPendingInvites(UUID coupleId) {
         List<Guest> toInvite = guestRepository.findAllByCoupleId(coupleId).stream()
                 .filter(g -> g.email() != null && !g.email().isBlank())
                 .filter(g -> g.rsvpStatus() == GuestRsvpStatus.PENDING)
+                // Skip unsubscribed/bounced/complained addresses (same rule as single
+                // sendInvite and save-the-dates); silently here since this is a bulk action.
+                .filter(g -> !suppressionService.isSuppressed(EmailSuppressionService.emailHash(g.email())))
                 .toList();
 
         log.info("invite-all batch started, coupleId={}, eligibleCount={}", coupleId, toInvite.size());

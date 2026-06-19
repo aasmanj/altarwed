@@ -8,7 +8,7 @@ import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import {
   useGuests, useAddGuest, useUpdateGuest, useRemoveGuest,
-  useSendInvite, useBulkAddGuests,
+  useSendInvite, useBulkAddGuests, useResubscribeGuest,
   type Guest, type RsvpStatus, type GuestSide,
 } from './useGuests'
 import ImportGuestsModal from './ImportGuestsModal'
@@ -34,6 +34,18 @@ const STATUS_COLOR: Record<RsvpStatus, string> = {
   DECLINING: 'bg-red-50 text-red-700',
 }
 const SIDES: GuestSide[] = ['BRIDE', 'GROOM', 'BOTH']
+
+// Words the unsubscribe badge by why the address is suppressed. A spam complaint
+// (COMPLAINT) is shown but never offered a one-click resubscribe: re-mailing a
+// complainer is refused server-side because it harms deliverability for everyone.
+function unsubBadge(reason: string | null | undefined): { label: string; canResubscribe: boolean } | null {
+  switch (reason) {
+    case 'USER_REQUEST': return { label: 'Unsubscribed', canResubscribe: true }
+    case 'BOUNCE':       return { label: 'Email bounced', canResubscribe: true }
+    case 'COMPLAINT':    return { label: 'Marked spam', canResubscribe: false }
+    default:             return null
+  }
+}
 
 // Single source of truth for the guest-sheet columns. These header strings are
 // matched case-insensitively by GoogleSheetSyncService on the backend (see its
@@ -84,6 +96,7 @@ export default function GuestListPage() {
   const removeGuest = useRemoveGuest(coupleId)
   const sendInvite  = useSendInvite(coupleId)
   const bulkAdd     = useBulkAddGuests(coupleId)
+  const resubscribe = useResubscribeGuest(coupleId)
 
   const confirm                 = useConfirm()
   const { data: sheetSync }     = useGoogleSheetSync(coupleId)
@@ -765,10 +778,35 @@ export default function GuestListPage() {
                             message: `An RSVP email will be sent to ${guest.name} at ${guest.email}.`,
                             confirmLabel: `${action} invite`,
                           })) {
-                            sendInvite.mutate(guest.id)
+                            const promise = sendInvite.mutateAsync(guest.id)
+                            toast.promise(promise, {
+                              loading: `${action === 'Resend' ? 'Resending' : 'Sending'} invite…`,
+                              success: `Invite ${action === 'Resend' ? 'resent' : 'sent'} to ${guest.name}.`,
+                              error: (err) => err?.response?.data?.detail ?? 'Could not send the invite. Try again.',
+                            })
+                            try { await promise } catch { /* toast.promise handles display */ }
                           }
                         }}
                         sendInvitePending={sendInvite.isPending}
+                        onResubscribe={async () => {
+                          const bounced = guest.emailUnsubscribedReason === 'BOUNCE'
+                          if (await confirm({
+                            title: `Resubscribe ${guest.name}?`,
+                            message: bounced
+                              ? `${guest.name}'s last email bounced, so they were removed from sends. Only resubscribe if you have confirmed their email address is correct and they want your wedding emails again.`
+                              : `Only resubscribe guests who have personally asked to start receiving your wedding emails again. ${guest.name} will be added back to your save-the-date and announcement sends.`,
+                            confirmLabel: 'Resubscribe',
+                          })) {
+                            const promise = resubscribe.mutateAsync(guest.id)
+                            toast.promise(promise, {
+                              loading: 'Resubscribing…',
+                              success: `${guest.name} will receive your wedding emails again.`,
+                              error: (err) => err?.response?.data?.detail ?? 'Could not resubscribe this guest. Try again.',
+                            })
+                            try { await promise } catch { /* toast.promise handles display */ }
+                          }
+                        }}
+                        resubscribePending={resubscribe.isPending}
                       />
                     )
                   ))}
@@ -785,13 +823,16 @@ export default function GuestListPage() {
 // ---------------------------------------------------------------------------
 // Shared guest row (used inside both party blocks and solo blocks)
 // ---------------------------------------------------------------------------
-function GuestRow({ guest, onEdit, onRemove, onInvite, sendInvitePending }: {
+function GuestRow({ guest, onEdit, onRemove, onInvite, sendInvitePending, onResubscribe, resubscribePending }: {
   guest: Guest
   onEdit: () => void
   onRemove: () => void
   onInvite: () => void
   sendInvitePending: boolean
+  onResubscribe: () => void
+  resubscribePending: boolean
 }) {
+  const unsub = guest.emailUnsubscribed ? unsubBadge(guest.emailUnsubscribedReason) : null
   return (
     <>
       <tr className="border-b border-gold-light/50 hover:bg-ivory/30 transition">
@@ -811,6 +852,16 @@ function GuestRow({ guest, onEdit, onRemove, onInvite, sendInvitePending }: {
           {guest.phone && (
             <span className="block text-xs text-brown-light/80 mt-0.5">{guest.phone}</span>
           )}
+          {unsub && (
+            <span className="block mt-1">
+              <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-600">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                {unsub.label}
+              </span>
+            </span>
+          )}
         </td>
         <td className="px-4 py-3 text-brown-light hidden sm:table-cell">{guest.email ?? '-'}</td>
         <td className="px-4 py-3 text-brown-light hidden md:table-cell capitalize">
@@ -824,14 +875,21 @@ function GuestRow({ guest, onEdit, onRemove, onInvite, sendInvitePending }: {
         <td className="px-4 py-3 text-brown-light hidden lg:table-cell">{guest.tableNumber ?? '-'}</td>
         <td className="px-4 py-3">
           <div className="flex items-center gap-2 justify-end">
-            {guest.email && (guest.inviteSendCount ?? 0) < 3 && (
+            {guest.email && !guest.emailUnsubscribed && (guest.inviteSendCount ?? 0) < 3 && (
               <button onClick={onInvite} disabled={sendInvitePending}
                 className="text-xs text-gold hover:underline disabled:opacity-50 min-h-[44px] inline-flex items-center px-1">
                 {guest.inviteSentAt ? 'Resend' : 'Invite'}
               </button>
             )}
-            {guest.email && (guest.inviteSendCount ?? 0) >= 3 && (
+            {guest.email && !guest.emailUnsubscribed && (guest.inviteSendCount ?? 0) >= 3 && (
               <span className="text-xs text-brown-light" title="Maximum 3 invites reached">Max sent</span>
+            )}
+            {unsub?.canResubscribe && (
+              <button onClick={onResubscribe} disabled={resubscribePending}
+                title="Add this guest back to your email sends (only if they asked)"
+                className="text-xs text-green-600 hover:text-green-700 hover:underline disabled:opacity-50 min-h-[44px] inline-flex items-center px-1">
+                Resubscribe
+              </button>
             )}
             <button onClick={onEdit} className="text-xs text-brown-light hover:text-brown min-h-[44px] inline-flex items-center px-1">Edit</button>
             <button onClick={onRemove} className="text-xs text-red-400 hover:text-red-600 min-h-[44px] inline-flex items-center px-1">Remove</button>

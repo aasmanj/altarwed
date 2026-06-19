@@ -14,6 +14,9 @@ import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class EmailSuppressionService {
@@ -85,5 +88,53 @@ public class EmailSuppressionService {
 
     public boolean isSuppressed(String emailHash) {
         return suppressionPort.isSuppressed(emailHash);
+    }
+
+    /** The suppression source for a hash, or empty if the address is not suppressed. */
+    public Optional<String> suppressionSource(String emailHash) {
+        return suppressionPort.suppressionSource(emailHash);
+    }
+
+    /** Batch hash -> source for the currently-suppressed subset of the given hashes. */
+    public Map<String, String> suppressionSources(Collection<String> emailHashes) {
+        return suppressionPort.suppressionSources(emailHashes);
+    }
+
+    /**
+     * Outcome of a resubscribe attempt. {@code NOT_SUPPRESSED} means the address was
+     * already deliverable (nothing to do, treated as success by callers);
+     * {@code BLOCKED_COMPLAINT} means we refused to reverse a spam complaint.
+     */
+    public enum ResubscribeOutcome { RESUBSCRIBED, NOT_SUPPRESSED, BLOCKED_COMPLAINT }
+
+    /**
+     * Removes an address from the suppression list so it can receive marketing email
+     * again, gated on why it was suppressed:
+     *   USER_REQUEST / BOUNCE -> resubscribed (a voluntary opt-out being reversed, or a
+     *     bounce the couple has confirmed they want to retry).
+     *   COMPLAINT -> refused. A spam complaint is a deliverability and legal landmine:
+     *     re-mailing a complainer degrades the shared altarwed.com sending reputation for
+     *     every couple, so we never auto-reverse it. The recipient must re-engage through
+     *     their own mail client (allowlist us) or switch to a different address.
+     */
+    @Transactional
+    public ResubscribeOutcome resubscribe(String emailHash) {
+        Optional<String> source = suppressionPort.suppressionSource(emailHash);
+        if (source.isEmpty()) {
+            return ResubscribeOutcome.NOT_SUPPRESSED;
+        }
+        if ("COMPLAINT".equalsIgnoreCase(source.get())) {
+            // The caller (GuestService) WARN-logs this with guestId/coupleId; keep this
+            // at DEBUG so one action produces a single boundary log, not two.
+            log.debug("resubscribe refused, reason=prior spam complaint");
+            return ResubscribeOutcome.BLOCKED_COMPLAINT;
+        }
+        // Today the only initiator is a couple acting on a guest's request; the audit
+        // row records COUPLE_REQUEST so the timeline shows who reversed the opt-out.
+        boolean removed = suppressionPort.unsuppress(emailHash, "COUPLE_REQUEST");
+        log.debug("email resubscribe processed, priorSource={}, removed={}", source.get(), removed);
+        // A concurrent resubscribe may have removed the row first; report that honestly
+        // rather than claiming we reversed a suppression that was already gone.
+        return removed ? ResubscribeOutcome.RESUBSCRIBED : ResubscribeOutcome.NOT_SUPPRESSED;
     }
 }

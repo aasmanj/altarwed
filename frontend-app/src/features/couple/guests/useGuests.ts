@@ -36,6 +36,11 @@ export interface Guest {
   // Distinct from the *SentAt stamps, which only mean "we attempted the send".
   saveTheDateDeliveryStatus: string | null
   inviteDeliveryStatus: string | null
+  // True when this guest's email is unsubscribed and excluded from marketing sends.
+  // Reason is the suppression source (USER_REQUEST | BOUNCE | COMPLAINT) so the UI can
+  // word the badge and decide whether to offer a one-click resubscribe.
+  emailUnsubscribed: boolean | null
+  emailUnsubscribedReason: string | null
 }
 
 // Synchronous result of a save-the-date send: what was queued vs skipped, plus the
@@ -177,7 +182,7 @@ export function useSendInvite(coupleId: string) {
       apiClient.post(`/api/v1/guests/couple/${coupleId}/${guestId}/invite`).then(r => r.data),
     onSuccess: (updated: Guest) =>
       qc.setQueryData<Guest[]>(key(coupleId), old =>
-        old?.map(g => g.id === updated.id ? updated : g) ?? []
+        old?.map(g => g.id === updated.id ? mergePreservingDelivery(g, updated) : g) ?? []
       ),
   })
 }
@@ -209,4 +214,32 @@ export function useSendAllInvites(coupleId: string) {
       apiClient.post(`/api/v1/guests/couple/${coupleId}/invite-all`).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: key(coupleId) }),
   })
+}
+
+// Reverses an email unsubscribe for one guest (the couple confirms the guest asked).
+// The server returns the guest with emailUnsubscribed cleared, so we update the cached
+// row and the "Unsubscribed" badge disappears without a full refetch.
+export function useResubscribeGuest(coupleId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (guestId: string) =>
+      apiClient.post(`/api/v1/guests/couple/${coupleId}/${guestId}/resubscribe`).then(r => r.data as Guest),
+    onSuccess: (updated: Guest) =>
+      qc.setQueryData<Guest[]>(key(coupleId), old =>
+        old?.map(g => g.id === updated.id ? mergePreservingDelivery(g, updated) : g) ?? []
+      ),
+  })
+}
+
+// Single-guest write endpoints (invite, resubscribe) return the guest without the
+// delivery-status rollup (that is computed only on the list endpoint), so a naive
+// replace would null out saveTheDateDeliveryStatus/inviteDeliveryStatus and wipe the
+// Delivered/Bounced badge on the Save-the-Dates page, which reads the same cache.
+// Keep the prior delivery fields; everything else comes from the authoritative response.
+function mergePreservingDelivery(prev: Guest, updated: Guest): Guest {
+  return {
+    ...updated,
+    saveTheDateDeliveryStatus: prev.saveTheDateDeliveryStatus,
+    inviteDeliveryStatus: prev.inviteDeliveryStatus,
+  }
 }

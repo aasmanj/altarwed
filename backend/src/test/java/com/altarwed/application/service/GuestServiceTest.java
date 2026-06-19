@@ -1,6 +1,8 @@
 package com.altarwed.application.service;
 
 import com.altarwed.application.dto.SaveTheDateSendResult;
+import com.altarwed.domain.exception.EmailComplaintResubscribeException;
+import com.altarwed.domain.exception.GuestUnsubscribedException;
 import com.altarwed.domain.model.EmailRecipient;
 import com.altarwed.domain.model.Guest;
 import com.altarwed.domain.model.GuestRsvpStatus;
@@ -20,6 +22,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
@@ -159,5 +162,79 @@ class GuestServiceTest {
         ArgumentCaptor<List<UUID>> stamped = ArgumentCaptor.forClass(List.class);
         verify(guestRepository).markSaveTheDatesSent(stamped.capture(), any(LocalDateTime.class));
         assertThat(stamped.getValue()).containsExactly(good.id());
+    }
+
+    // ---------------------------------------------------------------------------
+    // resubscribeGuest: reverse an email unsubscribe at the couple's request.
+    // ---------------------------------------------------------------------------
+
+    @Test
+    void resubscribeGuest_resubscribes_usingTheGuestEmailHash() {
+        UUID coupleId = UUID.randomUUID();
+        Guest g = guest(coupleId, "Anna", "anna@example.com");
+        when(guestRepository.findById(g.id())).thenReturn(Optional.of(g));
+        when(suppressionService.resubscribe(anyString()))
+                .thenReturn(EmailSuppressionService.ResubscribeOutcome.RESUBSCRIBED);
+
+        Guest result = service().resubscribeGuest(coupleId, g.id());
+
+        assertThat(result).isEqualTo(g);
+        // Reverses suppression keyed on the SHA-256 of the guest's email, not the raw email.
+        verify(suppressionService).resubscribe(EmailSuppressionService.emailHash("anna@example.com"));
+    }
+
+    @Test
+    void resubscribeGuest_isSuccessfulNoOp_whenAddressWasNotSuppressed() {
+        UUID coupleId = UUID.randomUUID();
+        Guest g = guest(coupleId, "Anna", "anna@example.com");
+        when(guestRepository.findById(g.id())).thenReturn(Optional.of(g));
+        when(suppressionService.resubscribe(anyString()))
+                .thenReturn(EmailSuppressionService.ResubscribeOutcome.NOT_SUPPRESSED);
+
+        // Idempotent: resubscribing an already-deliverable guest is a no-op, not an error.
+        assertThat(service().resubscribeGuest(coupleId, g.id())).isEqualTo(g);
+    }
+
+    @Test
+    void resubscribeGuest_throws_whenSuppressionWasASpamComplaint() {
+        UUID coupleId = UUID.randomUUID();
+        Guest g = guest(coupleId, "Anna", "anna@example.com");
+        when(guestRepository.findById(g.id())).thenReturn(Optional.of(g));
+        when(suppressionService.resubscribe(anyString()))
+                .thenReturn(EmailSuppressionService.ResubscribeOutcome.BLOCKED_COMPLAINT);
+
+        assertThatThrownBy(() -> service().resubscribeGuest(coupleId, g.id()))
+                .isInstanceOf(EmailComplaintResubscribeException.class);
+    }
+
+    @Test
+    void resubscribeGuest_throws_andNeverTouchesSuppression_whenGuestHasNoEmail() {
+        UUID coupleId = UUID.randomUUID();
+        Guest g = guest(coupleId, "Anna", null);
+        when(guestRepository.findById(g.id())).thenReturn(Optional.of(g));
+
+        assertThatThrownBy(() -> service().resubscribeGuest(coupleId, g.id()))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(suppressionService, never()).resubscribe(anyString());
+    }
+
+    // ---------------------------------------------------------------------------
+    // sendInvite honours the unsubscribe: a suppressed address is never emailed.
+    // ---------------------------------------------------------------------------
+
+    @Test
+    void sendInvite_throws_andNeverIssuesTokenOrEmail_whenGuestUnsubscribed() {
+        UUID coupleId = UUID.randomUUID();
+        Guest g = guest(coupleId, "Anna", "anna@example.com");
+        when(guestRepository.findById(g.id())).thenReturn(Optional.of(g));
+        when(suppressionService.isSuppressed(EmailSuppressionService.emailHash("anna@example.com")))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> service().sendInvite(coupleId, g.id()))
+                .isInstanceOf(GuestUnsubscribedException.class);
+        // No RSVP token issued and no email queued for a suppressed address.
+        verify(tokenRepository, never()).save(any());
+        verify(asyncEmailService, never())
+                .sendRsvpInviteEmail(any(), any(), any(), any(), any(), any(), any());
     }
 }
