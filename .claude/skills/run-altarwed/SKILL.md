@@ -12,11 +12,29 @@ its real surface. This is the launch primitive the `verifier-web` and
 ## Prerequisites
 - **Docker Desktop must be running** (Testcontainers needs the daemon). On
   Windows, start Docker Desktop and wait for "Engine running".
+- **Azurite must be listening on :10000** before you start the backend (see below).
+  Testcontainers provides SQL Server, but NOT Azurite, and the backend crashes at
+  startup without it.
 - First run pulls `mcr.microsoft.com/mssql/server:2022-latest` (~1.5 GB) and
   Chromium for Playwright. Subsequent runs are fast.
 - Node 20+, JDK 21 (both already on this machine).
 
 ## Bring it up (in order)
+
+### 0. Azurite (Azure Storage emulator) on :10000
+```bash
+docker run -d --name altarwed-verify-azurite \
+  -p 10000:10000 -p 10001:10001 -p 10002:10002 \
+  mcr.microsoft.com/azure-storage/azurite:latest
+```
+**Why this is not optional:** `AzureBlobStorageAdapter` connects eagerly in its
+constructor, so if nothing is on `127.0.0.1:10000` the Spring context fails to
+refresh and `bootTestRun` dies at startup with
+`UnsatisfiedDependencyException ... Connection refused: getsockopt: /127.0.0.1:10000`
+(via `mediaUploadService` -> `azureBlobStorageAdapter`). Flyway has already run all
+migrations by then, so the log looks like a success right up until the crash, which
+is misleading. Start Azurite first. Tear down when done:
+`docker rm -f altarwed-verify-azurite`.
 
 ### 1. Backend on Testcontainers SQL Server
 ```bash
