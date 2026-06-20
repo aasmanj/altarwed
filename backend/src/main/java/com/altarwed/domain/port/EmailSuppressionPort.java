@@ -4,31 +4,33 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Global, address-level suppression: deliverability facts (permanent BOUNCE, spam
+ * COMPLAINT) that apply to an email address across every couple, protecting the shared
+ * altarwed.com sending reputation. Voluntary per-wedding unsubscribes live separately in
+ * {@link CoupleEmailOptOutPort}.
+ */
 public interface EmailSuppressionPort {
 
     boolean isSuppressed(String emailHash);
 
     void suppress(String emailHash, String source);
 
-    /**
-     * The suppression source (USER_REQUEST / BOUNCE / COMPLAINT) for a hash, or
-     * empty when the address is not suppressed. Lets a resubscribe decision branch
-     * on why the address was suppressed in the first place.
-     */
+    /** The suppression source (USER_REQUEST / BOUNCE / COMPLAINT) for a hash, or empty. */
     Optional<String> suppressionSource(String emailHash);
 
     /**
      * Batch lookup: maps each currently-suppressed hash in the input to its source.
-     * Hashes that are not suppressed are simply absent from the result. One query so
-     * the guest list can flag unsubscribed guests without an N+1 of existence checks.
+     * Not-suppressed hashes are absent from the result. One query so the guest list can
+     * flag globally-suppressed guests without an N+1 of existence checks.
      */
     Map<String, String> suppressionSources(Collection<String> emailHashes);
 
     /**
-     * Removes a hash from the suppression list (resubscribe) and records the reversal
-     * in the audit trail under the given initiator source (e.g. COUPLE_REQUEST).
-     * Returns true when a row was actually removed, false when the address was not
-     * suppressed (in which case nothing is audited).
+     * Removes a LEGACY global USER_REQUEST opt-out (those predate the per-couple model)
+     * when the recipient resubscribes by RSVPing. Deletes only a USER_REQUEST row, never
+     * a BOUNCE/COMPLAINT, so a guest action can't clear a deliverability suppression.
+     * Returns true when a row was removed.
      */
-    boolean unsuppress(String emailHash, String source);
+    boolean clearLegacyUserRequest(String emailHash);
 }

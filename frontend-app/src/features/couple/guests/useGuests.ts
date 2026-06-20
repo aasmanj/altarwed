@@ -128,7 +128,7 @@ export function useUpdateGuest(coupleId: string) {
     },
     onSuccess: (updated: Guest) =>
       qc.setQueryData<Guest[]>(key(coupleId), old =>
-        old?.map(g => g.id === updated.id ? updated : g) ?? []
+        old?.map(g => g.id === updated.id ? mergePreservingDelivery(g, updated) : g) ?? []
       ),
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) qc.setQueryData(key(coupleId), ctx.previous)
@@ -157,7 +157,7 @@ export function useAssignGuestTable(coupleId: string) {
     },
     onSuccess: (updated: Guest) =>
       qc.setQueryData<Guest[]>(key(coupleId), old =>
-        old?.map(g => g.id === updated.id ? updated : g) ?? []
+        old?.map(g => g.id === updated.id ? mergePreservingDelivery(g, updated) : g) ?? []
       ),
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) qc.setQueryData(key(coupleId), ctx.previous)
@@ -216,22 +216,7 @@ export function useSendAllInvites(coupleId: string) {
   })
 }
 
-// Reverses an email unsubscribe for one guest (the couple confirms the guest asked).
-// The server returns the guest with emailUnsubscribed cleared, so we update the cached
-// row and the "Unsubscribed" badge disappears without a full refetch.
-export function useResubscribeGuest(coupleId: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (guestId: string) =>
-      apiClient.post(`/api/v1/guests/couple/${coupleId}/${guestId}/resubscribe`).then(r => r.data as Guest),
-    onSuccess: (updated: Guest) =>
-      qc.setQueryData<Guest[]>(key(coupleId), old =>
-        old?.map(g => g.id === updated.id ? mergePreservingDelivery(g, updated) : g) ?? []
-      ),
-  })
-}
-
-// Single-guest write endpoints (invite, resubscribe) return the guest without the
+// Single-guest write endpoints (invite, edit, table) return the guest without the
 // delivery-status rollup (that is computed only on the list endpoint), so a naive
 // replace would null out saveTheDateDeliveryStatus/inviteDeliveryStatus and wipe the
 // Delivered/Bounced badge on the Save-the-Dates page, which reads the same cache.

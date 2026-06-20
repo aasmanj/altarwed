@@ -65,7 +65,7 @@ class EmailDeliveryServiceTest {
         assertThat(saved.getValue().status()).isEqualTo(EmailDeliveryStatus.DELIVERED);
         assertThat(saved.getValue().guestId()).isEqualTo(guestId);
         assertThat(saved.getValue().emailType()).isEqualTo("save-the-date");
-        verify(suppressionService, never()).suppress(anyString(), anyString());
+        verify(suppressionService, never()).suppressGlobal(anyString(), anyString());
     }
 
     @Test
@@ -75,7 +75,7 @@ class EmailDeliveryServiceTest {
 
         service().process(event("email.bounced", "e2", UUID.randomUUID(), UUID.randomUUID(), "rsvp-invite", bounce));
 
-        verify(suppressionService).suppress(anyString(), eq("BOUNCE"));
+        verify(suppressionService).suppressGlobal(anyString(), eq("BOUNCE"));
     }
 
     @Test
@@ -85,7 +85,7 @@ class EmailDeliveryServiceTest {
 
         service().process(event("email.bounced", "e3", UUID.randomUUID(), UUID.randomUUID(), "rsvp-invite", bounce));
 
-        verify(suppressionService, never()).suppress(anyString(), anyString());
+        verify(suppressionService, never()).suppressGlobal(anyString(), anyString());
     }
 
     @Test
@@ -94,7 +94,7 @@ class EmailDeliveryServiceTest {
 
         service().process(event("email.complained", "e4", UUID.randomUUID(), UUID.randomUUID(), "save-the-date", null));
 
-        verify(suppressionService).suppress(anyString(), eq("COMPLAINT"));
+        verify(suppressionService).suppressGlobal(anyString(), eq("COMPLAINT"));
     }
 
     @Test
@@ -115,7 +115,7 @@ class EmailDeliveryServiceTest {
     void unknownEventType_isIgnored() {
         service().process(event("email.opened", "e6", UUID.randomUUID(), UUID.randomUUID(), "save-the-date", null));
         verifyNoInteractions(deliveryRepository);
-        verify(suppressionService, never()).suppress(anyString(), anyString());
+        verify(suppressionService, never()).suppressGlobal(anyString(), anyString());
     }
 
     @Test

@@ -32,6 +32,11 @@ public class EmailSubscriptionEventEntity {
     @Column(name = "email_hash", nullable = false, length = 64)
     private String emailHash;
 
+    // Which couple relationship this event belongs to, or null for a global,
+    // address-level event (a bounce or spam complaint that is not couple-scoped).
+    @Column(name = "couple_id")
+    private UUID coupleId;
+
     // SUPPRESSED or RESUBSCRIBED (enforced by a DB CHECK constraint).
     @Column(name = "action", nullable = false, length = 20)
     private String action;
