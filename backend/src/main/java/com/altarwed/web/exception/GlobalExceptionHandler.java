@@ -32,8 +32,10 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.net.URI;
@@ -213,6 +215,29 @@ public class GlobalExceptionHandler {
         pd.setType(URI.create("https://altarwed.com/problems/malformed-request"));
         pd.setTitle("Malformed Request");
         pd.setDetail("Request body is missing or contains invalid JSON");
+        return pd;
+    }
+
+    // A query/path param that won't bind to its declared type (e.g. a non-UUID where a
+    // UUID is expected) is a client error, not a server fault. Without this it falls to
+    // the catch-all 500, which both misleads the client and pages on-call. We name the
+    // offending parameter but never echo the bad value (it could carry injected content).
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        pd.setType(URI.create("https://altarwed.com/problems/invalid-parameter"));
+        pd.setTitle("Invalid Parameter");
+        pd.setDetail("The '" + ex.getName() + "' parameter has an invalid value.");
+        return pd;
+    }
+
+    // A missing required query/path param is likewise a 400, not a 500.
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ProblemDetail handleMissingParameter(MissingServletRequestParameterException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        pd.setType(URI.create("https://altarwed.com/problems/missing-parameter"));
+        pd.setTitle("Missing Parameter");
+        pd.setDetail("The '" + ex.getParameterName() + "' parameter is required.");
         return pd;
     }
 
