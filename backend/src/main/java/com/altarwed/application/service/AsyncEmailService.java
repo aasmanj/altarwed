@@ -60,9 +60,10 @@ public class AsyncEmailService {
     public void sendRsvpNotificationToCouple(String coupleEmail, String coupleNames,
                                               String guestName, String rsvpStatus,
                                               String noteForCouple,
-                                              String dashboardUrl) {
+                                              String dashboardUrl,
+                                              String guestReplyToEmail) {
         emailPort.sendRsvpNotificationToCouple(coupleEmail, coupleNames, guestName,
-                rsvpStatus, noteForCouple, dashboardUrl);
+                rsvpStatus, noteForCouple, dashboardUrl, guestReplyToEmail);
     }
 
     @Async("emailExecutor")
