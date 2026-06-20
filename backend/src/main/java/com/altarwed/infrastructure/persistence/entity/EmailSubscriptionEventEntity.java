@@ -42,7 +42,7 @@ public class EmailSubscriptionEventEntity {
     private String action;
 
     // Reason/initiator: USER_REQUEST / BOUNCE / COMPLAINT (suppression) or
-    // COUPLE_REQUEST (resubscribe).
+    // GUEST_RSVP (resubscribe, the guest re-consented by RSVPing).
     @Column(name = "source", nullable = false, length = 50)
     private String source;
 

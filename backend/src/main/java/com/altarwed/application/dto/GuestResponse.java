@@ -44,10 +44,10 @@ public record GuestResponse(
         // attempted the send.
         String saveTheDateDeliveryStatus,
         String inviteDeliveryStatus,
-        // True when this guest's email is on the suppression list and excluded from
-        // marketing sends. Reason is the suppression source (USER_REQUEST / BOUNCE /
-        // COMPLAINT) so the dashboard can word the badge and decide whether to offer a
-        // one-click resubscribe (offered for USER_REQUEST/BOUNCE, withheld for COMPLAINT).
+        // True when this guest's email is suppressed FOR THIS COUPLE (a per-couple opt-out
+        // OR a global bounce/complaint) and excluded from sends. Reason is the source
+        // (USER_REQUEST / BOUNCE / COMPLAINT) so the dashboard can word the badge. A guest
+        // comes back by RSVPing (recipient-initiated); there is no couple-side resubscribe.
         Boolean emailUnsubscribed,
         String emailUnsubscribedReason
 ) {}

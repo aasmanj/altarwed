@@ -12,6 +12,10 @@ export default function UnsubscribeClient() {
 
   const h = params.get('h')
   const tok = params.get('tok')
+  // The couple param scopes the opt-out to one wedding. It is part of the signed token
+  // payload (hash:coupleId), so it MUST be forwarded or verification fails and the
+  // unsubscribe silently 400s. Absent for welcome mail and pre-scoping legacy links.
+  const c = params.get('c')
 
   useEffect(() => {
     if (!h || !tok) {
@@ -21,13 +25,16 @@ export default function UnsubscribeClient() {
     }
 
     setStatus('loading')
-    fetch(`${API}/api/v1/unsubscribe?h=${encodeURIComponent(h)}&tok=${encodeURIComponent(tok)}`, {
+    const cParam = c ? `&c=${encodeURIComponent(c)}` : ''
+    fetch(`${API}/api/v1/unsubscribe?h=${encodeURIComponent(h)}&tok=${encodeURIComponent(tok)}${cParam}`, {
       method: 'POST',
     })
       .then(async (res) => {
         if (res.ok) {
           setStatus('success')
-          setMessage("You've been unsubscribed. You will no longer receive emails from this couple's AltarWed wedding.")
+          setMessage(c
+            ? "You've been unsubscribed. You will no longer receive emails from this couple's AltarWed wedding."
+            : "You've been unsubscribed. You will no longer receive AltarWed emails at this address.")
         } else {
           const data = await res.json().catch(() => ({}))
           setStatus('error')

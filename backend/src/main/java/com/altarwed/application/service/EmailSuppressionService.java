@@ -79,14 +79,20 @@ public class EmailSuppressionService {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
             return Base64.getUrlEncoder().withoutPadding()
-                    .encodeToString(mac.doFinal(tokenPayload(emailHash, coupleId).getBytes(StandardCharsets.UTF_8)));
+                    .encodeToString(mac.doFinal(unsubscribeTokenPayload(emailHash, coupleId).getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException | InvalidKeyException ex) {
             throw new IllegalStateException("HMAC-SHA256 not available", ex);
         }
     }
 
-    // Keep this format identical to ResendEmailAdapter.hmacToken, the two must agree.
-    private static String tokenPayload(String emailHash, UUID coupleId) {
+    /**
+     * The exact string the unsubscribe HMAC signs. The adapter that MINTS the link and
+     * this service that VERIFIES it both call this one method, so the format cannot drift
+     * between them (a drift would silently break every unsubscribe link). A null coupleId
+     * yields the legacy hash-only payload for couple-agnostic mail (welcome) and links
+     * minted before per-couple scoping.
+     */
+    public static String unsubscribeTokenPayload(String emailHash, UUID coupleId) {
         return coupleId == null ? emailHash : emailHash + ":" + coupleId;
     }
 

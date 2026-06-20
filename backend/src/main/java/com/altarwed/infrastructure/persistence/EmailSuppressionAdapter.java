@@ -40,7 +40,11 @@ public class EmailSuppressionAdapter implements EmailSuppressionPort {
             return;
         }
         try {
-            jpaRepository.save(EmailSuppressionEntity.builder()
+            // saveAndFlush, not save: with an app-generated UUID PK the INSERT is otherwise
+            // deferred to transaction commit, so a unique-violation from a concurrent insert
+            // would escape this catch and surface as a 500. Flushing here makes the race a
+            // clean idempotent no-op.
+            jpaRepository.saveAndFlush(EmailSuppressionEntity.builder()
                     .emailHash(emailHash)
                     .source(source)
                     .build());

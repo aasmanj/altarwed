@@ -9,6 +9,11 @@
 --
 -- Keyed by the same SHA-256 email_hash as the live tables so the raw address is never
 -- stored. No unique constraint: many events per hash over time is expected.
+-- PK is NONCLUSTERED on the random GUID: on a high-insert, append-only table a random
+-- clustered key causes page splits and fragmentation. The CLUSTERED index is on
+-- (email_hash, created_at) instead, which is both the physical insert-friendly-enough
+-- order and an exact match for the only read (the per-address timeline, oldest first),
+-- making it a clustered seek with no separate lookup.
 CREATE TABLE email_subscription_event (
     id            UNIQUEIDENTIFIER NOT NULL CONSTRAINT df_email_sub_event_id DEFAULT NEWID(),
     email_hash    NVARCHAR(64)     NOT NULL,
@@ -16,8 +21,7 @@ CREATE TABLE email_subscription_event (
     action        NVARCHAR(20)     NOT NULL CONSTRAINT chk_email_sub_event_action CHECK (action IN ('SUPPRESSED', 'RESUBSCRIBED')),
     source        NVARCHAR(50)     NOT NULL,
     created_at    DATETIME2        NOT NULL CONSTRAINT df_email_sub_event_created_at DEFAULT GETUTCDATE(),
-    CONSTRAINT pk_email_subscription_event PRIMARY KEY (id)
+    CONSTRAINT pk_email_subscription_event PRIMARY KEY NONCLUSTERED (id)
 );
 
--- Supports the canonical query: the full timeline for one address, oldest first.
-CREATE INDEX ix_email_sub_event_hash ON email_subscription_event (email_hash, created_at);
+CREATE CLUSTERED INDEX ix_email_sub_event_hash ON email_subscription_event (email_hash, created_at);
