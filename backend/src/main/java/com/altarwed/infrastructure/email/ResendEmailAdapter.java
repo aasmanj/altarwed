@@ -159,7 +159,8 @@ public class ResendEmailAdapter implements EmailPort {
 
     @Override
     public void sendRsvpInviteEmail(String toEmail, String guestName, String coupleNames,
-                                    String weddingDate, String rsvpToken, UUID guestId, UUID coupleId) {
+                                    String weddingDate, String rsvpToken, UUID guestId, UUID coupleId,
+                                    String coupleReplyToEmail) {
         if (!isValidEmailAddress(toEmail)) {
             log.warn("rsvp invite skipped, invalid recipient address, type=rsvp-invite, to={}",
                     LogSanitizer.maskEmail(toEmail));
@@ -218,6 +219,7 @@ public class ResendEmailAdapter implements EmailPort {
         Map<String, Object> body = new HashMap<>();
         body.put("from", coupleNames + " <" + fromEmail + ">");
         body.put("to", List.of(EmailAddresses.normalize(toEmail)));
+        addReplyTo(body, coupleReplyToEmail);
         body.put("subject", "You're invited to " + coupleNames + "'s wedding!");
         body.put("html", html + unsubscribeFooterHtml(displayUnsubUrl));
         body.put("text", text + unsubscribeFooterText(displayUnsubUrl));
@@ -232,7 +234,8 @@ public class ResendEmailAdapter implements EmailPort {
 
     @Override
     public void sendSaveTheDateEmails(List<EmailRecipient> recipients, UUID coupleId, String coupleNames,
-                                      String weddingDate, String weddingUrl, String stdImageUrl) {
+                                      String weddingDate, String weddingUrl, String stdImageUrl,
+                                      String coupleReplyToEmail) {
         // Drop malformed and suppressed recipients up front. Resend's /emails/batch is
         // all-or-nothing: a single invalid address (a double-@ typo, a stray space)
         // rejects the entire 100-message batch with 422 and forces a slow per-recipient
@@ -249,14 +252,14 @@ public class ResendEmailAdapter implements EmailPort {
                 .filter(r -> isValidEmailAddress(r.email()))
                 .filter(r -> !suppressionPort.isSuppressed(emailHash(r.email())))
                 .map(r -> buildSaveTheDateBody(r.email(), r.name(), r.guestId(), coupleId,
-                        coupleNames, weddingDate, weddingUrl, stdImageUrl))
+                        coupleNames, weddingDate, weddingUrl, stdImageUrl, coupleReplyToEmail))
                 .toList();
         postBatch("save-the-date", messages);
     }
 
     private Map<String, Object> buildSaveTheDateBody(String toEmail, String guestName, UUID guestId, UUID coupleId,
                                                      String coupleNames, String weddingDate, String weddingUrl,
-                                                     String stdImageUrl) {
+                                                     String stdImageUrl, String coupleReplyToEmail) {
         String imageBlock = (stdImageUrl != null && !stdImageUrl.isBlank())
                 ? "<img src=\"" + stdImageUrl + "\" alt=\"Save the Date\" style=\"display:block;width:100%;max-width:540px;margin:0 auto 32px;border-radius:6px;\" />"
                 : "";
@@ -302,6 +305,7 @@ public class ResendEmailAdapter implements EmailPort {
         Map<String, Object> body = new HashMap<>();
         body.put("from", coupleNames + " <" + fromEmail + ">");
         body.put("to", List.of(EmailAddresses.normalize(toEmail)));
+        addReplyTo(body, coupleReplyToEmail);
         body.put("subject", "Save the Date: " + coupleNames + " are getting married!");
         body.put("html", html + unsubscribeFooterHtml(displayUnsubUrl));
         body.put("text", text);
@@ -589,6 +593,17 @@ public class ResendEmailAdapter implements EmailPort {
         );
 
         postEmail("vendor-registration-alert", adminAlertEmail, body);
+    }
+
+    // Routes guest replies to the couple's own inbox. Skipped when the couple address is
+    // missing or invalid (the reply then falls back to the From address) rather than
+    // sending Resend a malformed reply_to that could 422 the whole message. We never put
+    // the couple's address in From: that must stay on the verified altarwed.com domain
+    // for SPF/DKIM, so Reply-To is the correct, deliverable mechanism.
+    private static void addReplyTo(Map<String, Object> body, String coupleReplyToEmail) {
+        if (coupleReplyToEmail != null && isValidEmailAddress(coupleReplyToEmail)) {
+            body.put("reply_to", EmailAddresses.normalize(coupleReplyToEmail));
+        }
     }
 
     // Tags travel with the message and are echoed back in Resend's delivery webhook,

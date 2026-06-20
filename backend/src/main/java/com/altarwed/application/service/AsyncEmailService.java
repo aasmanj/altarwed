@@ -26,16 +26,19 @@ public class AsyncEmailService {
     @Async("emailExecutor")
     public void sendRsvpInviteEmail(String toEmail, String guestName,
                                     String coupleNames, String weddingDate, String rsvpToken,
-                                    UUID guestId, UUID coupleId) {
-        emailPort.sendRsvpInviteEmail(toEmail, guestName, coupleNames, weddingDate, rsvpToken, guestId, coupleId);
+                                    UUID guestId, UUID coupleId, String coupleReplyToEmail) {
+        emailPort.sendRsvpInviteEmail(toEmail, guestName, coupleNames, weddingDate, rsvpToken,
+                guestId, coupleId, coupleReplyToEmail);
     }
 
     // One background task fans the whole guest list into batched provider calls,
     // rather than queueing one async task (and one API call) per recipient.
     @Async("emailExecutor")
     public void sendSaveTheDateEmails(List<EmailRecipient> recipients, UUID coupleId, String coupleNames,
-                                      String weddingDate, String weddingUrl, String stdImageUrl) {
-        emailPort.sendSaveTheDateEmails(recipients, coupleId, coupleNames, weddingDate, weddingUrl, stdImageUrl);
+                                      String weddingDate, String weddingUrl, String stdImageUrl,
+                                      String coupleReplyToEmail) {
+        emailPort.sendSaveTheDateEmails(recipients, coupleId, coupleNames, weddingDate, weddingUrl,
+                stdImageUrl, coupleReplyToEmail);
     }
 
     @Async("emailExecutor")

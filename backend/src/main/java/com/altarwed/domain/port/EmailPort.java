@@ -23,16 +23,21 @@ public interface EmailPort {
 
     // guestId/coupleId tag the outgoing message so the Resend delivery webhook can
     // map a delivery/bounce event back to this guest (see EmailDeliveryService).
+    // coupleReplyToEmail is the couple's own account address; guest replies route there
+    // (Reply-To) so they reach THIS couple's inbox, not the shared from-address. The
+    // From stays on the verified altarwed.com domain (SPF/DKIM); we never spoof it.
     void sendRsvpInviteEmail(String toEmail, String guestName, String coupleNames, String weddingDate,
-                             String rsvpToken, UUID guestId, UUID coupleId);
+                             String rsvpToken, UUID guestId, UUID coupleId, String coupleReplyToEmail);
 
     // Bulk save-the-date send. Implementations fan the recipients out through the
     // provider's batch API so a 200-guest send is a couple of API calls rather than
     // 200, instead of tripping the per-second rate limit. Shared fields (coupleNames,
     // weddingDate, weddingUrl, stdImageUrl) are identical for every recipient; coupleId
     // and each recipient's guestId tag the message for delivery-webhook mapping.
+    // coupleReplyToEmail routes guest replies to this couple's own inbox (Reply-To).
     void sendSaveTheDateEmails(List<EmailRecipient> recipients, UUID coupleId, String coupleNames,
-                               String weddingDate, String weddingUrl, String stdImageUrl);
+                               String weddingDate, String weddingUrl, String stdImageUrl,
+                               String coupleReplyToEmail);
     void sendRsvpNotificationToCouple(String coupleEmail, String coupleNames,
                                       String guestName, String rsvpStatus,
                                       String noteForCouple,

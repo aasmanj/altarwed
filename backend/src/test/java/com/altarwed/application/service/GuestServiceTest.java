@@ -93,7 +93,7 @@ class GuestServiceTest {
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<EmailRecipient>> recipients = ArgumentCaptor.forClass(List.class);
         verify(asyncEmailService).sendSaveTheDateEmails(
-                recipients.capture(), any(), anyString(), anyString(), anyString(), any());
+                recipients.capture(), any(), anyString(), anyString(), anyString(), any(), any());
         assertThat(recipients.getValue())
                 .extracting(EmailRecipient::email)
                 .containsExactlyInAnyOrder("anna@example.com", "bo@example.com");
@@ -103,6 +103,26 @@ class GuestServiceTest {
         verify(guestRepository).markSaveTheDatesSent(stamped.capture(), any(LocalDateTime.class));
         assertThat(stamped.getValue())
                 .containsExactlyInAnyOrder(withEmailA.id(), withEmailB.id());
+    }
+
+    @Test
+    void sendSaveDates_threadsCoupleEmailAsReplyTo_soGuestRepliesReachThatCouple() {
+        UUID coupleId = UUID.randomUUID();
+        Guest a = guest(coupleId, "Anna", "anna@example.com");
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(a));
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(new com.altarwed.domain.model.Couple(
+                coupleId, "Jordan", "Eden", "couple@example.com", "hash",
+                null, null, null, false, true, null, null)));
+
+        service().sendSaveDates(coupleId, null);
+
+        // The last arg is the couple's own address; a guest hitting reply reaches them,
+        // not the shared from-address.
+        ArgumentCaptor<String> replyTo = ArgumentCaptor.forClass(String.class);
+        verify(asyncEmailService).sendSaveTheDateEmails(
+                any(), any(), anyString(), anyString(), anyString(), any(), replyTo.capture());
+        assertThat(replyTo.getValue()).isEqualTo("couple@example.com");
     }
 
     @Test
@@ -134,7 +154,7 @@ class GuestServiceTest {
         SaveTheDateSendResult result = service().sendSaveDates(coupleId, null);
 
         assertThat(result.queued()).isZero();
-        verify(asyncEmailService, never()).sendSaveTheDateEmails(any(), any(), any(), any(), any(), any());
+        verify(asyncEmailService, never()).sendSaveTheDateEmails(any(), any(), any(), any(), any(), any(), any());
         verify(guestRepository, never()).markSaveTheDatesSent(any(), any());
     }
 
@@ -180,6 +200,6 @@ class GuestServiceTest {
         // No RSVP token issued and no email queued for a suppressed address.
         verify(tokenRepository, never()).save(any());
         verify(asyncEmailService, never())
-                .sendRsvpInviteEmail(any(), any(), any(), any(), any(), any(), any());
+                .sendRsvpInviteEmail(any(), any(), any(), any(), any(), any(), any(), any());
     }
 }
