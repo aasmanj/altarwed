@@ -38,10 +38,15 @@ public interface EmailPort {
     void sendSaveTheDateEmails(List<EmailRecipient> recipients, UUID coupleId, String coupleNames,
                                String weddingDate, String weddingUrl, String stdImageUrl,
                                String coupleReplyToEmail);
+    // Notifies the couple that a guest responded. guestReplyToEmail is the guest's own
+    // address, set as Reply-To so the couple hitting reply reaches THAT guest, not the
+    // shared from-address. Null when the guest has no email (e.g. an RSVP found by name);
+    // the reply then falls back to the from-address.
     void sendRsvpNotificationToCouple(String coupleEmail, String coupleNames,
                                       String guestName, String rsvpStatus,
                                       String noteForCouple,
-                                      String dashboardUrl);
+                                      String dashboardUrl,
+                                      String guestReplyToEmail);
 
     // Internal admin alert, sent to the platform owner when a new vendor registers
     // so they can review the listing and unverify bad actors.

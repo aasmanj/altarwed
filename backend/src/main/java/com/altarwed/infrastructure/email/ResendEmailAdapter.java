@@ -321,7 +321,8 @@ public class ResendEmailAdapter implements EmailPort {
     public void sendRsvpNotificationToCouple(String coupleEmail, String coupleNames,
                                               String guestName, String rsvpStatus,
                                               String noteForCouple,
-                                              String dashboardUrl) {
+                                              String dashboardUrl,
+                                              String guestReplyToEmail) {
         boolean attending = "ATTENDING".equalsIgnoreCase(rsvpStatus);
         String emoji      = attending ? "🎉" : "😔";
         String statusWord = attending ? "Attending" : "Declining";
@@ -384,13 +385,13 @@ public class ResendEmailAdapter implements EmailPort {
                 ? emoji + " " + guestName + " is attending your wedding!"
                 : emoji + " " + guestName + " can't make it to your wedding";
 
-        Map<String, Object> body = Map.of(
-                "from", "AltarWed <" + fromEmail + ">",
-                "to", List.of(coupleEmail),
-                "subject", subject,
-                "html", html,
-                "text", text
-        );
+        Map<String, Object> body = new HashMap<>();
+        body.put("from", "AltarWed <" + fromEmail + ">");
+        body.put("to", List.of(coupleEmail));
+        addReplyTo(body, guestReplyToEmail);
+        body.put("subject", subject);
+        body.put("html", html);
+        body.put("text", text);
 
         postEmail("rsvp-notification", coupleEmail, body);
     }

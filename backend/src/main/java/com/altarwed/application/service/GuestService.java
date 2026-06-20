@@ -501,7 +501,10 @@ public class GuestService {
                         responded.name(),
                         responded.rsvpStatus().name(),
                         responded.noteForCouple(),
-                        dashboardUrl
+                        dashboardUrl,
+                        // Reply-To = the guest who just responded, so the couple can reply
+                        // straight to them. Null if this guest has no email on file.
+                        responded.email()
                 );
             });
         }

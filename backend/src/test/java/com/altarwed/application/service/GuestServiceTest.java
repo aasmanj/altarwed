@@ -1,10 +1,13 @@
 package com.altarwed.application.service;
 
 import com.altarwed.application.dto.SaveTheDateSendResult;
+import com.altarwed.application.dto.SubmitRsvpRequest;
 import com.altarwed.domain.exception.GuestUnsubscribedException;
+import com.altarwed.domain.model.Couple;
 import com.altarwed.domain.model.EmailRecipient;
 import com.altarwed.domain.model.Guest;
 import com.altarwed.domain.model.GuestRsvpStatus;
+import com.altarwed.domain.model.RsvpInviteToken;
 import com.altarwed.domain.port.CoupleRepository;
 import com.altarwed.domain.port.GuestRepository;
 import com.altarwed.domain.port.RsvpInviteTokenRepository;
@@ -182,6 +185,36 @@ class GuestServiceTest {
         ArgumentCaptor<List<UUID>> stamped = ArgumentCaptor.forClass(List.class);
         verify(guestRepository).markSaveTheDatesSent(stamped.capture(), any(LocalDateTime.class));
         assertThat(stamped.getValue()).containsExactly(good.id());
+    }
+
+    // ---------------------------------------------------------------------------
+    // submitRsvp notifies the couple with the GUEST as Reply-To, so the couple replying
+    // reaches that guest, not the shared from-address. Guards the wrong-email regression.
+    // ---------------------------------------------------------------------------
+
+    @Test
+    void submitRsvp_notifiesCouple_withGuestAsReplyTo_notTheCouplesOwnEmail() {
+        UUID coupleId = UUID.randomUUID();
+        Guest g = guest(coupleId, "Anna", "anna@example.com");
+        RsvpInviteToken token = new RsvpInviteToken(
+                UUID.randomUUID(), "tokenhash", g.id(),
+                LocalDateTime.now().plusDays(1), false, null);
+
+        when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(token));
+        when(guestRepository.findById(g.id())).thenReturn(Optional.of(g));
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(new Couple(
+                coupleId, "Jordan", "Eden", "couple@example.com", "hash",
+                null, null, null, false, true, null, null)));
+
+        service().submitRsvp(new SubmitRsvpRequest(
+                "raw-token", GuestRsvpStatus.ATTENDING, null, null, null, null, null, null));
+
+        // Last arg is the Reply-To: it must be the responding guest's address, NOT the
+        // couple's own (which would route the couple's reply back to themselves).
+        ArgumentCaptor<String> replyTo = ArgumentCaptor.forClass(String.class);
+        verify(asyncEmailService).sendRsvpNotificationToCouple(
+                any(), any(), any(), any(), any(), any(), replyTo.capture());
+        assertThat(replyTo.getValue()).isEqualTo("anna@example.com");
     }
 
     // ---------------------------------------------------------------------------
