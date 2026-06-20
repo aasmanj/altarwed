@@ -1,7 +1,6 @@
 package com.altarwed.application.service;
 
 import com.altarwed.application.dto.SaveTheDateSendResult;
-import com.altarwed.domain.exception.EmailComplaintResubscribeException;
 import com.altarwed.domain.exception.GuestUnsubscribedException;
 import com.altarwed.domain.model.EmailRecipient;
 import com.altarwed.domain.model.Guest;
@@ -10,6 +9,7 @@ import com.altarwed.domain.port.CoupleRepository;
 import com.altarwed.domain.port.GuestRepository;
 import com.altarwed.domain.port.RsvpInviteTokenRepository;
 import com.altarwed.domain.port.WeddingWebsiteRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,21 +26,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link GuestService#sendSaveDates}, the save-the-date batch send.
- *
- * These lock in:
- *   1. Only guests with a usable email are sent to (and stamped).
- *   2. An optional guestIds subset narrows the batch.
- *   3. The send stamps save_the_date_sent_at for exactly the queued guests, in one
- *      bulk UPDATE, so the dashboard can show who has and has not been emailed.
- *   4. An empty eligible set is a clean no-op (no async email, no stamp).
- *   5. Syntactically invalid addresses are reported back (so the couple can fix them
- *      in the source sheet) and are neither queued nor stamped.
+ * Unit tests for {@link GuestService} send paths.
+ *   1-5: save-the-date batch send (eligibility, subset, stamping, no-op, invalid addresses).
+ *   6:   RSVP invites honour the per-couple unsubscribe (a suppressed address is never emailed).
  */
 @ExtendWith(MockitoExtension.class)
 class GuestServiceTest {
@@ -50,6 +46,14 @@ class GuestServiceTest {
     @Mock private CoupleRepository coupleRepository;
     @Mock private AsyncEmailService asyncEmailService;
     @Mock private EmailSuppressionService suppressionService;
+
+    @BeforeEach
+    void setUp() {
+        // Sends batch the suppression lookup via reasonsByHash; default to "nothing
+        // suppressed" so the happy-path send tests queue every valid guest. Lenient
+        // because the invite-rejection test throws before it reaches this call.
+        lenient().when(suppressionService.reasonsByHash(any(), any())).thenReturn(Map.of());
+    }
 
     private GuestService service() {
         return new GuestService(guestRepository, tokenRepository, websiteRepository,
@@ -77,7 +81,6 @@ class GuestServiceTest {
 
         when(guestRepository.findAllByCoupleId(coupleId))
                 .thenReturn(List.of(withEmailA, withEmailB, noEmail));
-        // website + couple absent: send still proceeds with default copy.
         when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
         when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
 
@@ -125,8 +128,6 @@ class GuestServiceTest {
     @Test
     void sendSaveDates_isNoOp_whenNoEligibleGuests() {
         UUID coupleId = UUID.randomUUID();
-        // No eligible recipients: the method must short-circuit before the website/couple
-        // lookups, so those repositories are intentionally not stubbed here.
         when(guestRepository.findAllByCoupleId(coupleId))
                 .thenReturn(List.of(guest(coupleId, "Cy", null)));
 
@@ -157,7 +158,6 @@ class GuestServiceTest {
                 .extracting(SaveTheDateSendResult.InvalidGuestEmail::email)
                 .containsExactlyInAnyOrder("j@22@gmail.com", "cy@localhost");
 
-        // Only the one good address is stamped as sent.
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<UUID>> stamped = ArgumentCaptor.forClass(List.class);
         verify(guestRepository).markSaveTheDatesSent(stamped.capture(), any(LocalDateTime.class));
@@ -165,61 +165,7 @@ class GuestServiceTest {
     }
 
     // ---------------------------------------------------------------------------
-    // resubscribeGuest: reverse an email unsubscribe at the couple's request.
-    // ---------------------------------------------------------------------------
-
-    @Test
-    void resubscribeGuest_resubscribes_usingTheGuestEmailHash() {
-        UUID coupleId = UUID.randomUUID();
-        Guest g = guest(coupleId, "Anna", "anna@example.com");
-        when(guestRepository.findById(g.id())).thenReturn(Optional.of(g));
-        when(suppressionService.resubscribe(anyString()))
-                .thenReturn(EmailSuppressionService.ResubscribeOutcome.RESUBSCRIBED);
-
-        Guest result = service().resubscribeGuest(coupleId, g.id());
-
-        assertThat(result).isEqualTo(g);
-        // Reverses suppression keyed on the SHA-256 of the guest's email, not the raw email.
-        verify(suppressionService).resubscribe(EmailSuppressionService.emailHash("anna@example.com"));
-    }
-
-    @Test
-    void resubscribeGuest_isSuccessfulNoOp_whenAddressWasNotSuppressed() {
-        UUID coupleId = UUID.randomUUID();
-        Guest g = guest(coupleId, "Anna", "anna@example.com");
-        when(guestRepository.findById(g.id())).thenReturn(Optional.of(g));
-        when(suppressionService.resubscribe(anyString()))
-                .thenReturn(EmailSuppressionService.ResubscribeOutcome.NOT_SUPPRESSED);
-
-        // Idempotent: resubscribing an already-deliverable guest is a no-op, not an error.
-        assertThat(service().resubscribeGuest(coupleId, g.id())).isEqualTo(g);
-    }
-
-    @Test
-    void resubscribeGuest_throws_whenSuppressionWasASpamComplaint() {
-        UUID coupleId = UUID.randomUUID();
-        Guest g = guest(coupleId, "Anna", "anna@example.com");
-        when(guestRepository.findById(g.id())).thenReturn(Optional.of(g));
-        when(suppressionService.resubscribe(anyString()))
-                .thenReturn(EmailSuppressionService.ResubscribeOutcome.BLOCKED_COMPLAINT);
-
-        assertThatThrownBy(() -> service().resubscribeGuest(coupleId, g.id()))
-                .isInstanceOf(EmailComplaintResubscribeException.class);
-    }
-
-    @Test
-    void resubscribeGuest_throws_andNeverTouchesSuppression_whenGuestHasNoEmail() {
-        UUID coupleId = UUID.randomUUID();
-        Guest g = guest(coupleId, "Anna", null);
-        when(guestRepository.findById(g.id())).thenReturn(Optional.of(g));
-
-        assertThatThrownBy(() -> service().resubscribeGuest(coupleId, g.id()))
-                .isInstanceOf(IllegalArgumentException.class);
-        verify(suppressionService, never()).resubscribe(anyString());
-    }
-
-    // ---------------------------------------------------------------------------
-    // sendInvite honours the unsubscribe: a suppressed address is never emailed.
+    // sendInvite honours the per-couple unsubscribe: a suppressed address is never emailed.
     // ---------------------------------------------------------------------------
 
     @Test
@@ -227,8 +173,7 @@ class GuestServiceTest {
         UUID coupleId = UUID.randomUUID();
         Guest g = guest(coupleId, "Anna", "anna@example.com");
         when(guestRepository.findById(g.id())).thenReturn(Optional.of(g));
-        when(suppressionService.isSuppressed(EmailSuppressionService.emailHash("anna@example.com")))
-                .thenReturn(true);
+        when(suppressionService.isSuppressed(eq(coupleId), anyString())).thenReturn(true);
 
         assertThatThrownBy(() -> service().sendInvite(coupleId, g.id()))
                 .isInstanceOf(GuestUnsubscribedException.class);

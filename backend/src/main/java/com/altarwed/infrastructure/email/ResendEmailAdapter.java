@@ -109,26 +109,36 @@ public class ResendEmailAdapter implements EmailPort {
     // - oneClickUrl: the backend API endpoint (RFC 8058 one-click POST target for Gmail/Yahoo)
     // The List-Unsubscribe header must point at the backend because email clients POST
     // directly to it with no browser; Next.js page routes only handle GET.
-    private String unsubscribeDisplayUrl(String toEmail) {
+    // Guest-facing mail passes the sending couple so the unsubscribe is scoped to THAT
+    // wedding (per-couple opt-out). Couple-facing mail (welcome) passes null, yielding a
+    // legacy global opt-out link, the same format links already in inboxes use.
+    private String unsubscribeDisplayUrl(String toEmail, UUID coupleId) {
         String hash = emailHash(toEmail);
-        return publicBaseUrl + "/unsubscribe?h=" + hash + "&tok=" + hmacToken(hash);
+        return publicBaseUrl + "/unsubscribe?h=" + hash + coupleParam(coupleId) + "&tok=" + hmacToken(hash, coupleId);
     }
 
-    private String unsubscribeOneClickUrl(String toEmail) {
+    private String unsubscribeOneClickUrl(String toEmail, UUID coupleId) {
         String hash = emailHash(toEmail);
-        return apiBaseUrl + "/api/v1/unsubscribe?h=" + hash + "&tok=" + hmacToken(hash);
+        return apiBaseUrl + "/api/v1/unsubscribe?h=" + hash + coupleParam(coupleId) + "&tok=" + hmacToken(hash, coupleId);
+    }
+
+    private static String coupleParam(UUID coupleId) {
+        return coupleId == null ? "" : "&c=" + coupleId;
     }
 
     private static String emailHash(String email) {
         return EmailSuppressionService.emailHash(email);
     }
 
-    private String hmacToken(String emailHash) {
+    // Payload format MUST stay identical to EmailSuppressionService.tokenPayload so the
+    // link this mints verifies on the unsubscribe endpoint.
+    private String hmacToken(String emailHash, UUID coupleId) {
         try {
+            String payload = coupleId == null ? emailHash : emailHash + ":" + coupleId;
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(unsubscribeSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
             return Base64.getUrlEncoder().withoutPadding()
-                    .encodeToString(mac.doFinal(emailHash.getBytes(StandardCharsets.UTF_8)));
+                    .encodeToString(mac.doFinal(payload.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException | InvalidKeyException ex) {
             throw new IllegalStateException("HmacSHA256 not available", ex);
         }
@@ -198,14 +208,24 @@ public class ResendEmailAdapter implements EmailPort {
                 %s
                 """.formatted(guestName, coupleNames, weddingDate, rsvpUrl, viralCtaUrl);
 
-        Map<String, Object> body = Map.of(
-                "from", coupleNames + " <" + fromEmail + ">",
-                "to", List.of(EmailAddresses.normalize(toEmail)),
-                "subject", "You're invited to " + coupleNames + "'s wedding!",
-                "html", html,
-                "text", text,
-                "tags", guestTags(guestId, coupleId, "rsvp-invite")
-        );
+        // The invite carries the AltarWed growth CTA (the viral loop), so we treat it as
+        // marketing for compliance: a working unsubscribe footer + RFC 8058 one-click
+        // header + postal address, scoped to this couple. A guest who opts out here stops
+        // only this couple's mail and resubscribes by RSVPing later.
+        String displayUnsubUrl = unsubscribeDisplayUrl(toEmail, coupleId);
+        String oneClickUnsubUrl = unsubscribeOneClickUrl(toEmail, coupleId);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("from", coupleNames + " <" + fromEmail + ">");
+        body.put("to", List.of(EmailAddresses.normalize(toEmail)));
+        body.put("subject", "You're invited to " + coupleNames + "'s wedding!");
+        body.put("html", html + unsubscribeFooterHtml(displayUnsubUrl));
+        body.put("text", text + unsubscribeFooterText(displayUnsubUrl));
+        body.put("headers", Map.of(
+                "List-Unsubscribe", "<" + oneClickUnsubUrl + ">",
+                "List-Unsubscribe-Post", "List-Unsubscribe=One-Click"
+        ));
+        body.put("tags", guestTags(guestId, coupleId, "rsvp-invite"));
 
         postEmail("rsvp-invite", toEmail, body);
     }
@@ -264,8 +284,8 @@ public class ResendEmailAdapter implements EmailPort {
                 coupleNames.replace(" & ", "</h1><p style=\"text-align:center; color:#d4af6a; font-size:22px; margin:0 0 8px;\">&amp;</p><h1 style=\"text-align:center; color:#3b2f2f; font-size:36px; margin:0 0 24px;\">"),
                 weddingDate, guestName, weddingUrl);
 
-        String displayUnsubUrl = unsubscribeDisplayUrl(toEmail);
-        String oneClickUnsubUrl = unsubscribeOneClickUrl(toEmail);
+        String displayUnsubUrl = unsubscribeDisplayUrl(toEmail, coupleId);
+        String oneClickUnsubUrl = unsubscribeOneClickUrl(toEmail, coupleId);
         String text = """
                 Save the Date
 
@@ -682,8 +702,9 @@ public class ResendEmailAdapter implements EmailPort {
                 </div>
                 """.formatted(coupleNames, dashboardUrl);
 
-        String displayUnsubUrl = unsubscribeDisplayUrl(toEmail);
-        String oneClickUnsubUrl = unsubscribeOneClickUrl(toEmail);
+        // Couple-facing mail: no couple scoping, a legacy global opt-out link.
+        String displayUnsubUrl = unsubscribeDisplayUrl(toEmail, null);
+        String oneClickUnsubUrl = unsubscribeOneClickUrl(toEmail, null);
         String text = """
                 Welcome to AltarWed
 

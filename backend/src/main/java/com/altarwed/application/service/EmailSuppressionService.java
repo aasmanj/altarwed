@@ -1,5 +1,6 @@
 package com.altarwed.application.service;
 
+import com.altarwed.domain.port.CoupleEmailOptOutPort;
 import com.altarwed.domain.port.EmailSuppressionPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,22 +16,39 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 
+/**
+ * Couple-aware email suppression facade. There are two kinds of suppression:
+ *   - GLOBAL (address-level): permanent bounces and spam complaints, in EmailSuppressionPort.
+ *     They apply to an address across every couple and protect the shared sending domain.
+ *   - PER-COUPLE (relationship-level): a guest's voluntary unsubscribe from ONE couple's
+ *     wedding mail, in CoupleEmailOptOutPort. The Knot/Zola model: unsubscribing from one
+ *     wedding does not silence another.
+ * An address is suppressed for a given couple's send when EITHER applies. Resubscribe is
+ * recipient-initiated (the guest RSVPs); it clears their per-couple opt-out (and a legacy
+ * global voluntary opt-out), never a bounce/complaint.
+ */
 @Service
 public class EmailSuppressionService {
 
     private static final Logger log = LoggerFactory.getLogger(EmailSuppressionService.class);
 
     private final EmailSuppressionPort suppressionPort;
+    private final CoupleEmailOptOutPort optOutPort;
     private final String secret;
 
     public EmailSuppressionService(
             EmailSuppressionPort suppressionPort,
+            CoupleEmailOptOutPort optOutPort,
             @Value("${altarwed.unsubscribe.secret}") String secret
     ) {
         this.suppressionPort = suppressionPort;
+        this.optOutPort = optOutPort;
         this.secret = secret;
     }
 
@@ -51,28 +69,32 @@ public class EmailSuppressionService {
     }
 
     /**
-     * HMAC-SHA256 of the emailHash, base64url-encoded without padding.
-     * Included in unsubscribe URLs to prevent cross-user suppression.
+     * HMAC-SHA256 over the unsubscribe payload, base64url without padding. The payload
+     * binds the couple so a token minted for one couple's link cannot be replayed against
+     * another. A null coupleId yields the legacy hash-only payload, so unsubscribe links
+     * already sitting in guests' inboxes keep verifying.
      */
-    public String generateToken(String emailHash) {
+    public String generateToken(String emailHash, UUID coupleId) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
             return Base64.getUrlEncoder().withoutPadding()
-                    .encodeToString(mac.doFinal(emailHash.getBytes(StandardCharsets.UTF_8)));
+                    .encodeToString(mac.doFinal(tokenPayload(emailHash, coupleId).getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException | InvalidKeyException ex) {
             throw new IllegalStateException("HMAC-SHA256 not available", ex);
         }
     }
 
-    /**
-     * Constant-time verification of an unsubscribe token. Returns false for any
-     * invalid or malformed input so the caller can return a generic response.
-     */
-    public boolean verifyToken(String emailHash, String token) {
+    // Keep this format identical to ResendEmailAdapter.hmacToken, the two must agree.
+    private static String tokenPayload(String emailHash, UUID coupleId) {
+        return coupleId == null ? emailHash : emailHash + ":" + coupleId;
+    }
+
+    /** Constant-time verification of an unsubscribe token. False for any malformed input. */
+    public boolean verifyToken(String emailHash, UUID coupleId, String token) {
         if (emailHash == null || token == null) return false;
         try {
-            String expected = generateToken(emailHash);
+            String expected = generateToken(emailHash, coupleId);
             return MessageDigest.isEqual(
                     Base64.getUrlDecoder().decode(expected),
                     Base64.getUrlDecoder().decode(token));
@@ -81,60 +103,71 @@ public class EmailSuppressionService {
         }
     }
 
+    /** True if the address is suppressed for this couple (globally OR per-couple). */
+    public boolean isSuppressed(UUID coupleId, String emailHash) {
+        return suppressionPort.isSuppressed(emailHash) || optOutPort.isOptedOut(coupleId, emailHash);
+    }
+
+    /** Global suppression from a bounce/complaint webhook (address-level, couple-agnostic). */
     @Transactional
-    public void suppress(String emailHash, String source) {
+    public void suppressGlobal(String emailHash, String source) {
         suppressionPort.suppress(emailHash, source);
     }
 
-    public boolean isSuppressed(String emailHash) {
-        return suppressionPort.isSuppressed(emailHash);
-    }
-
-    /** The suppression source for a hash, or empty if the address is not suppressed. */
-    public Optional<String> suppressionSource(String emailHash) {
-        return suppressionPort.suppressionSource(emailHash);
-    }
-
-    /** Batch hash -> source for the currently-suppressed subset of the given hashes. */
-    public Map<String, String> suppressionSources(Collection<String> emailHashes) {
-        return suppressionPort.suppressionSources(emailHashes);
+    /** Per-couple voluntary unsubscribe from a footer link that carried couple context. */
+    @Transactional
+    public void coupleUnsubscribe(UUID coupleId, String emailHash) {
+        optOutPort.optOut(coupleId, emailHash);
     }
 
     /**
-     * Outcome of a resubscribe attempt. {@code NOT_SUPPRESSED} means the address was
-     * already deliverable (nothing to do, treated as success by callers);
-     * {@code BLOCKED_COMPLAINT} means we refused to reverse a spam complaint.
-     */
-    public enum ResubscribeOutcome { RESUBSCRIBED, NOT_SUPPRESSED, BLOCKED_COMPLAINT }
-
-    /**
-     * Removes an address from the suppression list so it can receive marketing email
-     * again, gated on why it was suppressed:
-     *   USER_REQUEST / BOUNCE -> resubscribed (a voluntary opt-out being reversed, or a
-     *     bounce the couple has confirmed they want to retry).
-     *   COMPLAINT -> refused. A spam complaint is a deliverability and legal landmine:
-     *     re-mailing a complainer degrades the shared altarwed.com sending reputation for
-     *     every couple, so we never auto-reverse it. The recipient must re-engage through
-     *     their own mail client (allowlist us) or switch to a different address.
+     * Backward-compat unsubscribe for a footer link with no couple context (welcome mail,
+     * or links sent before the per-couple model). Records a global voluntary opt-out.
      */
     @Transactional
-    public ResubscribeOutcome resubscribe(String emailHash) {
-        Optional<String> source = suppressionPort.suppressionSource(emailHash);
-        if (source.isEmpty()) {
-            return ResubscribeOutcome.NOT_SUPPRESSED;
+    public void globalUnsubscribe(String emailHash) {
+        suppressionPort.suppress(emailHash, "USER_REQUEST");
+    }
+
+    /**
+     * Recipient-initiated resubscribe, called when a guest RSVPs. Clears their per-couple
+     * opt-out and any legacy global voluntary opt-out. Never clears a bounce/complaint, so
+     * a deliverability suppression survives. Returns true if anything was cleared.
+     */
+    @Transactional
+    public boolean resubscribeOnRsvp(UUID coupleId, String emailHash) {
+        boolean clearedCouple = optOutPort.removeOptOut(coupleId, emailHash);
+        boolean clearedLegacy = suppressionPort.clearLegacyUserRequest(emailHash);
+        boolean cleared = clearedCouple || clearedLegacy;
+        if (cleared) {
+            log.info("guest resubscribed via rsvp, coupleId={}", coupleId);
         }
-        if ("COMPLAINT".equalsIgnoreCase(source.get())) {
-            // The caller (GuestService) WARN-logs this with guestId/coupleId; keep this
-            // at DEBUG so one action produces a single boundary log, not two.
-            log.debug("resubscribe refused, reason=prior spam complaint");
-            return ResubscribeOutcome.BLOCKED_COMPLAINT;
+        return cleared;
+    }
+
+    /**
+     * The badge reason for one address under one couple: a global bounce/complaint/legacy
+     * opt-out (its stored source) takes precedence; otherwise a per-couple opt-out reads
+     * as USER_REQUEST; otherwise null (deliverable).
+     */
+    public String reasonFor(UUID coupleId, String emailHash) {
+        Optional<String> global = suppressionPort.suppressionSource(emailHash);
+        if (global.isPresent()) return global.get();
+        return optOutPort.isOptedOut(coupleId, emailHash) ? "USER_REQUEST" : null;
+    }
+
+    /**
+     * Batch version of {@link #reasonFor} for a guest list. Two queries (global sources +
+     * this couple's opt-outs), merged so a global reason wins over a per-couple one.
+     */
+    public Map<String, String> reasonsByHash(UUID coupleId, Collection<String> emailHashes) {
+        if (emailHashes == null || emailHashes.isEmpty()) return Map.of();
+        Map<String, String> globalSources = suppressionPort.suppressionSources(emailHashes);
+        Set<String> coupleOptedOut = optOutPort.optedOutHashes(coupleId, emailHashes);
+        Map<String, String> out = new HashMap<>(globalSources);
+        for (String hash : coupleOptedOut) {
+            out.putIfAbsent(hash, "USER_REQUEST"); // global reason wins if both present
         }
-        // Today the only initiator is a couple acting on a guest's request; the audit
-        // row records COUPLE_REQUEST so the timeline shows who reversed the opt-out.
-        boolean removed = suppressionPort.unsuppress(emailHash, "COUPLE_REQUEST");
-        log.debug("email resubscribe processed, priorSource={}, removed={}", source.get(), removed);
-        // A concurrent resubscribe may have removed the row first; report that honestly
-        // rather than claiming we reversed a suppression that was already gone.
-        return removed ? ResubscribeOutcome.RESUBSCRIBED : ResubscribeOutcome.NOT_SUPPRESSED;
+        return out;
     }
 }

@@ -41,7 +41,7 @@ public class GuestController {
         accessGuard.assertOwns(coupleId, email);
         List<Guest> guests = guestService.listGuests(coupleId);
         Map<UUID, GuestDeliverySummary> deliveries = emailDeliveryService.deliveryStatusesByGuest(coupleId);
-        Map<UUID, String> unsubscribed = guestService.unsubscribedSourcesByGuest(guests);
+        Map<UUID, String> unsubscribed = guestService.unsubscribedSourcesByGuest(coupleId, guests);
         return ResponseEntity.ok(guests.stream()
                 .map(g -> mapper.toResponse(g, deliveries.get(g.id()), unsubscribed.get(g.id())))
                 .toList());
@@ -56,7 +56,7 @@ public class GuestController {
         accessGuard.assertOwns(coupleId, email);
         Guest added = guestService.addGuest(coupleId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(mapper.toResponse(added, guestService.unsubscribedReason(added)));
+                .body(mapper.toResponse(added, guestService.unsubscribedReason(coupleId, added)));
     }
 
     @PatchMapping("/couple/{coupleId}/{guestId}")
@@ -68,7 +68,7 @@ public class GuestController {
     ) {
         accessGuard.assertOwns(coupleId, email);
         Guest updated = guestService.updateGuest(coupleId, guestId, request);
-        return ResponseEntity.ok(mapper.toResponse(updated, guestService.unsubscribedReason(updated)));
+        return ResponseEntity.ok(mapper.toResponse(updated, guestService.unsubscribedReason(coupleId, updated)));
     }
 
     @DeleteMapping("/couple/{coupleId}/{guestId}")
@@ -95,7 +95,7 @@ public class GuestController {
     ) {
         accessGuard.assertOwns(coupleId, email);
         Guest assigned = guestService.assignTable(coupleId, guestId, request.tableNumber());
-        return ResponseEntity.ok(mapper.toResponse(assigned, guestService.unsubscribedReason(assigned)));
+        return ResponseEntity.ok(mapper.toResponse(assigned, guestService.unsubscribedReason(coupleId, assigned)));
     }
 
     @PostMapping("/couple/{coupleId}/{guestId}/invite")
@@ -106,21 +106,7 @@ public class GuestController {
     ) {
         accessGuard.assertOwns(coupleId, email);
         Guest invited = guestService.sendInvite(coupleId, guestId);
-        return ResponseEntity.ok(mapper.toResponse(invited, guestService.unsubscribedReason(invited)));
-    }
-
-    // Reverses an email unsubscribe at the couple's request (the guest asked them
-    // directly). Ownership-guarded like every couple-scoped write. The service refuses
-    // to reverse a spam complaint (422 via GlobalExceptionHandler).
-    @PostMapping("/couple/{coupleId}/{guestId}/resubscribe")
-    public ResponseEntity<GuestResponse> resubscribe(
-            @PathVariable UUID coupleId,
-            @PathVariable UUID guestId,
-            @AuthenticationPrincipal String email
-    ) {
-        accessGuard.assertOwns(coupleId, email);
-        Guest guest = guestService.resubscribeGuest(coupleId, guestId);
-        return ResponseEntity.ok(mapper.toResponse(guest, guestService.unsubscribedReason(guest)));
+        return ResponseEntity.ok(mapper.toResponse(invited, guestService.unsubscribedReason(coupleId, invited)));
     }
 
     @PostMapping("/couple/{coupleId}/bulk")

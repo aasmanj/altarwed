@@ -14,8 +14,8 @@ public class GuestMapper {
         return toResponse(g, null, null);
     }
 
-    // Single-guest write responses (add/update/invite/table/resubscribe): no delivery
-    // rollup, but carry the suppression reason so the dashboard's optimistic cache keeps
+    // Single-guest write responses (add/update/invite/table): no delivery rollup, but
+    // carry the per-couple suppression reason so the dashboard's optimistic cache keeps
     // the unsubscribe badge accurate after the mutation.
     public GuestResponse toResponse(Guest g, String unsubscribedReason) {
         return toResponse(g, null, unsubscribedReason);

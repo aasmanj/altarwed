@@ -90,7 +90,9 @@ public class EmailDeliveryService {
         boolean permanentBounce = status == EmailDeliveryStatus.BOUNCED && "Permanent".equalsIgnoreCase(bounceType);
         boolean complaint = status == EmailDeliveryStatus.COMPLAINED;
         if ((permanentBounce || complaint) && recipientHash != null) {
-            suppressionService.suppress(recipientHash, complaint ? "COMPLAINT" : "BOUNCE");
+            // Bounces and complaints are address-level deliverability facts: suppress them
+            // GLOBALLY (across every couple) to protect the shared sending reputation.
+            suppressionService.suppressGlobal(recipientHash, complaint ? "COMPLAINT" : "BOUNCE");
         }
 
         // Bounces/complaints are recoverable per-item failures the couple may need to

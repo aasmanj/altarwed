@@ -16,8 +16,9 @@ public interface EmailSuppressionJpaRepository extends JpaRepository<EmailSuppre
 
     List<EmailSuppressionEntity> findByEmailHashIn(Collection<String> emailHashes);
 
-    // Derived delete; runs inside the caller's transaction (the resubscribe service
-    // method is @Transactional). Returns the number of rows removed so the caller can
-    // tell "resubscribed" from "was not suppressed".
-    long deleteByEmailHash(String emailHash);
+    // Derived delete scoped to a source; runs inside the caller's transaction. Used to
+    // clear a LEGACY global USER_REQUEST opt-out when the recipient resubscribes by
+    // RSVPing (those predate the per-couple model). Never deletes a COMPLAINT or BOUNCE
+    // row, so a global deliverability suppression can't be cleared by a guest action.
+    long deleteByEmailHashAndSource(String emailHash, String source);
 }

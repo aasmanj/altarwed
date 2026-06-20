@@ -8,7 +8,7 @@ import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import {
   useGuests, useAddGuest, useUpdateGuest, useRemoveGuest,
-  useSendInvite, useBulkAddGuests, useResubscribeGuest,
+  useSendInvite, useBulkAddGuests,
   type Guest, type RsvpStatus, type GuestSide,
 } from './useGuests'
 import ImportGuestsModal from './ImportGuestsModal'
@@ -35,15 +35,34 @@ const STATUS_COLOR: Record<RsvpStatus, string> = {
 }
 const SIDES: GuestSide[] = ['BRIDE', 'GROOM', 'BOTH']
 
-// Words the unsubscribe badge by why the address is suppressed. A spam complaint
-// (COMPLAINT) is shown but never offered a one-click resubscribe: re-mailing a
-// complainer is refused server-side because it harms deliverability for everyone.
-function unsubBadge(reason: string | null | undefined): { label: string; canResubscribe: boolean } | null {
+// Words the unsubscribe badge by why the address is suppressed, and the inline hint
+// shown where the Invite button would be (which is hidden for any suppressed guest).
+// There is no couple-side resubscribe: a guest comes back by RSVPing on the wedding
+// site, which re-subscribes them (the model The Knot and Zola use). `tone` drives the
+// badge colour; BOUNCE is amber (a fixable address problem) vs rose (an opt-out).
+// The default branch means an unknown/new reason is never an invisible dead-end.
+type UnsubState = { label: string; hint: string; tone: 'rose' | 'amber' }
+function unsubBadge(reason: string | null | undefined): UnsubState {
   switch (reason) {
-    case 'USER_REQUEST': return { label: 'Unsubscribed', canResubscribe: true }
-    case 'BOUNCE':       return { label: 'Email bounced', canResubscribe: true }
-    case 'COMPLAINT':    return { label: 'Marked spam', canResubscribe: false }
-    default:             return null
+    case 'BOUNCE':
+      return {
+        label: 'Email bounced',
+        hint: 'Their email bounced. Check the address is right, then they can RSVP on your site to start getting emails again.',
+        tone: 'amber',
+      }
+    case 'COMPLAINT':
+      return {
+        label: 'Marked spam',
+        hint: 'They reported a past email as spam, so we cannot email them. Reach out by text or a printed invite.',
+        tone: 'rose',
+      }
+    case 'USER_REQUEST':
+    default:
+      return {
+        label: 'Unsubscribed',
+        hint: 'They unsubscribed from your wedding emails. They can resubscribe by RSVPing on your wedding site.',
+        tone: 'rose',
+      }
   }
 }
 
@@ -96,7 +115,6 @@ export default function GuestListPage() {
   const removeGuest = useRemoveGuest(coupleId)
   const sendInvite  = useSendInvite(coupleId)
   const bulkAdd     = useBulkAddGuests(coupleId)
-  const resubscribe = useResubscribeGuest(coupleId)
 
   const confirm                 = useConfirm()
   const { data: sheetSync }     = useGoogleSheetSync(coupleId)
@@ -788,25 +806,6 @@ export default function GuestListPage() {
                           }
                         }}
                         sendInvitePending={sendInvite.isPending}
-                        onResubscribe={async () => {
-                          const bounced = guest.emailUnsubscribedReason === 'BOUNCE'
-                          if (await confirm({
-                            title: `Resubscribe ${guest.name}?`,
-                            message: bounced
-                              ? `${guest.name}'s last email bounced, so they were removed from sends. Only resubscribe if you have confirmed their email address is correct and they want your wedding emails again.`
-                              : `Only resubscribe guests who have personally asked to start receiving your wedding emails again. ${guest.name} will be added back to your save-the-date and announcement sends.`,
-                            confirmLabel: 'Resubscribe',
-                          })) {
-                            const promise = resubscribe.mutateAsync(guest.id)
-                            toast.promise(promise, {
-                              loading: 'Resubscribing…',
-                              success: `${guest.name} will receive your wedding emails again.`,
-                              error: (err) => err?.response?.data?.detail ?? 'Could not resubscribe this guest. Try again.',
-                            })
-                            try { await promise } catch { /* toast.promise handles display */ }
-                          }
-                        }}
-                        resubscribePending={resubscribe.isPending}
                       />
                     )
                   ))}
@@ -823,16 +822,17 @@ export default function GuestListPage() {
 // ---------------------------------------------------------------------------
 // Shared guest row (used inside both party blocks and solo blocks)
 // ---------------------------------------------------------------------------
-function GuestRow({ guest, onEdit, onRemove, onInvite, sendInvitePending, onResubscribe, resubscribePending }: {
+function GuestRow({ guest, onEdit, onRemove, onInvite, sendInvitePending }: {
   guest: Guest
   onEdit: () => void
   onRemove: () => void
   onInvite: () => void
   sendInvitePending: boolean
-  onResubscribe: () => void
-  resubscribePending: boolean
 }) {
   const unsub = guest.emailUnsubscribed ? unsubBadge(guest.emailUnsubscribedReason) : null
+  const badgeCls = unsub?.tone === 'amber'
+    ? 'bg-amber-50 text-amber-800'
+    : 'bg-rose-50 text-rose-700'
   return (
     <>
       <tr className="border-b border-gold-light/50 hover:bg-ivory/30 transition">
@@ -854,7 +854,10 @@ function GuestRow({ guest, onEdit, onRemove, onInvite, sendInvitePending, onResu
           )}
           {unsub && (
             <span className="block mt-1">
-              <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-600">
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${badgeCls}`}
+                title={unsub.hint}
+              >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -884,11 +887,20 @@ function GuestRow({ guest, onEdit, onRemove, onInvite, sendInvitePending, onResu
             {guest.email && !guest.emailUnsubscribed && (guest.inviteSendCount ?? 0) >= 3 && (
               <span className="text-xs text-brown-light" title="Maximum 3 invites reached">Max sent</span>
             )}
-            {unsub?.canResubscribe && (
-              <button onClick={onResubscribe} disabled={resubscribePending}
-                title="Add this guest back to your email sends (only if they asked)"
-                className="text-xs text-green-600 hover:text-green-700 hover:underline disabled:opacity-50 min-h-[44px] inline-flex items-center px-1">
-                Resubscribe
+            {/* Suppressed guests can't be emailed; show why in place of the Invite
+                button so the action never vanishes with no reason. Rendered as a button
+                (keyboard-focusable, screen-reader announces the hint via aria-label) that
+                opens the same explanation. The guest resubscribes by RSVPing; there is no
+                couple-side resubscribe (The Knot/Zola model). */}
+            {guest.email && guest.emailUnsubscribed && unsub && (
+              <button
+                type="button"
+                onClick={() => toast(unsub.hint)}
+                aria-label={unsub.hint}
+                title={unsub.hint}
+                className="text-xs text-brown-light hover:text-brown min-h-[44px] inline-flex items-center px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded"
+              >
+                Email off
               </button>
             )}
             <button onClick={onEdit} className="text-xs text-brown-light hover:text-brown min-h-[44px] inline-flex items-center px-1">Edit</button>

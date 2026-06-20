@@ -15,7 +15,6 @@ import com.altarwed.domain.exception.InvalidRefreshTokenException;
 import com.altarwed.domain.exception.InvalidRsvpTokenException;
 import com.altarwed.domain.exception.DenominationNotFoundException;
 import com.altarwed.domain.exception.EmailAlreadyExistsException;
-import com.altarwed.domain.exception.EmailComplaintResubscribeException;
 import com.altarwed.domain.exception.GuestUnsubscribedException;
 import com.altarwed.domain.exception.SlugAlreadyTakenException;
 import com.altarwed.domain.exception.WeddingWebsiteAlreadyExistsException;
@@ -246,18 +245,6 @@ public class GlobalExceptionHandler {
         var pd = ProblemDetail.forStatus(HttpStatus.UNPROCESSABLE_ENTITY);
         pd.setType(URI.create("https://altarwed.com/problems/portfolio-cap-exceeded"));
         pd.setTitle("Portfolio Cap Exceeded");
-        pd.setDetail(ex.getMessage());
-        return pd;
-    }
-
-    // 422: the request is well-formed and authorized, but resubscribing a spam
-    // complainer is a policy we refuse to honour. Detail carries the next step the
-    // couple can take; it contains no PII (no guest email/name).
-    @ExceptionHandler(EmailComplaintResubscribeException.class)
-    public ProblemDetail handleEmailComplaintResubscribe(EmailComplaintResubscribeException ex) {
-        var pd = ProblemDetail.forStatus(HttpStatus.UNPROCESSABLE_ENTITY);
-        pd.setType(URI.create("https://altarwed.com/problems/resubscribe-blocked-complaint"));
-        pd.setTitle("Cannot Resubscribe");
         pd.setDetail(ex.getMessage());
         return pd;
     }
