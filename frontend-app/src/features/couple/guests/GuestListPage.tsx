@@ -45,9 +45,12 @@ type UnsubState = { label: string; hint: string; tone: 'rose' | 'amber' }
 function unsubBadge(reason: string | null | undefined): UnsubState {
   switch (reason) {
     case 'BOUNCE':
+      // A bounce is a global address-level problem; RSVPing does NOT clear it. The fix
+      // is correcting the address: emailUnsubscribed is recomputed off the current
+      // address, so editing it to a good one brings the Invite button straight back.
       return {
         label: 'Email bounced',
-        hint: 'Their email bounced. Check the address is right, then they can RSVP on your site to start getting emails again.',
+        hint: 'Their email bounced, so we stopped sending to it. Open Edit and fix the address; the Invite button comes back. A bad address will not fix itself if they RSVP.',
         tone: 'amber',
       }
     case 'COMPLAINT':
@@ -57,10 +60,17 @@ function unsubBadge(reason: string | null | undefined): UnsubState {
         tone: 'rose',
       }
     case 'USER_REQUEST':
-    default:
       return {
         label: 'Unsubscribed',
         hint: 'They unsubscribed from your wedding emails. They can resubscribe by RSVPing on your wedding site.',
+        tone: 'rose',
+      }
+    default:
+      // Unknown/future reason: never an invisible dead-end, but do not promise an
+      // RSVP-resubscribe path that may not apply to a non-voluntary suppression.
+      return {
+        label: 'Unsubscribed',
+        hint: 'They are not receiving your wedding emails right now.',
         tone: 'rose',
       }
   }
@@ -877,7 +887,7 @@ function GuestRow({ guest, onEdit, onRemove, onInvite, sendInvitePending }: {
         </td>
         <td className="px-4 py-3 text-brown-light hidden lg:table-cell">{guest.tableNumber ?? '-'}</td>
         <td className="px-4 py-3">
-          <div className="flex items-center gap-2 justify-end">
+          <div className="flex flex-wrap items-center gap-2 justify-end">
             {guest.email && !guest.emailUnsubscribed && (guest.inviteSendCount ?? 0) < 3 && (
               <button onClick={onInvite} disabled={sendInvitePending}
                 className="text-xs text-gold hover:underline disabled:opacity-50 min-h-[44px] inline-flex items-center px-1">
@@ -895,12 +905,12 @@ function GuestRow({ guest, onEdit, onRemove, onInvite, sendInvitePending }: {
             {guest.email && guest.emailUnsubscribed && unsub && (
               <button
                 type="button"
-                onClick={() => toast(unsub.hint)}
-                aria-label={unsub.hint}
+                onClick={() => toast(unsub.hint, { id: `unsub-${guest.id}`, duration: 8000 })}
+                aria-label={`Can't email ${guest.name}. ${unsub.hint}`}
                 title={unsub.hint}
                 className="text-xs text-brown-light hover:text-brown min-h-[44px] inline-flex items-center px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded"
               >
-                Email off
+                Can't email
               </button>
             )}
             <button onClick={onEdit} className="text-xs text-brown-light hover:text-brown min-h-[44px] inline-flex items-center px-1">Edit</button>

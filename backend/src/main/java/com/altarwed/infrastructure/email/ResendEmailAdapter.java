@@ -130,11 +130,11 @@ public class ResendEmailAdapter implements EmailPort {
         return EmailSuppressionService.emailHash(email);
     }
 
-    // Payload format MUST stay identical to EmailSuppressionService.tokenPayload so the
-    // link this mints verifies on the unsubscribe endpoint.
     private String hmacToken(String emailHash, UUID coupleId) {
         try {
-            String payload = coupleId == null ? emailHash : emailHash + ":" + coupleId;
+            // Single source of the signed-payload format (shared with the verifier) so the
+            // minted link and the verification can never drift apart.
+            String payload = EmailSuppressionService.unsubscribeTokenPayload(emailHash, coupleId);
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(unsubscribeSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
             return Base64.getUrlEncoder().withoutPadding()

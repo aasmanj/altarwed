@@ -445,16 +445,6 @@ public class GuestService {
         );
         guestRepository.save(responded);
 
-        // Recipient-initiated resubscribe (The Knot/Zola model): a guest engaging with
-        // their RSVP re-consents to this couple's wedding mail, so clear any unsubscribe
-        // they had for THIS couple (and any legacy global voluntary opt-out). Never clears
-        // a global bounce/complaint. This is the only way a guest comes back; the couple
-        // has no resubscribe button.
-        if (responded.email() != null && !responded.email().isBlank()) {
-            suppressionService.resubscribeOnRsvp(responded.coupleId(),
-                    EmailSuppressionService.emailHash(responded.email()));
-        }
-
         // Save individual party member responses if provided. We validate that each
         // member actually belongs to the same party to prevent cross-party tampering.
         if (req.partyResponses() != null && !req.partyResponses().isEmpty() && guest.partyId() != null) {
@@ -485,6 +475,17 @@ public class GuestService {
         // For reminders the token stays valid so they can still use the same link when reminded.
         if (req.remindInDays() == null) {
             tokenRepository.markUsed(hash(req.token()));
+
+            // Recipient-initiated resubscribe (The Knot/Zola model): a guest actually
+            // responding re-consents to this couple's wedding mail, so clear any unsubscribe
+            // they had for THIS couple (and any legacy global voluntary opt-out). Gated to a
+            // real response, NOT a "remind me later" deferral: deferring contact must not
+            // resume it (and would re-trigger reminder emails). Never clears a global
+            // bounce/complaint. This is the only way a guest comes back.
+            if (responded.email() != null && !responded.email().isBlank()) {
+                suppressionService.resubscribeOnRsvp(responded.coupleId(),
+                        EmailSuppressionService.emailHash(responded.email()));
+            }
 
             // Notify the couple asynchronously. We never let an email failure break the RSVP
             // submission -- the @Async executor absorbs any Resend API errors silently.

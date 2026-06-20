@@ -16,9 +16,10 @@ CREATE TABLE couple_email_optout (
     couple_id     UNIQUEIDENTIFIER NOT NULL CONSTRAINT fk_couple_optout_couple REFERENCES couples (id) ON DELETE CASCADE,
     email_hash    NVARCHAR(64)     NOT NULL,
     created_at    DATETIME2        NOT NULL CONSTRAINT df_couple_optout_created_at DEFAULT GETUTCDATE(),
-    CONSTRAINT pk_couple_email_optout PRIMARY KEY (id),
-    -- One opt-out per (couple, address); also the index that backs the per-couple
-    -- existence check and the batched IN-lookup for the guest list, both of which lead
-    -- with couple_id.
-    CONSTRAINT uq_couple_email_optout UNIQUE (couple_id, email_hash)
+    -- PK nonclustered on the random GUID; cluster on (couple_id, email_hash) since that
+    -- is the access path for ALL uses: the per-couple existence check, the batched
+    -- IN-lookup for the guest list, and the ON DELETE CASCADE seek. One opt-out per
+    -- (couple, address).
+    CONSTRAINT pk_couple_email_optout PRIMARY KEY NONCLUSTERED (id),
+    CONSTRAINT uq_couple_email_optout UNIQUE CLUSTERED (couple_id, email_hash)
 );

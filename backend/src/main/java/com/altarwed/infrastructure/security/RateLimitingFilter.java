@@ -48,7 +48,10 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         boolean rateLimited =
                 uri.startsWith("/api/v1/auth/") ||
                 uri.startsWith("/api/v1/guests/rsvp/find") ||
-                uri.startsWith("/api/v1/inquiries");
+                uri.startsWith("/api/v1/inquiries") ||
+                // Unauthenticated write: a token-verified opt-out, but throttle it so a
+                // replayed/forged link can't churn the opt-out + audit tables or flood us.
+                uri.startsWith("/api/v1/unsubscribe");
         return !rateLimited;
     }
 

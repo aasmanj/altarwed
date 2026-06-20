@@ -35,7 +35,9 @@ public class CoupleEmailOptOutAdapter implements CoupleEmailOptOutPort {
             return;
         }
         try {
-            jpaRepository.save(CoupleEmailOptOutEntity.builder()
+            // saveAndFlush so a concurrent duplicate (couple, hash) insert raises the
+            // unique violation here and is caught, rather than escaping to commit as a 500.
+            jpaRepository.saveAndFlush(CoupleEmailOptOutEntity.builder()
                     .coupleId(coupleId)
                     .emailHash(emailHash)
                     .build());

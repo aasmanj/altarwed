@@ -297,6 +297,15 @@ export default function RsvpForm({
          : status === 'PENDING' ? 'Set reminder'
          : 'Submit RSVP'}
       </button>
+
+      {/* Submitting an RSVP re-subscribes the guest to this couple's wedding emails
+          (recipient-initiated re-consent), so disclose it. Only shown on an actual
+          response, the "Set reminder" path does not re-subscribe. */}
+      {status !== 'PENDING' && (
+        <p className="text-center text-xs text-[#8a6a4a]">
+          By submitting, you&apos;ll receive email updates about this wedding. You can unsubscribe anytime from the link in those emails.
+        </p>
+      )}
     </form>
   )
 }

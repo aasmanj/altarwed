@@ -36,9 +36,10 @@ export interface Guest {
   // Distinct from the *SentAt stamps, which only mean "we attempted the send".
   saveTheDateDeliveryStatus: string | null
   inviteDeliveryStatus: string | null
-  // True when this guest's email is unsubscribed and excluded from marketing sends.
-  // Reason is the suppression source (USER_REQUEST | BOUNCE | COMPLAINT) so the UI can
-  // word the badge and decide whether to offer a one-click resubscribe.
+  // True when this guest's email is suppressed for this couple (a per-couple opt-out or
+  // a global bounce/complaint) and excluded from sends. Reason is the source
+  // (USER_REQUEST | BOUNCE | COMPLAINT) so the UI can word the badge. A guest resubscribes
+  // by RSVPing on the wedding site; there is no couple-side resubscribe.
   emailUnsubscribed: boolean | null
   emailUnsubscribedReason: string | null
 }
