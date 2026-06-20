@@ -228,7 +228,10 @@ public class GuestService {
             List<EmailRecipient> recipients = queueable.stream()
                     .map(g -> new EmailRecipient(g.email(), g.name(), g.id()))
                     .toList();
-            asyncEmailService.sendSaveTheDateEmails(recipients, coupleId, coupleNames, weddingDate, weddingUrl, stdImageUrl);
+            // Reply-To = this couple's own address so guest replies reach their inbox,
+            // not the shared from-address.
+            String coupleReplyTo = couple != null ? couple.email() : null;
+            asyncEmailService.sendSaveTheDateEmails(recipients, coupleId, coupleNames, weddingDate, weddingUrl, stdImageUrl, coupleReplyTo);
 
             // Stamp save_the_date_sent_at only for guests we actually queued (valid and
             // not unsubscribed), so the dashboard never shows "sent" for an address we
@@ -551,8 +554,11 @@ public class GuestService {
                 ? website.weddingDate().format(DateTimeFormatter.ofPattern("MMMM d, yyyy"))
                 : "TBD";
 
+        // Reply-To = this couple's own address so a guest hitting reply reaches their
+        // inbox, not the shared from-address.
+        String coupleReplyTo = couple != null ? couple.email() : null;
         asyncEmailService.sendRsvpInviteEmail(guest.email(), guest.name(), coupleNames, weddingDate, rawToken,
-                guest.id(), coupleId);
+                guest.id(), coupleId, coupleReplyTo);
         log.info("rsvp invite queued, guestId={}, coupleId={}, sendNumber={}",
                  guest.id(), coupleId, currentSends + 1);
 
