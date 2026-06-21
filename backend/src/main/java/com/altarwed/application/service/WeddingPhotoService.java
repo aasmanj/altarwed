@@ -7,6 +7,8 @@ import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
 import com.altarwed.domain.model.WeddingPhoto;
 import com.altarwed.domain.port.WeddingPhotoRepository;
 import com.altarwed.domain.port.WeddingWebsiteRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +17,8 @@ import java.util.UUID;
 
 @Service
 public class WeddingPhotoService {
+
+    private static final Logger log = LoggerFactory.getLogger(WeddingPhotoService.class);
 
     private final WeddingPhotoRepository photoRepository;
     private final WeddingWebsiteRepository websiteRepository;
@@ -43,7 +47,9 @@ public class WeddingPhotoService {
         int sortOrder = req.sortOrder() != null ? req.sortOrder() : 0;
         // A new upload starts unframed (centered, no zoom); the couple repositions it later.
         WeddingPhoto photo = new WeddingPhoto(null, websiteId, req.url(), req.caption(), sortOrder, null, null, null, null);
-        return photoRepository.save(photo);
+        WeddingPhoto saved = photoRepository.save(photo);
+        log.info("wedding photo added, websiteId={}, photoId={}", websiteId, saved.id());
+        return saved;
     }
 
     @Transactional
@@ -58,7 +64,9 @@ public class WeddingPhotoService {
                 req.focalPointX() != null ? req.focalPointX() : existing.focalPointX(),
                 req.focalPointY() != null ? req.focalPointY() : existing.focalPointY(),
                 req.zoom() != null ? req.zoom() : existing.zoom());
-        return photoRepository.save(updated);
+        WeddingPhoto saved = photoRepository.save(updated);
+        log.info("wedding photo updated, websiteId={}, photoId={}", websiteId, photoId);
+        return saved;
     }
 
     @Transactional

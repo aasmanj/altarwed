@@ -11,5 +11,5 @@ public record UpdateWeddingPhotoRequest(
         // unchanged. Bean Validation skips null, so bounds apply only when provided.
         @DecimalMin("0.0") @DecimalMax("1.0") Double focalPointX,
         @DecimalMin("0.0") @DecimalMax("1.0") Double focalPointY,
-        @DecimalMin("1.0") @DecimalMax("5.0") Double zoom
+        @DecimalMin("1.0") @DecimalMax("3.0") Double zoom
 ) {}

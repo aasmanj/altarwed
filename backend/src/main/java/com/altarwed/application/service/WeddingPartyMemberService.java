@@ -5,6 +5,8 @@ import com.altarwed.application.dto.UpdateWeddingPartyMemberRequest;
 import com.altarwed.domain.exception.WeddingPartyMemberNotFoundException;
 import com.altarwed.domain.model.WeddingPartyMember;
 import com.altarwed.domain.port.WeddingPartyMemberRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +16,8 @@ import java.util.UUID;
 
 @Service
 public class WeddingPartyMemberService {
+
+    private static final Logger log = LoggerFactory.getLogger(WeddingPartyMemberService.class);
 
     private final WeddingPartyMemberRepository repository;
 
@@ -34,7 +38,9 @@ public class WeddingPartyMemberService {
                 LocalDateTime.now(), LocalDateTime.now(),
                 null, null, null  // unframed until the couple repositions the avatar
         );
-        return repository.save(member);
+        WeddingPartyMember saved = repository.save(member);
+        log.info("wedding party member added, websiteId={}, memberId={}", weddingWebsiteId, saved.id());
+        return saved;
     }
 
     @Transactional
@@ -53,7 +59,9 @@ public class WeddingPartyMemberService {
                 req.focalPointY() != null ? req.focalPointY() : existing.focalPointY(),
                 req.zoom()        != null ? req.zoom()        : existing.zoom()
         );
-        return repository.save(updated);
+        WeddingPartyMember saved = repository.save(updated);
+        log.info("wedding party member updated, websiteId={}, memberId={}", weddingWebsiteId, memberId);
+        return saved;
     }
 
     @Transactional
@@ -81,6 +89,7 @@ public class WeddingPartyMemberService {
                 null, null, null
         );
         repository.save(updated);
+        log.info("wedding party member photo updated, websiteId={}, memberId={}", weddingWebsiteId, memberId);
     }
 
     private WeddingPartyMember getMember(UUID weddingWebsiteId, UUID memberId) {
