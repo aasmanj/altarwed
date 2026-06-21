@@ -74,7 +74,7 @@ const SECTIONS: Section[] = [
       },
       {
         q: 'A guest unsubscribed. Can they still RSVP, and can they come back?',
-        a: 'Yes. Unsubscribing only stops marketing-style emails for your wedding. The moment that guest RSVPs, they are automatically re-subscribed, so your later updates reach them again.',
+        a: 'Yes. Unsubscribing stops that wedding\'s emails for the guest. The moment they RSVP, they are automatically re-subscribed, so your later updates reach them again.',
       },
     ],
   },
