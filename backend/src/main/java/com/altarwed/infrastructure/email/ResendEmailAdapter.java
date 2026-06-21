@@ -40,6 +40,11 @@ public class ResendEmailAdapter implements EmailPort {
 
     private final RestClient restClient;
     private final String fromEmail;
+    // Guest-facing invite mail (save-the-dates, RSVP invites) sends From this address,
+    // a dedicated subdomain (e.g. hello@invites.altarwed.com) so the bulk invite stream's
+    // deliverability reputation is isolated from transactional/system mail on the root
+    // domain. Defaults to fromEmail until the subdomain is verified (see application.yml).
+    private final String invitesFromEmail;
     private final String appBaseUrl;
     private final String publicBaseUrl;
     private final String apiBaseUrl;
@@ -67,6 +72,7 @@ public class ResendEmailAdapter implements EmailPort {
     public ResendEmailAdapter(
             @Value("${altarwed.resend.api-key}") String apiKey,
             @Value("${altarwed.resend.from-email}") String fromEmail,
+            @Value("${altarwed.resend.invites-from-email}") String invitesFromEmail,
             @Value("${altarwed.app.base-url}") String appBaseUrl,
             @Value("${altarwed.api.base-url}") String apiBaseUrl,
             @Value("${altarwed.unsubscribe.secret}") String unsubscribeSecret,
@@ -76,6 +82,7 @@ public class ResendEmailAdapter implements EmailPort {
             EmailSuppressionPort suppressionPort
     ) {
         this.fromEmail = fromEmail;
+        this.invitesFromEmail = invitesFromEmail;
         this.appBaseUrl = appBaseUrl;
         this.publicBaseUrl = appBaseUrl.replace("app.", "www.");
         this.apiBaseUrl = apiBaseUrl;
@@ -83,6 +90,18 @@ public class ResendEmailAdapter implements EmailPort {
         this.postalAddress = postalAddress;
         this.adminAlertEmail = adminAlertEmail;
         this.suppressionPort = suppressionPort;
+        // Prod-visible signal for whether the guest-invite stream is actually isolated.
+        // When RESEND_INVITES_FROM_EMAIL is unset, the nested placeholder falls through to
+        // the root from-email and invites silently ride the root domain (today's behaviour,
+        // not an error, hence WARN not ERROR). Without this line the logs give no indication
+        // the deliverability isolation is off. Matches env-var rule #1 (warn when a
+        // critical-but-not-fatal var is effectively unset). The address itself is system
+        // config, not user PII, but we log only the condition to stay clear of the rule.
+        if (invitesFromEmail.equals(fromEmail)) {
+            log.warn("invite mail stream not isolated, invitesFromEmail equals fromEmail; "
+                    + "guest invites send from the root domain (set RESEND_INVITES_FROM_EMAIL "
+                    + "to the verified invite subdomain to isolate invite deliverability)");
+        }
         // Clamp to >= 1 so a fat-fingered env value (0, negative) degrades to a slow
         // trickle instead of bricking the JVM at startup (Bucket4j rejects capacity < 1),
         // the exact startup-crash failure mode documented in backend/CLAUDE.md.
@@ -184,9 +203,8 @@ public class ResendEmailAdapter implements EmailPort {
                     If you have any questions, reply to this email.<br>
                     This RSVP link expires in 30 days.
                   </p>
-                  <div style="margin-top:28px;border-top:1px solid #e8dcc8;padding-top:14px;text-align:center;color:#a08060;font-size:11px;font-family:sans-serif;">
-                    Planning your own wedding?
-                    <a href="%s" style="color:#d4af6a;text-decoration:none;">Create a free faith-based wedding website at AltarWed</a>
+                  <div style="margin-top:28px;padding-top:14px;text-align:center;color:#a08060;font-size:11px;font-family:sans-serif;">
+                    <a href="%s" style="color:#a08060;text-decoration:none;">Sent with AltarWed</a>
                   </div>
                 </div>
                 """.formatted(guestName, coupleNames, weddingDate, rsvpUrl, viralCtaUrl);
@@ -204,9 +222,7 @@ public class ResendEmailAdapter implements EmailPort {
                 This link expires in 30 days.
                 If you have any questions, reply to this email.
 
-                ---
-                Planning your own wedding? Create a free faith-based wedding website at AltarWed:
-                %s
+                Sent with AltarWed: %s
                 """.formatted(guestName, coupleNames, weddingDate, rsvpUrl, viralCtaUrl);
 
         // The invite carries the AltarWed growth CTA (the viral loop), so we treat it as
@@ -217,7 +233,7 @@ public class ResendEmailAdapter implements EmailPort {
         String oneClickUnsubUrl = unsubscribeOneClickUrl(toEmail, coupleId);
 
         Map<String, Object> body = new HashMap<>();
-        body.put("from", coupleNames + " <" + fromEmail + ">");
+        body.put("from", coupleNames + " <" + invitesFromEmail + ">");
         body.put("to", List.of(EmailAddresses.normalize(toEmail)));
         addReplyTo(body, coupleReplyToEmail);
         body.put("subject", "You're invited to " + coupleNames + "'s wedding!");
@@ -303,7 +319,7 @@ public class ResendEmailAdapter implements EmailPort {
                 + unsubscribeFooterText(displayUnsubUrl);
 
         Map<String, Object> body = new HashMap<>();
-        body.put("from", coupleNames + " <" + fromEmail + ">");
+        body.put("from", coupleNames + " <" + invitesFromEmail + ">");
         body.put("to", List.of(EmailAddresses.normalize(toEmail)));
         addReplyTo(body, coupleReplyToEmail);
         body.put("subject", "Save the Date: " + coupleNames + " are getting married!");

@@ -6,6 +6,7 @@ param appInsightsConnectionString string
 param adminEmails string
 param adminAlertEmail string
 param resendFromEmail string
+param resendInvitesFromEmail string
 param appBaseUrl string
 param nextjsBaseUrl string
 param googleOauthRedirectUri string
@@ -174,6 +175,10 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'RESEND_FROM_EMAIL'
           value: resendFromEmail
+        }
+        {
+          name: 'RESEND_INVITES_FROM_EMAIL'
+          value: resendInvitesFromEmail
         }
         {
           name: 'APP_BASE_URL'

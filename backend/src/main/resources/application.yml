@@ -72,6 +72,14 @@ altarwed:
   resend:
     api-key: ${RESEND_API_KEY}
     from-email: ${RESEND_FROM_EMAIL:noreply@altarwed.com}
+    # Separate sending identity for guest-facing bulk mail (save-the-dates, RSVP
+    # invites). Isolating the invite stream on its own subdomain keeps a marketing
+    # blast or a bounce on the root domain from tainting invite deliverability, and
+    # lets us keep open/click tracking OFF on that subdomain (the strongest Gmail
+    # "Promotions" signal), which is toggled in the Resend dashboard, not here.
+    # Falls back to the main from-email so nothing changes
+    # until RESEND_INVITES_FROM_EMAIL is set once the subdomain is verified in Resend.
+    invites-from-email: ${RESEND_INVITES_FROM_EMAIL:${RESEND_FROM_EMAIL:noreply@altarwed.com}}
     # Max outbound sends/sec across ALL email types. Stays under Resend's 5 req/sec
     # account cap; raise alongside the Resend plan. Per-instance (see ResendEmailAdapter).
     rate-limit-per-second: ${RESEND_RATE_LIMIT_PER_SECOND:2}
