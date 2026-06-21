@@ -8,6 +8,7 @@ import java.util.UUID;
 
 public interface WeddingPhotoRepository {
     WeddingPhoto save(WeddingPhoto photo);
+    List<WeddingPhoto> saveAll(List<WeddingPhoto> photos);
     List<WeddingPhoto> findAllByWeddingWebsiteId(UUID weddingWebsiteId);
     Optional<WeddingPhoto> findById(UUID id);
     void deleteById(UUID id);

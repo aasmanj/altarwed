@@ -1,6 +1,7 @@
 package com.altarwed.web.controller;
 
 import com.altarwed.application.dto.CreateWeddingPartyMemberRequest;
+import com.altarwed.application.dto.ReorderWeddingPartyRequest;
 import com.altarwed.application.dto.UpdateWeddingPartyMemberRequest;
 import com.altarwed.application.dto.WeddingPartyMemberResponse;
 import com.altarwed.application.service.WeddingPartyMemberService;
@@ -56,6 +57,17 @@ public class WeddingPartyMemberController {
     ) {
         accessGuard.assertOwnsWebsite(websiteId, email);
         return ResponseEntity.ok(mapper.toResponse(service.updateMember(websiteId, memberId, request)));
+    }
+
+    @PatchMapping("/website/{websiteId}/reorder")
+    public ResponseEntity<Void> reorder(
+            @PathVariable UUID websiteId,
+            @Valid @RequestBody ReorderWeddingPartyRequest request,
+            @AuthenticationPrincipal String email
+    ) {
+        accessGuard.assertOwnsWebsite(websiteId, email);
+        service.reorderMembers(websiteId, request.orderedIds());
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/website/{websiteId}/{memberId}")

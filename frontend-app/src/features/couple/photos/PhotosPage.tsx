@@ -1,5 +1,13 @@
-import { useCallback, useEffect, useState, useRef } from 'react'
-import { Camera, ExternalLink, X, Crop } from 'lucide-react'
+import { useCallback, useEffect, useState, useRef, type ReactNode, type CSSProperties } from 'react'
+import { Camera, ExternalLink, X, Crop, GripVertical } from 'lucide-react'
+import {
+  DndContext, closestCenter, PointerSensor, TouchSensor, KeyboardSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext, rectSortingStrategy, useSortable, sortableKeyboardCoordinates, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
@@ -64,6 +72,26 @@ function useUpdateCaption(websiteId: string) {
   })
 }
 
+function useReorderPhotos(websiteId: string) {
+  const qc = useQueryClient()
+  const key = ['wedding-photos', websiteId]
+  return useMutation({
+    mutationFn: (orderedIds: string[]) =>
+      apiClient.patch(`/api/v1/wedding-photos/website/${websiteId}/reorder`, { orderedIds }),
+    // Optimistic: drag should feel instant. Reassign sortOrder by the new index so the
+    // grid re-renders in order immediately; roll back to the snapshot if the server rejects.
+    onMutate: async (orderedIds) => {
+      await qc.cancelQueries({ queryKey: key })
+      const prev = qc.getQueryData<Photo[]>(key)
+      qc.setQueryData<Photo[]>(key, old =>
+        old ? orderedIds.map((id, i) => ({ ...old.find(p => p.id === id)!, sortOrder: i })) : old)
+      return { prev }
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(key, ctx.prev) },
+    onSettled: () => qc.invalidateQueries({ queryKey: key }),
+  })
+}
+
 function useUpdatePhotoFraming(websiteId: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -86,6 +114,16 @@ export default function PhotosPage() {
   const deletePhoto = useDeletePhoto(websiteId)
   const updateCaption = useUpdateCaption(websiteId)
   const updateFraming = useUpdatePhotoFraming(websiteId)
+  const reorder = useReorderPhotos(websiteId)
+
+  // Mouse needs an 8px drag before it counts (so clicks on the card buttons still
+  // work); touch waits 250ms (so scrolling the album does not start a drag); keyboard
+  // sensor makes reordering operable without a pointer (a11y).
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
   const fileRef = useRef<HTMLInputElement>(null)
   const [caption, setCaption] = useState('')
@@ -143,6 +181,16 @@ export default function PhotosPage() {
 
   const publicUrl = `https://www.altarwed.com/wedding/${website?.slug}/photos`
   const isUploading = !!uploadProgress
+
+  // Stable display order (non-mutating copy) drives both the grid and the sortable list.
+  const ordered = [...photos].sort((a, b) => a.sortOrder - b.sortOrder)
+
+  function handleDragEnd(e: DragEndEvent) {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const ids = ordered.map(p => p.id)
+    reorder.mutate(arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id))))
+  }
 
   return (
     <div className="min-h-screen bg-ivory">
@@ -207,9 +255,15 @@ export default function PhotosPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {photos.sort((a, b) => a.sortOrder - b.sortOrder).map(photo => (
-              <div key={photo.id} className="group relative bg-white rounded-xl overflow-hidden border border-stone-200 shadow-sm">
+          <>
+            {photos.length > 1 && (
+              <p className="text-xs text-stone-400 -mt-2 mb-3">Drag a photo to reorder how it appears on your site.</p>
+            )}
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={ordered.map(p => p.id)} strategy={rectSortingStrategy}>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {ordered.map(photo => (
+                    <SortablePhotoCard key={photo.id} id={photo.id}>
                 <button
                   type="button"
                   className="block w-full aspect-square overflow-hidden focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none"
@@ -263,9 +317,12 @@ export default function PhotosPage() {
                     <p className="text-xs text-stone-500 truncate">{photo.caption}</p>
                   </div>
                 )}
-              </div>
-            ))}
-          </div>
+                    </SortablePhotoCard>
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </>
         )}
       </div>
 
@@ -360,6 +417,33 @@ export default function PhotosPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// One album cell, made sortable. The drag handle (grip, top-left) carries the dnd
+// listeners so the card's own buttons (enlarge, reposition, caption, delete) keep
+// working; touch-none on the handle stops the browser from scrolling mid-drag.
+function SortablePhotoCard({ id, children }: { id: string; children: ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 20 : undefined,
+    opacity: isDragging ? 0.4 : 1,
+  }
+  return (
+    <div ref={setNodeRef} style={style} className="group relative bg-white rounded-xl overflow-hidden border border-stone-200 shadow-sm">
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label="Drag to reorder photo"
+        className="absolute top-2 left-2 z-10 p-1 rounded-md bg-white/80 text-stone-500 hover:text-stone-800 shadow cursor-grab active:cursor-grabbing touch-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none"
+      >
+        <GripVertical className="w-4 h-4" />
+      </button>
+      {children}
     </div>
   )
 }

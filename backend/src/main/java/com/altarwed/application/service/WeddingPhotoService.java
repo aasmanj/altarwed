@@ -12,8 +12,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class WeddingPhotoService {
@@ -67,6 +70,30 @@ public class WeddingPhotoService {
         WeddingPhoto saved = photoRepository.save(updated);
         log.info("wedding photo updated, websiteId={}, photoId={}", websiteId, photoId);
         return saved;
+    }
+
+    @Transactional
+    public void reorderPhotos(UUID websiteId, List<UUID> orderedIds) {
+        List<WeddingPhoto> current = photoRepository.findAllByWeddingWebsiteId(websiteId);
+        Set<UUID> currentIds = current.stream().map(WeddingPhoto::id).collect(Collectors.toSet());
+        // A foreign id (one not in this album) is a smuggle attempt against another couple's
+        // row, so log it as a security event (observability rule 6).
+        if (!currentIds.containsAll(orderedIds)) {
+            log.warn("photo reorder rejected, foreign id in batch, websiteId={}", websiteId);
+            throw new IllegalArgumentException("orderedIds contains a photo id not in this album");
+        }
+        // A size or duplicate mismatch (no foreign ids) is almost always a stale client (a
+        // photo was added/removed in another tab), so reject quietly, no WARN (rule 12).
+        if (orderedIds.size() != current.size() || new HashSet<>(orderedIds).size() != current.size()) {
+            throw new IllegalArgumentException("orderedIds must contain exactly all photo IDs in this album");
+        }
+        List<WeddingPhoto> reordered = current.stream()
+                .map(p -> new WeddingPhoto(p.id(), p.weddingWebsiteId(), p.url(), p.caption(),
+                        orderedIds.indexOf(p.id()), p.createdAt(),
+                        p.focalPointX(), p.focalPointY(), p.zoom()))
+                .toList();
+        photoRepository.saveAll(reordered);
+        log.info("wedding photo album reordered, websiteId={}, count={}", websiteId, reordered.size());
     }
 
     @Transactional

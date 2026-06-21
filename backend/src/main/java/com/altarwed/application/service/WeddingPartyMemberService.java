@@ -11,8 +11,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class WeddingPartyMemberService {
@@ -62,6 +65,30 @@ public class WeddingPartyMemberService {
         WeddingPartyMember saved = repository.save(updated);
         log.info("wedding party member updated, websiteId={}, memberId={}", weddingWebsiteId, memberId);
         return saved;
+    }
+
+    @Transactional
+    public void reorderMembers(UUID weddingWebsiteId, List<UUID> orderedIds) {
+        List<WeddingPartyMember> current = repository.findAllByWeddingWebsiteId(weddingWebsiteId);
+        Set<UUID> currentIds = current.stream().map(WeddingPartyMember::id).collect(Collectors.toSet());
+        // A foreign id (one not in this party) is a smuggle attempt against another couple's
+        // row, so log it as a security event (observability rule 6).
+        if (!currentIds.containsAll(orderedIds)) {
+            log.warn("wedding party reorder rejected, foreign id in batch, websiteId={}", weddingWebsiteId);
+            throw new IllegalArgumentException("orderedIds contains a member id not in this wedding party");
+        }
+        // A size or duplicate mismatch (no foreign ids) is almost always a stale client, so
+        // reject quietly, no WARN (rule 12).
+        if (orderedIds.size() != current.size() || new HashSet<>(orderedIds).size() != current.size()) {
+            throw new IllegalArgumentException("orderedIds must contain exactly all member IDs in this wedding party");
+        }
+        List<WeddingPartyMember> reordered = current.stream()
+                .map(m -> new WeddingPartyMember(m.id(), m.weddingWebsiteId(), m.name(), m.role(), m.side(),
+                        m.bio(), m.photoUrl(), orderedIds.indexOf(m.id()), m.createdAt(), LocalDateTime.now(),
+                        m.focalPointX(), m.focalPointY(), m.zoom()))
+                .toList();
+        repository.saveAll(reordered);
+        log.info("wedding party reordered, websiteId={}, count={}", weddingWebsiteId, reordered.size());
     }
 
     @Transactional
