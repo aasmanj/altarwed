@@ -47,6 +47,9 @@ param adminAlertEmail string = 'hello@altarwed.com'
 @description('From-address for transactional email (matches live prod)')
 param resendFromEmail string = 'hello@altarwed.com'
 
+@description('From-address for guest-facing invite mail (save-the-dates, RSVP invites). Own subdomain isolates invite deliverability from the root domain.')
+param resendInvitesFromEmail string = 'hello@invites.altarwed.com'
+
 @description('Email address that receives monitoring alerts')
 param alertEmail string = 'aasmanj@gmail.com'
 
@@ -140,6 +143,7 @@ module appService 'modules/app-service.bicep' = {
     adminEmails: adminEmails
     adminAlertEmail: adminAlertEmail
     resendFromEmail: resendFromEmail
+    resendInvitesFromEmail: resendInvitesFromEmail
     appBaseUrl: appBaseUrl
     nextjsBaseUrl: nextjsBaseUrl
     googleOauthRedirectUri: googleOauthRedirectUri
