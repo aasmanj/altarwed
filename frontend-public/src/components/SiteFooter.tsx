@@ -17,6 +17,7 @@ export default function SiteFooter() {
           <ul className="space-y-2">
             <FooterLink href="https://app.altarwed.com/register">Start planning free</FooterLink>
             <FooterLink href="/vendors">Find vendors</FooterLink>
+            <FooterLink href="/help">Help &amp; FAQ</FooterLink>
             <FooterLink href="https://app.altarwed.com/login">Sign in</FooterLink>
           </ul>
         </div>
