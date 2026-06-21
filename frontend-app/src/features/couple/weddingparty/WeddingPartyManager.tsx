@@ -7,6 +7,8 @@ import {
 } from './useWeddingParty'
 import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 import { cropToSquare } from '@/lib/imageCrop'
+import ImageRepositionModal from '@/components/ImageRepositionModal'
+import { framingStyle, apiFraming } from '@/lib/imageFraming'
 
 const SUGGESTED_ROLES = [
   'Bride', 'Groom',
@@ -38,6 +40,7 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
   const [showAdd, setShowAdd] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [sideFilter, setSideFilter] = useState<PartySide | 'ALL'>('ALL')
+  const [repositioning, setRepositioning] = useState<WeddingPartyMember | null>(null)
 
   const ordered      = [...members].sort((a, b) => a.sortOrder - b.sortOrder)
   const displayed    = sideFilter === 'ALL' ? ordered
@@ -161,6 +164,7 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
                   })) deleteMember.mutate(member.id)
                 }}
                 onPhotoUpload={(file) => uploadPhoto.mutate({ memberId: member.id, file })}
+                onReposition={() => setRepositioning(member)}
                 isUploading={uploadPhoto.isPending}
                 reorder={sideFilter === 'ALL' ? {
                   canUp: globalIdx > 0,
@@ -174,6 +178,25 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
           })}
         </div>
       )}
+
+      {repositioning && repositioning.photoUrl && (
+        <ImageRepositionModal
+          src={repositioning.photoUrl}
+          shape="circle"
+          aspect={1}
+          title={`Reposition ${repositioning.name}'s photo`}
+          initial={apiFraming(repositioning)}
+          saving={updateMember.isPending}
+          onCancel={() => setRepositioning(null)}
+          onSave={async ({ focalX, focalY, zoom }) => {
+            await updateMember.mutateAsync({
+              memberId: repositioning.id,
+              payload: { focalPointX: focalX, focalPointY: focalY, zoom },
+            })
+            setRepositioning(null)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -186,11 +209,12 @@ interface ReorderControls {
   busy: boolean
 }
 
-function MemberCard({ member, onEdit, onDelete, onPhotoUpload, isUploading, reorder }: {
+function MemberCard({ member, onEdit, onDelete, onPhotoUpload, onReposition, isUploading, reorder }: {
   member: WeddingPartyMember
   onEdit: () => void
   onDelete: () => void
   onPhotoUpload: (file: File) => void
+  onReposition: () => void
   isUploading: boolean
   reorder?: ReorderControls
 }) {
@@ -200,11 +224,14 @@ function MemberCard({ member, onEdit, onDelete, onPhotoUpload, isUploading, reor
     <div className="rounded-xl border border-gold-light bg-white p-5 flex gap-5 items-start">
       <div className="relative shrink-0 group">
         {member.photoUrl ? (
-          <img
-            src={member.photoUrl}
-            alt={member.name}
-            className="h-16 w-16 rounded-full object-cover border border-gold-light"
-          />
+          <div className="h-16 w-16 rounded-full overflow-hidden border border-gold-light bg-ivory">
+            <img
+              src={member.photoUrl}
+              alt={member.name}
+              className="h-full w-full"
+              style={framingStyle(apiFraming(member))}
+            />
+          </div>
         ) : (
           <div className="h-16 w-16 rounded-full bg-ivory border border-gold-light flex items-center justify-center">
             <span className="text-2xl text-brown-light font-serif">{member.name.charAt(0)}</span>
@@ -263,6 +290,9 @@ function MemberCard({ member, onEdit, onDelete, onPhotoUpload, isUploading, reor
                   <ChevronDown size={16} />
                 </button>
               </div>
+            )}
+            {member.photoUrl && (
+              <button onClick={onReposition} className="text-xs text-brown-light hover:text-brown transition">Reposition</button>
             )}
             <button onClick={onEdit} className="text-xs text-brown-light hover:text-brown transition">Edit</button>
             <button onClick={onDelete} className="text-xs text-red-400 hover:text-red-600 transition">Remove</button>

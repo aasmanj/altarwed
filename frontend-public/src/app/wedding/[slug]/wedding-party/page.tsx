@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getWedding } from '@/app/wedding/[slug]/data'
+import { framingStyle } from '@/lib/imageFraming'
 
 interface WeddingPartyMember {
   id: string
@@ -9,6 +10,10 @@ interface WeddingPartyMember {
   bio: string | null
   photoUrl: string | null
   sortOrder: number
+  // Non-destructive avatar framing (backend V70). null = centered / no zoom.
+  focalPointX: number | null
+  focalPointY: number | null
+  zoom: number | null
 }
 
 async function getWeddingParty(websiteId: string): Promise<WeddingPartyMember[]> {
@@ -101,16 +106,19 @@ function PartyGroup({ label, members, accent }: {
         {members.map(member => (
           <div key={member.id} className="text-center w-[140px]">
             {member.photoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={member.photoUrl}
-                alt={member.name}
-                loading="lazy"
-                decoding="async"
-                width={112}
-                height={112}
-                className={`h-28 w-28 rounded-full object-cover mx-auto mb-4 border-2 ${a.border} shadow-sm`}
-              />
+              <div className={`h-28 w-28 rounded-full overflow-hidden mx-auto mb-4 border-2 ${a.border} shadow-sm bg-white`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={member.photoUrl}
+                  alt={member.name}
+                  loading="lazy"
+                  decoding="async"
+                  width={112}
+                  height={112}
+                  className="h-full w-full"
+                  style={framingStyle(member)}
+                />
+              </div>
             ) : (
               <div className={`h-28 w-28 rounded-full bg-white border-2 ${a.border} flex items-center justify-center mx-auto mb-4`}>
                 <span className="font-serif text-4xl text-[#8a6a4a]">{member.name.charAt(0)}</span>

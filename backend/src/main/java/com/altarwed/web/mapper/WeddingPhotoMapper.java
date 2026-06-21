@@ -14,7 +14,10 @@ public class WeddingPhotoMapper {
                 photo.url(),
                 photo.caption(),
                 photo.sortOrder(),
-                photo.createdAt()
+                photo.createdAt(),
+                photo.focalPointX(),
+                photo.focalPointY(),
+                photo.zoom()
         );
     }
 }

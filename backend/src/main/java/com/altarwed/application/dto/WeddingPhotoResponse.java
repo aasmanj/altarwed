@@ -9,5 +9,9 @@ public record WeddingPhotoResponse(
         String url,
         String caption,
         int sortOrder,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        // Framing for non-destructive crop/recenter (V70). null = centered / no zoom.
+        Double focalPointX,
+        Double focalPointY,
+        Double zoom
 ) {}

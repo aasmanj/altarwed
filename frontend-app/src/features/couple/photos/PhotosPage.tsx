@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
-import { Camera, ExternalLink, X } from 'lucide-react'
+import { Camera, ExternalLink, X, Crop } from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
@@ -9,12 +9,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
+import ImageRepositionModal from '@/components/ImageRepositionModal'
+import { framingStyle, apiFraming } from '@/lib/imageFraming'
 
 interface Photo {
   id: string
   url: string
   caption: string | null
   sortOrder: number
+  // Non-destructive framing (backend V70). null = centered / no zoom.
+  focalPointX: number | null
+  focalPointY: number | null
+  zoom: number | null
 }
 
 function usePhotos(websiteId: string) {
@@ -58,6 +64,16 @@ function useUpdateCaption(websiteId: string) {
   })
 }
 
+function useUpdatePhotoFraming(websiteId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ photoId, focalX, focalY, zoom }: { photoId: string; focalX: number; focalY: number; zoom: number }) =>
+      apiClient.patch(`/api/v1/wedding-photos/website/${websiteId}/${photoId}`,
+        { focalPointX: focalX, focalPointY: focalY, zoom }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['wedding-photos', websiteId] }),
+  })
+}
+
 export default function PhotosPage() {
   const { user } = useAuth()
   const coupleId = user?.id ?? ''
@@ -69,10 +85,12 @@ export default function PhotosPage() {
   const upload = useUploadPhoto(websiteId)
   const deletePhoto = useDeletePhoto(websiteId)
   const updateCaption = useUpdateCaption(websiteId)
+  const updateFraming = useUpdatePhotoFraming(websiteId)
 
   const fileRef = useRef<HTMLInputElement>(null)
   const [caption, setCaption] = useState('')
   const [editingCaption, setEditingCaption] = useState<{ id: string; value: string } | null>(null)
+  const [repositioning, setRepositioning] = useState<Photo | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null)
 
@@ -194,18 +212,26 @@ export default function PhotosPage() {
               <div key={photo.id} className="group relative bg-white rounded-xl overflow-hidden border border-stone-200 shadow-sm">
                 <button
                   type="button"
-                  className="block w-full focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none"
+                  className="block w-full aspect-square overflow-hidden focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none"
                   aria-label={photo.caption ? `Enlarge photo: ${photo.caption}` : 'Enlarge photo'}
                   onClick={() => setLightboxUrl(photo.url)}
                 >
                   <img
                     src={photo.url}
                     alt={photo.caption ?? 'Wedding photo'}
-                    className="w-full aspect-square object-cover"
+                    className="w-full h-full"
+                    style={framingStyle(apiFraming(photo))}
                   />
                 </button>
                 {/* Overlay controls */}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
+                  <button
+                    onClick={() => setRepositioning(photo)}
+                    className="p-2 bg-white rounded-full shadow text-stone-700 hover:text-amber-600"
+                    title="Reposition photo"
+                  >
+                    <Crop className="w-4 h-4" />
+                  </button>
                   <button
                     onClick={() => setEditingCaption({ id: photo.id, value: photo.caption ?? '' })}
                     className="p-2 bg-white rounded-full shadow text-stone-700 hover:text-amber-600"
@@ -242,6 +268,23 @@ export default function PhotosPage() {
           </div>
         )}
       </div>
+
+      {/* Reposition modal */}
+      {repositioning && (
+        <ImageRepositionModal
+          src={repositioning.url}
+          shape="rect"
+          aspect={1}
+          title="Reposition photo"
+          initial={apiFraming(repositioning)}
+          saving={updateFraming.isPending}
+          onCancel={() => setRepositioning(null)}
+          onSave={async ({ focalX, focalY, zoom }) => {
+            await updateFraming.mutateAsync({ photoId: repositioning.id, focalX, focalY, zoom })
+            setRepositioning(null)
+          }}
+        />
+      )}
 
       {/* Edit caption modal */}
       {editingCaption && (

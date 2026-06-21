@@ -12,6 +12,10 @@ export interface WeddingPartyMember {
   bio: string | null
   photoUrl: string | null
   sortOrder: number
+  // Non-destructive avatar framing (backend V70). null = centered / no zoom.
+  focalPointX: number | null
+  focalPointY: number | null
+  zoom: number | null
 }
 
 export interface CreateMemberPayload {
@@ -28,6 +32,9 @@ export interface UpdateMemberPayload {
   side?: PartySide
   bio?: string
   sortOrder?: number
+  focalPointX?: number
+  focalPointY?: number
+  zoom?: number
 }
 
 const key = (websiteId: string) => ['wedding-party', websiteId]
@@ -75,8 +82,12 @@ export function useUploadMemberPhoto(websiteId: string) {
         .then(r => r.data as { photoUrl: string })
     },
     onSuccess: (data, { memberId }) =>
+      // A new photo resets framing server-side (the old crop no longer applies), so
+      // mirror that in the cache to keep the avatar preview correct without a refetch.
       qc.setQueryData<WeddingPartyMember[]>(key(websiteId), old =>
-        old?.map(m => m.id === memberId ? { ...m, photoUrl: data.photoUrl } : m) ?? []
+        old?.map(m => m.id === memberId
+          ? { ...m, photoUrl: data.photoUrl, focalPointX: null, focalPointY: null, zoom: null }
+          : m) ?? []
       ),
   })
 }

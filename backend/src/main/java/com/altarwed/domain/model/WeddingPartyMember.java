@@ -13,5 +13,11 @@ public record WeddingPartyMember(
         String photoUrl,
         int sortOrder,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        // Non-destructive framing for the avatar (see V70). focalPointX/Y are 0.0-1.0
+        // (CSS object-position), zoom is a scale factor >= 1.0. All null = centered, no
+        // zoom. The uploaded file is never modified, so the couple can re-frame any time.
+        Double focalPointX,
+        Double focalPointY,
+        Double zoom
 ) {}

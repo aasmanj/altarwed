@@ -10,7 +10,8 @@ public class WeddingPartyMemberMapper {
     public WeddingPartyMemberResponse toResponse(WeddingPartyMember m) {
         return new WeddingPartyMemberResponse(
                 m.id(), m.weddingWebsiteId(), m.name(), m.role(),
-                m.side(), m.bio(), m.photoUrl(), m.sortOrder()
+                m.side(), m.bio(), m.photoUrl(), m.sortOrder(),
+                m.focalPointX(), m.focalPointY(), m.zoom()
         );
     }
 }
