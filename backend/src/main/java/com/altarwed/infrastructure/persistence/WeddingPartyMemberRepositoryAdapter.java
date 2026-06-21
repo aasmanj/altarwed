@@ -49,7 +49,8 @@ public class WeddingPartyMemberRepositoryAdapter implements WeddingPartyMemberRe
         return new WeddingPartyMember(
                 e.getId(), e.getWeddingWebsiteId(), e.getName(), e.getRole(),
                 e.getSide(), e.getBio(), e.getPhotoUrl(), e.getSortOrder(),
-                e.getCreatedAt(), e.getUpdatedAt()
+                e.getCreatedAt(), e.getUpdatedAt(),
+                e.getFocalPointX(), e.getFocalPointY(), e.getZoom()
         );
     }
 
@@ -63,6 +64,9 @@ public class WeddingPartyMemberRepositoryAdapter implements WeddingPartyMemberRe
                 .bio(m.bio())
                 .photoUrl(m.photoUrl())
                 .sortOrder(m.sortOrder())
+                .focalPointX(m.focalPointX())
+                .focalPointY(m.focalPointY())
+                .zoom(m.zoom())
                 .createdAt(m.createdAt())
                 .updatedAt(m.updatedAt())
                 .build();

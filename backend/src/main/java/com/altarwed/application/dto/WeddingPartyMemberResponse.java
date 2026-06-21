@@ -12,5 +12,9 @@ public record WeddingPartyMemberResponse(
         WeddingPartySide side,
         String bio,
         String photoUrl,
-        int sortOrder
+        int sortOrder,
+        // Avatar framing for non-destructive crop/recenter (V70). null = centered / no zoom.
+        Double focalPointX,
+        Double focalPointY,
+        Double zoom
 ) {}

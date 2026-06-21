@@ -32,6 +32,16 @@ public class WeddingPhotoEntity {
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
+    // Non-destructive framing (V70). Nullable: null = centered / no zoom.
+    @Column(name = "focal_point_x")
+    private Double focalPointX;
+
+    @Column(name = "focal_point_y")
+    private Double focalPointY;
+
+    @Column(name = "zoom")
+    private Double zoom;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

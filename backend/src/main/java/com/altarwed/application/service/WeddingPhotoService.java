@@ -41,7 +41,8 @@ public class WeddingPhotoService {
         websiteRepository.findById(websiteId)
                 .orElseThrow(() -> new WeddingWebsiteNotFoundException(websiteId.toString()));
         int sortOrder = req.sortOrder() != null ? req.sortOrder() : 0;
-        WeddingPhoto photo = new WeddingPhoto(null, websiteId, req.url(), req.caption(), sortOrder, null);
+        // A new upload starts unframed (centered, no zoom); the couple repositions it later.
+        WeddingPhoto photo = new WeddingPhoto(null, websiteId, req.url(), req.caption(), sortOrder, null, null, null, null);
         return photoRepository.save(photo);
     }
 
@@ -52,7 +53,11 @@ public class WeddingPhotoService {
                 .orElseThrow(() -> new WeddingPhotoNotFoundException(photoId.toString()));
         int sortOrder = req.sortOrder() != null ? req.sortOrder() : existing.sortOrder();
         String caption = req.caption() != null ? req.caption() : existing.caption();
-        WeddingPhoto updated = new WeddingPhoto(existing.id(), existing.weddingWebsiteId(), existing.url(), caption, sortOrder, existing.createdAt());
+        // null = leave the field unchanged (the reposition PATCH sends only focal/zoom).
+        WeddingPhoto updated = new WeddingPhoto(existing.id(), existing.weddingWebsiteId(), existing.url(), caption, sortOrder, existing.createdAt(),
+                req.focalPointX() != null ? req.focalPointX() : existing.focalPointX(),
+                req.focalPointY() != null ? req.focalPointY() : existing.focalPointY(),
+                req.zoom() != null ? req.zoom() : existing.zoom());
         return photoRepository.save(updated);
     }
 

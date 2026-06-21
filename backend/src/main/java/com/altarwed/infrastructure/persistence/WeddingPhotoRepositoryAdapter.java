@@ -46,7 +46,8 @@ public class WeddingPhotoRepositoryAdapter implements WeddingPhotoRepository {
     }
 
     private WeddingPhoto toDomain(WeddingPhotoEntity e) {
-        return new WeddingPhoto(e.getId(), e.getWeddingWebsiteId(), e.getUrl(), e.getCaption(), e.getSortOrder(), e.getCreatedAt());
+        return new WeddingPhoto(e.getId(), e.getWeddingWebsiteId(), e.getUrl(), e.getCaption(),
+                e.getSortOrder(), e.getCreatedAt(), e.getFocalPointX(), e.getFocalPointY(), e.getZoom());
     }
 
     private WeddingPhotoEntity toEntity(WeddingPhoto p) {
@@ -56,6 +57,9 @@ public class WeddingPhotoRepositoryAdapter implements WeddingPhotoRepository {
                 .url(p.url())
                 .caption(p.caption())
                 .sortOrder(p.sortOrder())
+                .focalPointX(p.focalPointX())
+                .focalPointY(p.focalPointY())
+                .zoom(p.zoom())
                 .createdAt(p.createdAt())
                 .build();
     }

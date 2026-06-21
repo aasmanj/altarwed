@@ -31,7 +31,8 @@ public class WeddingPartyMemberService {
         WeddingPartyMember member = new WeddingPartyMember(
                 null, weddingWebsiteId, req.name(), req.role(), req.side(),
                 req.bio(), req.photoUrl(), req.sortOrder() != null ? req.sortOrder() : 0,
-                LocalDateTime.now(), LocalDateTime.now()
+                LocalDateTime.now(), LocalDateTime.now(),
+                null, null, null  // unframed until the couple repositions the avatar
         );
         return repository.save(member);
     }
@@ -47,7 +48,10 @@ public class WeddingPartyMemberService {
                 req.bio()       != null ? req.bio()       : existing.bio(),
                 req.photoUrl()  != null ? req.photoUrl()  : existing.photoUrl(),
                 req.sortOrder() != null ? req.sortOrder() : existing.sortOrder(),
-                existing.createdAt(), LocalDateTime.now()
+                existing.createdAt(), LocalDateTime.now(),
+                req.focalPointX() != null ? req.focalPointX() : existing.focalPointX(),
+                req.focalPointY() != null ? req.focalPointY() : existing.focalPointY(),
+                req.zoom()        != null ? req.zoom()        : existing.zoom()
         );
         return repository.save(updated);
     }
@@ -67,11 +71,14 @@ public class WeddingPartyMemberService {
     @Transactional
     public void updatePhotoUrl(UUID weddingWebsiteId, UUID memberId, String photoUrl) {
         WeddingPartyMember existing = getMember(weddingWebsiteId, memberId);
+        // A new photo invalidates the old framing, so reset to centered/no-zoom; the
+        // couple repositions the new image from a clean default.
         WeddingPartyMember updated = new WeddingPartyMember(
                 existing.id(), existing.weddingWebsiteId(),
                 existing.name(), existing.role(), existing.side(),
                 existing.bio(), photoUrl, existing.sortOrder(),
-                existing.createdAt(), LocalDateTime.now()
+                existing.createdAt(), LocalDateTime.now(),
+                null, null, null
         );
         repository.save(updated);
     }
