@@ -90,6 +90,18 @@ public class ResendEmailAdapter implements EmailPort {
         this.postalAddress = postalAddress;
         this.adminAlertEmail = adminAlertEmail;
         this.suppressionPort = suppressionPort;
+        // Prod-visible signal for whether the guest-invite stream is actually isolated.
+        // When RESEND_INVITES_FROM_EMAIL is unset, the nested placeholder falls through to
+        // the root from-email and invites silently ride the root domain (today's behaviour,
+        // not an error, hence WARN not ERROR). Without this line the logs give no indication
+        // the deliverability isolation is off. Matches env-var rule #1 (warn when a
+        // critical-but-not-fatal var is effectively unset). The address itself is system
+        // config, not user PII, but we log only the condition to stay clear of the rule.
+        if (invitesFromEmail.equals(fromEmail)) {
+            log.warn("invite mail stream not isolated, invitesFromEmail equals fromEmail; "
+                    + "guest invites send from the root domain (set RESEND_INVITES_FROM_EMAIL "
+                    + "to the verified invite subdomain to isolate invite deliverability)");
+        }
         // Clamp to >= 1 so a fat-fingered env value (0, negative) degrades to a slow
         // trickle instead of bricking the JVM at startup (Bucket4j rejects capacity < 1),
         // the exact startup-crash failure mode documented in backend/CLAUDE.md.

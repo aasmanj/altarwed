@@ -47,6 +47,12 @@ param adminAlertEmail string = 'hello@altarwed.com'
 @description('From-address for transactional email (matches live prod)')
 param resendFromEmail string = 'hello@altarwed.com'
 
+// CUTOVER GATE: applying this value points every save-the-date and RSVP invite at
+// invites.altarwed.com. That subdomain MUST be SPF/DKIM-verified in Resend first, or
+// Resend 4xx-rejects every invite send. It is verified as of the cutover; keep it
+// verified. Infra Bicep is not auto-deployed (the JAR deploy does not apply it), so
+// the live value is set manually via `az webapp config appsettings set`; this default
+// documents the intended prod state and keeps a manual infra apply consistent with it.
 @description('From-address for guest-facing invite mail (save-the-dates, RSVP invites). Own subdomain isolates invite deliverability from the root domain.')
 param resendInvitesFromEmail string = 'hello@invites.altarwed.com'
 
