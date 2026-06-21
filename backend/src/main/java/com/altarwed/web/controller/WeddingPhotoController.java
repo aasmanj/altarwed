@@ -1,6 +1,7 @@
 package com.altarwed.web.controller;
 
 import com.altarwed.application.dto.AddWeddingPhotoRequest;
+import com.altarwed.application.dto.ReorderWeddingPhotosRequest;
 import com.altarwed.application.dto.UpdateWeddingPhotoRequest;
 import com.altarwed.application.dto.WeddingPhotoResponse;
 import com.altarwed.application.service.WeddingPhotoService;
@@ -65,6 +66,17 @@ public class WeddingPhotoController {
     ) {
         accessGuard.assertOwnsWebsite(websiteId, email);
         return ResponseEntity.ok(mapper.toResponse(service.updatePhoto(websiteId, photoId, request)));
+    }
+
+    @PatchMapping("/website/{websiteId}/reorder")
+    public ResponseEntity<Void> reorder(
+            @PathVariable UUID websiteId,
+            @Valid @RequestBody ReorderWeddingPhotosRequest request,
+            @AuthenticationPrincipal String email
+    ) {
+        accessGuard.assertOwnsWebsite(websiteId, email);
+        service.reorderPhotos(websiteId, request.orderedIds());
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/website/{websiteId}/{photoId}")

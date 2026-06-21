@@ -70,6 +70,24 @@ public class WeddingPhotoService {
     }
 
     @Transactional
+    public void reorderPhotos(UUID websiteId, List<UUID> orderedIds) {
+        List<WeddingPhoto> current = photoRepository.findAllByWeddingWebsiteId(websiteId);
+        // orderedIds must be a permutation of exactly this album's photo IDs: no extras
+        // (which could touch another couple's row), no omissions, no duplicates.
+        if (orderedIds.size() != current.size()
+                || !current.stream().map(WeddingPhoto::id).allMatch(orderedIds::contains)) {
+            throw new IllegalArgumentException("orderedIds must contain exactly all photo IDs in this album");
+        }
+        List<WeddingPhoto> reordered = current.stream()
+                .map(p -> new WeddingPhoto(p.id(), p.weddingWebsiteId(), p.url(), p.caption(),
+                        orderedIds.indexOf(p.id()), p.createdAt(),
+                        p.focalPointX(), p.focalPointY(), p.zoom()))
+                .toList();
+        photoRepository.saveAll(reordered);
+        log.info("wedding photo album reordered, websiteId={}, count={}", websiteId, reordered.size());
+    }
+
+    @Transactional
     public void deletePhoto(UUID websiteId, UUID photoId) {
         if (!photoRepository.existsByIdAndWeddingWebsiteId(photoId, websiteId)) {
             throw new WeddingPhotoNotFoundException(photoId.toString());

@@ -25,6 +25,12 @@ public class WeddingPhotoRepositoryAdapter implements WeddingPhotoRepository {
     }
 
     @Override
+    public List<WeddingPhoto> saveAll(List<WeddingPhoto> photos) {
+        return jpa.saveAll(photos.stream().map(this::toEntity).toList())
+                  .stream().map(this::toDomain).toList();
+    }
+
+    @Override
     public List<WeddingPhoto> findAllByWeddingWebsiteId(UUID weddingWebsiteId) {
         return jpa.findAllByWeddingWebsiteIdOrderBySortOrderAsc(weddingWebsiteId)
                   .stream().map(this::toDomain).toList();

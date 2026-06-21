@@ -1,8 +1,16 @@
-import React, { useEffect, useState } from 'react'
-import { ChevronUp, ChevronDown } from 'lucide-react'
+import React, { useEffect, useState, type CSSProperties } from 'react'
+import { GripVertical } from 'lucide-react'
+import {
+  DndContext, closestCenter, PointerSensor, TouchSensor, KeyboardSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext, verticalListSortingStrategy, useSortable, sortableKeyboardCoordinates, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useConfirm } from '@/components/ConfirmDialog'
 import {
-  useWeddingParty, useAddMember, useUpdateMember, useDeleteMember, useUploadMemberPhoto,
+  useWeddingParty, useAddMember, useUpdateMember, useDeleteMember, useUploadMemberPhoto, useReorderParty,
   type WeddingPartyMember, type PartySide,
 } from './useWeddingParty'
 import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
@@ -33,6 +41,13 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
   const updateMember = useUpdateMember(websiteId)
   const deleteMember = useDeleteMember(websiteId)
   const uploadPhoto  = useUploadMemberPhoto(websiteId)
+  const reorderParty = useReorderParty(websiteId)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
   const uploadError  = uploadPhoto.error
     ? ((uploadPhoto.error as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? 'Upload failed. Please try again.')
     : null
@@ -53,16 +68,50 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
     && ((brideCount >= 1 && groomCount === 0) || (groomCount >= 1 && brideCount === 0))
   const hintMissingSide = groomCount === 0 ? "groom's" : "bride's"
 
-  const reorder = async (index: number, dir: -1 | 1) => {
-    const target = index + dir
-    if (target < 0 || target >= ordered.length) return
-    const next = [...ordered]
-    ;[next[index], next[target]] = [next[target], next[index]]
-    await Promise.all(
-      next.flatMap((m, i) =>
-        m.sortOrder === i ? [] : [updateMember.mutateAsync({ memberId: m.id, payload: { sortOrder: i } })],
-      ),
-    )
+  const handleDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const ids = ordered.map(m => m.id)
+    reorderParty.mutate(arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id))))
+  }
+
+  // Shared props + the editing-vs-card branch, so the sortable (All) and filtered
+  // lists render identical rows without duplicating the wiring.
+  const cardProps = (member: WeddingPartyMember) => ({
+    member,
+    onEdit: () => setEditingId(member.id),
+    onDelete: async () => {
+      if (await confirm({
+        title: `Remove ${member.name}?`,
+        message: 'They will be removed from your wedding party and your public wedding website.',
+        tone: 'danger' as const,
+        confirmLabel: 'Remove',
+      })) deleteMember.mutate(member.id)
+    },
+    onPhotoUpload: (file: File) => uploadPhoto.mutate({ memberId: member.id, file }),
+    onReposition: () => setRepositioning(member),
+    isUploading: uploadPhoto.isPending,
+  })
+
+  const renderRow = (member: WeddingPartyMember, sortable: boolean) => {
+    if (editingId === member.id) {
+      return (
+        <MemberForm
+          key={member.id}
+          initial={member}
+          onSubmit={async (data) => {
+            await updateMember.mutateAsync({ memberId: member.id, payload: data })
+            setEditingId(null)
+          }}
+          onCancel={() => setEditingId(null)}
+          isPending={updateMember.isPending}
+          allowPhoto={false}
+        />
+      )
+    }
+    return sortable
+      ? <SortableMember key={member.id} {...cardProps(member)} />
+      : <MemberCard key={member.id} {...cardProps(member)} />
   }
 
   return (
@@ -136,46 +185,17 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
         </div>
       ) : (
         <div className="space-y-4">
-          {displayed.map((member) => {
-            const globalIdx = ordered.findIndex(m => m.id === member.id)
-            return editingId === member.id ? (
-              <MemberForm
-                key={member.id}
-                initial={member}
-                onSubmit={async (data) => {
-                  await updateMember.mutateAsync({ memberId: member.id, payload: data })
-                  setEditingId(null)
-                }}
-                onCancel={() => setEditingId(null)}
-                isPending={updateMember.isPending}
-                allowPhoto={false}
-              />
-            ) : (
-              <MemberCard
-                key={member.id}
-                member={member}
-                onEdit={() => setEditingId(member.id)}
-                onDelete={async () => {
-                  if (await confirm({
-                    title: `Remove ${member.name}?`,
-                    message: 'They will be removed from your wedding party and your public wedding website.',
-                    tone: 'danger',
-                    confirmLabel: 'Remove',
-                  })) deleteMember.mutate(member.id)
-                }}
-                onPhotoUpload={(file) => uploadPhoto.mutate({ memberId: member.id, file })}
-                onReposition={() => setRepositioning(member)}
-                isUploading={uploadPhoto.isPending}
-                reorder={sideFilter === 'ALL' ? {
-                  canUp: globalIdx > 0,
-                  canDown: globalIdx < ordered.length - 1,
-                  onUp: () => reorder(globalIdx, -1),
-                  onDown: () => reorder(globalIdx, 1),
-                  busy: updateMember.isPending,
-                } : undefined}
-              />
-            )
-          })}
+          {/* Drag-to-reorder only in the All view: reordering a filtered subset can't
+              map cleanly onto the single global sort order. */}
+          {sideFilter === 'ALL' ? (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={displayed.map(m => m.id)} strategy={verticalListSortingStrategy}>
+                {displayed.map(m => renderRow(m, true))}
+              </SortableContext>
+            </DndContext>
+          ) : (
+            displayed.map(m => renderRow(m, false))
+          )}
         </div>
       )}
 
@@ -201,23 +221,45 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
   )
 }
 
-interface ReorderControls {
-  canUp: boolean
-  canDown: boolean
-  onUp: () => void
-  onDown: () => void
-  busy: boolean
-}
-
-function MemberCard({ member, onEdit, onDelete, onPhotoUpload, onReposition, isUploading, reorder }: {
+interface MemberCardProps {
   member: WeddingPartyMember
   onEdit: () => void
   onDelete: () => void
   onPhotoUpload: (file: File) => void
   onReposition: () => void
   isUploading: boolean
-  reorder?: ReorderControls
-}) {
+}
+
+// Wraps a member row in a dnd-kit sortable with a grip handle on the left. The handle
+// owns the drag listeners so the card's own buttons (edit, remove, reposition, upload)
+// keep working; touch-none stops the browser scrolling mid-drag.
+function SortableMember(props: MemberCardProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.member.id })
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 20 : undefined,
+    opacity: isDragging ? 0.5 : 1,
+  }
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-stretch gap-1">
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label={`Drag to reorder ${props.member.name}`}
+        className="shrink-0 px-1 flex items-center text-brown-light hover:text-brown cursor-grab active:cursor-grabbing touch-none rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+      >
+        <GripVertical size={18} />
+      </button>
+      <div className="flex-1 min-w-0">
+        <MemberCard {...props} />
+      </div>
+    </div>
+  )
+}
+
+function MemberCard({ member, onEdit, onDelete, onPhotoUpload, onReposition, isUploading }: MemberCardProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   return (
@@ -271,26 +313,6 @@ function MemberCard({ member, onEdit, onDelete, onPhotoUpload, onReposition, isU
             </span>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            {reorder && (
-              <div className="flex flex-col -my-1">
-                <button
-                  onClick={reorder.onUp}
-                  disabled={!reorder.canUp || reorder.busy}
-                  aria-label={`Move ${member.name} up`}
-                  className="text-brown-light hover:text-brown disabled:opacity-30 transition"
-                >
-                  <ChevronUp size={16} />
-                </button>
-                <button
-                  onClick={reorder.onDown}
-                  disabled={!reorder.canDown || reorder.busy}
-                  aria-label={`Move ${member.name} down`}
-                  className="text-brown-light hover:text-brown disabled:opacity-30 transition"
-                >
-                  <ChevronDown size={16} />
-                </button>
-              </div>
-            )}
             {member.photoUrl && (
               <button onClick={onReposition} className="text-xs text-brown-light hover:text-brown transition">Reposition</button>
             )}

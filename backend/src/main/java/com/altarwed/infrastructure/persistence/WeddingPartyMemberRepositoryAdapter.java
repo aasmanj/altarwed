@@ -25,6 +25,12 @@ public class WeddingPartyMemberRepositoryAdapter implements WeddingPartyMemberRe
     }
 
     @Override
+    public List<WeddingPartyMember> saveAll(List<WeddingPartyMember> members) {
+        return jpa.saveAll(members.stream().map(this::toEntity).toList())
+                  .stream().map(this::toDomain).toList();
+    }
+
+    @Override
     public List<WeddingPartyMember> findAllByWeddingWebsiteId(UUID weddingWebsiteId) {
         return jpa.findAllByWeddingWebsiteIdOrderBySortOrderAscCreatedAtAsc(weddingWebsiteId)
                   .stream().map(this::toDomain).toList();

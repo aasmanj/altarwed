@@ -8,6 +8,7 @@ import java.util.UUID;
 
 public interface WeddingPartyMemberRepository {
     WeddingPartyMember save(WeddingPartyMember member);
+    List<WeddingPartyMember> saveAll(List<WeddingPartyMember> members);
     List<WeddingPartyMember> findAllByWeddingWebsiteId(UUID weddingWebsiteId);
     Optional<WeddingPartyMember> findById(UUID id);
     void deleteById(UUID id);

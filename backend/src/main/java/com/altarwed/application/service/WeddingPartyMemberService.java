@@ -65,6 +65,24 @@ public class WeddingPartyMemberService {
     }
 
     @Transactional
+    public void reorderMembers(UUID weddingWebsiteId, List<UUID> orderedIds) {
+        List<WeddingPartyMember> current = repository.findAllByWeddingWebsiteId(weddingWebsiteId);
+        // orderedIds must be a permutation of exactly this party's member IDs: no extras
+        // (which could touch another couple's row), no omissions, no duplicates.
+        if (orderedIds.size() != current.size()
+                || !current.stream().map(WeddingPartyMember::id).allMatch(orderedIds::contains)) {
+            throw new IllegalArgumentException("orderedIds must contain exactly all member IDs in this wedding party");
+        }
+        List<WeddingPartyMember> reordered = current.stream()
+                .map(m -> new WeddingPartyMember(m.id(), m.weddingWebsiteId(), m.name(), m.role(), m.side(),
+                        m.bio(), m.photoUrl(), orderedIds.indexOf(m.id()), m.createdAt(), LocalDateTime.now(),
+                        m.focalPointX(), m.focalPointY(), m.zoom()))
+                .toList();
+        repository.saveAll(reordered);
+        log.info("wedding party reordered, websiteId={}, count={}", weddingWebsiteId, reordered.size());
+    }
+
+    @Transactional
     public void deleteMember(UUID weddingWebsiteId, UUID memberId) {
         if (!repository.existsByIdAndWeddingWebsiteId(memberId, weddingWebsiteId)) {
             throw new WeddingPartyMemberNotFoundException(memberId.toString());

@@ -69,6 +69,25 @@ export function useUpdateMember(websiteId: string) {
   })
 }
 
+export function useReorderParty(websiteId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (orderedIds: string[]) =>
+      apiClient.patch(`/api/v1/wedding-party/website/${websiteId}/reorder`, { orderedIds }),
+    // Optimistic so the drag feels instant; reassign sortOrder by index and roll back
+    // to the snapshot if the server rejects.
+    onMutate: async (orderedIds) => {
+      await qc.cancelQueries({ queryKey: key(websiteId) })
+      const prev = qc.getQueryData<WeddingPartyMember[]>(key(websiteId))
+      qc.setQueryData<WeddingPartyMember[]>(key(websiteId), old =>
+        old ? orderedIds.map((id, i) => ({ ...old.find(m => m.id === id)!, sortOrder: i })) : old)
+      return { prev }
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(key(websiteId), ctx.prev) },
+    onSettled: () => qc.invalidateQueries({ queryKey: key(websiteId) }),
+  })
+}
+
 export function useUploadMemberPhoto(websiteId: string) {
   const qc = useQueryClient()
   return useMutation({
