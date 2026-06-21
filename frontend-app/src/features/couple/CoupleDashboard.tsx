@@ -56,13 +56,18 @@ export default function CoupleDashboard() {
         </div>
       </header>
 
-      {/* Help banner */}
+      {/* Help banner: self-serve first (the Help Center answers most questions), then
+          email as the escalation path for an actual bug. */}
       <div className="bg-gold/10 border-b border-gold-light px-4 sm:px-6 py-2.5 text-center text-sm text-brown">
-        Questions or found a bug?{' '}
-        <a href="mailto:hello@altarwed.com" className="font-medium text-gold hover:underline">
-          Email hello@altarwed.com
+        Need help? Visit the{' '}
+        <a href="https://www.altarwed.com/help" target="_blank" rel="noopener noreferrer" className="font-medium text-gold hover:underline">
+          Help Center
         </a>
-
+        , or{' '}
+        <a href="mailto:hello@altarwed.com" className="font-medium text-gold hover:underline">
+          email us
+        </a>
+        {' '}about a bug.
       </div>
 
       <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-10">
