@@ -52,6 +52,12 @@ a faith-filled welcome/program note, scripture readings by theme, honoring God i
 - **Never use em dashes anywhere** (house rule). Use commas, periods, or parentheses.
 - Be concrete and genuinely useful: real examples, sample wording, short scripture quotes with
   reference (e.g. 1 Corinthians 13:4), checklists. Earn the read.
+- **Placeholder values (dates, city, venue):** whenever sample wording needs a stand-in date,
+  city, or venue, use **2026 or a later year** (never a past year like 2025) and **Raleigh, NC**
+  as the city. Church/venue names can be anything plausible (e.g. "Christ the King Church"). Why:
+  AltarWed's first marketing push is local to Raleigh, NC, so Raleigh placeholders keep examples
+  on-brand and seed local relevance. Keep it natural, do not stuff "Raleigh, NC" where a real
+  couple would not write it.
 
 **Structure & SEO:**
 - 1,200-1,800 words. Scannable: short paragraphs, descriptive `<h2>`/`<h3>` subheads that
