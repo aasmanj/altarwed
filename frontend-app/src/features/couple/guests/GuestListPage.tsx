@@ -24,6 +24,7 @@ import {
 } from './useGoogleSheetSync'
 import { openSheetPicker, canonicalSheetUrl } from './googlePicker'
 import { apiClient } from '@/core/api/client'
+import CustomQuestionsManager from './CustomQuestionsManager'
 
 const STATUS_LABEL: Record<RsvpStatus, string> = {
   PENDING: 'Pending', ATTENDING: 'Attending', DECLINING: 'Declining',
@@ -321,6 +322,7 @@ export default function GuestListPage() {
   const responseRate     = respondable > 0 ? Math.round((respondedRecords / respondable) * 100) : 0
 
   const [showAnalytics, setShowAnalytics] = useState(false)
+  const [showCustomQuestions, setShowCustomQuestions] = useState(false)
 
   // Celebrate the very first RSVP. We persist the "seen first RSVP" flag in
   // localStorage so the confetti only fires once per couple, even across page
@@ -666,6 +668,19 @@ export default function GuestListPage() {
             songCount={songCount}
           />
         )}
+
+        {/* Custom RSVP questions toggle + manager */}
+        <div className="mb-4">
+          <button
+            onClick={() => setShowCustomQuestions(v => !v)}
+            className="inline-flex items-center gap-1 text-sm text-gold hover:underline"
+          >
+            {showCustomQuestions
+              ? <>Hide custom RSVP questions <ChevronUp size={14} /></>
+              : <>Custom RSVP questions <ChevronDown size={14} /></>}
+          </button>
+        </div>
+        {showCustomQuestions && <CustomQuestionsManager coupleId={coupleId} />}
 
         {/* Search bar */}
         <div className="mb-4">

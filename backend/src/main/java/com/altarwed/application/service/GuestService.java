@@ -37,6 +37,7 @@ public class GuestService {
     private final CoupleRepository coupleRepository;
     private final AsyncEmailService asyncEmailService;
     private final EmailSuppressionService suppressionService;
+    private final CustomRsvpQuestionService customRsvpQuestionService;
 
     public GuestService(
             GuestRepository guestRepository,
@@ -44,7 +45,8 @@ public class GuestService {
             WeddingWebsiteRepository websiteRepository,
             CoupleRepository coupleRepository,
             AsyncEmailService asyncEmailService,
-            EmailSuppressionService suppressionService
+            EmailSuppressionService suppressionService,
+            CustomRsvpQuestionService customRsvpQuestionService
     ) {
         this.guestRepository = guestRepository;
         this.tokenRepository = tokenRepository;
@@ -52,6 +54,7 @@ public class GuestService {
         this.coupleRepository = coupleRepository;
         this.asyncEmailService = asyncEmailService;
         this.suppressionService = suppressionService;
+        this.customRsvpQuestionService = customRsvpQuestionService;
     }
 
     @Transactional
@@ -445,7 +448,8 @@ public class GuestService {
                 guest.plusOneName(),
                 guest.dietaryRestrictions(),
                 guest.songRequest(),
-                guest.noteForCouple()
+                guest.noteForCouple(),
+                customRsvpQuestionService.activeForRsvp(guest.coupleId())
         );
     }
 
@@ -518,6 +522,13 @@ public class GuestService {
             }
             log.info("rsvp party members saved, guestId={}, coupleId={}, count={}",
                     guest.id(), guest.coupleId(), savedMembers);
+        }
+
+        // Persist custom-question answers for this submission (household-level, stored
+        // against the responding guest). Only when answers were submitted, so a "remind me"
+        // deferral (which carries none) never wipes previously saved answers.
+        if (req.customAnswers() != null) {
+            customRsvpQuestionService.replaceAnswers(responded.coupleId(), responded.id(), req.customAnswers());
         }
 
         // Only mark the token used if the guest is actually responding (not just setting a reminder).

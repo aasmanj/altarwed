@@ -26,5 +26,7 @@ public record RsvpPageDataResponse(
         String currentPlusOneName,
         String currentDietary,
         String currentSongRequest,
-        String currentNoteForCouple
+        String currentNoteForCouple,
+        // Couple-defined custom questions to render on the RSVP form (active only).
+        List<CustomQuestionPublic> customQuestions
 ) {}

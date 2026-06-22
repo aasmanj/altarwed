@@ -13,11 +13,20 @@ interface PartyMemberInfo {
   currentSongRequest: string | null
 }
 
+interface CustomQuestion {
+  id: string
+  questionText: string
+  type: 'TEXT' | 'YES_NO' | 'CHOICE'
+  options: string[]
+  required: boolean
+}
+
 type PartyStatus = 'ATTENDING' | 'DECLINING' | 'PENDING'
 
 export default function RsvpForm({
   token, plusOneAllowed, weddingSlug, hasRegistry, apiUrl, partyMembers,
   currentRsvpStatus, currentPlusOneName, currentDietary, currentSongRequest, currentNoteForCouple,
+  customQuestions,
 }: {
   token: string
   plusOneAllowed: boolean
@@ -30,6 +39,7 @@ export default function RsvpForm({
   currentDietary?: string
   currentSongRequest?: string
   currentNoteForCouple?: string
+  customQuestions?: CustomQuestion[]
 }) {
   const hasExistingResponse = currentRsvpStatus === 'ATTENDING' || currentRsvpStatus === 'DECLINING'
 
@@ -60,14 +70,21 @@ export default function RsvpForm({
   const [dietary, setDietary]           = useState(currentDietary ?? '')
   const [song, setSong]                 = useState(currentSongRequest ?? '')
   const [noteForCouple, setNoteForCouple] = useState(currentNoteForCouple ?? '')
+  // Answers to the couple's custom questions, keyed by question id.
+  const [customAnswers, setCustomAnswers] = useState<Record<string, string>>({})
   const [submitting, setSubmitting]     = useState(false)
   const [done, setDone]                 = useState(false)
   const [error, setError]               = useState('')
 
-  // A submission is ready when ATTENDING/DECLINING is selected,
-  // OR the guest chose "remind me" and picked an interval.
-  const isReady = (status === 'ATTENDING' || status === 'DECLINING') ||
-                  (status === 'PENDING' && remindInDays !== null)
+  // Required custom questions must be answered, but only when attending (that is the only
+  // time they are shown).
+  const requiredCustomAnswered = !customQuestions || status !== 'ATTENDING'
+    || customQuestions.filter(q => q.required).every(q => (customAnswers[q.id] ?? '').trim() !== '')
+
+  // A submission is ready when ATTENDING/DECLINING is selected (and any required custom
+  // questions are answered), OR the guest chose "remind me" and picked an interval.
+  const isReady = (((status === 'ATTENDING' || status === 'DECLINING') ||
+                  (status === 'PENDING' && remindInDays !== null))) && requiredCustomAnswered
 
   const handleStatusSelect = (s: Status) => {
     setStatus(s)
@@ -95,6 +112,18 @@ export default function RsvpForm({
           })
         : undefined
 
+      // Custom answers ride along only on a real response and only when the couple has
+      // questions. Attending sends the filled-in answers; declining sends an empty list so
+      // the backend clears any answers from a prior attending response. Reminders send none.
+      const isRealResponse = status === 'ATTENDING' || status === 'DECLINING'
+      const customAnswersPayload = (isRealResponse && customQuestions && customQuestions.length > 0)
+        ? (status === 'ATTENDING'
+            ? customQuestions
+                .map(q => ({ questionId: q.id, answerText: (customAnswers[q.id] ?? '').trim() }))
+                .filter(a => a.answerText !== '')
+            : [])
+        : undefined
+
       const res = await fetch(`${apiUrl}/api/v1/guests/rsvp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -107,6 +136,7 @@ export default function RsvpForm({
           noteForCouple: noteForCouple.trim() || undefined,
           remindInDays: remindInDays ?? undefined,
           partyResponses,
+          customAnswers: customAnswersPayload,
         }),
       })
       if (!res.ok) throw new Error('Failed')
@@ -262,6 +292,70 @@ export default function RsvpForm({
             />
           </div>
         </>
+      )}
+
+      {/* Custom questions the couple added, shown when attending. */}
+      {status === 'ATTENDING' && customQuestions && customQuestions.length > 0 && (
+        <div className="space-y-4">
+          {customQuestions.map(q => {
+            const val = customAnswers[q.id] ?? ''
+            const setVal = (v: string) => setCustomAnswers(prev => ({ ...prev, [q.id]: v }))
+            const labelText = q.required ? `${q.questionText} *` : q.questionText
+            if (q.type === 'YES_NO') {
+              return (
+                <fieldset key={q.id}>
+                  <legend className="text-sm font-medium text-[#3b2f2f] mb-1.5">{labelText}</legend>
+                  <div className="flex gap-2">
+                    {['Yes', 'No'].map(opt => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setVal(opt)}
+                        className={`flex-1 rounded-lg border py-2 text-sm font-medium transition ${
+                          val === opt
+                            ? 'border-[#4a1942] bg-[#4a1942] text-white'
+                            : 'border-[#e8dcc8] text-[#3b2f2f] hover:border-[#d4af6a]'
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+              )
+            }
+            if (q.type === 'CHOICE') {
+              return (
+                <div key={q.id}>
+                  <label htmlFor={`cq-${q.id}`} className="block text-sm font-medium text-[#3b2f2f] mb-1.5">{labelText}</label>
+                  <select
+                    id={`cq-${q.id}`}
+                    value={val}
+                    onChange={e => setVal(e.target.value)}
+                    required={q.required}
+                    className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
+                  >
+                    <option value="">Select...</option>
+                    {q.options.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+              )
+            }
+            return (
+              <div key={q.id}>
+                <label htmlFor={`cq-${q.id}`} className="block text-sm font-medium text-[#3b2f2f] mb-1.5">{labelText}</label>
+                <input
+                  id={`cq-${q.id}`}
+                  type="text"
+                  value={val}
+                  onChange={e => setVal(e.target.value)}
+                  required={q.required}
+                  className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
+                />
+              </div>
+            )
+          })}
+        </div>
       )}
 
       {/* Note to couple, available regardless of status so declining guests can leave a blessing */}

@@ -26,5 +26,9 @@ public record SubmitRsvpRequest(
         // @Valid is required for Bean Validation to cascade into the list elements;
         // without it the @NotNull/@Size constraints on PartyMemberResponse never fire and
         // an over-length dietary/song string reaches the DB and aborts the insert.
-        @Valid List<PartyMemberResponse> partyResponses
+        @Valid List<PartyMemberResponse> partyResponses,
+        // Answers to the couple's custom RSVP questions, one per answered question. Capped
+        // so a malicious submit on this public, token-gated path cannot flood the answer
+        // table or the logs.
+        @Size(max = 50) @Valid List<CustomAnswerSubmission> customAnswers
 ) {}

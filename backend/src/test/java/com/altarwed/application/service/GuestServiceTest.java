@@ -49,6 +49,7 @@ class GuestServiceTest {
     @Mock private CoupleRepository coupleRepository;
     @Mock private AsyncEmailService asyncEmailService;
     @Mock private EmailSuppressionService suppressionService;
+    @Mock private CustomRsvpQuestionService customRsvpQuestionService;
 
     @BeforeEach
     void setUp() {
@@ -60,7 +61,7 @@ class GuestServiceTest {
 
     private GuestService service() {
         return new GuestService(guestRepository, tokenRepository, websiteRepository,
-                coupleRepository, asyncEmailService, suppressionService);
+                coupleRepository, asyncEmailService, suppressionService, customRsvpQuestionService);
     }
 
     private Guest guest(UUID coupleId, String name, String email) {
@@ -207,7 +208,7 @@ class GuestServiceTest {
                 null, null, null, false, true, null, null)));
 
         service().submitRsvp(new SubmitRsvpRequest(
-                "raw-token", GuestRsvpStatus.ATTENDING, null, null, null, null, null, null));
+                "raw-token", GuestRsvpStatus.ATTENDING, null, null, null, null, null, null, null));
 
         // Last arg is the Reply-To: it must be the responding guest's address, NOT the
         // couple's own (which would route the couple's reply back to themselves).
