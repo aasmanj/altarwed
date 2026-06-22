@@ -10,6 +10,7 @@ import com.altarwed.domain.port.VendorPortfolioPhotoRepository;
 import com.altarwed.domain.port.VendorRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -20,7 +21,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -53,9 +56,11 @@ class VendorServiceTest {
 
         vendorService.deleteVendor(vendorId);
 
-        verify(inquiryRepository).deleteByVendorId(vendorId);
-        verify(refreshTokenRepository).deleteAllByUserId(vendorId);
-        verify(vendorRepository).deleteById(vendorId);
+        // inquiries has no DB cascade, so it must be deleted before the vendor row.
+        InOrder ordered = inOrder(inquiryRepository, refreshTokenRepository, vendorRepository);
+        ordered.verify(inquiryRepository).deleteByVendorId(vendorId);
+        ordered.verify(refreshTokenRepository).deleteAllByUserId(vendorId);
+        ordered.verify(vendorRepository).deleteById(vendorId);
         verify(blobStorage).delete("https://cdn/logo.jpg");
         verify(blobStorage).delete("https://cdn/p1.jpg");
         verify(blobStorage).delete("https://cdn/p2.jpg");
@@ -87,7 +92,7 @@ class VendorServiceTest {
         verify(refreshTokenRepository, never()).deleteAllByUserId(vendorId);
         verify(vendorRepository, never()).deleteById(vendorId);
         verify(portfolioPhotoRepository, never()).findAllByVendorId(vendorId);
-        verify(blobStorage, never()).delete(org.mockito.ArgumentMatchers.anyString());
+        verify(blobStorage, never()).delete(anyString());
     }
 
     private Vendor vendorWithLogo(UUID id, String logoUrl) {

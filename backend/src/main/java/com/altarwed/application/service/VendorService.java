@@ -15,6 +15,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -148,18 +150,37 @@ public class VendorService {
         refreshTokenRepository.deleteAllByUserId(vendorId);
         vendorRepository.deleteById(vendorId);
 
-        // Best-effort blob cleanup, isolated per blob: one storage failure must not
-        // abort the (already-applied) row deletes or block the remaining blobs. A
-        // failure leaves a recoverable, logged orphan, which is far better than
-        // refusing to delete the vendor over a transient storage error.
+        // Delete the blobs only AFTER the row deletes commit. blobStorage.delete is an
+        // irreversible external call that rethrows on failure; running it inside the
+        // transaction would both hold the DB connection across Azure round-trips and,
+        // worse, risk deleting blobs for rows that a commit-time failure then rolls back
+        // (leaving surviving rows pointing at deleted blobs). With no active transaction
+        // (e.g. a direct unit-test call) fall back to inline cleanup.
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    deleteBlobsBestEffort(vendorId, blobUrls);
+                }
+            });
+        } else {
+            deleteBlobsBestEffort(vendorId, blobUrls);
+        }
+        log.info("vendor hard deleted, vendorId={}, blobs={}", vendorId, blobUrls.size());
+    }
+
+    // Best-effort, isolated per blob: one storage failure must not block the others.
+    // A failure leaves a recoverable, logged orphan, far better than failing the
+    // already-committed delete over a transient storage error. WARN not ERROR: a
+    // tolerated per-item batch failure, not an on-call page.
+    private void deleteBlobsBestEffort(UUID vendorId, List<String> blobUrls) {
         for (String url : blobUrls) {
             try {
                 blobStorage.delete(url);
             } catch (RuntimeException ex) {
-                log.error("vendor blob orphaned, delete failed during hard delete, vendorId={}, url={}", vendorId, url, ex);
+                log.warn("vendor blob orphaned, delete failed during hard delete, vendorId={}, url={}", vendorId, url, ex);
             }
         }
-        log.info("vendor hard deleted, vendorId={}, blobsDeleted={}", vendorId, blobUrls.size());
     }
 
     private String blankToNull(String s) {
