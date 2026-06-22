@@ -183,7 +183,7 @@ function TableColumn({
         ))}
         {isUnassigned && filled === 0 && (
           <p className="text-xs text-amber-700/60 italic px-1 py-2">
-            {filtersActive
+            {filtersActive && (totalCount ?? 0) > 0
               ? 'No unseated guests match your filters.'
               : 'All guests seated. Drag a guest here to remove them from a table.'}
           </p>
