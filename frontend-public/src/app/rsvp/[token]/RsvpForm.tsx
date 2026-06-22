@@ -8,6 +8,9 @@ type Status = 'ATTENDING' | 'DECLINING' | 'PENDING'
 interface PartyMemberInfo {
   guestId: string
   name: string
+  currentRsvpStatus: string | null
+  currentDietary: string | null
+  currentSongRequest: string | null
 }
 
 interface CustomQuestion {
@@ -44,10 +47,23 @@ export default function RsvpForm({
     hasExistingResponse ? (currentRsvpStatus as Status) : null
   )
   const [remindInDays, setRemindInDays] = useState<number | null>(null)
-  // partyStatuses: keyed by guestId, value is ATTENDING/DECLINING/PENDING
+  // partyStatuses: keyed by guestId, value is ATTENDING/DECLINING/PENDING. Pre-filled from
+  // each member's existing response so re-RSVPing shows their prior choice, not a reset.
   const [partyStatuses, setPartyStatuses] = useState<Record<string, PartyStatus>>(() => {
     const init: Record<string, PartyStatus> = {}
-    partyMembers?.forEach(m => { init[m.guestId] = 'ATTENDING' })
+    partyMembers?.forEach(m => { init[m.guestId] = m.currentRsvpStatus === 'DECLINING' ? 'DECLINING' : 'ATTENDING' })
+    return init
+  })
+  // Per-member dietary + song, collected for each attending member (note-to-couple stays a
+  // single party-level field). Pre-filled from any existing answers.
+  const [partyDietary, setPartyDietary] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {}
+    partyMembers?.forEach(m => { init[m.guestId] = m.currentDietary ?? '' })
+    return init
+  })
+  const [partySong, setPartySong] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {}
+    partyMembers?.forEach(m => { init[m.guestId] = m.currentSongRequest ?? '' })
     return init
   })
   const [plusOne, setPlusOne]           = useState(currentPlusOneName ?? '')
@@ -81,9 +97,19 @@ export default function RsvpForm({
     setSubmitting(true)
     setError('')
     try {
-      // Build party responses for other members
+      // Build party responses for other members. Dietary/song only ride along for members
+      // marked attending; a declining member sends just their status.
       const partyResponses = partyMembers && partyMembers.length > 0
-        ? partyMembers.map(m => ({ guestId: m.guestId, status: partyStatuses[m.guestId] ?? 'ATTENDING' }))
+        ? partyMembers.map(m => {
+            const memberStatus = partyStatuses[m.guestId] ?? 'ATTENDING'
+            const attending = memberStatus === 'ATTENDING'
+            return {
+              guestId: m.guestId,
+              status: memberStatus,
+              dietaryRestrictions: attending ? (partyDietary[m.guestId]?.trim() || undefined) : undefined,
+              songRequest: attending ? (partySong[m.guestId]?.trim() || undefined) : undefined,
+            }
+          })
         : undefined
 
       // Custom answers ride along only on a real response and only when the couple has
@@ -355,24 +381,47 @@ export default function RsvpForm({
           <p className="text-sm font-medium text-[#3b2f2f]">Other members in your party</p>
           <p className="text-xs text-[#8a6a4a]">Let us know if each person will be attending.</p>
           {partyMembers.map(m => (
-            <div key={m.guestId} className="flex items-center justify-between gap-4">
-              <span className="text-sm text-[#3b2f2f]">{m.name}</span>
-              <div className="flex gap-2">
-                {(['ATTENDING', 'DECLINING'] as PartyStatus[]).map(s => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setPartyStatuses(prev => ({ ...prev, [m.guestId]: s }))}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
-                      partyStatuses[m.guestId] === s
-                        ? 'border-[#4a1942] bg-[#4a1942] text-white'
-                        : 'border-[#e8dcc8] text-[#6b5344] hover:border-[#d4af6a]'
-                    }`}
-                  >
-                    {s === 'ATTENDING' ? 'Attending' : 'Declining'}
-                  </button>
-                ))}
+            <div key={m.guestId} className="space-y-2 border-b border-[#f0e8da] last:border-0 pb-3 last:pb-0">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-sm text-[#3b2f2f]">{m.name}</span>
+                <div className="flex gap-2">
+                  {(['ATTENDING', 'DECLINING'] as PartyStatus[]).map(s => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setPartyStatuses(prev => ({ ...prev, [m.guestId]: s }))}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                        partyStatuses[m.guestId] === s
+                          ? 'border-[#4a1942] bg-[#4a1942] text-white'
+                          : 'border-[#e8dcc8] text-[#6b5344] hover:border-[#d4af6a]'
+                      }`}
+                    >
+                      {s === 'ATTENDING' ? 'Attending' : 'Declining'}
+                    </button>
+                  ))}
+                </div>
               </div>
+              {/* Per-member meal details, only when that member is attending. */}
+              {partyStatuses[m.guestId] === 'ATTENDING' && (
+                <div className="grid gap-2">
+                  <input
+                    type="text"
+                    value={partyDietary[m.guestId] ?? ''}
+                    onChange={e => setPartyDietary(prev => ({ ...prev, [m.guestId]: e.target.value }))}
+                    placeholder="Dietary restrictions (optional)"
+                    aria-label={`Dietary restrictions for ${m.name}`}
+                    className="w-full rounded-lg border border-[#e8dcc8] px-3 py-2 text-[#3b2f2f] text-xs focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
+                  />
+                  <input
+                    type="text"
+                    value={partySong[m.guestId] ?? ''}
+                    onChange={e => setPartySong(prev => ({ ...prev, [m.guestId]: e.target.value }))}
+                    placeholder="Song request (optional)"
+                    aria-label={`Song request for ${m.name}`}
+                    className="w-full rounded-lg border border-[#e8dcc8] px-3 py-2 text-[#3b2f2f] text-xs focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
+                  />
+                </div>
+              )}
             </div>
           ))}
         </div>

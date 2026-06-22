@@ -23,7 +23,10 @@ public record SubmitRsvpRequest(
         // When the guest belongs to a party, individual responses for each member.
         // If present, the primary guest status/remindInDays fields still apply to the
         // token holder; partyResponses applies to the other members listed.
-        List<PartyMemberResponse> partyResponses,
+        // @Valid is required for Bean Validation to cascade into the list elements;
+        // without it the @NotNull/@Size constraints on PartyMemberResponse never fire and
+        // an over-length dietary/song string reaches the DB and aborts the insert.
+        @Valid List<PartyMemberResponse> partyResponses,
         // Answers to the couple's custom RSVP questions, one per answered question. Capped
         // so a malicious submit on this public, token-gated path cannot flood the answer
         // table or the logs.
