@@ -79,6 +79,14 @@ public class GoogleSheetSyncService {
     // Accepted header spellings for the Side column, lowercased.
     private static final String[] SIDE_ALIASES = { "side (bride or groom)", "bride or groom", "side" };
 
+    // Accepted header spellings for the optional Party / household column, lowercased.
+    // Guests sharing a non-blank value here are grouped into one RSVP and seating party
+    // (one person can then RSVP for the whole group). Keep in sync with GUEST_SHEET_COLUMNS
+    // in GuestListPage.tsx.
+    private static final String[] PARTY_ALIASES = {
+            "party", "party name", "household", "group", "party / household", "party/household"
+    };
+
     // DB column widths from GuestEntity, used as clamp() targets for sheet-sourced
     // values. Keep in lockstep with the entity; a mismatch reintroduces SQL 2628
     // batch aborts (one oversized cell killing the whole sync).
@@ -86,6 +94,7 @@ public class GoogleSheetSyncService {
     private static final int MAX_EMAIL = 300;
     private static final int MAX_PHONE = 50;
     private static final int MAX_PLUS_ONE_NAME = 200;
+    private static final int MAX_PARTY_NAME = 100;
     private static final int MAX_DIETARY = 500;
     private static final int MAX_MAIL_LINE1 = 200;
     private static final int MAX_MAIL_CITY = 100;
@@ -416,6 +425,13 @@ public class GoogleSheetSyncService {
                         Function.identity(),
                         (a, b) -> a));
 
+        // Sheet is authoritative for party grouping only when a Party column is present.
+        // Without the column we must not touch existing party assignments (a couple may
+        // manage parties in the dashboard while syncing the rest from a sheet).
+        boolean hasPartyColumn = hasAny(colIndex, PARTY_ALIASES);
+        Map<Integer, PartyAssignment> partyByRow = hasPartyColumn
+                ? computePartyAssignments(rows, colIndex, existing) : Map.of();
+
         // cellRange → value to write back (e.g., "P1" → "AltarWed ID", "P2" → "uuid-...")
         Map<String, String> writeBackCells = new LinkedHashMap<>();
         if (needToWriteHeader) {
@@ -473,6 +489,12 @@ public class GoogleSheetSyncService {
             Integer tableNumber = parseTableNumber(tableRaw);
             com.altarwed.domain.model.GuestSide sideVal = parseSide(side);
 
+            // Party grouping for this row (pa == null means solo / no Party column).
+            PartyAssignment pa = partyByRow.get(i);
+            UUID    rowPartyId      = pa != null ? pa.partyId()   : null;
+            String  rowPartyName    = pa != null ? pa.partyName() : null;
+            Boolean rowPartyContact = pa != null && pa.contact();
+
             // Assign or reuse the UUID for this row. A name-matched guest with an
             // orphaned stamp keeps its existing UUID (re-written into the sheet to
             // repair the cell) so the binding doesn't churn on every run.
@@ -498,7 +520,7 @@ public class GoogleSheetSyncService {
                         mailLine1, city, state, zip, country,
                         null, 0,    // noteForCouple, inviteSendCount
                         null, null, null, null, null, null,  // inviteSentAt, saveTheDateSentAt, respondedAt, remindAt, createdAt, updatedAt
-                        null, null, null,  // partyId, partyName, partyContact
+                        rowPartyId, rowPartyName, rowPartyContact,  // party grouping from sheet
                         syncId, true  // sheetSyncId, syncedFromSheet
                 ));
                 added++;
@@ -527,7 +549,9 @@ public class GoogleSheetSyncService {
                         g.noteForCouple(),
                         g.inviteSendCount(), g.inviteSentAt(), g.saveTheDateSentAt(), g.respondedAt(), g.remindAt(),
                         g.createdAt(), g.updatedAt(),
-                        g.partyId(), g.partyName(), g.partyContact(),
+                        hasPartyColumn ? rowPartyId      : g.partyId(),
+                        hasPartyColumn ? rowPartyName    : g.partyName(),
+                        hasPartyColumn ? rowPartyContact : g.partyContact(),
                         syncId, g.syncedFromSheet()  // preserve creation provenance; the CSV-path delete filter still relies on it
                 );
                 // Consume from name map so a second row with the same name creates a new guest.
@@ -600,6 +624,11 @@ public class GoogleSheetSyncService {
                         Function.identity(),
                         (a, b) -> a));
 
+        // Sheet is authoritative for party grouping only when a Party column is present.
+        boolean hasPartyColumn = hasAny(colIndex, PARTY_ALIASES);
+        Map<Integer, PartyAssignment> partyByRow = hasPartyColumn
+                ? computePartyAssignments(rows, colIndex, existing) : Map.of();
+
         List<Guest> toSave = new ArrayList<>();
         Set<UUID> seenExistingIds = new HashSet<>();
         int added = 0;
@@ -638,6 +667,12 @@ public class GoogleSheetSyncService {
             Integer tableNumber = parseTableNumber(tableRaw);
             com.altarwed.domain.model.GuestSide sideVal = parseSide(side);
 
+            // Party grouping for this row (pa == null means solo / no Party column).
+            PartyAssignment pa = partyByRow.get(i);
+            UUID    rowPartyId      = pa != null ? pa.partyId()   : null;
+            String  rowPartyName    = pa != null ? pa.partyName() : null;
+            Boolean rowPartyContact = pa != null && pa.contact();
+
             if (g == null) {
                 toSave.add(new Guest(
                         null, coupleId, name, emailVal,
@@ -649,7 +684,7 @@ public class GoogleSheetSyncService {
                         mailLine1, city, state, zip, country,
                         null, 0,
                         null, null, null, null, null, null,
-                        null, null, null,
+                        rowPartyId, rowPartyName, rowPartyContact,  // party grouping from sheet
                         null, true  // sheetSyncId (CSV can't write-back), syncedFromSheet
                 ));
                 added++;
@@ -678,7 +713,9 @@ public class GoogleSheetSyncService {
                         g.noteForCouple(),
                         g.inviteSendCount(), g.inviteSentAt(), g.saveTheDateSentAt(), g.respondedAt(), g.remindAt(),
                         g.createdAt(), g.updatedAt(),
-                        g.partyId(), g.partyName(), g.partyContact(),
+                        hasPartyColumn ? rowPartyId      : g.partyId(),
+                        hasPartyColumn ? rowPartyName    : g.partyName(),
+                        hasPartyColumn ? rowPartyContact : g.partyContact(),
                         g.sheetSyncId(), g.syncedFromSheet()  // preserve creation provenance; this path's delete filter relies on it
                 );
                 if (!merged.equals(g)) {
@@ -727,7 +764,7 @@ public class GoogleSheetSyncService {
             throw new IllegalArgumentException(
                 "Sheet does not contain a 'Guest Name(s)' column. " +
                 "Make sure the first row contains the column headers (use the Copy headers button). " +
-                "Expected, in order: Guest Name(s), Side (Bride or Groom), Phone Number, Email Address, " +
+                "Expected, in order: Guest Name(s), Party, Side (Bride or Groom), Phone Number, Email Address, " +
                 "Street Address, City, State, Zip Code, Allowed Plus One?, Plus One Name, RSVP Status, " +
                 "Table #, Dietary Restriction, Notes. " +
                 "Actual headers: " + String.join(", ", headers));
@@ -841,6 +878,73 @@ public class GoogleSheetSyncService {
             if (v != null) return v;
         }
         return null;
+    }
+
+    /** True if any of the given header aliases is present in the sheet. */
+    private boolean hasAny(Map<String, Integer> index, String... names) {
+        for (String name : names) {
+            if (index.containsKey(name)) return true;
+        }
+        return false;
+    }
+
+    // Party assignment derived from the sheet for one data row.
+    private record PartyAssignment(UUID partyId, String partyName, boolean contact) {}
+
+    /**
+     * Groups data rows that share a non-blank Party value into parties. Returns a map of
+     * row index -> assignment for every row that belongs to a party (solo rows are absent,
+     * so partyByRow.get(i) == null means "solo guest").
+     *
+     * Party identity is stable across syncs: an existing guest's partyId is reused for the
+     * same (case-insensitive) party name, so re-syncing the same sheet does not churn the
+     * UUID and break seating/links. Renaming a party in the sheet starts a fresh group.
+     *
+     * The party contact (the one member whose RSVP invite represents the household) is the
+     * first row in sheet order that has an email, falling back to the first row. Callers
+     * must only invoke this when a Party column exists; a sheet with no Party column must
+     * leave existing party assignments untouched.
+     */
+    private Map<Integer, PartyAssignment> computePartyAssignments(
+            List<String[]> rows, Map<String, Integer> colIndex, List<Guest> existing) {
+        // Reuse the partyId already bound to this party name for this couple so identity is
+        // stable run to run.
+        Map<String, UUID> nameToPartyId = new HashMap<>();
+        for (Guest g : existing) {
+            if (g.partyId() != null && g.partyName() != null) {
+                nameToPartyId.putIfAbsent(g.partyName().toLowerCase().trim(), g.partyId());
+            }
+        }
+
+        // Preserve sheet order within each group so "first row" is deterministic.
+        Map<String, List<Integer>> groups = new LinkedHashMap<>();
+        Map<String, String> displayName = new HashMap<>();
+        for (int i = 1; i < rows.size(); i++) {
+            String[] cols = rows.get(i);
+            String name = clamp(getAny(cols, colIndex, NAME_ALIASES), MAX_NAME);
+            if (name == null || name.isBlank()) continue; // mirror the main loop's blank-row skip
+            String party = getAny(cols, colIndex, PARTY_ALIASES);
+            if (party == null || party.isBlank()) continue; // solo guest
+            String norm = party.toLowerCase().trim();
+            groups.computeIfAbsent(norm, k -> new ArrayList<>()).add(i);
+            displayName.putIfAbsent(norm, clamp(party, MAX_PARTY_NAME));
+        }
+
+        Map<Integer, PartyAssignment> out = new HashMap<>();
+        for (Map.Entry<String, List<Integer>> e : groups.entrySet()) {
+            UUID partyId = nameToPartyId.computeIfAbsent(e.getKey(), k -> UUID.randomUUID());
+            String partyName = displayName.get(e.getKey());
+            List<Integer> rowIdxs = e.getValue();
+            int contactRow = rowIdxs.get(0);
+            for (int idx : rowIdxs) {
+                String email = getAny(rows.get(idx), colIndex, "email address", "email");
+                if (email != null && !email.isBlank()) { contactRow = idx; break; }
+            }
+            for (int idx : rowIdxs) {
+                out.put(idx, new PartyAssignment(partyId, partyName, idx == contactRow));
+            }
+        }
+        return out;
     }
 
     /**

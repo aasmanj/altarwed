@@ -81,7 +81,8 @@ public class GuestService {
                 req.mailLine1(), req.mailCity(), req.mailState(), req.mailZip(), req.mailCountry(),
                 null, 0,
                 null, null, null, null, LocalDateTime.now(), LocalDateTime.now(),
-                req.partyId(), req.partyName(),
+                resolvePartyId(coupleId, req.partyId(), req.partyName()),
+                req.partyName() != null && !req.partyName().isBlank() ? req.partyName() : null,
                 req.partyContact() != null ? req.partyContact() : false,
                 null, false  // sheetSyncId, syncedFromSheet: manually added guest
         );
@@ -124,6 +125,32 @@ public class GuestService {
     @Transactional
     public Guest updateGuest(UUID coupleId, UUID guestId, UpdateGuestRequest req) {
         Guest existing = getGuest(coupleId, guestId);
+
+        // Party fields follow the same null-means-not-provided merge as the rest of the
+        // update, with one extra rule: a non-blank partyName with no explicit partyId
+        // resolves to an existing same-named party's id (joining it) or a fresh one
+        // (starting it), and a blank partyName explicitly clears the guest's party.
+        UUID newPartyId;
+        String newPartyName;
+        Boolean newPartyContact;
+        if (req.partyId() != null) {
+            newPartyId = req.partyId();
+            newPartyName = req.partyName() != null ? req.partyName() : existing.partyName();
+            newPartyContact = req.partyContact() != null ? req.partyContact() : existing.partyContact();
+        } else if (req.partyName() == null) {
+            newPartyId = existing.partyId();
+            newPartyName = existing.partyName();
+            newPartyContact = existing.partyContact();
+        } else if (req.partyName().isBlank()) {
+            newPartyId = null;
+            newPartyName = null;
+            newPartyContact = false;
+        } else {
+            newPartyId = resolvePartyId(coupleId, null, req.partyName());
+            newPartyName = req.partyName();
+            newPartyContact = req.partyContact() != null ? req.partyContact() : existing.partyContact();
+        }
+
         Guest updated = new Guest(
                 existing.id(), existing.coupleId(),
                 req.name()               != null ? req.name()               : existing.name(),
@@ -145,9 +172,7 @@ public class GuestService {
                 existing.noteForCouple(), existing.inviteSendCount(),
                 existing.inviteSentAt(), existing.saveTheDateSentAt(), existing.respondedAt(), existing.remindAt(),
                 existing.createdAt(), LocalDateTime.now(),
-                req.partyId()    != null ? req.partyId()    : existing.partyId(),
-                req.partyName()  != null ? req.partyName()  : existing.partyName(),
-                req.partyContact()!= null ? req.partyContact(): existing.partyContact(),
+                newPartyId, newPartyName, newPartyContact,
                 existing.sheetSyncId(), existing.syncedFromSheet()
         );
         return guestRepository.save(updated);
@@ -382,7 +407,10 @@ public class GuestService {
             partyName = guest.partyName();
             partyMembers = guestRepository.findAllByPartyId(guest.partyId()).stream()
                     .filter(m -> !m.id().equals(guest.id()))
-                    .map(m -> new com.altarwed.application.dto.PartyMemberInfo(m.id(), m.name()))
+                    .map(m -> new com.altarwed.application.dto.PartyMemberInfo(
+                            m.id(), m.name(),
+                            m.rsvpStatus() != null ? m.rsvpStatus().name() : null,
+                            m.dietaryRestrictions(), m.songRequest()))
                     .toList();
         }
 
@@ -460,7 +488,8 @@ public class GuestService {
                     Guest memberResponded = new Guest(
                             member.id(), member.coupleId(), member.name(), member.email(), member.phone(),
                             mr.status(), member.plusOneAllowed(), member.plusOneName(),
-                            member.dietaryRestrictions(), member.songRequest(),
+                            mr.dietaryRestrictions() != null ? mr.dietaryRestrictions() : member.dietaryRestrictions(),
+                            mr.songRequest()         != null ? mr.songRequest()         : member.songRequest(),
                             member.tableNumber(), member.side(), member.notes(),
                             member.mailLine1(), member.mailCity(), member.mailState(), member.mailZip(), member.mailCountry(),
                             member.noteForCouple(), member.inviteSendCount(),
@@ -513,6 +542,26 @@ public class GuestService {
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * Resolves the partyId to persist for a manually-managed guest. An explicit partyId
+     * always wins. Otherwise a non-blank partyName reuses the partyId of any existing guest
+     * in this couple with the same (case-insensitive) party name, so members land in one
+     * group, or mints a new UUID to start a fresh party. A blank or absent party name means
+     * the guest is solo (null). Only queries when a party name is actually present, so the
+     * common no-party add/update stays a single write with no extra read.
+     */
+    private UUID resolvePartyId(UUID coupleId, UUID providedPartyId, String partyName) {
+        if (providedPartyId != null) return providedPartyId;
+        if (partyName == null || partyName.isBlank()) return null;
+        String norm = partyName.toLowerCase().trim();
+        return guestRepository.findAllByCoupleId(coupleId).stream()
+                .filter(g -> g.partyId() != null && g.partyName() != null
+                        && g.partyName().toLowerCase().trim().equals(norm))
+                .map(Guest::partyId)
+                .findFirst()
+                .orElseGet(UUID::randomUUID);
+    }
 
     private Guest getGuest(UUID coupleId, UUID guestId) {
         Guest guest = guestRepository.findById(guestId)

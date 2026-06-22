@@ -7,6 +7,9 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurew
 interface PartyMemberInfo {
   guestId: string
   name: string
+  currentRsvpStatus: string | null
+  currentDietary: string | null
+  currentSongRequest: string | null
 }
 
 interface RsvpPageData {
