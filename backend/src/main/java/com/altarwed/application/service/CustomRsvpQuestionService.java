@@ -148,7 +148,11 @@ public class CustomRsvpQuestionService {
                 rejected++;
                 continue;
             }
-            toSave.add(new CustomRsvpAnswer(null, s.questionId(), guestId, answer, null, null));
+            // Canonicalize Yes/No casing so analytics group "yes" and "Yes" together.
+            String stored = q.type() == CustomQuestionType.YES_NO
+                    ? (answer.equalsIgnoreCase("Yes") ? "Yes" : "No")
+                    : answer;
+            toSave.add(new CustomRsvpAnswer(null, s.questionId(), guestId, stored, null, null));
         }
         if (!toSave.isEmpty()) answerRepository.saveAll(toSave);
         // One aggregated WARN, not one per item: this runs on the public, token-gated submit
