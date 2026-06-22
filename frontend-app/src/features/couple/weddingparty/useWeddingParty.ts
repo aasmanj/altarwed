@@ -74,7 +74,7 @@ export function useReorderParty(websiteId: string) {
   return useMutation({
     mutationFn: (orderedIds: string[]) =>
       apiClient.patch(`/api/v1/wedding-party/website/${websiteId}/reorder`, { orderedIds }),
-    // Optimistic so the drag feels instant; reassign sortOrder by index and roll back
+    // Optimistic so the reorder feels instant; reassign sortOrder by index and roll back
     // to the snapshot if the server rejects.
     onMutate: async (orderedIds) => {
       await qc.cancelQueries({ queryKey: key(websiteId) })
