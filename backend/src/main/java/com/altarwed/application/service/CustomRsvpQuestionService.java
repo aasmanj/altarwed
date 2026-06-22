@@ -22,7 +22,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -60,11 +59,15 @@ public class CustomRsvpQuestionService {
 
     @Transactional
     public CustomRsvpQuestion create(UUID coupleId, CreateCustomQuestionRequest req) {
-        int nextSort = questionRepository.findAllByCoupleId(coupleId).size();
+        List<String> options = cleanOptions(req.type(), req.options());
+        validateChoiceOptions(req.type(), options);
+        // max(sortOrder)+1, not count: after a delete the count no longer equals the next
+        // free slot, which would collide a new question's sort_order with an existing one.
+        int nextSort = questionRepository.findAllByCoupleId(coupleId).stream()
+                .mapToInt(CustomRsvpQuestion::sortOrder).max().orElse(-1) + 1;
         CustomRsvpQuestion q = new CustomRsvpQuestion(
                 null, coupleId, req.questionText().trim(), req.type(),
-                cleanOptions(req.type(), req.options()),
-                req.required() != null && req.required(),
+                options, req.required() != null && req.required(),
                 nextSort, true, null, null);
         CustomRsvpQuestion saved = questionRepository.save(q);
         log.info("custom rsvp question created, coupleId={}, questionId={}, type={}", coupleId, saved.id(), saved.type());
@@ -80,6 +83,7 @@ public class CustomRsvpQuestionService {
         List<String> options = req.options() != null
                 ? cleanOptions(type, req.options())
                 : cleanOptions(type, existing.options());
+        validateChoiceOptions(type, options);
         CustomRsvpQuestion updated = new CustomRsvpQuestion(
                 existing.id(), existing.coupleId(),
                 req.questionText() != null ? req.questionText().trim() : existing.questionText(),
@@ -129,21 +133,47 @@ public class CustomRsvpQuestionService {
         answerRepository.deleteByGuestId(guestId);
         if (submissions == null || submissions.isEmpty()) return;
 
-        Set<UUID> activeQuestionIds = questionRepository.findActiveByCoupleId(coupleId).stream()
-                .map(CustomRsvpQuestion::id).collect(Collectors.toSet());
+        Map<UUID, CustomRsvpQuestion> activeById = questionRepository.findActiveByCoupleId(coupleId).stream()
+                .collect(Collectors.toMap(CustomRsvpQuestion::id, q -> q));
 
         List<CustomRsvpAnswer> toSave = new ArrayList<>();
+        int rejected = 0;
         for (CustomAnswerSubmission s : submissions) {
             if (s.answerText() == null || s.answerText().isBlank()) continue;
-            if (!activeQuestionIds.contains(s.questionId())) {
-                log.warn("custom rsvp answer rejected, unknown or inactive question, coupleId={}, guestId={}, questionId={}",
-                        coupleId, guestId, s.questionId());
+            CustomRsvpQuestion q = activeById.get(s.questionId());
+            String answer = s.answerText().trim();
+            // Reject an answer to an unknown/inactive question or one whose value does not
+            // match the question's allowed set (stale or tampered submit).
+            if (q == null || !isValidAnswer(q, answer)) {
+                rejected++;
                 continue;
             }
-            toSave.add(new CustomRsvpAnswer(null, s.questionId(), guestId, s.answerText().trim(), null, null));
+            toSave.add(new CustomRsvpAnswer(null, s.questionId(), guestId, answer, null, null));
         }
         if (!toSave.isEmpty()) answerRepository.saveAll(toSave);
+        // One aggregated WARN, not one per item: this runs on the public, token-gated submit
+        // path where a flood of bogus ids could otherwise spam the logs.
+        if (rejected > 0) {
+            log.warn("custom rsvp answers rejected, coupleId={}, guestId={}, rejected={}", coupleId, guestId, rejected);
+        }
         log.info("custom rsvp answers saved, coupleId={}, guestId={}, count={}", coupleId, guestId, toSave.size());
+    }
+
+    // A CHOICE answer must be one of the question's options; a YES_NO answer must be Yes or
+    // No; TEXT is free-form.
+    private boolean isValidAnswer(CustomRsvpQuestion q, String answer) {
+        return switch (q.type()) {
+            case TEXT -> true;
+            case YES_NO -> answer.equalsIgnoreCase("Yes") || answer.equalsIgnoreCase("No");
+            case CHOICE -> q.options().contains(answer);
+        };
+    }
+
+    // A CHOICE question is unusable without at least two options; reject early as a 400.
+    private void validateChoiceOptions(CustomQuestionType type, List<String> options) {
+        if (type == CustomQuestionType.CHOICE && options.size() < 2) {
+            throw new IllegalArgumentException("A multiple choice question needs at least two options.");
+        }
     }
 
     // -----------------------------------------------------------------------

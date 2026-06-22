@@ -24,6 +24,8 @@ public record SubmitRsvpRequest(
         // If present, the primary guest status/remindInDays fields still apply to the
         // token holder; partyResponses applies to the other members listed.
         List<PartyMemberResponse> partyResponses,
-        // Answers to the couple's custom RSVP questions, one per answered question.
-        @Valid List<CustomAnswerSubmission> customAnswers
+        // Answers to the couple's custom RSVP questions, one per answered question. Capped
+        // so a malicious submit on this public, token-gated path cannot flood the answer
+        // table or the logs.
+        @Size(max = 50) @Valid List<CustomAnswerSubmission> customAnswers
 ) {}
