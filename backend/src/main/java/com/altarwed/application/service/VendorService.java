@@ -111,6 +111,15 @@ public class VendorService {
         return new VendorStatsResponse(vendor.viewCount() != null ? vendor.viewCount() : 0, totalInquiries, unreadInquiries);
     }
 
+    @Transactional
+    public void deleteVendor(UUID vendorId) {
+        log.info("vendor hard delete started, vendorId={}", vendorId);
+        getById(vendorId);
+        inquiryRepository.deleteByVendorId(vendorId);
+        vendorRepository.deleteById(vendorId);
+        log.info("vendor hard deleted, vendorId={}", vendorId);
+    }
+
     private String blankToNull(String s) {
         return (s == null || s.isBlank()) ? null : s;
     }
