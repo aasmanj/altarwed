@@ -23,5 +23,7 @@ public record SubmitRsvpRequest(
         // When the guest belongs to a party, individual responses for each member.
         // If present, the primary guest status/remindInDays fields still apply to the
         // token holder; partyResponses applies to the other members listed.
-        List<PartyMemberResponse> partyResponses
+        List<PartyMemberResponse> partyResponses,
+        // Answers to the couple's custom RSVP questions, one per answered question.
+        @Valid List<CustomAnswerSubmission> customAnswers
 ) {}

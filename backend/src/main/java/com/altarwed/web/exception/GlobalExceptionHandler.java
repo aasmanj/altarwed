@@ -4,6 +4,7 @@ import com.altarwed.domain.exception.BlogPostNotFoundException;
 import com.altarwed.domain.exception.PortfolioCapExceededException;
 import com.altarwed.domain.exception.BudgetItemNotFoundException;
 import com.altarwed.domain.exception.SeatingTableNotFoundException;
+import com.altarwed.domain.exception.CustomQuestionNotFoundException;
 import com.altarwed.domain.exception.CoupleNotFoundException;
 import com.altarwed.domain.exception.GoogleAuthRevokedException;
 import com.altarwed.domain.exception.GuestNotFoundException;
@@ -258,6 +259,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(SeatingTableNotFoundException.class)
     public ProblemDetail handleSeatingTableNotFound(SeatingTableNotFoundException ex) {
         return notFound("seating-table-not-found", ex.getMessage());
+    }
+
+    @ExceptionHandler(CustomQuestionNotFoundException.class)
+    public ProblemDetail handleCustomQuestionNotFound(CustomQuestionNotFoundException ex) {
+        return notFound("custom-question-not-found", ex.getMessage());
     }
 
     @ExceptionHandler(BlogPostNotFoundException.class)

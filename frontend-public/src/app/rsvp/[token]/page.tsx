@@ -9,6 +9,14 @@ interface PartyMemberInfo {
   name: string
 }
 
+interface CustomQuestion {
+  id: string
+  questionText: string
+  type: 'TEXT' | 'YES_NO' | 'CHOICE'
+  options: string[]
+  required: boolean
+}
+
 interface RsvpPageData {
   guestName: string
   coupleNames: string
@@ -26,6 +34,7 @@ interface RsvpPageData {
   currentDietary: string | null
   currentSongRequest: string | null
   currentNoteForCouple: string | null
+  customQuestions: CustomQuestion[] | null
 }
 
 async function getRsvpData(token: string): Promise<RsvpPageData | null> {
@@ -112,6 +121,7 @@ export default async function RsvpPage(
             currentDietary={data.currentDietary ?? undefined}
             currentSongRequest={data.currentSongRequest ?? undefined}
             currentNoteForCouple={data.currentNoteForCouple ?? undefined}
+            customQuestions={data.customQuestions ?? undefined}
           />
         </div>
       </div>
