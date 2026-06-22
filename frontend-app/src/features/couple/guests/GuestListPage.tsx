@@ -656,7 +656,6 @@ export default function GuestListPage() {
             respondedRecords={respondedRecords}
             respondable={respondable}
             responseRate={responseRate}
-            total={total}
             dietaryCounts={dietaryCounts}
             songCount={songCount}
           />
@@ -1264,12 +1263,11 @@ const PIE_COLORS = ['#4ade80', '#f87171', '#fbbf24']
 function GuestAnalyticsPanel({
   attendingRecords, declining, pending, attendingHeadcount,
   notYetInvited, respondedRecords, respondable, responseRate,
-  total, dietaryCounts, songCount,
+  dietaryCounts, songCount,
 }: {
   attendingRecords: number; declining: number; pending: number
   attendingHeadcount: number; notYetInvited: number
   respondedRecords: number; respondable: number; responseRate: number
-  total: number
   dietaryCounts: Record<string, number>
   songCount: number
 }) {
@@ -1287,7 +1285,6 @@ function GuestAnalyticsPanel({
     { value: attendingHeadcount, label: 'Est. headcount', sub: 'incl. plus-ones' },
     { value: notYetInvited, label: 'Not yet invited', sub: notYetInvited > 0 ? 'send their invites' : 'all invited' },
     { value: songCount, label: 'Song requests' },
-    { value: total, label: 'Total guests' },
   ]
 
   return (

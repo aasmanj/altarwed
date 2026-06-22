@@ -78,7 +78,7 @@ function GuestChip({
       {/* Click-to-assign: pick a table directly, no dragging required. Same target set
           as the drag-and-drop columns, plus an Unassigned option. */}
       <select
-        value={guest.tableNumber ?? ''}
+        value={guest.tableNumber != null && tables[guest.tableNumber - 1] ? guest.tableNumber : ''}
         onPointerDown={stop}
         onClick={stop}
         onKeyDown={stop}
@@ -105,6 +105,8 @@ function TableColumn({
   onAssign,
   tables,
   sticky = false,
+  filtersActive = false,
+  totalCount,
 }: {
   table: SeatingTable | null
   guests: Guest[]
@@ -113,6 +115,11 @@ function TableColumn({
   onAssign: (guestId: string, tableNumber: number | null) => void
   tables: SeatingTable[]
   sticky?: boolean
+  // Unassigned column only: whether a search/attending filter is narrowing the pool, and
+  // the unfiltered total, so the header and empty state can say "X of Y shown" instead of
+  // wrongly implying everyone is seated.
+  filtersActive?: boolean
+  totalCount?: number
 }) {
   const id = table ? table.id : 'unassigned'
   const { setNodeRef, isOver } = useDroppable({ id })
@@ -157,7 +164,9 @@ function TableColumn({
         )}
         {!table && (
           <p className="text-xs text-amber-700 mt-0.5">
-            {filled} {filled === 1 ? 'guest' : 'guests'} · drop here to remove
+            {filtersActive && totalCount != null
+              ? `${filled} of ${totalCount} shown`
+              : `${filled} ${filled === 1 ? 'guest' : 'guests'} · drop here to remove`}
           </p>
         )}
       </div>
@@ -174,7 +183,9 @@ function TableColumn({
         ))}
         {isUnassigned && filled === 0 && (
           <p className="text-xs text-amber-700/60 italic px-1 py-2">
-            All guests seated. Drag a guest here to remove them from a table.
+            {filtersActive
+              ? 'No unseated guests match your filters.'
+              : 'All guests seated. Drag a guest here to remove them from a table.'}
           </p>
         )}
       </div>
@@ -634,6 +645,8 @@ export default function SeatingPage() {
                   sticky
                   tables={tables}
                   onAssign={assignSeat}
+                  filtersActive={filtersActive}
+                  totalCount={unassignedGuests.length}
                 />
                 {tables.map(t => (
                   <TableColumn
