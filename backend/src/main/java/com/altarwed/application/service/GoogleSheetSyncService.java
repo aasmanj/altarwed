@@ -265,8 +265,8 @@ public class GoogleSheetSyncService {
                     true, sync.createdAt(), null
             );
             GoogleSheetSync saved = syncRepository.save(updated);
-            log.info("google sheet sync succeeded, coupleId={}, added={}, updated={}, deleted={}, seen={}",
-                     sync.coupleId(), counts.added(), counts.updated(), counts.deleted(), counts.seen());
+            log.info("google sheet sync succeeded, coupleId={}, added={}, updated={}, deleted={}, seen={}, parties={}",
+                     sync.coupleId(), counts.added(), counts.updated(), counts.deleted(), counts.seen(), counts.parties());
             return new SyncResult(saved, counts.added(), counts.updated());
         } catch (GoogleAuthRevokedException e) {
             // Terminal: the refresh token is dead and will never recover on its
@@ -304,7 +304,8 @@ public class GoogleSheetSyncService {
     //             "updated" on a no-op sync and erode trust in the toast)
     // `seen`    = every non-blank row in the sheet, persisted as the GoogleSheetSync.rowCount
     // `deleted` = sheet-synced guests deleted because their row is no longer in the sheet
-    private record UpsertCounts(int added, int updated, int seen, int deleted) {}
+    // `parties` = distinct parties grouped from the sheet's Party column this run (0 if absent)
+    private record UpsertCounts(int added, int updated, int seen, int deleted, int parties) {}
 
     /**
      * Converts any Google Sheets URL to a CSV export URL.
@@ -372,7 +373,7 @@ public class GoogleSheetSyncService {
      */
     private UpsertCounts upsertGuestsWithWriteBack(UUID coupleId, String spreadsheetId, String sheetUrl) throws Exception {
         List<String[]> rows = googleOAuthService.readSheet(coupleId, sheetUrl);
-        if (rows.isEmpty()) return new UpsertCounts(0, 0, 0, 0);
+        if (rows.isEmpty()) return new UpsertCounts(0, 0, 0, 0, 0);
 
         String[] headers = rows.get(0);
         Map<String, Integer> colIndex = buildColumnIndex(headers);
@@ -602,7 +603,8 @@ public class GoogleSheetSyncService {
             }
         }
 
-        return new UpsertCounts(added, updated, seen, deleted);
+        return new UpsertCounts(added, updated, seen, deleted,
+                (int) partyByRow.values().stream().map(PartyAssignment::partyId).distinct().count());
     }
 
     /**
@@ -611,7 +613,7 @@ public class GoogleSheetSyncService {
      * is not possible. Name changes will create a new guest; the old one is not deleted.
      */
     private UpsertCounts upsertGuestsByName(UUID coupleId, List<String[]> rows) throws Exception {
-        if (rows.isEmpty()) return new UpsertCounts(0, 0, 0, 0);
+        if (rows.isEmpty()) return new UpsertCounts(0, 0, 0, 0, 0);
 
         String[] headers = rows.get(0);
         Map<String, Integer> colIndex = buildColumnIndex(headers);
@@ -748,7 +750,8 @@ public class GoogleSheetSyncService {
             }
         }
 
-        return new UpsertCounts(added, updated, seen, deleted);
+        return new UpsertCounts(added, updated, seen, deleted,
+                (int) partyByRow.values().stream().map(PartyAssignment::partyId).distinct().count());
     }
 
     // -----------------------------------------------------------------------

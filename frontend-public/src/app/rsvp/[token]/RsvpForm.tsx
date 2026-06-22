@@ -8,9 +8,9 @@ type Status = 'ATTENDING' | 'DECLINING' | 'PENDING'
 interface PartyMemberInfo {
   guestId: string
   name: string
-  currentRsvpStatus?: string | null
-  currentDietary?: string | null
-  currentSongRequest?: string | null
+  currentRsvpStatus: string | null
+  currentDietary: string | null
+  currentSongRequest: string | null
 }
 
 type PartyStatus = 'ATTENDING' | 'DECLINING' | 'PENDING'
