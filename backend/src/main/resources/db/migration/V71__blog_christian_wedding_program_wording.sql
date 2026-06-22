@@ -7,7 +7,7 @@
 -- Couples searching this phrase want copy they can use directly, making
 -- it a high-intent, non-cannibalizing long-tail target.
 --
--- Seeded as draft (is_published = 0, published_at = NULL).
+-- Published (is_published = 1, published_at = insert time); reviewed and approved before merge.
 -- Cover image reuses the existing self-hosted ceremony asset.
 
 IF NOT EXISTS (SELECT 1 FROM blog_posts WHERE slug = 'christian-wedding-program-wording')
@@ -40,13 +40,13 @@ VALUES (
 <p><strong>Sample 1 (simple):</strong></p>
 <blockquote>
   <p>Sarah Anne Mitchell<br>and<br>James Robert Collins</p>
-  <p>June 14, 2025<br>Grace Community Church<br>Nashville, Tennessee</p>
+  <p>June 14, 2026<br>Grace Community Church<br>Raleigh, North Carolina</p>
 </blockquote>
 <p><strong>Sample 2 (with scripture):</strong></p>
 <blockquote>
   <p>Sarah Anne Mitchell<br>and<br>James Robert Collins</p>
   <p>"Two are better than one." (Ecclesiastes 4:9)</p>
-  <p>June 14, 2025 | Grace Community Church</p>
+  <p>June 14, 2026 | Grace Community Church</p>
 </blockquote>
 
 <h2>Welcome note from the couple</h2>
@@ -153,12 +153,12 @@ VALUES (
 
 <p>Once your program is set, the next piece to finalize is your <a href="/blog/christian-wedding-vows">wedding vow wording</a>. And when you are ready to share all the details with guests in one place, <a href="https://app.altarwed.com/register">create your free AltarWed wedding website</a>. Your ceremony order, Scripture verse, and wedding party can all live there, so guests have a place to reference the details before and after the big day.</p>',
     'AltarWed',
-    NULL,
+    SYSUTCDATETIME(),
     'Christian Wedding Program Wording: Templates and Examples',
     'Word-for-word templates for every section of your Christian wedding program: cover, welcome note, order of service, Scripture, and closing blessing.',
     'christian wedding program,wedding program wording,christian wedding ceremony,planning',
     '/blog-ceremony.jpg',
-    0,
+    1,
     SYSUTCDATETIME(),
     SYSUTCDATETIME()
 );
