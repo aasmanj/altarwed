@@ -93,6 +93,9 @@ export interface UpdateGuestPayload {
   mailState?: string
   mailZip?: string
   mailCountry?: string
+  // Party / household. A non-blank name groups the guest (joining a same-named party or
+  // starting one); an empty string clears it. Resolved to a partyId server-side.
+  partyName?: string
 }
 
 const key = (coupleId: string) => ['guests', coupleId]

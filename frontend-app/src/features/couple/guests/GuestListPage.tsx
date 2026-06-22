@@ -85,6 +85,7 @@ function unsubBadge(reason: string | null | undefined): UnsubState {
 // Guest Name(s) is intentionally FIRST so couples don't type names into "Side".
 const GUEST_SHEET_COLUMNS: { header: string; value: (g: Guest) => string }[] = [
   { header: 'Guest Name(s)',         value: g => g.name },
+  { header: 'Party',                 value: g => g.partyName ?? '' },
   { header: 'Side (Bride or Groom)', value: g => g.side ?? '' },
   { header: 'Phone Number',          value: g => g.phone ?? '' },
   { header: 'Email Address',         value: g => g.email ?? '' },
@@ -586,6 +587,11 @@ export default function GuestListPage() {
                   <span className="font-mono">yes</span> for Yes,{' '}
                   <span className="font-mono">no</span> for No. Leaving the cell blank keeps the existing value.
                 </p>
+                <p className="text-stone-500 mt-1">
+                  <span className="font-mono">Party</span>: give everyone in the same household the
+                  same party name (e.g. <span className="font-mono">The Smith Family</span>) and they
+                  can RSVP together from one link. Leave it blank for solo guests.
+                </p>
               </details>
             </div>
           </div>
@@ -1029,6 +1035,7 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
   const [email, setEmail]         = useState('')
   const [phone, setPhone]         = useState('')
   const [side, setSide]           = useState<GuestSide | ''>('')
+  const [party, setParty]         = useState('')
   const [plusOne, setPlusOne]     = useState(false)
   const [mailLine1, setMailLine1]       = useState('')
   const [mailCity, setMailCity]         = useState('')
@@ -1046,6 +1053,7 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
       phone: phone || undefined,
       plusOneAllowed: plusOne,
       side: side || undefined,
+      partyName: party || undefined,
       mailLine1: mailLine1 || undefined,
       mailCity: mailCity || undefined,
       mailState: mailState || undefined,
@@ -1076,6 +1084,10 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
             <option value="">Select a side</option>
             {SIDES.map(s => <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>)}
           </select>
+        </Field>
+        <Field label="Party / household">
+          <input value={party} onChange={e => setParty(e.target.value)}
+            className={inputCls} placeholder="e.g. The Smith Family (groups them to RSVP together)" />
         </Field>
         <Field label="Address line 1">
           <input value={mailLine1} onChange={e => setMailLine1(e.target.value)}
@@ -1130,6 +1142,7 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
   const [email, setEmail]             = useState(guest.email ?? '')
   const [phone, setPhone]             = useState(guest.phone ?? '')
   const [side, setSide]               = useState<GuestSide | ''>(guest.side ?? '')
+  const [party, setParty]             = useState(guest.partyName ?? '')
   const [status, setStatus]           = useState(guest.rsvpStatus)
   const [table, setTable]             = useState(guest.tableNumber?.toString() ?? '')
   const [plusOne, setPlusOne]         = useState(guest.plusOneAllowed)
@@ -1148,6 +1161,7 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
       name, email,
       phone,
       side: side || undefined,
+      partyName: party,
       rsvpStatus: status,
       tableNumber: table ? parseInt(table) : undefined,
       plusOneAllowed: plusOne,
@@ -1178,6 +1192,10 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
               <option value="">Select a side</option>
               {SIDES.map(s => <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>)}
             </select>
+          </Field>
+          <Field label="Party / household">
+            <input value={party} onChange={e => setParty(e.target.value)}
+              placeholder="e.g. The Smith Family" className={inputCls} />
           </Field>
           <Field label="RSVP Status">
             <select value={status} onChange={e => setStatus(e.target.value as RsvpStatus)} className={inputCls}>

@@ -73,6 +73,7 @@ public class GuestService {
 
     @Transactional
     public Guest addGuest(UUID coupleId, CreateGuestRequest req) {
+        PartyResolution party = resolveParty(coupleId, req.partyId(), req.partyName());
         Guest guest = new Guest(
                 null, coupleId, req.name(), req.email(), req.phone(),
                 GuestRsvpStatus.PENDING, req.plusOneAllowed(), null,
@@ -81,8 +82,10 @@ public class GuestService {
                 req.mailLine1(), req.mailCity(), req.mailState(), req.mailZip(), req.mailCountry(),
                 null, 0,
                 null, null, null, null, LocalDateTime.now(), LocalDateTime.now(),
-                req.partyId(), req.partyName(),
-                req.partyContact() != null ? req.partyContact() : false,
+                party.partyId(),
+                req.partyName() != null && !req.partyName().isBlank() ? req.partyName() : null,
+                // Caller's choice wins; otherwise the first guest in a brand-new party is its contact.
+                req.partyContact() != null ? req.partyContact() : party.isNew(),
                 null, false  // sheetSyncId, syncedFromSheet: manually added guest
         );
         return guestRepository.save(guest);
@@ -124,6 +127,36 @@ public class GuestService {
     @Transactional
     public Guest updateGuest(UUID coupleId, UUID guestId, UpdateGuestRequest req) {
         Guest existing = getGuest(coupleId, guestId);
+
+        // Party fields follow the same null-means-not-provided merge as the rest of the
+        // update, with one extra rule: a non-blank partyName with no explicit partyId
+        // resolves to an existing same-named party's id (joining it) or a fresh one
+        // (starting it), and a blank partyName explicitly clears the guest's party.
+        UUID newPartyId;
+        String newPartyName;
+        Boolean newPartyContact;
+        if (req.partyId() != null) {
+            newPartyId = req.partyId();
+            newPartyName = req.partyName() != null ? req.partyName() : existing.partyName();
+            newPartyContact = req.partyContact() != null ? req.partyContact() : existing.partyContact();
+        } else if (req.partyName() == null) {
+            newPartyId = existing.partyId();
+            newPartyName = existing.partyName();
+            newPartyContact = existing.partyContact();
+        } else if (req.partyName().isBlank()) {
+            newPartyId = null;
+            newPartyName = null;
+            newPartyContact = false;
+        } else {
+            PartyResolution party = resolveParty(coupleId, null, req.partyName());
+            newPartyId = party.partyId();
+            newPartyName = req.partyName();
+            // Keep an explicit choice; starting a new party makes this guest its contact,
+            // joining an existing one keeps their current contact flag.
+            newPartyContact = req.partyContact() != null ? req.partyContact()
+                    : (party.isNew() ? Boolean.TRUE : existing.partyContact());
+        }
+
         Guest updated = new Guest(
                 existing.id(), existing.coupleId(),
                 req.name()               != null ? req.name()               : existing.name(),
@@ -145,9 +178,7 @@ public class GuestService {
                 existing.noteForCouple(), existing.inviteSendCount(),
                 existing.inviteSentAt(), existing.saveTheDateSentAt(), existing.respondedAt(), existing.remindAt(),
                 existing.createdAt(), LocalDateTime.now(),
-                req.partyId()    != null ? req.partyId()    : existing.partyId(),
-                req.partyName()  != null ? req.partyName()  : existing.partyName(),
-                req.partyContact()!= null ? req.partyContact(): existing.partyContact(),
+                newPartyId, newPartyName, newPartyContact,
                 existing.sheetSyncId(), existing.syncedFromSheet()
         );
         return guestRepository.save(updated);
@@ -382,7 +413,10 @@ public class GuestService {
             partyName = guest.partyName();
             partyMembers = guestRepository.findAllByPartyId(guest.partyId()).stream()
                     .filter(m -> !m.id().equals(guest.id()))
-                    .map(m -> new com.altarwed.application.dto.PartyMemberInfo(m.id(), m.name()))
+                    .map(m -> new com.altarwed.application.dto.PartyMemberInfo(
+                            m.id(), m.name(),
+                            m.rsvpStatus() != null ? m.rsvpStatus().name() : null,
+                            m.dietaryRestrictions(), m.songRequest()))
                     .toList();
         }
 
@@ -451,27 +485,39 @@ public class GuestService {
         // Save individual party member responses if provided. We validate that each
         // member actually belongs to the same party to prevent cross-party tampering.
         if (req.partyResponses() != null && !req.partyResponses().isEmpty() && guest.partyId() != null) {
+            int savedMembers = 0;
             for (com.altarwed.application.dto.PartyMemberResponse mr : req.partyResponses()) {
-                guestRepository.findById(mr.guestId()).ifPresent(member -> {
-                    if (!guest.partyId().equals(member.partyId())) return; // security guard
-                    LocalDateTime memberRemindAt = (mr.remindInDays() != null)
-                            ? LocalDateTime.now().plusDays(mr.remindInDays())
-                            : null;
-                    Guest memberResponded = new Guest(
-                            member.id(), member.coupleId(), member.name(), member.email(), member.phone(),
-                            mr.status(), member.plusOneAllowed(), member.plusOneName(),
-                            member.dietaryRestrictions(), member.songRequest(),
-                            member.tableNumber(), member.side(), member.notes(),
-                            member.mailLine1(), member.mailCity(), member.mailState(), member.mailZip(), member.mailCountry(),
-                            member.noteForCouple(), member.inviteSendCount(),
-                            member.inviteSentAt(), member.saveTheDateSentAt(), LocalDateTime.now(), memberRemindAt,
-                            member.createdAt(), LocalDateTime.now(),
-                            member.partyId(), member.partyName(), member.partyContact(),
-                            member.sheetSyncId(), member.syncedFromSheet()
-                    );
-                    guestRepository.save(memberResponded);
-                });
+                Guest member = guestRepository.findById(mr.guestId()).orElse(null);
+                if (member == null) continue;
+                // Security guard: the token holder can only RSVP for members of their own
+                // party. A mismatch is a tampering attempt, so log it (WARN, per-item and
+                // recoverable) rather than dropping it silently.
+                if (!guest.partyId().equals(member.partyId())) {
+                    log.warn("rsvp party member rejected, cross-party, guestId={}, memberId={}, partyId={}",
+                            guest.id(), mr.guestId(), guest.partyId());
+                    continue;
+                }
+                LocalDateTime memberRemindAt = (mr.remindInDays() != null)
+                        ? LocalDateTime.now().plusDays(mr.remindInDays())
+                        : null;
+                Guest memberResponded = new Guest(
+                        member.id(), member.coupleId(), member.name(), member.email(), member.phone(),
+                        mr.status(), member.plusOneAllowed(), member.plusOneName(),
+                        mr.dietaryRestrictions() != null ? mr.dietaryRestrictions() : member.dietaryRestrictions(),
+                        mr.songRequest()         != null ? mr.songRequest()         : member.songRequest(),
+                        member.tableNumber(), member.side(), member.notes(),
+                        member.mailLine1(), member.mailCity(), member.mailState(), member.mailZip(), member.mailCountry(),
+                        member.noteForCouple(), member.inviteSendCount(),
+                        member.inviteSentAt(), member.saveTheDateSentAt(), LocalDateTime.now(), memberRemindAt,
+                        member.createdAt(), LocalDateTime.now(),
+                        member.partyId(), member.partyName(), member.partyContact(),
+                        member.sheetSyncId(), member.syncedFromSheet()
+                );
+                guestRepository.save(memberResponded);
+                savedMembers++;
             }
+            log.info("rsvp party members saved, guestId={}, coupleId={}, count={}",
+                    guest.id(), guest.coupleId(), savedMembers);
         }
 
         // Only mark the token used if the guest is actually responding (not just setting a reminder).
@@ -513,6 +559,30 @@ public class GuestService {
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
+
+    // Result of resolving a manually-entered party name. isNew is true when this is the
+    // first guest in a brand-new party, so the caller can make them the party contact.
+    private record PartyResolution(UUID partyId, boolean isNew) {}
+
+    /**
+     * Resolves the party for a manually-managed guest. An explicit partyId always wins
+     * (treated as joining an existing party). Otherwise a non-blank partyName reuses the
+     * partyId of any existing guest in this couple with the same (case-insensitive) party
+     * name, so members land in one group, or mints a new UUID to start a fresh party
+     * (isNew). A blank or absent party name means the guest is solo. Only queries when a
+     * party name is present, so the common no-party add/update stays a single write.
+     */
+    private PartyResolution resolveParty(UUID coupleId, UUID providedPartyId, String partyName) {
+        if (providedPartyId != null) return new PartyResolution(providedPartyId, false);
+        if (partyName == null || partyName.isBlank()) return new PartyResolution(null, false);
+        String norm = partyName.toLowerCase().trim();
+        return guestRepository.findAllByCoupleId(coupleId).stream()
+                .filter(g -> g.partyId() != null && g.partyName() != null
+                        && g.partyName().toLowerCase().trim().equals(norm))
+                .map(g -> new PartyResolution(g.partyId(), false))
+                .findFirst()
+                .orElseGet(() -> new PartyResolution(UUID.randomUUID(), true));
+    }
 
     private Guest getGuest(UUID coupleId, UUID guestId) {
         Guest guest = guestRepository.findById(guestId)
