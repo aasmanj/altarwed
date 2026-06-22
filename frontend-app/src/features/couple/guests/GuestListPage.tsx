@@ -293,15 +293,31 @@ export default function GuestListPage() {
       || (g.plusOneName ?? '').toLowerCase().includes(q))
     .sort(compareGuests)
 
+  // Headcount view (what caterers and the venue need): guest records plus confirmed
+  // plus-ones. "attending" here is a headcount, so it can exceed the attending record
+  // count by the number of named, attending plus-ones.
   const confirmedPlusOnes = guests.filter(g => g.plusOneAllowed && g.plusOneName).length
   const plusOneAttending  = guests.filter(g => g.rsvpStatus === 'ATTENDING' && g.plusOneAllowed && g.plusOneName).length
   const total     = guests.length + confirmedPlusOnes
   const attending = guests.filter(g => g.rsvpStatus === 'ATTENDING').length + plusOneAttending
   const declining = guests.filter(g => g.rsvpStatus === 'DECLINING').length
   const pending   = guests.filter(g => g.rsvpStatus === 'PENDING').length
-  const notSent   = guests.filter(g => !g.inviteSentAt).length
-  const responded = attending + declining
-  const responseRate = total > 0 ? Math.round((responded / total) * 100) : 0
+
+  // Response-funnel view, by guest record (NOT headcount). Every guest is in exactly
+  // one rsvpStatus, so these three sum to the guest count and the pie slices never
+  // overlap. The old chart mixed an invite-status slice ("Not invited") in with the
+  // RSVP-status slices, so a pending-but-uninvited guest was counted twice and the
+  // chart never summed to the total.
+  const attendingRecords = guests.filter(g => g.rsvpStatus === 'ATTENDING').length
+  const respondedRecords = attendingRecords + declining
+  const invitedCount     = guests.filter(g => g.inviteSentAt).length
+  const notYetInvited    = guests.length - invitedCount
+  // Denominator is "guests who could have replied": those we invited, OR who already
+  // replied (a guest can RSVP via find-by-name with no emailed invite). This keeps the
+  // rate in 0-100 and meaningful before everyone has been invited, unlike dividing by
+  // the full headcount.
+  const respondable      = guests.filter(g => g.inviteSentAt || g.rsvpStatus !== 'PENDING').length
+  const responseRate     = respondable > 0 ? Math.round((respondedRecords / respondable) * 100) : 0
 
   const [showAnalytics, setShowAnalytics] = useState(false)
 
@@ -632,10 +648,13 @@ export default function GuestListPage() {
         {/* Analytics panel */}
         {showAnalytics && (
           <GuestAnalyticsPanel
-            attending={attending}
+            attendingRecords={attendingRecords}
             declining={declining}
             pending={pending}
-            notSent={notSent}
+            attendingHeadcount={attending}
+            notYetInvited={notYetInvited}
+            respondedRecords={respondedRecords}
+            respondable={respondable}
             responseRate={responseRate}
             total={total}
             dietaryCounts={dietaryCounts}
@@ -1239,20 +1258,37 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
 // ---------------------------------------------------------------------------
 // Guest analytics panel
 // ---------------------------------------------------------------------------
-const PIE_COLORS = ['#4ade80', '#f87171', '#fbbf24', '#94a3b8']
+// Attending / Declined / Awaiting reply, in that order, to match the pieData below.
+const PIE_COLORS = ['#4ade80', '#f87171', '#fbbf24']
 
-function GuestAnalyticsPanel({ attending, declining, pending, notSent, responseRate, total, dietaryCounts, songCount }: {
-  attending: number; declining: number; pending: number; notSent: number
-  responseRate: number; total: number
+function GuestAnalyticsPanel({
+  attendingRecords, declining, pending, attendingHeadcount,
+  notYetInvited, respondedRecords, respondable, responseRate,
+  total, dietaryCounts, songCount,
+}: {
+  attendingRecords: number; declining: number; pending: number
+  attendingHeadcount: number; notYetInvited: number
+  respondedRecords: number; respondable: number; responseRate: number
+  total: number
   dietaryCounts: Record<string, number>
   songCount: number
 }) {
+  // Record-level and mutually exclusive: every guest is exactly one status, so these
+  // sum to the guest count. "Awaiting reply" reads clearer than "Pending" for a guest
+  // who simply has not responded yet.
   const pieData = [
-    { name: 'Attending', value: attending },
-    { name: 'Declining', value: declining },
-    { name: 'Pending', value: pending },
-    { name: 'Not invited', value: notSent },
+    { name: 'Attending', value: attendingRecords },
+    { name: 'Declined', value: declining },
+    { name: 'Awaiting reply', value: pending },
   ].filter(d => d.value > 0)
+
+  const stats: { value: string | number; label: string; sub?: string }[] = [
+    { value: `${responseRate}%`, label: 'Response rate', sub: `${respondedRecords} of ${respondable} replied` },
+    { value: attendingHeadcount, label: 'Est. headcount', sub: 'incl. plus-ones' },
+    { value: notYetInvited, label: 'Not yet invited', sub: notYetInvited > 0 ? 'send their invites' : 'all invited' },
+    { value: songCount, label: 'Song requests' },
+    { value: total, label: 'Total guests' },
+  ]
 
   return (
     <div className="rounded-xl border border-gold-light bg-white p-6 mb-6 space-y-6">
@@ -1260,41 +1296,40 @@ function GuestAnalyticsPanel({ attending, declining, pending, notSent, responseR
         {/* Pie chart */}
         <div>
           <p className="text-sm font-medium text-brown mb-2">Response breakdown</p>
-          <div className="flex items-center gap-4">
-            <ResponsiveContainer width={120} height={120}>
-              <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={30} outerRadius={55} dataKey="value" paddingAngle={2}>
-                  {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                </Pie>
-                <Tooltip formatter={(v, n) => [`${v} guests`, n]} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="space-y-1">
-              {pieData.map((d, i) => (
-                <div key={d.name} className="flex items-center gap-2 text-xs">
-                  <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
-                  <span className="text-brown-light">{d.name}</span>
-                  <span className="font-semibold text-brown">{d.value}</span>
-                </div>
-              ))}
+          {pieData.length === 0 ? (
+            <p className="text-xs text-brown-light italic py-8">No guests yet.</p>
+          ) : (
+            <div className="flex items-center gap-4">
+              <ResponsiveContainer width={120} height={120}>
+                <PieChart>
+                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={30} outerRadius={55} dataKey="value" paddingAngle={2}>
+                    {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={(v, n) => [`${v} guests`, n]} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-1">
+                {pieData.map((d, i) => (
+                  <div key={d.name} className="flex items-center gap-2 text-xs">
+                    <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                    <span className="text-brown-light">{d.name}</span>
+                    <span className="font-semibold text-brown">{d.value}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Key stats */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl border border-gold-light bg-ivory/50 p-4 text-center">
-            <p className="font-serif text-2xl font-bold text-brown">{responseRate}%</p>
-            <p className="text-xs text-brown-light mt-0.5">Response rate</p>
-          </div>
-          <div className="rounded-xl border border-gold-light bg-ivory/50 p-4 text-center">
-            <p className="font-serif text-2xl font-bold text-brown">{songCount}</p>
-            <p className="text-xs text-brown-light mt-0.5">Song requests</p>
-          </div>
-          <div className="rounded-xl border border-gold-light bg-ivory/50 p-4 text-center">
-            <p className="font-serif text-2xl font-bold text-brown">{total}</p>
-            <p className="text-xs text-brown-light mt-0.5">Total guests</p>
-          </div>
+          {stats.map(s => (
+            <div key={s.label} className="rounded-xl border border-gold-light bg-ivory/50 p-4 text-center">
+              <p className="font-serif text-2xl font-bold text-brown">{s.value}</p>
+              <p className="text-xs text-brown-light mt-0.5">{s.label}</p>
+              {s.sub && <p className="text-[10px] text-stone-400 mt-0.5">{s.sub}</p>}
+            </div>
+          ))}
         </div>
       </div>
 

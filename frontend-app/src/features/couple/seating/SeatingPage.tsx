@@ -15,7 +15,7 @@ import {
   useDroppable,
   useDraggable,
 } from '@dnd-kit/core'
-import { Printer, Users } from 'lucide-react'
+import { Printer, Users, Search } from 'lucide-react'
 import { useGuests, useAssignGuestTable, type Guest } from '@/features/couple/guests/useGuests'
 import {
   useSeatingTables,
@@ -31,40 +31,66 @@ function GuestChip({
   guest,
   isAssigned = false,
   onUnassign,
+  tables,
+  onAssignTo,
 }: {
   guest: Guest
   isAssigned?: boolean
   onUnassign?: () => void
+  tables: SeatingTable[]
+  onAssignTo: (tableNumber: number | null) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: guest.id })
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
     : undefined
 
+  // Keep pointer/click/key events on the table picker from reaching the draggable
+  // wrapper, otherwise dnd-kit treats interacting with the select as a drag start.
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation()
+
   return (
     <div
       ref={setNodeRef}
       style={{ ...style, opacity: isDragging ? 0.3 : 1 }}
-      className="group flex items-center gap-2 pl-3 pr-1 py-2 bg-white rounded-lg border border-stone-200 shadow-sm select-none text-sm text-stone-800 cursor-grab active:cursor-grabbing"
-      {...listeners}
-      {...attributes}
+      className="group flex flex-col gap-1.5 px-3 py-2 bg-white rounded-lg border border-stone-200 shadow-sm select-none text-sm text-stone-800"
     >
-      <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
-      <span className="truncate flex-1">{guest.name}</span>
-      {guest.plusOneName && (
-        <span className="text-xs text-stone-400 flex-shrink-0">+{guest.plusOneName}</span>
-      )}
-      {isAssigned && onUnassign && (
-        <button
-          onPointerDown={e => e.stopPropagation()}
-          onClick={e => { e.stopPropagation(); onUnassign() }}
-          className="opacity-0 group-hover:opacity-100 transition flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-stone-400 hover:text-rose-600 hover:bg-rose-50"
-          title="Remove from table"
-          aria-label={`Unassign ${guest.name}`}
-        >
-          ✕
-        </button>
-      )}
+      {/* Drag handle row. Listeners live here (not on the whole chip) so the picker
+          below stays clickable. */}
+      <div className="flex items-center gap-2 cursor-grab active:cursor-grabbing" {...listeners} {...attributes}>
+        <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+        <span className="truncate flex-1">{guest.name}</span>
+        {guest.plusOneName && (
+          <span className="text-xs text-stone-400 flex-shrink-0">+{guest.plusOneName}</span>
+        )}
+        {isAssigned && onUnassign && (
+          <button
+            onPointerDown={stop}
+            onClick={e => { stop(e); onUnassign() }}
+            className="opacity-0 group-hover:opacity-100 transition flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-stone-400 hover:text-rose-600 hover:bg-rose-50"
+            title="Remove from table"
+            aria-label={`Unassign ${guest.name}`}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+      {/* Click-to-assign: pick a table directly, no dragging required. Same target set
+          as the drag-and-drop columns, plus an Unassigned option. */}
+      <select
+        value={guest.tableNumber ?? ''}
+        onPointerDown={stop}
+        onClick={stop}
+        onKeyDown={stop}
+        onChange={e => onAssignTo(e.target.value === '' ? null : Number(e.target.value))}
+        aria-label={`Seat ${guest.name} at a table`}
+        className="w-full rounded border border-stone-200 bg-stone-50 px-1.5 py-1 text-xs text-stone-600 focus:outline-none focus:ring-1 focus:ring-amber-400"
+      >
+        <option value="">Unassigned</option>
+        {tables.map((t, i) => (
+          <option key={t.id} value={i + 1}>{t.name}</option>
+        ))}
+      </select>
     </div>
   )
 }
@@ -76,12 +102,16 @@ function TableColumn({
   guests,
   onEdit,
   onUnassign,
+  onAssign,
+  tables,
   sticky = false,
 }: {
   table: SeatingTable | null
   guests: Guest[]
   onEdit?: (t: SeatingTable) => void
   onUnassign?: (guestId: string) => void
+  onAssign: (guestId: string, tableNumber: number | null) => void
+  tables: SeatingTable[]
   sticky?: boolean
 }) {
   const id = table ? table.id : 'unassigned'
@@ -138,6 +168,8 @@ function TableColumn({
             guest={g}
             isAssigned={!isUnassigned}
             onUnassign={onUnassign ? () => onUnassign(g.id) : undefined}
+            tables={tables}
+            onAssignTo={(tn) => onAssign(g.id, tn)}
           />
         ))}
         {isUnassigned && filled === 0 && (
@@ -362,6 +394,10 @@ export default function SeatingPage() {
   const [editingTable, setEditingTable] = useState<SeatingTable | 'new' | null>(null)
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
+  const [seatingSearch, setSeatingSearch] = useState('')
+  // Off by default: couples often seat guests before everyone has RSVP'd, so we don't
+  // hide the un-replied by default. The toggle is there for the final attending-only pass.
+  const [attendingOnly, setAttendingOnly] = useState(false)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -419,6 +455,20 @@ export default function SeatingPage() {
   }
   const unassignedGuests = guests.filter(g => !g.tableNumber || !tables[g.tableNumber - 1])
   const assignedCount = guests.filter(g => g.tableNumber && tables[g.tableNumber - 1]).length
+
+  // Search + attending filter only narrow the unassigned pool, the list you work from
+  // when seating. Seated guests stay visible at their tables so the chart always shows
+  // the full picture.
+  const sq = seatingSearch.trim().toLowerCase()
+  const matchesSearch = (g: Guest) =>
+    !sq || g.name.toLowerCase().includes(sq) || (g.plusOneName ?? '').toLowerCase().includes(sq)
+  const passesAttending = (g: Guest) => !attendingOnly || g.rsvpStatus === 'ATTENDING'
+  const visibleUnassigned = unassignedGuests.filter(g => matchesSearch(g) && passesAttending(g))
+  const filtersActive = sq !== '' || attendingOnly
+
+  const assignSeat = (guestId: string, tableNumber: number | null) =>
+    assignTable.mutate({ guestId, tableNumber })
+
   const isLoading = guestsLoading || tablesLoading
 
   if (isLoading) {
@@ -459,6 +509,30 @@ export default function SeatingPage() {
       />
 
       <div className="flex-1 px-4 md:px-6 py-6 overflow-auto">
+        {tables.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[200px] max-w-xs">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
+              <input
+                type="search"
+                value={seatingSearch}
+                onChange={e => setSeatingSearch(e.target.value)}
+                placeholder="Search guests to seat..."
+                aria-label="Search unseated guests"
+                className="w-full rounded-lg border border-stone-300 pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+            </div>
+            <label className="inline-flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={attendingOnly}
+                onChange={e => setAttendingOnly(e.target.checked)}
+                className="rounded border-stone-300 text-amber-600 focus:ring-amber-400"
+              />
+              Attending only
+            </label>
+          </div>
+        )}
         {tables.length === 0 ? (
           <div className="max-w-md mx-auto mt-16 text-center">
             <div className="flex justify-center mb-4">
@@ -491,13 +565,15 @@ export default function SeatingPage() {
             {/* Unassigned pool */}
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-stone-500 mb-2">
-                Unassigned ({unassignedGuests.length})
+                Unassigned ({visibleUnassigned.length}{filtersActive ? ` of ${unassignedGuests.length}` : ''})
               </p>
               {unassignedGuests.length === 0 ? (
                 <p className="text-xs text-stone-400 italic">All guests are assigned.</p>
+              ) : visibleUnassigned.length === 0 ? (
+                <p className="text-xs text-stone-400 italic">No unseated guests match your search.</p>
               ) : (
                 <div className="space-y-2">
-                  {unassignedGuests.map(g => (
+                  {visibleUnassigned.map(g => (
                     <MobileGuestChip
                       key={g.id}
                       guest={g}
@@ -554,8 +630,10 @@ export default function SeatingPage() {
               <div className="flex gap-4 items-start pb-4 overflow-x-auto">
                 <TableColumn
                   table={null}
-                  guests={unassignedGuests}
+                  guests={visibleUnassigned}
                   sticky
+                  tables={tables}
+                  onAssign={assignSeat}
                 />
                 {tables.map(t => (
                   <TableColumn
@@ -564,6 +642,8 @@ export default function SeatingPage() {
                     guests={guestsForTable(t)}
                     onEdit={setEditingTable}
                     onUnassign={(guestId) => assignTable.mutate({ guestId, tableNumber: null })}
+                    onAssign={assignSeat}
+                    tables={tables}
                   />
                 ))}
               </div>
