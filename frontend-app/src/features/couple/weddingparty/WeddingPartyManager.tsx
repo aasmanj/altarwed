@@ -1,13 +1,5 @@
-import React, { useEffect, useState, type CSSProperties } from 'react'
-import { GripVertical } from 'lucide-react'
-import {
-  DndContext, closestCenter, PointerSensor, TouchSensor, KeyboardSensor,
-  useSensor, useSensors, type DragEndEvent,
-} from '@dnd-kit/core'
-import {
-  SortableContext, verticalListSortingStrategy, useSortable, sortableKeyboardCoordinates, arrayMove,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+import React, { useEffect, useState } from 'react'
+import { ChevronUp, ChevronDown } from 'lucide-react'
 import { useConfirm } from '@/components/ConfirmDialog'
 import {
   useWeddingParty, useAddMember, useUpdateMember, useDeleteMember, useUploadMemberPhoto, useReorderParty,
@@ -43,11 +35,6 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
   const uploadPhoto  = useUploadMemberPhoto(websiteId)
   const reorderParty = useReorderParty(websiteId)
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  )
   const uploadError  = uploadPhoto.error
     ? ((uploadPhoto.error as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? 'Upload failed. Please try again.')
     : null
@@ -68,14 +55,17 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
     && ((brideCount >= 1 && groomCount === 0) || (groomCount >= 1 && brideCount === 0))
   const hintMissingSide = groomCount === 0 ? "groom's" : "bride's"
 
-  const handleDragEnd = (e: DragEndEvent) => {
-    const { active, over } = e
-    if (!over || active.id === over.id) return
+  // Swap a member with its neighbor and persist the full new order. Reorder arrows are
+  // only offered in the All view, so the row index here maps 1:1 onto the global order.
+  const moveMember = (index: number, dir: -1 | 1) => {
+    const target = index + dir
+    if (target < 0 || target >= ordered.length) return
     const ids = ordered.map(m => m.id)
-    reorderParty.mutate(arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id))))
+    ;[ids[index], ids[target]] = [ids[target], ids[index]]
+    reorderParty.mutate(ids)
   }
 
-  // Shared props + the editing-vs-card branch, so the sortable (All) and filtered
+  // Shared props + the editing-vs-card branch, so the reorderable (All) and filtered
   // lists render identical rows without duplicating the wiring.
   const cardProps = (member: WeddingPartyMember) => ({
     member,
@@ -93,7 +83,7 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
     isUploading: uploadPhoto.isPending,
   })
 
-  const renderRow = (member: WeddingPartyMember, sortable: boolean) => {
+  const renderRow = (member: WeddingPartyMember, index: number, reorderable: boolean) => {
     if (editingId === member.id) {
       return (
         <MemberForm
@@ -109,8 +99,21 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
         />
       )
     }
-    return sortable
-      ? <SortableMember key={member.id} {...cardProps(member)} />
+    return reorderable
+      ? (
+        <ReorderableMember
+          key={member.id}
+          {...cardProps(member)}
+          isFirst={index === 0}
+          isLast={index === ordered.length - 1}
+          // Disable every row's arrows while a reorder is in flight. Combined with the
+          // cancelQueries in useReorderParty's onMutate, this serializes clicks so two
+          // PATCHes can't race and have the settle-refetch land a stale order.
+          busy={reorderParty.isPending}
+          onMoveUp={() => moveMember(index, -1)}
+          onMoveDown={() => moveMember(index, 1)}
+        />
+      )
       : <MemberCard key={member.id} {...cardProps(member)} />
   }
 
@@ -185,17 +188,12 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Drag-to-reorder only in the All view: reordering a filtered subset can't
+          {/* Reorder arrows only in the All view: reordering a filtered subset can't
               map cleanly onto the single global sort order. */}
-          {sideFilter === 'ALL' ? (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={displayed.map(m => m.id)} strategy={verticalListSortingStrategy}>
-                {displayed.map(m => renderRow(m, true))}
-              </SortableContext>
-            </DndContext>
-          ) : (
-            displayed.map(m => renderRow(m, false))
+          {sideFilter === 'ALL' && displayed.length > 1 && (
+            <p className="text-xs text-brown-light">Use the arrows to reorder how members appear on your wedding website.</p>
           )}
+          {displayed.map((m, i) => renderRow(m, i, sideFilter === 'ALL' && ordered.length > 1))}
         </div>
       )}
 
@@ -230,30 +228,45 @@ interface MemberCardProps {
   isUploading: boolean
 }
 
-// Wraps a member row in a dnd-kit sortable with a grip handle on the left. The handle
-// owns the drag listeners so the card's own buttons (edit, remove, reposition, upload)
-// keep working; touch-none stops the browser scrolling mid-drag.
-function SortableMember(props: MemberCardProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.member.id })
-  const style: CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 20 : undefined,
-    opacity: isDragging ? 0.5 : 1,
-  }
+// Wraps a member row with up/down arrows on the left that reorder the party. Arrows
+// (rather than drag) keep reordering explicit, so dragging an image file onto the page
+// can be reserved for photo upload, and they are operable by keyboard and touch for free.
+function ReorderableMember({
+  onMoveUp, onMoveDown, isFirst, isLast, busy, ...card
+}: MemberCardProps & {
+  onMoveUp: () => void
+  onMoveDown: () => void
+  isFirst: boolean
+  isLast: boolean
+  busy: boolean
+}) {
+  // p-1.5 around an 18px icon yields a ~30px target, clearing the 24px WCAG 2.5.8 minimum
+  // for touch (couples reorder their party on mobile).
+  const arrowCls = 'p-1.5 text-brown-light hover:text-brown disabled:opacity-20 disabled:cursor-default rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold'
   return (
-    <div ref={setNodeRef} style={style} className="flex items-stretch gap-1">
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        aria-label={`Drag to reorder ${props.member.name}`}
-        className="shrink-0 px-1 flex items-center text-brown-light hover:text-brown cursor-grab active:cursor-grabbing touch-none rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
-      >
-        <GripVertical size={18} />
-      </button>
+    <div className="flex items-stretch gap-1">
+      <div className="shrink-0 flex flex-col justify-center gap-1">
+        <button
+          type="button"
+          onClick={onMoveUp}
+          disabled={isFirst || busy}
+          aria-label={`Move ${card.member.name} up`}
+          className={arrowCls}
+        >
+          <ChevronUp size={18} />
+        </button>
+        <button
+          type="button"
+          onClick={onMoveDown}
+          disabled={isLast || busy}
+          aria-label={`Move ${card.member.name} down`}
+          className={arrowCls}
+        >
+          <ChevronDown size={18} />
+        </button>
+      </div>
       <div className="flex-1 min-w-0">
-        <MemberCard {...props} />
+        <MemberCard {...card} />
       </div>
     </div>
   )
