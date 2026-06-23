@@ -5,15 +5,21 @@ import com.altarwed.application.dto.VendorStatsResponse;
 import com.altarwed.domain.exception.VendorNotFoundException;
 import com.altarwed.domain.model.Vendor;
 import com.altarwed.domain.model.VendorCategory;
+import com.altarwed.domain.port.BlobStoragePort;
 import com.altarwed.domain.port.InquiryRepository;
+import com.altarwed.domain.port.RefreshTokenRepository;
+import com.altarwed.domain.port.VendorPortfolioPhotoRepository;
 import com.altarwed.domain.port.VendorRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,10 +30,20 @@ public class VendorService {
 
     private final VendorRepository vendorRepository;
     private final InquiryRepository inquiryRepository;
+    private final VendorPortfolioPhotoRepository portfolioPhotoRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final BlobStoragePort blobStorage;
 
-    public VendorService(VendorRepository vendorRepository, InquiryRepository inquiryRepository) {
+    public VendorService(VendorRepository vendorRepository,
+                         InquiryRepository inquiryRepository,
+                         VendorPortfolioPhotoRepository portfolioPhotoRepository,
+                         RefreshTokenRepository refreshTokenRepository,
+                         BlobStoragePort blobStorage) {
         this.vendorRepository = vendorRepository;
         this.inquiryRepository = inquiryRepository;
+        this.portfolioPhotoRepository = portfolioPhotoRepository;
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.blobStorage = blobStorage;
     }
 
     @Transactional(readOnly = true)
@@ -114,10 +130,57 @@ public class VendorService {
     @Transactional
     public void deleteVendor(UUID vendorId) {
         log.info("vendor hard delete started, vendorId={}", vendorId);
-        getById(vendorId);
+        Vendor vendor = getById(vendorId);
+
+        // Capture blob URLs before the row delete. The DB cascade removes the
+        // vendor_portfolio_photos rows and the vendors row (which holds logo_url),
+        // but the blob objects live in Azure Storage, not the database, so without
+        // explicit cleanup they would leak in storage forever.
+        List<String> blobUrls = new ArrayList<>();
+        if (vendor.logoUrl() != null) {
+            blobUrls.add(vendor.logoUrl());
+        }
+        portfolioPhotoRepository.findAllByVendorId(vendorId)
+                .forEach(photo -> blobUrls.add(photo.photoUrl()));
+
+        // inquiries has no ON DELETE CASCADE, so it must be removed before the vendor row.
         inquiryRepository.deleteByVendorId(vendorId);
+        // Revoke refresh tokens so a deleted vendor cannot mint fresh access tokens
+        // until natural expiry. A vendor's refresh-token userId is its own id().
+        refreshTokenRepository.deleteAllByUserId(vendorId);
         vendorRepository.deleteById(vendorId);
-        log.info("vendor hard deleted, vendorId={}", vendorId);
+
+        // Delete the blobs only AFTER the row deletes commit. blobStorage.delete is an
+        // irreversible external call that rethrows on failure; running it inside the
+        // transaction would both hold the DB connection across Azure round-trips and,
+        // worse, risk deleting blobs for rows that a commit-time failure then rolls back
+        // (leaving surviving rows pointing at deleted blobs). With no active transaction
+        // (e.g. a direct unit-test call) fall back to inline cleanup.
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    deleteBlobsBestEffort(vendorId, blobUrls);
+                }
+            });
+        } else {
+            deleteBlobsBestEffort(vendorId, blobUrls);
+        }
+        log.info("vendor hard deleted, vendorId={}, blobs={}", vendorId, blobUrls.size());
+    }
+
+    // Best-effort, isolated per blob: one storage failure must not block the others.
+    // A failure leaves a recoverable, logged orphan, far better than failing the
+    // already-committed delete over a transient storage error. WARN not ERROR: a
+    // tolerated per-item batch failure, not an on-call page.
+    private void deleteBlobsBestEffort(UUID vendorId, List<String> blobUrls) {
+        for (String url : blobUrls) {
+            try {
+                blobStorage.delete(url);
+            } catch (RuntimeException ex) {
+                log.warn("vendor blob orphaned, delete failed during hard delete, vendorId={}, url={}", vendorId, url, ex);
+            }
+        }
     }
 
     private String blankToNull(String s) {
