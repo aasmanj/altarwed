@@ -242,14 +242,9 @@ public class GoogleSheetSyncService {
                             "Could not extract spreadsheet ID from URL. " +
                             "Paste the URL from your browser address bar while the sheet is open.");
                 }
+                // The Side-column dropdown validation is applied inside upsertGuestsWithWriteBack,
+                // where the parsed headers tell us which column is actually the Side column.
                 counts = upsertGuestsWithWriteBack(sync.coupleId(), spreadsheetId, sync.sheetUrl());
-                // Apply dropdown validation to column B on every OAuth sync (idempotent).
-                // Non-fatal: a failure here should not mark the sync as errored.
-                try {
-                    googleOAuthService.applySheetValidation(sync.coupleId(), spreadsheetId);
-                } catch (Exception ex) {
-                    log.warn("google sheet validation apply failed (non-fatal), coupleId={}", sync.coupleId(), ex);
-                }
             } else {
                 // No-OAuth fallback: read public CSV, upsert by name
                 log.info("google sheet sync using public csv url, coupleId={}", sync.coupleId());
@@ -378,6 +373,11 @@ public class GoogleSheetSyncService {
         String[] headers = rows.get(0);
         Map<String, Integer> colIndex = buildColumnIndex(headers);
         validateRequiredColumns(colIndex, headers);
+
+        // Resolve the Side column by header so the dropdown validation applied at the end of
+        // this method targets the right column even if the template order changes or the couple
+        // reorders columns. null means no Side column, so we skip validation entirely.
+        Integer sideColumnIndex = firstColumnIndex(colIndex, SIDE_ALIASES);
 
         // Locate or plan the "AltarWed ID" column.
         // Header is "AltarWed ID (do not modify)" so couples see the warning
@@ -600,6 +600,18 @@ public class GoogleSheetSyncService {
                 log.warn("google sheet uuid write-back skipped, insufficient scope (re-authorize required), coupleId={}", coupleId);
             } catch (Exception ex) {
                 log.warn("google sheet uuid write-back failed (non-fatal), coupleId={}", coupleId, ex);
+            }
+        }
+
+        // Re-apply the Bride/Groom/Both dropdown to the Side column (idempotent). Non-fatal:
+        // a validation failure must not mark the sync as errored. Skipped when the sheet has no
+        // Side column, so we never stamp a Bride/Groom dropdown onto the wrong column (which is
+        // what happened when this was hardcoded to column B after Party took that slot).
+        if (sideColumnIndex != null) {
+            try {
+                googleOAuthService.applySheetValidation(coupleId, spreadsheetId, sideColumnIndex);
+            } catch (Exception ex) {
+                log.warn("google sheet validation apply failed (non-fatal), coupleId={}", coupleId, ex);
             }
         }
 
@@ -889,6 +901,15 @@ public class GoogleSheetSyncService {
             if (index.containsKey(name)) return true;
         }
         return false;
+    }
+
+    /** 0-based index of the first present header alias, or null if none are present. */
+    private Integer firstColumnIndex(Map<String, Integer> index, String... names) {
+        for (String name : names) {
+            Integer i = index.get(name);
+            if (i != null) return i;
+        }
+        return null;
     }
 
     // Party assignment derived from the sheet for one data row.
