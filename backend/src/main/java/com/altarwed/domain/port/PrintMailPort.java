@@ -30,7 +30,19 @@ public interface PrintMailPort {
                      String city, String state, String zip, String country) {}
 
     class PrintMailException extends RuntimeException {
-        public PrintMailException(String message) { super(message); }
-        public PrintMailException(String message, Throwable cause) { super(message, cause); }
+        // Couple-facing detail (e.g. the provider's rejection reason). Kept OFF the exception
+        // message on purpose: the message and cause chain get logged to App Insights, and a
+        // provider error string can echo submitted address fields. This detail is surfaced only
+        // to the couple via the per-recipient error row, never logged. Null when there is none.
+        private final String userDetail;
+
+        public PrintMailException(String message) { super(message); this.userDetail = null; }
+        public PrintMailException(String message, Throwable cause) { super(message, cause); this.userDetail = null; }
+        public PrintMailException(String message, String userDetail, Throwable cause) {
+            super(message, cause);
+            this.userDetail = userDetail;
+        }
+
+        public String userDetail() { return userDetail; }
     }
 }

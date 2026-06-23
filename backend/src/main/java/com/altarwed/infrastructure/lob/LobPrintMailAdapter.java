@@ -1,6 +1,8 @@
 package com.altarwed.infrastructure.lob;
 
 import com.altarwed.domain.port.PrintMailPort;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,11 +32,28 @@ public class LobPrintMailAdapter implements PrintMailPort {
 
     private static final Logger log = LoggerFactory.getLogger(LobPrintMailAdapter.class);
 
+    // Lob 6x11 postcard. Lob validates the rendered HTML against the BLEED dimensions for the
+    // chosen size and returns 422 UNPROCESSABLE_CONTENT on a mismatch. For 6x11 the trim (final
+    // card) is 11in x 6in and the bleed adds 0.125in on every edge, so the front and back HTML
+    // MUST render at 11.25in x 6.25in (see the @page rules in renderFront/renderBack). This bit
+    // us once: the template rendered at the 11in x 6in trim size and every postcard 422'd.
+    // Ref: https://help.lob.com/print-and-mail/designing-mail-creatives/mail-piece-design-specs/postcards
+    private static final String POSTCARD_SIZE = "6x11";
+
+    // Cap for the extracted Lob error so it always fits print_order_recipients.error_message
+    // (NVARCHAR(500)); kept under 500 to leave headroom and avoid a SQL 2628 truncation abort.
+    private static final int MAX_ERROR_DETAIL = 480;
+
     private final String apiKey;
     private final RestClient restClient;
+    private final ObjectMapper objectMapper;
 
-    public LobPrintMailAdapter(@Value("${altarwed.lob.api-key:}") String apiKey) {
+    public LobPrintMailAdapter(
+            @Value("${altarwed.lob.api-key:}") String apiKey,
+            ObjectMapper objectMapper
+    ) {
         this.apiKey = apiKey;
+        this.objectMapper = objectMapper;
         String basic = Base64.getEncoder().encodeToString((apiKey + ":").getBytes(StandardCharsets.UTF_8));
         this.restClient = RestClient.builder()
                 .baseUrl("https://api.lob.com/v1")
@@ -47,7 +66,10 @@ public class LobPrintMailAdapter implements PrintMailPort {
         if (apiKey == null || apiKey.isBlank()) {
             throw new PrintMailException("Lob API key not configured. Set LOB_API_KEY env var.");
         }
-        log.info("submitting postcard to lob, templateKey={}", req.templateKey());
+        // DEBUG, not INFO: sendPostcard is called once per recipient inside PrintOrderService's
+        // batch loop, so an INFO here would write two lines per guest (rule 9). The aggregate
+        // outcome is logged once by PrintOrderService ("print order finalized, succeeded/failed").
+        log.debug("submitting postcard to lob, templateKey={}", req.templateKey());
 
         String front = renderFront(req);
         String back = renderBack(req);
@@ -58,7 +80,7 @@ public class LobPrintMailAdapter implements PrintMailPort {
         body.put("from", addressMap(req.from()));
         body.put("front", front);
         body.put("back", back);
-        body.put("size", "6x11");
+        body.put("size", POSTCARD_SIZE);
         // usps_first_class is US-only; omit mail_type for international so Lob routes correctly
         if (isUsDomestic(req.to().country())) {
             body.put("mail_type", "usps_first_class");
@@ -77,11 +99,21 @@ public class LobPrintMailAdapter implements PrintMailPort {
                 throw new PrintMailException("Lob returned empty response");
             }
             String lobId = response.get("id").toString();
-            log.info("lob accepted postcard, lobId={}, templateKey={}", lobId, req.templateKey());
+            // DEBUG per the batch-loop reasoning above; the provider id stays available for
+            // correlation without one INFO line per recipient.
+            log.debug("lob accepted postcard, lobId={}, templateKey={}", lobId, req.templateKey());
             return lobId;
         } catch (RestClientResponseException ex) {
+            // Lob returns a JSON body explaining the rejection (wrong HTML dimensions, an invalid
+            // ZIP, etc.). The previous version surfaced only the bare status code, which made a
+            // 422 impossible to diagnose. We extract Lob's message for the couple-facing
+            // per-recipient error, but log ONLY the status: Lob's message is provider-controlled
+            // and an address-validation error can echo submitted address fields, which must never
+            // reach the logs. The detail rides on userDetail (not the message/cause), so the
+            // PrintOrderService log line that records this failure stays PII-free too.
+            String lobError = extractLobError(ex.getResponseBodyAsString());
             log.warn("lob rejected postcard, status={}", ex.getStatusCode());
-            throw new PrintMailException("Lob rejected postcard: " + ex.getStatusCode(), ex);
+            throw new PrintMailException("Lob rejected postcard: " + ex.getStatusCode(), lobError, ex);
         } catch (org.springframework.web.client.RestClientException ex) {
             // Network / transport errors only. Let runtime exceptions (NPE, etc.) propagate
             // so they surface as 500s rather than being mis-attributed as Lob failures.
@@ -126,7 +158,7 @@ public class LobPrintMailAdapter implements PrintMailPort {
         return m;
     }
 
-    private String renderFront(PostcardRequest req) {
+    String renderFront(PostcardRequest req) {
         boolean saveTheDate = "SAVE_THE_DATE_CLASSIC".equals(req.templateKey())
                 || req.templateKey().startsWith("SAVE_THE_DATE");
         String headline = saveTheDate ? "Save the Date" : "You're Invited";
@@ -138,18 +170,22 @@ public class LobPrintMailAdapter implements PrintMailPort {
                 ? "background-image:url('" + safePhotoUrl + "');background-size:cover;background-position:center;"
                 : "background:linear-gradient(135deg,#fdfaf6,#f5e9d4);";
 
+        // Dimensions are the Lob 6x11 BLEED size (11.25in x 6.25in), NOT the 11in x 6in trim
+        // (see POSTCARD_SIZE comment). The card background fills the full bleed so there is no
+        // white edge after trimming; text sits inside the ~0.25in-from-bleed safe zone via the
+        // .content padding and the verse offset.
         return """
                 <html><head><style>
-                  @page { size: 11in 6in; margin: 0; }
-                  body { margin:0; font-family: Georgia, serif; width:11in; height:6in; }
-                  .card { width:11in; height:6in; position:relative; %s color:#fff; text-shadow:0 2px 8px rgba(0,0,0,0.45); }
+                  @page { size: 11.25in 6.25in; margin: 0; }
+                  body { margin:0; font-family: Georgia, serif; width:11.25in; height:6.25in; }
+                  .card { width:11.25in; height:6.25in; position:relative; %s color:#fff; text-shadow:0 2px 8px rgba(0,0,0,0.45); }
                   .overlay { position:absolute; inset:0; background:linear-gradient(180deg,rgba(0,0,0,0.15),rgba(0,0,0,0.55)); }
-                  .content { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0.6in; text-align:center; }
+                  .content { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0.7in; text-align:center; }
                   .label { font-size:14pt; letter-spacing:0.4em; text-transform:uppercase; color:#f5e9d4; margin-bottom:0.2in; }
                   .names { font-size:48pt; margin:0; font-weight:bold; }
                   .amp { font-size:32pt; color:#d4af6a; margin:0.05in 0; }
                   .date { font-size:22pt; margin-top:0.3in; }
-                  .verse { position:absolute; bottom:0.3in; left:0; right:0; font-size:11pt; color:#f5e9d4; font-style:italic; }
+                  .verse { position:absolute; bottom:0.4in; left:0; right:0; font-size:11pt; color:#f5e9d4; font-style:italic; }
                 </style></head><body>
                   <div class="card">
                     <div class="overlay"></div>
@@ -164,17 +200,20 @@ public class LobPrintMailAdapter implements PrintMailPort {
                 """.formatted(photo, headline, escape(req.coupleNames()), escape(req.weddingDate()));
     }
 
-    private String renderBack(PostcardRequest req) {
+    String renderBack(PostcardRequest req) {
         String venueLine = req.venueLine() != null && !req.venueLine().isBlank()
                 ? "<div style='margin-top:6pt;font-size:12pt;'>" + escape(req.venueLine()) + "</div>"
                 : "";
         String url = req.weddingUrl() != null ? escape(req.weddingUrl()) : "altarwed.com";
 
+        // Bleed size again (11.25in x 6.25in, see POSTCARD_SIZE). The left half carries our
+        // message; the right half is left blank so Lob can print the recipient address block and
+        // barcode there (Lob reserves the right side of the postcard back for addressing).
         return """
                 <html><head><style>
-                  @page { size: 11in 6in; margin: 0; }
-                  body { margin:0; font-family: Georgia, serif; width:11in; height:6in; color:#3b2f2f; }
-                  .left { position:absolute; left:0; top:0; width:5.5in; height:6in; padding:0.5in; box-sizing:border-box; background:#fdfaf6; }
+                  @page { size: 11.25in 6.25in; margin: 0; }
+                  body { margin:0; font-family: Georgia, serif; width:11.25in; height:6.25in; color:#3b2f2f; }
+                  .left { position:absolute; left:0; top:0; width:5.5in; height:6.25in; padding:0.5in; box-sizing:border-box; background:#fdfaf6; }
                   .label { font-size:10pt; letter-spacing:0.3em; text-transform:uppercase; color:#a08060; }
                   .title { font-size:22pt; margin:0.1in 0; }
                   .body { font-size:12pt; line-height:1.6; }
@@ -198,5 +237,25 @@ public class LobPrintMailAdapter implements PrintMailPort {
     private static String escape(String s) {
         if (s == null) return "";
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    }
+
+    /**
+     * Pulls the human-readable message out of a Lob error response body, whose shape is
+     * {"error":{"message":"...","status_code":422,...}}. Falls back to the raw body when the JSON
+     * is missing or unparseable. Returns only error.message (never the whole body) and caps the
+     * length so it always fits the print_order_recipients.error_message column (NVARCHAR(500));
+     * an oversized value would abort the recipient insert with a SQL 2628 truncation error.
+     */
+    String extractLobError(String body) {
+        if (body == null || body.isBlank()) return "no error body returned";
+        String detail = null;
+        try {
+            JsonNode message = objectMapper.readTree(body).path("error").path("message");
+            if (message.isTextual() && !message.asText().isBlank()) detail = message.asText();
+        } catch (Exception ignored) {
+            // not JSON, fall through to the raw body
+        }
+        if (detail == null) detail = body;
+        return detail.length() > MAX_ERROR_DETAIL ? detail.substring(0, MAX_ERROR_DETAIL) : detail;
     }
 }
