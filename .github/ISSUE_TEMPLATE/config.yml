@@ -1,0 +1,4 @@
+# Forced to false so every issue enters through a template and lands labeled `needs-triage`,
+# which is what the orchestrator keys off. A template's first field is the only required one,
+# so a rough brain-dump is still one sentence away.
+blank_issues_enabled: false

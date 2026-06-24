@@ -1,0 +1,46 @@
+name: Feature
+description: New functionality you want built. A rough note is fine; the issue-triage agent will formalize it.
+title: "Feature: "
+labels: ["feature", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the outcome you want, not the implementation. The `issue-triage` agent turns this
+        into acceptance criteria and scope before anyone builds it. Be honest about whether it moves
+        couples-shipped, vendor signups, or SEO; features that move none get deprioritized.
+  - type: textarea
+    id: what
+    attributes:
+      label: What do you want, and why
+      description: The user-facing outcome and the problem it solves.
+      placeholder: "Couples should be able to export their guest list to CSV so they can hand it to a caterer."
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: What would "done" look like (if you know)
+      description: How you would know it works. Triage will turn this into testable acceptance criteria.
+      placeholder: "A button on the guest list page downloads a CSV with name, party size, RSVP status."
+    validations:
+      required: false
+  - type: dropdown
+    id: metric
+    attributes:
+      label: Which metric does this move
+      multiple: true
+      options:
+        - "couples-shipped"
+        - "vendor signups"
+        - "SEO / organic traffic"
+        - "Not sure (let triage decide)"
+    validations:
+      required: false
+  - type: input
+    id: area
+    attributes:
+      label: Where in the codebase (if you know)
+      placeholder: "backend / frontend-app / frontend-public / infra"
+    validations:
+      required: false

@@ -1,0 +1,57 @@
+name: Bug
+description: Something is broken or behaves wrong. A rough note is fine; the issue-triage agent will formalize it.
+title: "Fix: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Keep it as rough as you want. The `issue-triage` agent rewrites this into a precise spec
+        (acceptance criteria, scope, labels) before any implementer touches it. Fill what you know,
+        skip the rest.
+  - type: textarea
+    id: what
+    attributes:
+      label: What's wrong
+      description: What actually happens, and what you expected instead.
+      placeholder: "A guest can RSVP with a party size bigger than their invite, and the backend stores it anyway."
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce (if you know)
+      placeholder: "1. Open the public RSVP page  2. Set party size to 10  3. Submit"
+    validations:
+      required: false
+  - type: dropdown
+    id: priority
+    attributes:
+      label: How bad is it
+      options:
+        - "Not sure (let triage decide)"
+        - "p0 - breaks my live wedding usage or prod is down"
+        - "p1 - real bug, hurts a couple or vendor flow"
+        - "p2 - minor or cosmetic"
+    validations:
+      required: false
+  - type: dropdown
+    id: metric
+    attributes:
+      label: What does fixing it help
+      description: Pick any that apply. If none, triage may starve it.
+      multiple: true
+      options:
+        - "couples-shipped"
+        - "vendor signups"
+        - "SEO / organic traffic"
+        - "Not sure (let triage decide)"
+    validations:
+      required: false
+  - type: input
+    id: area
+    attributes:
+      label: Where in the codebase (if you know)
+      placeholder: "backend / frontend-app / frontend-public / infra"
+    validations:
+      required: false

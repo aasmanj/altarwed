@@ -1,0 +1,25 @@
+name: Chore / Tech debt
+description: Maintenance, refactor, cleanup, or hardening with no new user-facing behavior.
+title: "Chore: "
+labels: ["chore", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For cleanup, refactors, dependency bumps, test coverage, and hardening. The `issue-triage`
+        agent will scope it and decide whether an agent can safely take it or it needs you (anything
+        touching secrets, infra, migrations, auth, or payments is `human-only`).
+  - type: textarea
+    id: what
+    attributes:
+      label: What needs doing, and why it matters
+      placeholder: "Add an integration test for the RSVP over-allotment path so the bug we just fixed can't regress."
+    validations:
+      required: true
+  - type: input
+    id: area
+    attributes:
+      label: Where in the codebase (if you know)
+      placeholder: "backend / frontend-app / frontend-public / infra"
+    validations:
+      required: false
