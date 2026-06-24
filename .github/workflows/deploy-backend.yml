@@ -8,6 +8,18 @@ on:
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
 
+# Serialize deploys to the single prod App Service. Two merges to main seconds
+# apart (PR #16 and #17 on 2026-06-24) launched two parallel deploys that both
+# OneDeploy'd app.jar to the same instance; the loser's commit silently never
+# went live and its smoke test timed out. A static concurrency group forces runs
+# to queue instead of race. cancel-in-progress: false so an in-flight deploy is
+# never killed mid-upload (which could leave a half-written app.jar); GitHub keeps
+# only the newest queued run (a superseded queued run is canceled and its smoke
+# test never runs), so we always converge on and verify the latest commit.
+concurrency:
+  group: deploy-backend-prod
+  cancel-in-progress: false
+
 jobs:
   # ── Job 0 ─────────────────────────────────────────────────────────────────
   # Sub-second filename sanity: duplicate Flyway versions, gaps, malformed
