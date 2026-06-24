@@ -28,12 +28,10 @@ public class SeatingTableService {
 
     @Transactional
     public SeatingTable create(UUID coupleId, CreateSeatingTableRequest req) {
-        // Derive sortOrder from the highest existing sortOrder, not the row count.
-        // A row count diverges from the max sortOrder once a middle table is deleted,
-        // which made a new table collide with an existing one. The repository returns
-        // the list ordered by sortOrder ASC, so the last element holds the max.
-        List<SeatingTable> existing = repository.findAllByCoupleId(coupleId);
-        int nextSort = existing.isEmpty() ? 0 : existing.get(existing.size() - 1).sortOrder() + 1;
+        int nextSort = repository.findAllByCoupleId(coupleId).stream()
+                .mapToInt(SeatingTable::sortOrder)
+                .max()
+                .orElse(-1) + 1;
         int capacity = req.capacity() != null ? req.capacity() : 8;
         SeatingTable table = new SeatingTable(null, coupleId, req.name(), capacity, nextSort, null, null);
         return repository.save(table);

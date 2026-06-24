@@ -17,12 +17,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Unit tests for {@link SeatingTableService#create}.
- * Guards the regression where sortOrder was derived from row count: after a middle
- * table is deleted, count diverges from max(sortOrder), so a new table collided with
- * an existing one. sortOrder now comes from max(existing sortOrder) + 1.
- */
 @ExtendWith(MockitoExtension.class)
 class SeatingTableServiceTest {
 
@@ -39,8 +33,6 @@ class SeatingTableServiceTest {
     @Test
     void create_derivesSortOrderFromMaxPlusOne_afterMiddleDelete() {
         UUID coupleId = UUID.randomUUID();
-        // Tables 0 and 2 remain after the table with sortOrder 1 was deleted.
-        // Row count would yield 2 (a collision); max + 1 must yield 3.
         when(repository.findAllByCoupleId(coupleId))
                 .thenReturn(List.of(table(coupleId, 0), table(coupleId, 2)));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
