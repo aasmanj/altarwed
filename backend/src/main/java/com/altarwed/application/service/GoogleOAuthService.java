@@ -336,13 +336,17 @@ public class GoogleOAuthService {
     }
 
     /**
-     * Applies a dropdown data validation rule to column B (index 1) of the first sheet,
-     * restricting values to "Bride", "Groom", or "Both" (the values parseSide() accepts).
+     * Applies a "Bride / Groom / Both" dropdown data validation rule to the Side column
+     * (0-based sideColumnIndex) of the first sheet, restricting values to the strings
+     * parseSide() accepts. The caller resolves which column is the Side column by header
+     * name, so this stays correct even when the template column order changes or the couple
+     * reorders their columns; it must never be hardcoded (it used to target column B, which
+     * silently became the Party column when the template was reordered).
      * Idempotent -- safe to call on every sync run.
      * Uses the spreadsheet-level batchUpdate endpoint (not the values endpoint).
      */
     @SuppressWarnings("unchecked")
-    public void applySheetValidation(UUID coupleId, String spreadsheetId) {
+    public void applySheetValidation(UUID coupleId, String spreadsheetId, int sideColumnIndex) {
         String accessToken = getValidAccessToken(coupleId);
 
         // Fetch the numeric sheetId for the first tab; cannot assume 0 if the user renamed it.
@@ -376,8 +380,8 @@ public class GoogleOAuthService {
                 "sheetId", sheetId,
                 "startRowIndex", 1,       // skip header row
                 "endRowIndex", rowCount,  // use actual sheet row count to avoid 400
-                "startColumnIndex", 1,    // column B
-                "endColumnIndex", 2
+                "startColumnIndex", sideColumnIndex,      // the resolved Side column
+                "endColumnIndex", sideColumnIndex + 1
         );
         Map<String, Object> condition = Map.of(
                 "type", "ONE_OF_LIST",
@@ -407,8 +411,8 @@ public class GoogleOAuthService {
                 .retrieve()
                 .toBodilessEntity();
 
-        log.info("google sheets validation applied, coupleId={}, spreadsheetId={}, sheetId={}",
-                 coupleId, spreadsheetId, sheetId);
+        log.info("google sheets validation applied, coupleId={}, spreadsheetId={}, sheetId={}, sideColumnIndex={}",
+                 coupleId, spreadsheetId, sheetId, sideColumnIndex);
     }
 
     // -------------------------------------------------------------------------
