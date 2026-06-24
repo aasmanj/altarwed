@@ -28,7 +28,10 @@ public class SeatingTableService {
 
     @Transactional
     public SeatingTable create(UUID coupleId, CreateSeatingTableRequest req) {
-        int nextSort = repository.findAllByCoupleId(coupleId).size();
+        int nextSort = repository.findAllByCoupleId(coupleId).stream()
+                .mapToInt(SeatingTable::sortOrder)
+                .max()
+                .orElse(-1) + 1;
         int capacity = req.capacity() != null ? req.capacity() : 8;
         SeatingTable table = new SeatingTable(null, coupleId, req.name(), capacity, nextSort, null, null);
         return repository.save(table);
