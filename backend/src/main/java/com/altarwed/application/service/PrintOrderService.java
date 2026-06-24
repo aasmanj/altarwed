@@ -181,10 +181,18 @@ public class PrintOrderService {
                 recipients.add(new PrintOrderRecipient(null, null, guestId, lobId, "SUBMITTED", null));
                 successCount++;
             } catch (PrintMailPort.PrintMailException ex) {
-                // Pass the exception as the last arg per CLAUDE.md rule 10 (stack
-                // trace preserves the Lob response body wrapped by the adapter).
-                log.warn("lob rejected postcard, orderId={}, guestId={}", orderId, guestId, ex);
-                recipients.add(new PrintOrderRecipient(null, null, guestId, null, "FAILED", ex.getMessage()));
+                // Expected provider rejection. The adapter already logged the provider status at
+                // the integration boundary, so log only domain IDs here and do NOT pass the
+                // exception: its message and wrapped cause can carry Lob's raw error body, which
+                // may echo submitted address fields (PII) into App Insights. The couple-facing
+                // reason rides on userDetail and goes only to the per-recipient error row below.
+                log.warn("print recipient rejected, orderId={}, guestId={}", orderId, guestId);
+                // error_message is NVARCHAR(500). The adapter already caps extracted Lob detail,
+                // but the getMessage() fallback (transport errors) is unbounded, so cap here too
+                // to keep any path from aborting the recipient insert with a SQL 2628 truncation.
+                String detail = ex.userDetail() != null ? ex.userDetail() : ex.getMessage();
+                if (detail != null && detail.length() > 480) detail = detail.substring(0, 480);
+                recipients.add(new PrintOrderRecipient(null, null, guestId, null, "FAILED", detail));
                 failureCount++;
             }
         }
