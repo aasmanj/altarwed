@@ -7,11 +7,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -64,7 +66,20 @@ public class LobPrintMailAdapter implements PrintMailPort {
         this.apiKey = apiKey;
         this.objectMapper = objectMapper;
         String basic = Base64.getEncoder().encodeToString((apiKey + ":").getBytes(StandardCharsets.UTF_8));
+        // Pin an explicit request factory with timeouts, matching the other timeout-pinned RestClient
+        // adapters (ResendEmailAdapter, GoogleSheetSyncService, GoogleOAuthService). Without a
+        // requestFactory RestClient auto-detects Reactor Netty from the classpath, whose ~10s default
+        // read timeout is too short for Lob: creating a postcard makes Lob fetch the hero image and
+        // rasterize the card HTML to a PDF, which routinely runs longer than a plain JSON call, and
+        // the short default surfaced as a per-recipient transport failure (ReadTimeoutException). 30s read
+        // (the value the other slow-rendering integrations use) absorbs render spikes; SimpleClient
+        // is blocking, which is ideal here because the app runs on virtual threads so the carrier
+        // thread is released during the wait.
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(10));
+        factory.setReadTimeout(Duration.ofSeconds(30));
         this.restClient = RestClient.builder()
+                .requestFactory(factory)
                 .baseUrl("https://api.lob.com/v1")
                 .defaultHeader("Authorization", "Basic " + basic)
                 .build();
@@ -111,9 +126,14 @@ public class LobPrintMailAdapter implements PrintMailPort {
             log.warn("lob rejected postcard, status={}", ex.getStatusCode());
             throw new PrintMailException("Lob rejected postcard: " + ex.getStatusCode(), lobError, ex);
         } catch (org.springframework.web.client.RestClientException ex) {
-            // Network / transport errors only. Let runtime exceptions (NPE, etc.) propagate
-            // so they surface as 500s rather than being mis-attributed as Lob failures.
-            log.error("lob call failed unexpectedly, templateKey={}", req.templateKey(), ex);
+            // Network / transport errors only (e.g. a read timeout on a slow render). WARN, not
+            // ERROR: this is a recoverable per-recipient failure inside PrintOrderService's batch
+            // loop, the loop continues and the order finalizes as PARTIAL_FAILURE/FAILED, so one
+            // guest's transport hiccup must not page on-call (systemic outages surface via the
+            // aggregate finalize line + alerting on failure rate, not one ERROR per recipient).
+            // Runtime exceptions (NPE, etc.) are not caught here so they still surface as 500s
+            // rather than being mis-attributed as Lob failures.
+            log.warn("lob call failed, templateKey={}", req.templateKey(), ex);
             throw new PrintMailException("Lob call failed: " + ex.getMessage(), ex);
         }
     }
