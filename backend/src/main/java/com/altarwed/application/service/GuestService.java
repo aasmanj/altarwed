@@ -109,7 +109,7 @@ public class GuestService {
             boolean isContact = (i == 0);
             members.add(new Guest(
                     null, coupleId, m.name(), m.email(), m.phone(),
-                    GuestRsvpStatus.PENDING, m.plusOneAllowed(), null,
+                    GuestRsvpStatus.PENDING, Boolean.TRUE.equals(m.plusOneAllowed()), null,
                     m.dietaryRestrictions(), null,
                     null, m.side(), m.notes(),
                     m.mailLine1(), m.mailCity(), m.mailState(), m.mailZip(), m.mailCountry(),
