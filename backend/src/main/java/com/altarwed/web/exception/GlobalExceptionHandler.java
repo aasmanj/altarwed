@@ -18,6 +18,7 @@ import com.altarwed.domain.exception.DenominationNotFoundException;
 import com.altarwed.domain.exception.EmailAlreadyExistsException;
 import com.altarwed.domain.exception.GuestUnsubscribedException;
 import com.altarwed.domain.exception.SlugAlreadyTakenException;
+import com.altarwed.domain.exception.StorageNotConfiguredException;
 import com.altarwed.domain.exception.WeddingWebsiteAlreadyExistsException;
 import com.altarwed.domain.exception.VendorNotFoundException;
 import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
@@ -314,6 +315,19 @@ public class GlobalExceptionHandler {
         pd.setType(URI.create("https://altarwed.com/problems/access-denied"));
         pd.setTitle("Access Denied");
         pd.setDetail("You do not have access to this resource.");
+        return pd;
+    }
+
+    // 503: a media operation was attempted while blob storage is unconfigured
+    // (AZURE_STORAGE_CONNECTION_STRING blank). The app boots healthy by design and only this one
+    // feature degrades; the adapter already WARN-logs with context, so here we just translate.
+    // Mapped to 503 (not the catch-all 500) so this known config gap never pages on-call as ERROR.
+    @ExceptionHandler(StorageNotConfiguredException.class)
+    public ProblemDetail handleStorageNotConfigured(StorageNotConfiguredException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.SERVICE_UNAVAILABLE);
+        pd.setType(URI.create("https://altarwed.com/problems/storage-unavailable"));
+        pd.setTitle("Media Storage Unavailable");
+        pd.setDetail("Media uploads are temporarily unavailable. Please try again later.");
         return pd;
     }
 

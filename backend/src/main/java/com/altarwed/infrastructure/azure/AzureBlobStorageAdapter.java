@@ -1,5 +1,6 @@
 package com.altarwed.infrastructure.azure;
 
+import com.altarwed.domain.exception.StorageNotConfiguredException;
 import com.altarwed.domain.port.BlobStoragePort;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
@@ -54,7 +55,7 @@ public class AzureBlobStorageAdapter implements BlobStoragePort {
                 client = this.containerClient;
                 if (client == null) {
                     if (connectionString == null || connectionString.isBlank()) {
-                        throw new IllegalStateException(
+                        throw new StorageNotConfiguredException(
                                 "Azure storage is not configured (AZURE_STORAGE_CONNECTION_STRING is blank); media upload is disabled");
                     }
                     BlobServiceClient serviceClient = new BlobServiceClientBuilder()
@@ -87,6 +88,12 @@ public class AzureBlobStorageAdapter implements BlobStoragePort {
                 blobUrl = publicBaseUrl + blobUrl.substring(pathStart);
             }
             return blobUrl;
+        } catch (StorageNotConfiguredException ex) {
+            // Known config degradation, not an unexpected error: WARN with context (not ERROR) so a
+            // blank/rotated connection string disables uploads without paging on-call. The 503
+            // mapping lives in GlobalExceptionHandler.
+            log.warn("blob upload skipped, storage not configured, blobName={}", blobName);
+            throw ex;
         } catch (BlobStorageException ex) {
             log.error("blob upload failed, blobName={}, statusCode={}", blobName, ex.getStatusCode(), ex);
             throw ex;
@@ -95,7 +102,15 @@ public class AzureBlobStorageAdapter implements BlobStoragePort {
 
     @Override
     public void delete(String blobUrl) {
-        BlobContainerClient container = container();
+        BlobContainerClient container;
+        try {
+            container = container();
+        } catch (StorageNotConfiguredException ex) {
+            // Same known-config-gap handling as upload: WARN (not ERROR), then let the 503
+            // mapping in GlobalExceptionHandler translate it.
+            log.warn("blob delete skipped, storage not configured");
+            throw ex;
+        }
         // Accept both the native Azure blob URL and the CDN/custom-domain URL.
         String blobStoragePrefix = container.getBlobContainerUrl() + "/";
         String cdnPrefix = publicBaseUrl.isBlank() ? null
