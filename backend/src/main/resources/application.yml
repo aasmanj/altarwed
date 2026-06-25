@@ -70,7 +70,10 @@ altarwed:
     same-site: ${COOKIE_SAME_SITE:Strict}
 
   resend:
-    api-key: ${RESEND_API_KEY}
+    # Empty default: a missing key disables email (degrades at runtime) instead of
+    # crashing the JVM at startup before the health endpoint exists. StartupConfigValidator
+    # logs a WARN at boot if this is blank in prod.
+    api-key: ${RESEND_API_KEY:}
     from-email: ${RESEND_FROM_EMAIL:noreply@altarwed.com}
     # Separate sending identity for guest-facing bulk mail (save-the-dates, RSVP
     # invites). Isolating the invite stream on its own subdomain keeps a marketing
@@ -100,8 +103,10 @@ altarwed:
     revalidation-secret: ${REVALIDATION_SECRET:}
 
   google:
-    client-id: ${GOOGLE_OAUTH_CLIENT_ID}
-    client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET}
+    # Empty defaults: a missing client id/secret disables Google Sheets sync (degrades at
+    # runtime) instead of crashing startup. StartupConfigValidator WARNs at boot if blank.
+    client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
+    client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET:}
     redirect-uri: ${GOOGLE_OAUTH_REDIRECT_URI:https://altarwed-prod-api.azurewebsites.net/api/v1/integrations/google-sheets/callback}
     # Google Picker browser config. Empty defaults: a missing value degrades the
     # sheet-picker feature (frontend shows "not configured"), never crashes startup.
@@ -138,7 +143,9 @@ altarwed:
 
   azure:
     storage:
-      connection-string: ${AZURE_STORAGE_CONNECTION_STRING}
+      # Empty default: a missing connection string disables blob/media uploads (degrades at
+      # runtime) instead of crashing startup. StartupConfigValidator WARNs at boot if blank.
+      connection-string: ${AZURE_STORAGE_CONNECTION_STRING:}
       container-name: ${AZURE_STORAGE_CONTAINER_NAME:altarwed-media}
       public-base-url: ${BLOB_PUBLIC_BASE_URL:}
 
