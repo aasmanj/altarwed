@@ -34,7 +34,7 @@ public record RegisterVendorRequest(
         @Size(min = 8, message = "Password must be at least 8 characters")
         String password,
 
-        boolean isChristianOwned,
+        Boolean isChristianOwned,
 
         List<UUID> denominationIds
 ) {}

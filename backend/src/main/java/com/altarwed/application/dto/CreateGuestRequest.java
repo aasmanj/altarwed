@@ -9,7 +9,7 @@ public record CreateGuestRequest(
         @NotBlank @Size(max = 200) String name,
         @Email @Size(max = 300) String email,
         @Size(max = 50) String phone,
-        boolean plusOneAllowed,
+        Boolean plusOneAllowed,
         GuestSide side,
         @Size(max = 500) String dietaryRestrictions,
         String notes,

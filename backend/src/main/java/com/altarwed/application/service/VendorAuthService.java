@@ -68,7 +68,7 @@ public class VendorAuthService {
                 request.state(),
                 request.email(),
                 passwordEncoder.encode(request.password()),
-                request.isChristianOwned(),
+                Boolean.TRUE.equals(request.isChristianOwned()),
                 request.denominationIds() != null ? request.denominationIds() : List.of(),
                 true,
                 false,  // starts unverified; Stripe webhook verifies on ACTIVE/TRIALING

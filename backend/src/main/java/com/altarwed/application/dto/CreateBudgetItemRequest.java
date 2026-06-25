@@ -13,6 +13,6 @@ public record CreateBudgetItemRequest(
         @NotBlank @Size(max = 200) String vendorName,
         @NotNull @DecimalMin("0.00") BigDecimal estimatedCost,
         @DecimalMin("0.00") BigDecimal actualCost,
-        boolean isPaid,
+        Boolean isPaid,
         @Size(max = 500) String notes
 ) {}

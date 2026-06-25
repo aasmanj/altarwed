@@ -63,7 +63,7 @@ public class BudgetItemService {
                 .orElseThrow(() -> new CoupleNotFoundException(coupleId.toString()));
         BudgetItem item = new BudgetItem(
                 null, coupleId, req.category(), req.vendorName(),
-                req.estimatedCost(), req.actualCost(), req.isPaid(), req.notes(),
+                req.estimatedCost(), req.actualCost(), Boolean.TRUE.equals(req.isPaid()), req.notes(),
                 null, null
         );
         return budgetItemRepository.save(item);
