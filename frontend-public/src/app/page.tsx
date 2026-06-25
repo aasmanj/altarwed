@@ -42,6 +42,19 @@ const jsonLd = {
   },
 }
 
+// Explicit label-to-enum mapping so each chip links to the exact VendorCategory
+// value the directory filters on. A previous regex (cat.toUpperCase().replace('S', ''))
+// mangled "FLORISTS" into "FLORITS" because it stripped the first S, sending
+// prospects to an empty directory. Keep these category values in sync with
+// backend VendorCategory.
+const VENDOR_CHIPS = [
+  { label: 'Photographers', category: 'PHOTOGRAPHER' },
+  { label: 'Venues', category: 'VENUE' },
+  { label: 'Officiants', category: 'OFFICIANT' },
+  { label: 'Florists', category: 'FLORIST' },
+  { label: 'Coordinators', category: 'COORDINATOR' },
+] as const
+
 const features = [
   {
     icon: (
@@ -307,13 +320,13 @@ export default function HomePage() {
                 Every vendor on AltarWed is faith-profiled. Find photographers, venues, florists, officiants, and coordinators who understand that your wedding is a covenant before God.
               </p>
               <div className="flex flex-wrap gap-3">
-                {['Photographers', 'Venues', 'Officiants', 'Florists', 'Coordinators'].map((cat) => (
+                {VENDOR_CHIPS.map((chip) => (
                   <Link
-                    key={cat}
-                    href={`/vendors?category=${cat.toUpperCase().replace('S', '')}`}
+                    key={chip.category}
+                    href={`/vendors?category=${chip.category}`}
                     className="px-4 py-2 rounded-full border border-[#d4af6a] text-sm text-[#3b2f2f] hover:bg-[#d4af6a]/10 transition font-medium"
                   >
-                    {cat}
+                    {chip.label}
                   </Link>
                 ))}
               </div>
