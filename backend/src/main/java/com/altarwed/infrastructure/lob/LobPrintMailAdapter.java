@@ -40,6 +40,15 @@ public class LobPrintMailAdapter implements PrintMailPort {
     // Ref: https://help.lob.com/print-and-mail/designing-mail-creatives/mail-piece-design-specs/postcards
     private static final String POSTCARD_SIZE = "6x11";
 
+    // Lob requires a use_type on every mail piece (and 422s without it unless an account default
+    // is set in the dashboard). The only mail this adapter sends is a couple's own save-the-dates
+    // and invitations to their own guest list, which is personal correspondence about an event,
+    // NOT advertising of a commercial product, so the correct category is "operational", not
+    // "marketing". Setting it in code (rather than relying on a dashboard default) keeps the
+    // classification explicit, versioned, and stable across new accounts/API keys.
+    // Ref: https://help.lob.com/print-and-mail/building-a-mail-strategy/htmls-and-use-types
+    private static final String MAIL_USE_TYPE = "operational";
+
     // Cap for the extracted Lob error so it always fits print_order_recipients.error_message
     // (NVARCHAR(500)); kept under 500 to leave headroom and avoid a SQL 2628 truncation abort.
     private static final int MAX_ERROR_DETAIL = 480;
@@ -71,20 +80,7 @@ public class LobPrintMailAdapter implements PrintMailPort {
         // outcome is logged once by PrintOrderService ("print order finalized, succeeded/failed").
         log.debug("submitting postcard to lob, templateKey={}", req.templateKey());
 
-        String front = renderFront(req);
-        String back = renderBack(req);
-
-        Map<String, Object> body = new HashMap<>();
-        body.put("description", req.templateKey() + " for " + req.coupleNames());
-        body.put("to", addressMap(req.to()));
-        body.put("from", addressMap(req.from()));
-        body.put("front", front);
-        body.put("back", back);
-        body.put("size", POSTCARD_SIZE);
-        // usps_first_class is US-only; omit mail_type for international so Lob routes correctly
-        if (isUsDomestic(req.to().country())) {
-            body.put("mail_type", "usps_first_class");
-        }
+        Map<String, Object> body = buildRequestBody(req);
 
         try {
             @SuppressWarnings("unchecked")
@@ -120,6 +116,25 @@ public class LobPrintMailAdapter implements PrintMailPort {
             log.error("lob call failed unexpectedly, templateKey={}", req.templateKey(), ex);
             throw new PrintMailException("Lob call failed: " + ex.getMessage(), ex);
         }
+    }
+
+    // Package-private so the request contract (use_type, size, conditional mail_type) is unit
+    // testable without a live Lob call; sendPostcard stays focused on the HTTP exchange.
+    Map<String, Object> buildRequestBody(PostcardRequest req) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("description", req.templateKey() + " for " + req.coupleNames());
+        body.put("to", addressMap(req.to()));
+        body.put("from", addressMap(req.from()));
+        body.put("front", renderFront(req));
+        body.put("back", renderBack(req));
+        body.put("size", POSTCARD_SIZE);
+        // Required by Lob on every mail piece; see MAIL_USE_TYPE for why "operational".
+        body.put("use_type", MAIL_USE_TYPE);
+        // usps_first_class is US-only; omit mail_type for international so Lob routes correctly
+        if (isUsDomestic(req.to().country())) {
+            body.put("mail_type", "usps_first_class");
+        }
+        return body;
     }
 
     private Map<String, Object> addressMap(ToAddress a) {
