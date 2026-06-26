@@ -35,9 +35,14 @@ public class WeddingPartyMemberService {
 
     @Transactional
     public WeddingPartyMember addMember(UUID weddingWebsiteId, CreateWeddingPartyMemberRequest req) {
+        // Server-authoritative append position: max(sortOrder)+1, not the client's value and not
+        // the list count. After a delete the count no longer equals the next free slot, so a
+        // count-based (or stale/hostile client) sortOrder would collide with an existing row.
+        int nextSort = repository.findAllByWeddingWebsiteId(weddingWebsiteId).stream()
+                .mapToInt(WeddingPartyMember::sortOrder).max().orElse(-1) + 1;
         WeddingPartyMember member = new WeddingPartyMember(
                 null, weddingWebsiteId, req.name(), req.role(), req.side(),
-                req.bio(), req.photoUrl(), req.sortOrder() != null ? req.sortOrder() : 0,
+                req.bio(), req.photoUrl(), nextSort,
                 LocalDateTime.now(), LocalDateTime.now(),
                 null, null, null  // unframed until the couple repositions the avatar
         );
