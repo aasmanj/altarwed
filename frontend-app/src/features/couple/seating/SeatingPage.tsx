@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
+import QueryErrorState from '@/components/QueryErrorState'
 import {
   DndContext,
   DragEndEvent,
@@ -397,8 +398,8 @@ function TableModal({
 export default function SeatingPage() {
   const { user } = useAuth()
   const coupleId = user?.id ?? ''
-  const { data: guests = [], isLoading: guestsLoading } = useGuests(coupleId)
-  const { data: tables = [], isLoading: tablesLoading } = useSeatingTables(coupleId)
+  const { data: guests = [], isLoading: guestsLoading, isError: guestsError, refetch: refetchGuests } = useGuests(coupleId)
+  const { data: tables = [], isLoading: tablesLoading, isError: tablesError, refetch: refetchTables } = useSeatingTables(coupleId)
   const assignTable = useAssignGuestTable(coupleId)
 
   const [activeGuest, setActiveGuest] = useState<Guest | null>(null)
@@ -481,11 +482,24 @@ export default function SeatingPage() {
     assignTable.mutate({ guestId, tableNumber })
 
   const isLoading = guestsLoading || tablesLoading
+  const isError = guestsError || tablesError
+  const refetch = () => { refetchGuests(); refetchTables() }
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-ivory flex items-center justify-center">
         <div className="animate-spin h-8 w-8 border-2 border-gold border-t-transparent rounded-full" />
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-ivory">
+        <PageHeader title="Seating Chart" subtitle="Drag guests between tables to assign seats" />
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+          <QueryErrorState what="your seating chart" onRetry={refetch} />
+        </div>
       </div>
     )
   }

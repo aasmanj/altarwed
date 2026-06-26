@@ -10,6 +10,7 @@ import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import TipCallout from '@/components/TipCallout'
 import { useConfirm } from '@/components/ConfirmDialog'
+import QueryErrorState from '@/components/QueryErrorState'
 import { TIPS } from '@/lib/tips'
 import { scaledDueDate, formatMonthYear } from '@/lib/date'
 import { useWeddingWebsite, useUpdateWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
@@ -99,7 +100,7 @@ export default function ChecklistPage() {
   const { user } = useAuth()
   const coupleId = user?.id ?? ''
 
-  const { data: tasks = [], isLoading } = usePlanningTasks(coupleId)
+  const { data: tasks = [], isLoading, isError, refetch } = usePlanningTasks(coupleId)
   const { data: website } = useWeddingWebsite(coupleId)
   const weddingDate = website?.weddingDate ?? null
   const engagementDate = website?.engagementDate ?? null
@@ -298,6 +299,8 @@ export default function ChecklistPage() {
 
         {isLoading ? (
           <ChecklistSkeleton />
+        ) : isError ? (
+          <QueryErrorState what="your checklist" onRetry={refetch} />
         ) : total === 0 ? (
           <EmptyState />
         ) : activeView === 'timeline' ? (
