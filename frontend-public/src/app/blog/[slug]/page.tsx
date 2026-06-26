@@ -4,6 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
+import { sanitizePostContent } from '@/lib/sanitizeHtml'
 
 export const revalidate = 3600
 
@@ -126,6 +127,12 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
   const articleUrl = `https://www.altarwed.com/blog/${post.slug}`
 
+  // post.content is raw DB-sourced HTML rendered via dangerouslySetInnerHTML on
+  // the apex domain. Sanitize it server-side against the prose-only allowlist so
+  // a malicious or compromised row cannot inject persistent XSS. Sanitizing here
+  // (not client-side) keeps the SSR/SEO output identical for valid blog HTML.
+  const sanitizedContent = sanitizePostContent(post.content)
+
   // schema.org images must be absolute. Covers are usually absolute (Blob /
   // external), but self-hosted /public covers are stored relative, so prefix
   // the origin in that case. next/image still gets the relative path for
@@ -223,7 +230,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               prose-blockquote:border-[#d4af6a] prose-blockquote:text-[#6b5344] prose-blockquote:font-serif prose-blockquote:italic
               prose-strong:text-[#3b2f2f]
               prose-li:text-[#5a4a3a]"
-            dangerouslySetInnerHTML={{ __html: post.content }}
+            dangerouslySetInnerHTML={{ __html: sanitizedContent }}
           />
         </article>
 
