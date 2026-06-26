@@ -23,12 +23,15 @@ import com.altarwed.domain.exception.WeddingWebsiteAlreadyExistsException;
 import com.altarwed.domain.exception.VendorNotFoundException;
 import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
 import io.jsonwebtoken.JwtException;
+import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.NestedRuntimeException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
@@ -40,6 +43,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -331,12 +335,75 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    // Thrown while serializing the response body. Two very different causes hide here:
+    //  1. The client hung up mid-response (browser navigated away, an SPA token-refresh retry
+    //     cancelled the in-flight request, or a proxy closed the connection) -> the root cause is
+    //     a "broken pipe"/"connection reset" IOException. This is NOT a server fault: the socket
+    //     is already dead, so we cannot and need not write a body. Log DEBUG so it does not trip
+    //     the App Insights exception-rate alert (rule 1: ERROR pages on-call, don't cry wolf).
+    //  2. A genuine serialization failure (no serializer, a cycle) -> that IS a server bug, so it
+    //     keeps the ERROR log + 500, same as the catch-all.
+    // Without this, both fall to handleUnexpected and a routine client disconnect pages on-call.
+    @ExceptionHandler(HttpMessageNotWritableException.class)
+    public ProblemDetail handleNotWritable(HttpMessageNotWritableException ex, HttpServletResponse response) {
+        if (isBenignClientDisconnect(ex, response)) {
+            log.debug("client disconnected during response body write; skipping body");
+            return null; // response is committed/broken; returning a body would just fail again
+        }
+        log.error("response serialization failed, exceptionType={}", mostSpecificType(ex), ex);
+        return internalError();
+    }
+
     // Safety net: catches anything not handled above so stack traces never leak.
     // This is the ONE place we guarantee a log for every 500. Without it, an
     // unhandled exception silently maps to JSON and disappears.
     @ExceptionHandler(Exception.class)
-    public ProblemDetail handleUnexpected(Exception ex) {
+    public ProblemDetail handleUnexpected(Exception ex, HttpServletResponse response) {
+        // A client disconnect can also surface here (e.g. a write outside the body converter),
+        // so apply the same guard: don't ERROR-log or page on-call for a browser that hung up.
+        if (isBenignClientDisconnect(ex, response)) {
+            log.debug("client disconnected during response body write; skipping body");
+            return null;
+        }
         log.error("unhandled exception, exceptionType={}", ex.getClass().getSimpleName(), ex);
+        return internalError();
+    }
+
+    // A disconnect is only benign to swallow if the response is ALREADY committed, i.e. we failed
+    // partway through writing the body to a socket the client closed. If the response is NOT yet
+    // committed, the same "connection reset"/"broken pipe" almost always came from an UPSTREAM call
+    // (bible-api, Lob, Resend, Stripe, Blob) inside business logic that threw before we wrote
+    // anything; that is a real 500 we must log and surface, never silently turn into an empty 200.
+    private static boolean isBenignClientDisconnect(Throwable ex, HttpServletResponse response) {
+        return response.isCommitted() && isClientDisconnect(ex);
+    }
+
+    // True when any cause in the chain is a connection drop. Tomcat raises ClientAbortException
+    // (checked by class name to avoid importing a container-internal type); other paths surface a
+    // plain IOException whose message is "Broken pipe" / "Connection reset". The depth cap guards
+    // against a self-referential or cyclic cause chain (cf. Spring's NestedExceptionUtils).
+    static boolean isClientDisconnect(Throwable ex) {
+        Throwable t = ex;
+        for (int depth = 0; t != null && depth < 16; t = t.getCause(), depth++) {
+            if (t.getClass().getName().equals("org.apache.catalina.connector.ClientAbortException")) {
+                return true;
+            }
+            if (t instanceof IOException && t.getMessage() != null) {
+                String m = t.getMessage().toLowerCase();
+                if (m.contains("broken pipe") || m.contains("connection reset")) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static String mostSpecificType(NestedRuntimeException ex) {
+        Throwable cause = ex.getMostSpecificCause();
+        return cause.getClass().getSimpleName();
+    }
+
+    private static ProblemDetail internalError() {
         var pd = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
         pd.setType(URI.create("https://altarwed.com/problems/internal-error"));
         pd.setTitle("Internal Server Error");
