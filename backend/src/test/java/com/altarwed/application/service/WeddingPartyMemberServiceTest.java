@@ -1,5 +1,6 @@
 package com.altarwed.application.service;
 
+import com.altarwed.application.dto.CreateWeddingPartyMemberRequest;
 import com.altarwed.domain.model.WeddingPartyMember;
 import com.altarwed.domain.model.WeddingPartySide;
 import com.altarwed.domain.port.WeddingPartyMemberRepository;
@@ -38,6 +39,42 @@ class WeddingPartyMemberServiceTest {
     private WeddingPartyMember member(UUID websiteId, int sortOrder) {
         return new WeddingPartyMember(UUID.randomUUID(), websiteId, "Name", "Best Man", WeddingPartySide.GROOM,
                 null, null, sortOrder, LocalDateTime.now(), LocalDateTime.now(), null, null, null);
+    }
+
+    @Test
+    void addMember_afterDelete_appendsAtMaxSortOrderPlusOne_noCollision() {
+        UUID websiteId = UUID.randomUUID();
+        // Started at sortOrder [0, 1, 2], the middle member was deleted, so the surviving
+        // rows are [0, 2]. The list count is now 2, the same value the stale client sends.
+        WeddingPartyMember m0 = member(websiteId, 0);
+        WeddingPartyMember m2 = member(websiteId, 2);
+        when(repository.findAllByWeddingWebsiteId(websiteId)).thenReturn(List.of(m0, m2));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Client still sends the colliding count-based value of 2; the server must ignore it.
+        CreateWeddingPartyMemberRequest req = new CreateWeddingPartyMemberRequest(
+                "New Member", "Groomsman", WeddingPartySide.GROOM, null, null, 2);
+        service().addMember(websiteId, req);
+
+        ArgumentCaptor<WeddingPartyMember> captor = ArgumentCaptor.forClass(WeddingPartyMember.class);
+        verify(repository).save(captor.capture());
+        // max(0, 2) + 1 = 3, not the client's colliding 2.
+        assertThat(captor.getValue().sortOrder()).isEqualTo(3);
+    }
+
+    @Test
+    void addMember_emptyParty_startsAtZero() {
+        UUID websiteId = UUID.randomUUID();
+        when(repository.findAllByWeddingWebsiteId(websiteId)).thenReturn(List.of());
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        CreateWeddingPartyMemberRequest req = new CreateWeddingPartyMemberRequest(
+                "First Member", "Best Man", WeddingPartySide.GROOM, null, null, 7);
+        service().addMember(websiteId, req);
+
+        ArgumentCaptor<WeddingPartyMember> captor = ArgumentCaptor.forClass(WeddingPartyMember.class);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().sortOrder()).isEqualTo(0);
     }
 
     @Test

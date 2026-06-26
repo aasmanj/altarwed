@@ -47,7 +47,11 @@ public class WeddingPhotoService {
     public WeddingPhoto addPhoto(UUID websiteId, AddWeddingPhotoRequest req) {
         websiteRepository.findById(websiteId)
                 .orElseThrow(() -> new WeddingWebsiteNotFoundException(websiteId.toString()));
-        int sortOrder = req.sortOrder() != null ? req.sortOrder() : 0;
+        // Server-authoritative append position: max(sortOrder)+1, not the client's value and not
+        // the album count. After a delete the count no longer equals the next free slot, so a
+        // count-based (or stale/hostile client) sortOrder would collide with an existing photo.
+        int sortOrder = photoRepository.findAllByWeddingWebsiteId(websiteId).stream()
+                .mapToInt(WeddingPhoto::sortOrder).max().orElse(-1) + 1;
         // A new upload starts unframed (centered, no zoom); the couple repositions it later.
         WeddingPhoto photo = new WeddingPhoto(null, websiteId, req.url(), req.caption(), sortOrder, null, null, null, null);
         WeddingPhoto saved = photoRepository.save(photo);
