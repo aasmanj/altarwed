@@ -84,5 +84,9 @@ class RsvpReminderServiceTest {
         // that this fix removes; each per-guest sendInvite carries its own @Transactional instead.
         assertThat(method.isAnnotationPresent(
                 org.springframework.transaction.annotation.Transactional.class)).isFalse();
+        // A class-level @Transactional would also wrap the method in one shared transaction and
+        // bring the bug back while the method-level check above stayed green, so guard it too.
+        assertThat(RsvpReminderService.class.getAnnotation(
+                org.springframework.transaction.annotation.Transactional.class)).isNull();
     }
 }

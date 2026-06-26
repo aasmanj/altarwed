@@ -338,11 +338,12 @@ public class GuestService {
         List<Guest> toInvite = notSuppressed.stream()
                 .filter(g -> (g.inviteSendCount() != null ? g.inviteSendCount() : 0) < MAX_INVITE_SENDS)
                 .toList();
-        // Over-cap skips are a working-as-designed domain-rule rejection, so they are counted and
-        // logged in aggregate (one line, not per guest) to keep App Insights cost flat.
+        // Over-cap skips are working-as-designed (a couple re-running invite-all after guests
+        // already hit the cap), not an anomaly, so this is INFO, not WARN. Counted and logged
+        // in aggregate (one line, not per guest) to keep App Insights cost flat.
         int overCapSkipped = notSuppressed.size() - toInvite.size();
         if (overCapSkipped > 0) {
-            log.warn("invite-all skipped over-cap guests, coupleId={}, skippedCount={}",
+            log.info("invite-all skipped over-cap guests, coupleId={}, skippedCount={}",
                      coupleId, overCapSkipped);
         }
 
