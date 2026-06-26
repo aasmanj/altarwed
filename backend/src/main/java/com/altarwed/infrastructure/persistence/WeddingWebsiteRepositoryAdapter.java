@@ -5,6 +5,7 @@ import com.altarwed.domain.port.WeddingWebsiteRepository;
 import com.altarwed.infrastructure.persistence.entity.WeddingWebsiteEntity;
 import com.altarwed.infrastructure.persistence.repository.WeddingWebsiteJpaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -17,6 +18,11 @@ import java.util.UUID;
 public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository {
 
     private final WeddingWebsiteJpaRepository jpaRepository;
+
+    // Hard cap on the public, unauthenticated search so a blank-filter request can never
+    // stream the whole published-sites table (egress / DoS vector). The query supplies its
+    // own deterministic ORDER BY (weddingDate ASC), so this only needs to bound the rows.
+    private static final PageRequest SEARCH_CAP = PageRequest.of(0, MAX_SEARCH_RESULTS);
 
     @Override
     public WeddingWebsite save(WeddingWebsite website) {
@@ -58,7 +64,7 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
     public List<WeddingWebsite> searchPublishedByNameAndYear(String name, Integer year) {
         LocalDate yearStart = year != null ? LocalDate.of(year, 1, 1) : null;
         LocalDate yearEnd   = year != null ? LocalDate.of(year, 12, 31) : null;
-        return jpaRepository.searchPublished(name, yearStart, yearEnd)
+        return jpaRepository.searchPublished(name, yearStart, yearEnd, SEARCH_CAP)
                 .stream().map(this::toDomain).toList();
     }
 

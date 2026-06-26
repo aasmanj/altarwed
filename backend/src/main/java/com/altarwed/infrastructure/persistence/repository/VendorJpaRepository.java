@@ -2,6 +2,7 @@ package com.altarwed.infrastructure.persistence.repository;
 
 import com.altarwed.domain.model.VendorCategory;
 import com.altarwed.infrastructure.persistence.entity.VendorEntity;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -17,13 +18,13 @@ public interface VendorJpaRepository extends JpaRepository<VendorEntity, UUID> {
 
     boolean existsByEmail(String email);
 
-    List<VendorEntity> findByCityIgnoreCaseAndIsActiveTrueAndIsVerifiedTrue(String city);
+    List<VendorEntity> findByCityIgnoreCaseAndIsActiveTrueAndIsVerifiedTrue(String city, Pageable pageable);
 
-    List<VendorEntity> findByCityIgnoreCaseAndCategoryAndIsActiveTrueAndIsVerifiedTrue(String city, VendorCategory category);
+    List<VendorEntity> findByCityIgnoreCaseAndCategoryAndIsActiveTrueAndIsVerifiedTrue(String city, VendorCategory category, Pageable pageable);
 
-    List<VendorEntity> findByCategoryAndIsActiveTrueAndIsVerifiedTrue(VendorCategory category);
+    List<VendorEntity> findByCategoryAndIsActiveTrueAndIsVerifiedTrue(VendorCategory category, Pageable pageable);
 
-    List<VendorEntity> findAllByIsActiveTrueAndIsVerifiedTrue();
+    List<VendorEntity> findAllByIsActiveTrueAndIsVerifiedTrue(Pageable pageable);
 
     @Transactional
     @Modifying

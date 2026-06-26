@@ -2,6 +2,7 @@ package com.altarwed.application.service;
 
 import com.altarwed.domain.exception.VendorNotFoundException;
 import com.altarwed.domain.model.Vendor;
+import com.altarwed.domain.model.VendorCategory;
 import com.altarwed.domain.model.VendorPortfolioPhoto;
 import com.altarwed.domain.port.BlobStoragePort;
 import com.altarwed.domain.port.InquiryRepository;
@@ -16,9 +17,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -109,6 +112,42 @@ class VendorServiceTest {
         assertThat(paused.isActive()).isFalse();
         // Pausing must not disturb subscription/verification state.
         assertThat(paused.isVerified()).isTrue();
+    }
+
+    @Test
+    void search_blankFilter_capsResultsAtMaxSearchResults() {
+        // A blank-filter directory request falls back to findAllActive(). If the table
+        // has more rows than the cap, the public response must still be capped.
+        when(vendorRepository.findAllActive()).thenReturn(activeVendors(VendorRepository.MAX_SEARCH_RESULTS + 50));
+
+        List<Vendor> results = vendorService.search(null, null);
+
+        assertThat(results).hasSize(VendorRepository.MAX_SEARCH_RESULTS);
+    }
+
+    @Test
+    void search_filteredByCategory_capsResultsAtMaxSearchResults() {
+        when(vendorRepository.findByCategory(VendorCategory.PHOTOGRAPHER))
+                .thenReturn(activeVendors(VendorRepository.MAX_SEARCH_RESULTS + 10));
+
+        List<Vendor> results = vendorService.search(null, VendorCategory.PHOTOGRAPHER);
+
+        assertThat(results).hasSize(VendorRepository.MAX_SEARCH_RESULTS);
+    }
+
+    @Test
+    void search_belowCap_returnsEverything() {
+        when(vendorRepository.findAllActive()).thenReturn(activeVendors(7));
+
+        List<Vendor> results = vendorService.search(null, null);
+
+        assertThat(results).hasSize(7);
+    }
+
+    private List<Vendor> activeVendors(int count) {
+        List<Vendor> vendors = new ArrayList<>(count);
+        IntStream.range(0, count).forEach(i -> vendors.add(vendorWithLogo(UUID.randomUUID(), null)));
+        return vendors;
     }
 
     private Vendor vendorWithLogo(UUID id, String logoUrl) {

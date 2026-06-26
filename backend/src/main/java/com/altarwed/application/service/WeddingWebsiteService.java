@@ -362,8 +362,12 @@ public class WeddingWebsiteService {
 
     public List<WeddingWebsiteSearchResultResponse> search(String name, Integer year) {
         String nameParam = (name == null || name.isBlank()) ? null : name.trim();
+        // The repository already pages the query to MAX_SEARCH_RESULTS at the database;
+        // the limit here is a defensive second layer so a blank-filter request can never
+        // return the whole published-sites table even if the adapter changes.
         return websiteRepository.searchPublishedByNameAndYear(nameParam, year)
                 .stream()
+                .limit(WeddingWebsiteRepository.MAX_SEARCH_RESULTS)
                 .map(w -> new WeddingWebsiteSearchResultResponse(
                         w.slug(), w.partnerOneName(), w.partnerTwoName(),
                         w.weddingDate(), w.venueCity(), w.venueState()))
