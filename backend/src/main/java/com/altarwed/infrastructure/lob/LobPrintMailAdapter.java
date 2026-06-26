@@ -16,7 +16,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Lob.com adapter for printing + mailing wedding postcards.
@@ -136,6 +138,58 @@ public class LobPrintMailAdapter implements PrintMailPort {
             log.warn("lob call failed, templateKey={}", req.templateKey(), ex);
             throw new PrintMailException("Lob call failed: " + ex.getMessage(), ex);
         }
+    }
+
+    @Override
+    public Optional<String> fetchPostcardStatus(String providerPostcardId) {
+        if (apiKey == null || apiKey.isBlank()
+                || providerPostcardId == null || providerPostcardId.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> postcard = restClient.get()
+                    .uri("/postcards/{id}", providerPostcardId)
+                    .retrieve()
+                    .body(Map.class);
+            if (postcard == null) return Optional.empty();
+            // DEBUG, not INFO: status refresh runs once per recipient inside PrintOrderService's
+            // loop (rule 9), the aggregate is logged once there.
+            log.debug("lob postcard status fetched, lobId={}", providerPostcardId);
+            return Optional.ofNullable(deriveDeliveryStatus(postcard));
+        } catch (RestClientResponseException ex) {
+            // A 404 (unknown id) or other 4xx/5xx. Best-effort: skip this recipient, keep prior
+            // status. WARN with status only (never the body, it can echo address fields).
+            log.warn("lob postcard status fetch rejected, status={}", ex.getStatusCode());
+            return Optional.empty();
+        } catch (org.springframework.web.client.RestClientException ex) {
+            log.warn("lob postcard status fetch failed (transport)", ex);
+            return Optional.empty();
+        }
+    }
+
+    // Maps a Lob postcard object to a short, human-readable delivery status for the couple.
+    // Lob orders tracking_events ascending by time, so the last one is the most recent USPS scan
+    // (e.g. "In Transit", "Delivered", "Returned to Sender"). tracking_events is empty until USPS
+    // first scans the piece (and always empty in test mode), so before any scan we fall back to
+    // "Mailed" once Lob has an expected_delivery_date. Returns null when nothing is known yet, so
+    // the caller leaves the existing status untouched.
+    String deriveDeliveryStatus(Map<String, Object> postcard) {
+        Object events = postcard.get("tracking_events");
+        if (events instanceof List<?> list && !list.isEmpty()
+                && list.get(list.size() - 1) instanceof Map<?, ?> latest) {
+            Object name = latest.get("name");
+            if (name != null && !name.toString().isBlank()) {
+                String s = name.toString().trim();
+                // delivery_status column is NVARCHAR(32); cap defensively.
+                return s.length() > 32 ? s.substring(0, 32) : s;
+            }
+        }
+        Object expected = postcard.get("expected_delivery_date");
+        if (expected != null && !expected.toString().isBlank()) {
+            return "Mailed";
+        }
+        return null;
     }
 
     // Package-private so the request contract (use_type, size, conditional mail_type) is unit

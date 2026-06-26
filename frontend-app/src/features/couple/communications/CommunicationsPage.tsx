@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Mail, Send, AlertCircle, Loader2 } from 'lucide-react'
+import { Mail, Send, AlertCircle, Loader2, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
 import { useConfirm } from '@/components/ConfirmDialog'
 import PageHeader from '@/components/PageHeader'
@@ -8,7 +8,9 @@ import { useGuests } from '@/features/couple/guests/useGuests'
 import {
   usePrintOrders,
   useCreatePrintOrder,
+  useRefreshPrintOrderStatus,
   type CreatePrintOrderPayload,
+  type PrintOrder,
   type PrintOrderType,
 } from './usePrintOrders'
 
@@ -489,52 +491,110 @@ export default function CommunicationsPage() {
             <p className="text-sm text-stone-500">No print orders yet.</p>
           ) : (
             <div className="space-y-3">
-              {orders.map(o => {
-                const failed = o.recipients.filter(r => r.deliveryStatus === 'FAILED')
-                return (
-                  <div key={o.id} className="rounded-xl border border-stone-200 bg-white p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium text-stone-800">
-                          {o.orderType === 'SAVE_THE_DATE' ? 'Save the Date' : 'Invitation'} &middot;{' '}
-                          <span className="text-stone-500 text-sm">
-                            {TEMPLATE_LABELS[o.templateKey as TemplateKey] ?? o.templateKey}
-                          </span>
-                        </p>
-                        <p className="text-xs text-stone-500 mt-0.5">
-                          {new Date(o.createdAt).toLocaleString()} &middot; {o.recipientCount} recipients &middot; ${(o.costCents / 100).toFixed(2)}
-                        </p>
-                      </div>
-                      <StatusBadge status={o.status} />
-                    </div>
-                    {o.errorMessage && (
-                      <p className="text-xs text-rose-600 mt-2">{o.errorMessage}</p>
-                    )}
-                    {failed.length > 0 && (
-                      <details className="mt-2 text-xs text-stone-500">
-                        <summary className="cursor-pointer hover:text-stone-800">
-                          {failed.length} failed - see details
-                        </summary>
-                        <ul className="mt-1 space-y-0.5 list-disc list-inside">
-                          {failed.map(r => {
-                            const guestName = guestById.get(r.guestId)?.name ?? `Guest ${r.guestId.slice(0, 8)}`
-                            return (
-                              <li key={r.guestId}>
-                                {guestName}: {r.errorMessage}
-                              </li>
-                            )
-                          })}
-                        </ul>
-                      </details>
-                    )}
-                  </div>
-                )
-              })}
+              {orders.map(o => (
+                <PastOrderCard key={o.id} order={o} coupleId={coupleId} guestById={guestById} />
+              ))}
             </div>
           )}
         </section>
       </div>
     </div>
+  )
+}
+
+function PastOrderCard({
+  order,
+  coupleId,
+  guestById,
+}: {
+  order: PrintOrder
+  coupleId: string
+  guestById: Map<string, { name: string }>
+}) {
+  const refresh = useRefreshPrintOrderStatus(coupleId)
+  // Only postcards that were actually submitted have a provider id worth tracking.
+  const trackable = order.recipients.some(r => r.lobPostcardId)
+
+  return (
+    <div className="rounded-xl border border-stone-200 bg-white p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-medium text-stone-800">
+            {order.orderType === 'SAVE_THE_DATE' ? 'Save the Date' : 'Invitation'} &middot;{' '}
+            <span className="text-stone-500 text-sm">
+              {TEMPLATE_LABELS[order.templateKey as TemplateKey] ?? order.templateKey}
+            </span>
+          </p>
+          <p className="text-xs text-stone-500 mt-0.5">
+            {new Date(order.createdAt).toLocaleString()} &middot; {order.recipientCount} recipients &middot; ${(order.costCents / 100).toFixed(2)}
+          </p>
+        </div>
+        <StatusBadge status={order.status} />
+      </div>
+
+      {order.errorMessage && (
+        <p className="text-xs text-rose-600 mt-2">{order.errorMessage}</p>
+      )}
+
+      {order.recipients.length > 0 && (
+        <div className="mt-3 border-t border-stone-100 pt-3">
+          <div className="flex items-center justify-between mb-2 gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Recipients</p>
+            {trackable && (
+              <button
+                onClick={() => refresh.mutate(order.id)}
+                disabled={refresh.isPending}
+                className="inline-flex items-center gap-1 text-xs text-amber-700 hover:underline disabled:opacity-50 disabled:no-underline"
+              >
+                <RefreshCw className={`w-3 h-3 ${refresh.isPending ? 'animate-spin' : ''}`} aria-hidden="true" />
+                {refresh.isPending ? 'Checking...' : 'Check delivery status'}
+              </button>
+            )}
+          </div>
+          <ul className="divide-y divide-stone-100">
+            {order.recipients.map(r => {
+              const name = guestById.get(r.guestId)?.name ?? `Guest ${r.guestId.slice(0, 8)}`
+              return (
+                <li key={r.guestId} className="flex items-start justify-between gap-3 py-1.5 text-sm">
+                  <div className="min-w-0">
+                    <span className="block truncate text-stone-700">{name}</span>
+                    {r.deliveryStatus === 'FAILED' && r.errorMessage && (
+                      <span className="text-xs text-rose-600">{r.errorMessage}</span>
+                    )}
+                  </div>
+                  <DeliveryStatusBadge status={r.deliveryStatus} />
+                </li>
+              )
+            })}
+          </ul>
+          {refresh.isError && (
+            <p className="text-xs text-rose-600 mt-2">Could not refresh status. Please try again.</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Maps a recipient's delivery status to a friendly label + color. The status is either our own
+// submit state (SUBMITTED/FAILED) or a Lob USPS tracking event ("Mailed", "In Transit",
+// "Delivered", "Returned to Sender", ...), so match defensively on keywords rather than exact values.
+function deliveryStatusStyle(status: string | null): { label: string; cls: string } {
+  const s = (status ?? '').toLowerCase()
+  if (s === '' || s === 'submitted') return { label: 'Submitted', cls: 'bg-stone-100 text-stone-600' }
+  if (s === 'failed') return { label: 'Failed', cls: 'bg-rose-100 text-rose-700' }
+  if (s.includes('return')) return { label: status as string, cls: 'bg-rose-100 text-rose-700' }
+  // Exact match only: "Processed for Delivery" / "Out for Delivery" are still in transit, not done.
+  if (s === 'delivered') return { label: status as string, cls: 'bg-emerald-100 text-emerald-700' }
+  if (s.includes('mailed')) return { label: 'Mailed', cls: 'bg-sky-100 text-sky-700' }
+  // In Transit, In Local Area, Processed for Delivery, Re-Routed, etc.
+  return { label: status as string, cls: 'bg-amber-100 text-amber-700' }
+}
+
+function DeliveryStatusBadge({ status }: { status: string | null }) {
+  const { label, cls } = deliveryStatusStyle(status)
+  return (
+    <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded ${cls}`}>{label}</span>
   )
 }
 
