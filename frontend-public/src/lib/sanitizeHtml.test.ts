@@ -26,6 +26,12 @@ describe('sanitizePostContent', () => {
     expect(out).toContain('<a')
   })
 
+  it('strips protocol-relative img src to prevent IP-leaking pixels', () => {
+    const out = sanitizePostContent('<img src="//evil.com/x.png">')
+    expect(out).not.toContain('evil.com')
+    expect(out).not.toContain('src=')
+  })
+
   it('strips javascript: hrefs while keeping the anchor text', () => {
     const out = sanitizePostContent('<a href="javascript:alert(1)">click</a>')
     expect(out).not.toContain('javascript:')

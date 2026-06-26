@@ -48,6 +48,9 @@ export function sanitizePostContent(html: string): string {
     // Only safe link/image URL schemes. This blocks javascript: and data: URLs.
     allowedSchemes: ['http', 'https', 'mailto'],
     allowedSchemesAppliedToAttributes: ['href', 'src'],
+    // Block protocol-relative URLs (//evil.com/...). Without this they survive
+    // sanitization and would leak visitor IPs to attacker-controlled hosts.
+    allowProtocolRelative: false,
     // Drop the inner text of disallowed tags like <script>/<style> rather than
     // leaking it back into the document as plain text.
     disallowedTagsMode: 'discard',
