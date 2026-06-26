@@ -9,9 +9,22 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Serialize deploys to the single prod Static Web App (the public SEO site). Same
+  # concurrency race that hit deploy-app on 2026-06-26: two frontend-public/** merges
+  # seconds apart would each fire a deploy at the same SWA environment, and Azure SWA
+  # (one deploy per environment) would cancel the older in-flight run, failing it red.
+  # This surface is the SEO/viral engine, so a flaky red deploy here is worse than on
+  # the dashboard. cancel-in-progress: true (not false like deploy-backend) is safe:
+  # SWA swaps the new bundle atomically only after a complete upload, so a superseded
+  # run never half-deploys and the live site keeps serving the previous build until
+  # the newest run finishes. Distinct group from deploy-app: a separate SWA resource.
+  # Scoped to this job (not workflow-level) so it never governs close_pull_request.
   deploy:
     runs-on: ubuntu-latest
     name: Build and deploy Next.js to Azure Static Web Apps
+    concurrency:
+      group: deploy-landing-prod
+      cancel-in-progress: true
 
     steps:
       - uses: actions/checkout@v4
