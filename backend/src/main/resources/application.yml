@@ -126,6 +126,12 @@ altarwed:
   lob:
     api-key: ${LOB_API_KEY:}
 
+  vendor:
+    # Comp promo code: a matching code grants a free, non-Stripe vendor listing (founder's friends
+    # and first vendors). Not a secret; shared deliberately. Empty value disables redemption.
+    # Override per-environment via VENDOR_PROMO_CODE; defaults to FREEVENDOR so it works out of the box.
+    promo-code: ${VENDOR_PROMO_CODE:FREEVENDOR}
+
   unsubscribe:
     # No default: a missing secret produces broken unsubscribe links but must not crash the app.
     # Empty string causes HMAC to sign with a zero-length key (insecure but functional).

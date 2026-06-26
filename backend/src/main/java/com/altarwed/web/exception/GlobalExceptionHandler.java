@@ -12,6 +12,7 @@ import com.altarwed.domain.exception.WeddingPageBlockNotFoundException;
 import com.altarwed.domain.exception.WeddingPartyMemberNotFoundException;
 import com.altarwed.domain.exception.WeddingPhotoNotFoundException;
 import com.altarwed.domain.exception.InvalidPasswordResetTokenException;
+import com.altarwed.domain.exception.InvalidPromoCodeException;
 import com.altarwed.domain.exception.InvalidRefreshTokenException;
 import com.altarwed.domain.exception.InvalidRsvpTokenException;
 import com.altarwed.domain.exception.DenominationNotFoundException;
@@ -211,6 +212,17 @@ public class GlobalExceptionHandler {
         var pd = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
         pd.setType(URI.create("https://altarwed.com/problems/bad-request"));
         pd.setTitle("Bad Request");
+        pd.setDetail(ex.getMessage());
+        return pd;
+    }
+
+    // Invalid/unavailable comp promo code. A client error (the vendor mistyped or the code is
+    // disabled), so 400 with a safe message, never the catch-all 500. The service already WARN-logs.
+    @ExceptionHandler(InvalidPromoCodeException.class)
+    public ProblemDetail handleInvalidPromoCode(InvalidPromoCodeException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        pd.setType(URI.create("https://altarwed.com/problems/invalid-promo-code"));
+        pd.setTitle("Invalid Promo Code");
         pd.setDetail(ex.getMessage());
         return pd;
     }

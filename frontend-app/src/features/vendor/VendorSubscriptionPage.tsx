@@ -6,6 +6,7 @@ import {
   useCreateCheckoutSession,
   useCreatePortalSession,
 } from './useSubscription'
+import PromoCodeBox from './PromoCodeBox'
 
 export default function VendorSubscriptionPage() {
   const [searchParams] = useSearchParams()
@@ -35,6 +36,10 @@ export default function VendorSubscriptionPage() {
       <main className="mx-auto max-w-2xl px-4 sm:px-6 py-8 sm:py-12">
         {isLoading ? (
           <div className="text-center text-[#8a6a4a]">Loading...</div>
+        ) : sub?.comped ? (
+          // Comped must be checked before "active": a comp is an ACTIVE sub with no Stripe
+          // customer, so the billing-portal panel below would not apply to it.
+          <CompedPanel />
         ) : isPro && isActive ? (
           <ActivePlanPanel sub={sub!} onManage={() => portal.mutate()} managing={portal.isPending} />
         ) : sub?.status === 'PAST_DUE' ? (
@@ -45,6 +50,7 @@ export default function VendorSubscriptionPage() {
             annualPriceId={sub?.proAnnualPriceId ?? null}
             onCheckout={(priceId) => checkout.mutate(priceId)}
             loading={checkout.isPending}
+            onRedeemed={() => toast.success('Your listing is now active. Welcome to AltarWed!')}
           />
         )}
       </main>
@@ -90,6 +96,23 @@ function ActivePlanPanel({
   )
 }
 
+function CompedPanel() {
+  return (
+    <div className="rounded-2xl border border-[#d4af6a] bg-white p-8">
+      <div className="flex items-center gap-3 mb-4">
+        <span className="text-xl font-serif font-bold text-[#3b2f2f]">AltarWed Pro</span>
+        <span className="text-xs font-semibold bg-[#d4af6a] text-white px-2.5 py-1 rounded-full">
+          Comped
+        </span>
+      </div>
+      <p className="text-[#6b5344] text-sm">
+        Your listing is active on the house, no subscription needed. You get priority placement and
+        analytics just like a Pro vendor. Thank you for being one of our first vendors.
+      </p>
+    </div>
+  )
+}
+
 function PastDuePanel({ onManage, managing }: { onManage: () => void; managing: boolean }) {
   return (
     <div className="rounded-2xl border border-red-200 bg-white p-8">
@@ -113,11 +136,13 @@ function UpgradePanel({
   annualPriceId,
   onCheckout,
   loading,
+  onRedeemed,
 }: {
   monthlyPriceId: string | null
   annualPriceId: string | null
   onCheckout: (priceId: string) => void
   loading: boolean
+  onRedeemed: () => void
 }) {
   return (
     <div className="space-y-6">
@@ -148,9 +173,9 @@ function UpgradePanel({
         />
       </div>
 
+      <PromoCodeBox onRedeemed={onRedeemed} />
+
       <p className="text-xs text-[#8a6a4a] text-center">
-        Have a promo code? You can enter it on the checkout page.
-        <br />
         No long-term commitment. Cancel anytime from your billing portal.
       </p>
 

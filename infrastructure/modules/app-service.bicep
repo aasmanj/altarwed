@@ -138,6 +138,13 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=STRIPE-PRICE-PRO-ANNUAL)'
         }
         {
+          // Vendor comp promo code. Not a secret (shared with friends/first vendors), so a plain
+          // value, not a Key Vault reference. Change here (or override the app setting) to rotate.
+          // application.yml defaults this to FREEVENDOR, so the feature is live even before infra apply.
+          name: 'VENDOR_PROMO_CODE'
+          value: 'FREEVENDOR'
+        }
+        {
           // Browser API key for the Google Picker (restricted to our referrers +
           // Picker/Sheets APIs). Low-sensitivity but kept in Key Vault for parity.
           name: 'GOOGLE_PICKER_API_KEY'
