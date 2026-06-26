@@ -2,6 +2,7 @@ package com.altarwed.web.controller;
 
 import com.altarwed.application.dto.AuthResponse;
 import com.altarwed.application.dto.InquiryResponse;
+import com.altarwed.application.dto.PromoCodeRequest;
 import com.altarwed.application.dto.RegisterVendorRequest;
 import com.altarwed.application.dto.ReorderPortfolioPhotosRequest;
 import com.altarwed.application.dto.SubscriptionResponse;
@@ -15,7 +16,9 @@ import com.altarwed.application.service.StripeService;
 import com.altarwed.application.service.VendorAuthService;
 import com.altarwed.application.service.VendorInquiryService;
 import com.altarwed.application.service.VendorPortfolioPhotoService;
+import com.altarwed.application.service.VendorPromoService;
 import com.altarwed.application.service.VendorService;
+import com.altarwed.domain.model.SubscriptionStatus;
 import com.altarwed.domain.model.VendorPortfolioPhoto;
 import com.altarwed.domain.model.VendorSubscription;
 import com.altarwed.domain.model.VendorCategory;
@@ -50,6 +53,7 @@ public class VendorController {
     private final VendorInquiryService inquiryService;
     private final MediaUploadService mediaUploadService;
     private final StripeService stripeService;
+    private final VendorPromoService vendorPromoService;
     private final VendorPortfolioPhotoService portfolioPhotoService;
     private final CookieService cookieService;
 
@@ -60,6 +64,7 @@ public class VendorController {
             VendorInquiryService inquiryService,
             MediaUploadService mediaUploadService,
             StripeService stripeService,
+            VendorPromoService vendorPromoService,
             VendorPortfolioPhotoService portfolioPhotoService,
             CookieService cookieService
     ) {
@@ -69,6 +74,7 @@ public class VendorController {
         this.inquiryService = inquiryService;
         this.mediaUploadService = mediaUploadService;
         this.stripeService = stripeService;
+        this.vendorPromoService = vendorPromoService;
         this.portfolioPhotoService = portfolioPhotoService;
         this.cookieService = cookieService;
     }
@@ -176,17 +182,39 @@ public class VendorController {
     @GetMapping("/me/subscription")
     public ResponseEntity<SubscriptionResponse> getMySubscription(Authentication authentication) {
         var vendor = vendorService.getByEmail(authentication.getName());
-        VendorSubscription sub = stripeService.getSubscription(vendor.id());
-        String planTier = sub != null ? sub.planTier().name() : "BASIC";
-        String status = sub != null ? sub.status().name() : "NONE";
-        var response = new SubscriptionResponse(
-                planTier,
-                status,
+        return ResponseEntity.ok(toSubscriptionResponse(stripeService.getSubscription(vendor.id())));
+    }
+
+    /**
+     * Redeem a comp promo code to get listed for free, without Stripe. Used on the signup
+     * "Your account is ready" step and on the subscription page. An invalid code yields a 400
+     * (InvalidPromoCodeException -> GlobalExceptionHandler), not a 500.
+     */
+    @PostMapping("/me/promo")
+    public ResponseEntity<SubscriptionResponse> redeemPromo(
+            Authentication authentication,
+            @Valid @RequestBody PromoCodeRequest req
+    ) {
+        var vendor = vendorService.getByEmail(authentication.getName());
+        log.info("vendor promo redemption requested, vendorId={}", vendor.id());
+        VendorSubscription sub = vendorPromoService.redeem(vendor.id(), req.code());
+        return ResponseEntity.ok(toSubscriptionResponse(sub));
+    }
+
+    // Single source of truth for the subscription DTO. "comped" is derived: an ACTIVE subscription
+    // with no Stripe subscription id was granted by a promo, not paid for.
+    private SubscriptionResponse toSubscriptionResponse(VendorSubscription sub) {
+        boolean comped = sub != null
+                && sub.status() == SubscriptionStatus.ACTIVE
+                && sub.stripeSubscriptionId() == null;
+        return new SubscriptionResponse(
+                sub != null ? sub.planTier().name() : "BASIC",
+                sub != null ? sub.status().name() : "NONE",
                 sub != null ? sub.currentPeriodEnd() : null,
                 stripeService.getPriceProMonthly(),
-                stripeService.getPriceProAnnual()
+                stripeService.getPriceProAnnual(),
+                comped
         );
-        return ResponseEntity.ok(response);
     }
 
     @PostMapping(value = "/me/portfolio-photos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

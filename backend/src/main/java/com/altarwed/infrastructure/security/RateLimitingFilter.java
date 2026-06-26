@@ -49,6 +49,9 @@ public class RateLimitingFilter extends OncePerRequestFilter {
                 uri.startsWith("/api/v1/auth/") ||
                 uri.startsWith("/api/v1/guests/rsvp/find") ||
                 uri.startsWith("/api/v1/inquiries") ||
+                // Authenticated, but the comp promo code is low-entropy and reusable, so throttle
+                // redemption attempts to stop a logged-in vendor from brute-forcing the code.
+                uri.startsWith("/api/v1/vendors/me/promo") ||
                 // Unauthenticated write: a token-verified opt-out, but throttle it so a
                 // replayed/forged link can't churn the opt-out + audit tables or flood us.
                 uri.startsWith("/api/v1/unsubscribe");

@@ -7,6 +7,7 @@ import { useAuth } from '@/core/auth/AuthContext'
 import { apiClient } from '@/core/api/client'
 import { useCreateCheckoutSession } from './useSubscription'
 import type { SubscriptionInfo } from './useSubscription'
+import PromoCodeBox from './PromoCodeBox'
 
 const CATEGORIES = [
   { value: 'PHOTOGRAPHER',    label: 'Photographer',    icon: '📷' },
@@ -183,6 +184,7 @@ export default function RegisterVendorPage() {
                   onRetry={refetchSub}
                   checkoutPending={checkout.isPending}
                   onCheckout={priceId => checkout.mutate(priceId)}
+                  onRedeemed={() => navigate('/vendor')}
                   onSkip={() => navigate('/vendor')}
                 />
               )}
@@ -423,7 +425,7 @@ function AccountStep({
 }
 
 function StripeStep({
-  sub, subLoading, subError, onRetry, checkoutPending, onCheckout, onSkip,
+  sub, subLoading, subError, onRetry, checkoutPending, onCheckout, onRedeemed, onSkip,
 }: {
   sub: SubscriptionInfo | null
   subLoading: boolean
@@ -431,6 +433,7 @@ function StripeStep({
   onRetry: () => void
   checkoutPending: boolean
   onCheckout: (priceId: string) => void
+  onRedeemed: () => void
   onSkip: () => void
 }) {
   return (
@@ -491,6 +494,8 @@ function StripeStep({
           <li>Featured badge visible to browsing couples</li>
         </ul>
       </div>
+
+      <PromoCodeBox onRedeemed={onRedeemed} />
 
       <button
         type="button"

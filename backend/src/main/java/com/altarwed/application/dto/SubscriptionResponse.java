@@ -7,5 +7,8 @@ public record SubscriptionResponse(
         String status,
         LocalDateTime currentPeriodEnd,
         String proMonthlyPriceId,
-        String proAnnualPriceId
+        String proAnnualPriceId,
+        // True when the listing is comped (granted via promo, no Stripe). Lets the UI show "Comped"
+        // and hide billing management (a comped vendor has no Stripe customer to manage).
+        Boolean comped
 ) {}
