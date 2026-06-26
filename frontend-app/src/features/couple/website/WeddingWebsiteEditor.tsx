@@ -24,6 +24,7 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
   const updateHotel = useUpdateHotel(website.id)
   const deleteHotel = useDeleteHotel(website.id)
 
+  const confirm = useConfirm()
   const [searchParams] = useSearchParams()
   const [saved, setSaved] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
@@ -87,8 +88,17 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
     setSaved(true)
   }
 
-  const handlePublishToggle = () => {
+  const handlePublishToggle = async () => {
     const publishing = !website.isPublished
+    if (!publishing) {
+      const ok = await confirm({
+        title: 'Unpublish your site?',
+        message: 'Guests will see a "coming soon" page until you publish again.',
+        tone: 'danger',
+        confirmLabel: 'Unpublish',
+      })
+      if (!ok) return
+    }
     publish.mutate(publishing, {
       onSuccess: () => {
         if (publishing) {
