@@ -6,6 +6,7 @@ import com.altarwed.domain.port.VendorRepository;
 import com.altarwed.infrastructure.persistence.entity.VendorEntity;
 import com.altarwed.infrastructure.persistence.repository.VendorJpaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -40,27 +41,31 @@ public class VendorRepositoryAdapter implements VendorRepository {
         return jpaRepository.existsByEmail(email);
     }
 
+    // Every public directory query is capped at the database so a blank-filter request
+    // can never stream the whole active-vendor table (egress / DoS vector).
+    private static final PageRequest SEARCH_CAP = PageRequest.of(0, MAX_SEARCH_RESULTS);
+
     @Override
     public List<Vendor> findByCity(String city) {
-        return jpaRepository.findByCityIgnoreCaseAndIsActiveTrueAndIsVerifiedTrue(city)
+        return jpaRepository.findByCityIgnoreCaseAndIsActiveTrueAndIsVerifiedTrue(city, SEARCH_CAP)
                 .stream().map(this::toDomain).toList();
     }
 
     @Override
     public List<Vendor> findByCityAndCategory(String city, VendorCategory category) {
-        return jpaRepository.findByCityIgnoreCaseAndCategoryAndIsActiveTrueAndIsVerifiedTrue(city, category)
+        return jpaRepository.findByCityIgnoreCaseAndCategoryAndIsActiveTrueAndIsVerifiedTrue(city, category, SEARCH_CAP)
                 .stream().map(this::toDomain).toList();
     }
 
     @Override
     public List<Vendor> findByCategory(VendorCategory category) {
-        return jpaRepository.findByCategoryAndIsActiveTrueAndIsVerifiedTrue(category)
+        return jpaRepository.findByCategoryAndIsActiveTrueAndIsVerifiedTrue(category, SEARCH_CAP)
                 .stream().map(this::toDomain).toList();
     }
 
     @Override
     public List<Vendor> findAllActive() {
-        return jpaRepository.findAllByIsActiveTrueAndIsVerifiedTrue().stream().map(this::toDomain).toList();
+        return jpaRepository.findAllByIsActiveTrueAndIsVerifiedTrue(SEARCH_CAP).stream().map(this::toDomain).toList();
     }
 
     @Override

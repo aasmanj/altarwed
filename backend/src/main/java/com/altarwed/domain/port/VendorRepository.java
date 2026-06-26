@@ -9,6 +9,11 @@ import java.util.UUID;
 
 public interface VendorRepository {
 
+    // Hard server-side cap on public, unauthenticated directory results. A blank-filter
+    // request must never stream the whole active-vendor table (egress / DoS vector), so
+    // the adapter pages each query to this many rows and the service trims defensively.
+    int MAX_SEARCH_RESULTS = 100;
+
     Vendor save(Vendor vendor);
 
     Optional<Vendor> findById(UUID id);

@@ -1,6 +1,7 @@
 package com.altarwed.infrastructure.persistence.repository;
 
 import com.altarwed.infrastructure.persistence.entity.WeddingWebsiteEntity;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -35,6 +36,7 @@ public interface WeddingWebsiteJpaRepository extends JpaRepository<WeddingWebsit
     List<WeddingWebsiteEntity> searchPublished(
             @Param("name")      String name,
             @Param("yearStart") LocalDate yearStart,
-            @Param("yearEnd")   LocalDate yearEnd
+            @Param("yearEnd")   LocalDate yearEnd,
+            Pageable pageable
     );
 }

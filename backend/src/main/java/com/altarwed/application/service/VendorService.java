@@ -199,15 +199,19 @@ public class VendorService {
 
     @Transactional(readOnly = true)
     public List<Vendor> search(String city, VendorCategory category) {
+        List<Vendor> results;
         if (city != null && category != null) {
-            return vendorRepository.findByCityAndCategory(city, category);
+            results = vendorRepository.findByCityAndCategory(city, category);
+        } else if (city != null) {
+            results = vendorRepository.findByCity(city);
+        } else if (category != null) {
+            results = vendorRepository.findByCategory(category);
+        } else {
+            // Blank filter: the directory page would otherwise fetch every active vendor.
+            results = vendorRepository.findAllActive();
         }
-        if (city != null) {
-            return vendorRepository.findByCity(city);
-        }
-        if (category != null) {
-            return vendorRepository.findByCategory(category);
-        }
-        return vendorRepository.findAllActive();
+        // The repository already caps each query at the database; the limit here is a
+        // defensive second layer so the public response is never larger than the cap.
+        return results.stream().limit(VendorRepository.MAX_SEARCH_RESULTS).toList();
     }
 }

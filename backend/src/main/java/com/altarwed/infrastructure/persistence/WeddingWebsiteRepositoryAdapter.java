@@ -5,6 +5,7 @@ import com.altarwed.domain.port.WeddingWebsiteRepository;
 import com.altarwed.infrastructure.persistence.entity.WeddingWebsiteEntity;
 import com.altarwed.infrastructure.persistence.repository.WeddingWebsiteJpaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -58,7 +59,8 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
     public List<WeddingWebsite> searchPublishedByNameAndYear(String name, Integer year) {
         LocalDate yearStart = year != null ? LocalDate.of(year, 1, 1) : null;
         LocalDate yearEnd   = year != null ? LocalDate.of(year, 12, 31) : null;
-        return jpaRepository.searchPublished(name, yearStart, yearEnd)
+        // Cap at the database so a blank-filter request can never stream the whole table.
+        return jpaRepository.searchPublished(name, yearStart, yearEnd, PageRequest.of(0, MAX_SEARCH_RESULTS))
                 .stream().map(this::toDomain).toList();
     }
 
