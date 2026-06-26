@@ -7,11 +7,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,6 +42,15 @@ public class LobPrintMailAdapter implements PrintMailPort {
     // Ref: https://help.lob.com/print-and-mail/designing-mail-creatives/mail-piece-design-specs/postcards
     private static final String POSTCARD_SIZE = "6x11";
 
+    // Lob requires a use_type on every mail piece (and 422s without it unless an account default
+    // is set in the dashboard). The only mail this adapter sends is a couple's own save-the-dates
+    // and invitations to their own guest list, which is personal correspondence about an event,
+    // NOT advertising of a commercial product, so the correct category is "operational", not
+    // "marketing". Setting it in code (rather than relying on a dashboard default) keeps the
+    // classification explicit, versioned, and stable across new accounts/API keys.
+    // Ref: https://help.lob.com/print-and-mail/building-a-mail-strategy/htmls-and-use-types
+    private static final String MAIL_USE_TYPE = "operational";
+
     // Cap for the extracted Lob error so it always fits print_order_recipients.error_message
     // (NVARCHAR(500)); kept under 500 to leave headroom and avoid a SQL 2628 truncation abort.
     private static final int MAX_ERROR_DETAIL = 480;
@@ -55,7 +66,20 @@ public class LobPrintMailAdapter implements PrintMailPort {
         this.apiKey = apiKey;
         this.objectMapper = objectMapper;
         String basic = Base64.getEncoder().encodeToString((apiKey + ":").getBytes(StandardCharsets.UTF_8));
+        // Pin an explicit request factory with timeouts, matching the other timeout-pinned RestClient
+        // adapters (ResendEmailAdapter, GoogleSheetSyncService, GoogleOAuthService). Without a
+        // requestFactory RestClient auto-detects Reactor Netty from the classpath, whose ~10s default
+        // read timeout is too short for Lob: creating a postcard makes Lob fetch the hero image and
+        // rasterize the card HTML to a PDF, which routinely runs longer than a plain JSON call, and
+        // the short default surfaced as a per-recipient transport failure (ReadTimeoutException). 30s read
+        // (the value the other slow-rendering integrations use) absorbs render spikes; SimpleClient
+        // is blocking, which is ideal here because the app runs on virtual threads so the carrier
+        // thread is released during the wait.
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(10));
+        factory.setReadTimeout(Duration.ofSeconds(30));
         this.restClient = RestClient.builder()
+                .requestFactory(factory)
                 .baseUrl("https://api.lob.com/v1")
                 .defaultHeader("Authorization", "Basic " + basic)
                 .build();
@@ -71,20 +95,7 @@ public class LobPrintMailAdapter implements PrintMailPort {
         // outcome is logged once by PrintOrderService ("print order finalized, succeeded/failed").
         log.debug("submitting postcard to lob, templateKey={}", req.templateKey());
 
-        String front = renderFront(req);
-        String back = renderBack(req);
-
-        Map<String, Object> body = new HashMap<>();
-        body.put("description", req.templateKey() + " for " + req.coupleNames());
-        body.put("to", addressMap(req.to()));
-        body.put("from", addressMap(req.from()));
-        body.put("front", front);
-        body.put("back", back);
-        body.put("size", POSTCARD_SIZE);
-        // usps_first_class is US-only; omit mail_type for international so Lob routes correctly
-        if (isUsDomestic(req.to().country())) {
-            body.put("mail_type", "usps_first_class");
-        }
+        Map<String, Object> body = buildRequestBody(req);
 
         try {
             @SuppressWarnings("unchecked")
@@ -115,11 +126,35 @@ public class LobPrintMailAdapter implements PrintMailPort {
             log.warn("lob rejected postcard, status={}", ex.getStatusCode());
             throw new PrintMailException("Lob rejected postcard: " + ex.getStatusCode(), lobError, ex);
         } catch (org.springframework.web.client.RestClientException ex) {
-            // Network / transport errors only. Let runtime exceptions (NPE, etc.) propagate
-            // so they surface as 500s rather than being mis-attributed as Lob failures.
-            log.error("lob call failed unexpectedly, templateKey={}", req.templateKey(), ex);
+            // Network / transport errors only (e.g. a read timeout on a slow render). WARN, not
+            // ERROR: this is a recoverable per-recipient failure inside PrintOrderService's batch
+            // loop, the loop continues and the order finalizes as PARTIAL_FAILURE/FAILED, so one
+            // guest's transport hiccup must not page on-call (systemic outages surface via the
+            // aggregate finalize line + alerting on failure rate, not one ERROR per recipient).
+            // Runtime exceptions (NPE, etc.) are not caught here so they still surface as 500s
+            // rather than being mis-attributed as Lob failures.
+            log.warn("lob call failed, templateKey={}", req.templateKey(), ex);
             throw new PrintMailException("Lob call failed: " + ex.getMessage(), ex);
         }
+    }
+
+    // Package-private so the request contract (use_type, size, conditional mail_type) is unit
+    // testable without a live Lob call; sendPostcard stays focused on the HTTP exchange.
+    Map<String, Object> buildRequestBody(PostcardRequest req) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("description", req.templateKey() + " for " + req.coupleNames());
+        body.put("to", addressMap(req.to()));
+        body.put("from", addressMap(req.from()));
+        body.put("front", renderFront(req));
+        body.put("back", renderBack(req));
+        body.put("size", POSTCARD_SIZE);
+        // Required by Lob on every mail piece; see MAIL_USE_TYPE for why "operational".
+        body.put("use_type", MAIL_USE_TYPE);
+        // usps_first_class is US-only; omit mail_type for international so Lob routes correctly
+        if (isUsDomestic(req.to().country())) {
+            body.put("mail_type", "usps_first_class");
+        }
+        return body;
     }
 
     private Map<String, Object> addressMap(ToAddress a) {
