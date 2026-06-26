@@ -9,9 +9,27 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Serialize deploys to the single prod Static Web App. On 2026-06-26 four merges
+  # to main landed within ~25s; each fired its own deploy at the same SWA prod
+  # environment. Azure SWA allows only one deploy per environment, so each newer
+  # upload made Azure cancel the older in-flight ones ("Deployment Failure Reason:
+  # Deployment Canceled") and three of the four runs went red while only the last
+  # went live. A concurrency group fixes the class of bug. Unlike deploy-backend
+  # (cancel-in-progress: false, because killing an App Service jar upload mid-flight
+  # could leave a half-written app.jar), SWA deploys are atomic: Azure only swaps in
+  # the new bundle after a complete upload, so a cancelled run simply never swaps and
+  # the previous version keeps serving. So cancel-in-progress: true is safe and
+  # strictly better here: superseded runs cancel cleanly (gray, not red) and we
+  # converge on the newest commit, which on a linear main is a superset of the rest.
+  # Scoped to this job (not workflow-level like deploy-backend) so it never governs
+  # the close_pull_request job below: if that job is ever wired to a pull_request
+  # trigger, a PR-close event must not share this group and cancel a live prod deploy.
   deploy:
     runs-on: ubuntu-latest
     name: Build and deploy React/Vite app to Azure Static Web Apps
+    concurrency:
+      group: deploy-app-prod
+      cancel-in-progress: true
 
     steps:
       - uses: actions/checkout@v4
