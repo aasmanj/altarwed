@@ -54,6 +54,71 @@ public class PrintOrderService {
     }
 
     /**
+     * Best-effort refresh of per-recipient delivery status by polling Lob for each submitted
+     * postcard. Only recipients with a provider id are polled (FAILED ones never got one) and that
+     * are not already in a terminal state, and a recipient's status is only changed when Lob reports
+     * a different one, so an order with no changes performs no write.
+     *
+     * Deliberately NOT @Transactional (same reasoning as createOrder above): the per-recipient Lob
+     * polls are external HTTP, each up to a 30s read timeout, and must never be held inside a DB
+     * transaction or they pin a pooled connection across the whole loop. findById and the final save
+     * each run in their own short Spring Data transaction; recipients are eagerly fetched, so the
+     * detached order is fully materialised before any polling.
+     */
+    public PrintOrder refreshDeliveryStatuses(UUID coupleId, UUID orderId) {
+        PrintOrder order = printOrderRepository.findById(orderId).orElse(null);
+        if (order == null || !order.coupleId().equals(coupleId)) {
+            // The controller's assertOwns already gates by coupleId; this is defense-in-depth. A
+            // present-but-not-owned order is an IDOR probe, so log it (rule 6) before the opaque 400.
+            if (order != null) {
+                log.warn("print order access denied, coupleId={}, orderId={}", coupleId, orderId);
+            }
+            throw new IllegalArgumentException("Print order not found");
+        }
+        log.info("print order status refresh requested, coupleId={}, orderId={}, recipients={}",
+                 coupleId, orderId, order.recipients().size());
+
+        List<PrintOrderRecipient> updatedRecipients = new ArrayList<>(order.recipients().size());
+        int changed = 0;
+        for (PrintOrderRecipient r : order.recipients()) {
+            if (r.lobPostcardId() == null || r.lobPostcardId().isBlank() || isTerminal(r.deliveryStatus())) {
+                // No provider id (failed at submit), or already delivered/returned: nothing to poll.
+                updatedRecipients.add(r);
+                continue;
+            }
+            Optional<String> latest = printMailPort.fetchPostcardStatus(r.lobPostcardId());
+            if (latest.isPresent() && !latest.get().equals(r.deliveryStatus())) {
+                updatedRecipients.add(new PrintOrderRecipient(
+                        r.id(), r.printOrderId(), r.guestId(), r.lobPostcardId(),
+                        latest.get(), r.errorMessage()));
+                changed++;
+            } else {
+                updatedRecipients.add(r);
+            }
+        }
+
+        log.info("print order status refresh finished, coupleId={}, orderId={}, updated={}",
+                 coupleId, orderId, changed);
+        if (changed == 0) {
+            return order;
+        }
+        PrintOrder refreshed = new PrintOrder(
+                order.id(), order.coupleId(), order.orderType(), order.status(), order.templateKey(),
+                order.recipientCount(), order.costCents(), order.errorMessage(),
+                order.createdAt(), order.submittedAt(), updatedRecipients, order.idempotencyKey());
+        return printOrderRepository.save(refreshed);
+    }
+
+    // Delivered and Returned-to-Sender are terminal USPS outcomes, so re-polling them only burns
+    // Lob calls. "Processed for Delivery" is intentionally NOT terminal: a postcard may still get a
+    // later Delivered scan, so we keep polling it.
+    private static boolean isTerminal(String deliveryStatus) {
+        if (deliveryStatus == null) return false;
+        String s = deliveryStatus.toLowerCase();
+        return s.equals("delivered") || s.contains("returned");
+    }
+
+    /**
      * Deliberately NOT @Transactional. Persisting a DRAFT order row BEFORE the Lob
      * loop guarantees an audit row exists if anything explodes mid-flight, including
      * a power loss between Lob acceptance and the final save. Wrapping the whole

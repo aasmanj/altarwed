@@ -45,4 +45,18 @@ public class PrintOrderController {
                 printOrderService.listOrders(coupleId).stream().map(PrintOrderMapper::toResponse).toList()
         );
     }
+
+    // Refresh per-recipient delivery status for one order by polling the mail provider. Couple-scoped
+    // and ownership-guarded like the other endpoints here.
+    @PostMapping("/couple/{coupleId}/{orderId}/refresh-status")
+    public ResponseEntity<PrintOrderResponse> refreshStatus(
+            @PathVariable UUID coupleId,
+            @PathVariable UUID orderId,
+            @AuthenticationPrincipal String email
+    ) {
+        accessGuard.assertOwns(coupleId, email);
+        return ResponseEntity.ok(
+                PrintOrderMapper.toResponse(printOrderService.refreshDeliveryStatuses(coupleId, orderId))
+        );
+    }
 }

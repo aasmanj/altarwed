@@ -60,3 +60,19 @@ export function useCreatePrintOrder(coupleId: string) {
     },
   })
 }
+
+// Poll the mail provider for the latest per-recipient delivery status of one order, then splice
+// the refreshed order back into the cached list so the UI updates in place.
+export function useRefreshPrintOrderStatus(coupleId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (orderId: string) =>
+      apiClient
+        .post(`/api/v1/print-orders/couple/${coupleId}/${orderId}/refresh-status`)
+        .then(r => r.data as PrintOrder),
+    onSuccess: updated => {
+      qc.setQueryData<PrintOrder[]>(key(coupleId), old =>
+        old ? old.map(o => (o.id === updated.id ? updated : o)) : old)
+    },
+  })
+}

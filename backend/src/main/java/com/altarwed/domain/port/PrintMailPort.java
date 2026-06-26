@@ -1,5 +1,7 @@
 package com.altarwed.domain.port;
 
+import java.util.Optional;
+
 public interface PrintMailPort {
 
     /**
@@ -8,6 +10,14 @@ public interface PrintMailPort {
      * Throws PrintMailException if the provider rejects the request.
      */
     String sendPostcard(PostcardRequest request);
+
+    /**
+     * Look up the current delivery status of a previously-submitted postcard by its provider id.
+     * Returns a short human-readable status (e.g. "Mailed", "In Transit", "Delivered", "Returned to
+     * Sender"), or empty when the provider has no status yet or the lookup fails. Never throws: a
+     * status refresh is best-effort and must not fail the caller's request.
+     */
+    Optional<String> fetchPostcardStatus(String providerPostcardId);
 
     // Lob distinguishes test vs live entirely by API key prefix (test_ vs live_),
     // so we deliberately do not carry a mode flag on the request, there is no way

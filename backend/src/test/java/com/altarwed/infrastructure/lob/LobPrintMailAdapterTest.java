@@ -6,6 +6,7 @@ import com.altarwed.domain.port.PrintMailPort.ToAddress;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -126,5 +127,38 @@ class LobPrintMailAdapterTest {
         String longMessage = "x".repeat(600);
         String body = "{\"error\":{\"message\":\"" + longMessage + "\",\"status_code\":422}}";
         assertThat(adapter.extractLobError(body)).hasSize(480);
+    }
+
+    @Test
+    void deriveDeliveryStatus_uses_the_most_recent_tracking_event() {
+        // Lob orders tracking_events ascending by time, so the last one is the latest scan.
+        Map<String, Object> postcard = Map.of("tracking_events", List.of(
+                Map.of("name", "Mailed"),
+                Map.of("name", "In Transit"),
+                Map.of("name", "Delivered")
+        ));
+        assertThat(adapter.deriveDeliveryStatus(postcard)).isEqualTo("Delivered");
+    }
+
+    @Test
+    void deriveDeliveryStatus_falls_back_to_mailed_when_no_events_yet() {
+        // No USPS scans yet (always the case in test mode), but Lob scheduled a delivery date.
+        Map<String, Object> postcard = Map.of(
+                "tracking_events", List.of(),
+                "expected_delivery_date", "2026-07-15");
+        assertThat(adapter.deriveDeliveryStatus(postcard)).isEqualTo("Mailed");
+    }
+
+    @Test
+    void deriveDeliveryStatus_is_null_when_nothing_is_known() {
+        // Freshly created, not yet scheduled: leave the existing status untouched.
+        assertThat(adapter.deriveDeliveryStatus(Map.of("status", "rendered"))).isNull();
+    }
+
+    @Test
+    void deriveDeliveryStatus_caps_event_name_to_the_column_width() {
+        Map<String, Object> postcard = Map.of("tracking_events", List.of(
+                Map.of("name", "x".repeat(50))));
+        assertThat(adapter.deriveDeliveryStatus(postcard)).hasSize(32);
     }
 }
