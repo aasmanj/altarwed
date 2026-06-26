@@ -30,6 +30,12 @@ public class RsvpInviteTokenRepositoryAdapter implements RsvpInviteTokenReposito
     }
 
     @Override
+    public Optional<RsvpInviteToken> findValidSearchToken(UUID guestId, LocalDateTime now) {
+        return jpa.findFirstByGuestIdAndSourceAndUsedFalseAndExpiresAtAfterOrderByExpiresAtDesc(
+                guestId, RsvpInviteToken.SOURCE_SEARCH, now).map(this::toDomain);
+    }
+
+    @Override
     public void deleteAllByGuestId(UUID guestId) {
         jpa.deleteAllByGuestId(guestId);
     }
@@ -41,7 +47,7 @@ public class RsvpInviteTokenRepositoryAdapter implements RsvpInviteTokenReposito
 
     private RsvpInviteToken toDomain(RsvpInviteTokenEntity e) {
         return new RsvpInviteToken(e.getId(), e.getTokenHash(), e.getGuestId(),
-                e.getExpiresAt(), e.isUsed(), e.getUsedAt());
+                e.getExpiresAt(), e.isUsed(), e.getUsedAt(), e.getSource());
     }
 
     private RsvpInviteTokenEntity toEntity(RsvpInviteToken t) {
@@ -52,6 +58,7 @@ public class RsvpInviteTokenRepositoryAdapter implements RsvpInviteTokenReposito
                 .expiresAt(t.expiresAt())
                 .used(t.used())
                 .usedAt(t.usedAt())
+                .source(t.source())
                 .build();
     }
 }
