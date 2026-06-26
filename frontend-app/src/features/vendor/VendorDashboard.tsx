@@ -96,7 +96,15 @@ export default function VendorDashboard() {
         <div className="mt-10 rounded-2xl border border-[#e8dcc8] bg-white p-6">
           <p className="font-serif text-lg font-semibold text-[#3b2f2f] mb-1">Your public listing</p>
           {vendor ? (
-            vendor.isVerified ? (
+            !vendor.isVerified ? (
+              <p className="text-sm text-[#8a6a4a]">
+                Your listing will appear here once you{' '}
+                <Link to="/vendor/subscription" className="text-[#3b2f2f] font-medium hover:underline">
+                  subscribe
+                </Link>
+                .
+              </p>
+            ) : vendor.isActive ? (
               <a
                 href={`https://www.altarwed.com/vendors/${vendor.id}`}
                 target="_blank"
@@ -107,11 +115,11 @@ export default function VendorDashboard() {
               </a>
             ) : (
               <p className="text-sm text-[#8a6a4a]">
-                Your listing will appear here once you{' '}
-                <Link to="/vendor/subscription" className="text-[#3b2f2f] font-medium hover:underline">
-                  subscribe
-                </Link>
-                .
+                Your listing is paused and not public right now.{' '}
+                <Link to="/vendor/listing" className="text-[#3b2f2f] font-medium hover:underline">
+                  Resume it
+                </Link>{' '}
+                to make it visible to couples again.
               </p>
             )
           ) : (

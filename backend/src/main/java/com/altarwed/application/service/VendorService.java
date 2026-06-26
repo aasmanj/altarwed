@@ -106,6 +106,16 @@ public class VendorService {
         return saved;
     }
 
+    // Vendor-initiated pause/resume of their own listing (toggles isActive). Paused vendors drop
+    // out of the public directory and stop receiving new inquiries; their subscription/verification
+    // and account are untouched, so they can resume any time.
+    @Transactional
+    public Vendor setListingActive(UUID vendorId, boolean active) {
+        Vendor saved = vendorRepository.save(getById(vendorId).withListingActive(active));
+        log.info("vendor listing {}, vendorId={}", active ? "resumed" : "paused", vendorId);
+        return saved;
+    }
+
     @Transactional
     public Vendor updateLogoUrl(UUID vendorId, String logoUrl) {
         Vendor saved = vendorRepository.save(getById(vendorId).withLogoUrl(logoUrl));

@@ -2,6 +2,7 @@ package com.altarwed.web.controller;
 
 import com.altarwed.application.dto.AuthResponse;
 import com.altarwed.application.dto.InquiryResponse;
+import com.altarwed.application.dto.ListingStatusRequest;
 import com.altarwed.application.dto.PromoCodeRequest;
 import com.altarwed.application.dto.RegisterVendorRequest;
 import com.altarwed.application.dto.ReorderPortfolioPhotosRequest;
@@ -18,6 +19,7 @@ import com.altarwed.application.service.VendorInquiryService;
 import com.altarwed.application.service.VendorPortfolioPhotoService;
 import com.altarwed.application.service.VendorPromoService;
 import com.altarwed.application.service.VendorService;
+import com.altarwed.domain.exception.VendorNotFoundException;
 import com.altarwed.domain.model.SubscriptionStatus;
 import com.altarwed.domain.model.VendorPortfolioPhoto;
 import com.altarwed.domain.model.VendorSubscription;
@@ -100,6 +102,16 @@ public class VendorController {
         return ResponseEntity.ok(vendorMapper.toProfileResponse(vendorService.update(vendor.id(), req)));
     }
 
+    // Pause/resume the vendor's own public listing (toggles isActive). Paused = hidden from the
+    // directory and not accepting new inquiries; the subscription and account stay intact.
+    @PatchMapping("/me/listing")
+    public ResponseEntity<VendorProfileResponse> setListingActive(
+            Authentication auth, @Valid @RequestBody ListingStatusRequest req) {
+        var vendor = vendorService.getByEmail(auth.getName());
+        return ResponseEntity.ok(
+                vendorMapper.toProfileResponse(vendorService.setListingActive(vendor.id(), req.active())));
+    }
+
     @PostMapping(value = "/me/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> uploadLogo(
             Authentication auth,
@@ -150,7 +162,14 @@ public class VendorController {
 
     @GetMapping("/{id}")
     public ResponseEntity<VendorResponse> getById(@PathVariable UUID id, Authentication authentication) {
-        VendorResponse response = vendorMapper.toResponse(vendorService.getById(id));
+        var vendor = vendorService.getById(id);
+        // A paused listing (isActive=false) is hidden from the public: the directory query already
+        // excludes it, so its deep-link profile must 404 too. Otherwise the page stays indexable and
+        // still renders an inquiry form that the inquiry path now rejects. 404 (not 403) leaks nothing.
+        if (!vendor.isActive()) {
+            throw new VendorNotFoundException(id);
+        }
+        VendorResponse response = vendorMapper.toResponse(vendor);
         // Skip the counter when the authenticated caller is the vendor who owns this listing.
         // For unauthenticated callers and couple-authenticated callers, always count.
         boolean isSelfView = false;

@@ -15,6 +15,9 @@ public record VendorProfileResponse(
         Boolean isChristianOwned,
         List<UUID> denominationIds,
         Boolean isVerified,
+        // Listing visibility toggle (pause/resume). False = paused: hidden from the directory and
+        // not accepting new inquiries. Independent of isVerified (subscription state).
+        Boolean isActive,
         String priceTier,
         String bio,
         String description,
