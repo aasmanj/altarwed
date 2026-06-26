@@ -328,9 +328,24 @@ public class GuestService {
         // guest. Silent here since this is a bulk action.
         Set<String> suppressedHashes = suppressionService.reasonsByHash(coupleId,
                 pending.stream().map(g -> EmailSuppressionService.emailHash(g.email())).toList()).keySet();
-        List<Guest> toInvite = pending.stream()
+        List<Guest> notSuppressed = pending.stream()
                 .filter(g -> !suppressedHashes.contains(EmailSuppressionService.emailHash(g.email())))
                 .toList();
+        // Pre-filter guests already at the invite-send cap. issueInvite throws when a guest is
+        // over the cap, and this method is @Transactional, so a single over-cap guest mid-loop
+        // would roll back every earlier invite and return 500, then a retry would re-send to
+        // everyone. Skipping over-cap guests up front keeps the batch a clean partial success.
+        List<Guest> toInvite = notSuppressed.stream()
+                .filter(g -> (g.inviteSendCount() != null ? g.inviteSendCount() : 0) < MAX_INVITE_SENDS)
+                .toList();
+        // Over-cap skips are working-as-designed (a couple re-running invite-all after guests
+        // already hit the cap), not an anomaly, so this is INFO, not WARN. Counted and logged
+        // in aggregate (one line, not per guest) to keep App Insights cost flat.
+        int overCapSkipped = notSuppressed.size() - toInvite.size();
+        if (overCapSkipped > 0) {
+            log.info("invite-all skipped over-cap guests, coupleId={}, skippedCount={}",
+                     coupleId, overCapSkipped);
+        }
 
         log.info("invite-all batch started, coupleId={}, eligibleCount={}", coupleId, toInvite.size());
         for (Guest guest : toInvite) {
