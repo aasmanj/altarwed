@@ -4,4 +4,5 @@
 -- instead of inserting a new row on every name guess, bounding table growth on a public path,
 -- while leaving the emailed invite link untouched.
 -- Nullable: legacy rows stay NULL and are never treated as reusable search tokens.
-ALTER TABLE rsvp_invite_tokens ADD source NVARCHAR(16) NULL;
+ALTER TABLE rsvp_invite_tokens ADD source NVARCHAR(16) NULL
+    CONSTRAINT chk_rsvp_token_source CHECK (source IN ('SEARCH', 'INVITE'));

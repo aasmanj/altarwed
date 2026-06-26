@@ -155,7 +155,9 @@ public class GuestController {
             @RequestParam String slug,
             @RequestParam String name
     ) {
-        if (name == null || name.trim().length() < 2) {
+        // Shares GuestService.MIN_SEARCH_QUERY_LENGTH so this 400 pre-check stays in lockstep
+        // with the service guard (the service also returns empty for a too-short query).
+        if (name == null || name.trim().length() < GuestService.MIN_SEARCH_QUERY_LENGTH) {
             return ResponseEntity.badRequest().build();
         }
         return ResponseEntity.ok(guestService.findGuestsByName(slug, name));

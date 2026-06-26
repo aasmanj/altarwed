@@ -32,8 +32,9 @@ public class GuestService {
     private static final int MAX_INVITE_SENDS = 3;
     private static final int SEARCH_TOKEN_EXPIRY_HOURS = 1;
     // The public find-invitation search ignores queries shorter than this so a single
-    // character cannot enumerate masked initials or mint tokens by brute force.
-    private static final int MIN_SEARCH_QUERY_LENGTH = 2;
+    // character cannot enumerate masked initials or mint tokens by brute force. Public so the
+    // controller's pre-check shares one source of truth and cannot silently drift from the service.
+    public static final int MIN_SEARCH_QUERY_LENGTH = 2;
 
     private final GuestRepository guestRepository;
     private final RsvpInviteTokenRepository tokenRepository;
@@ -685,6 +686,10 @@ public class GuestService {
         return guestRepository.save(updated);
     }
 
+    // token.source() (SEARCH vs INVITE) is intentionally NOT checked here. The discriminator
+    // exists only so the find-search can rotate its own row in place; it is not a trust
+    // boundary. Both kinds grant exactly the same capability: RSVP for that one guest. Do not
+    // assume token-type isolation, none is enforced.
     private RsvpInviteToken resolveToken(String rawToken) {
         RsvpInviteToken token = tokenRepository.findByTokenHash(hash(rawToken))
                 .orElseThrow(() -> {
