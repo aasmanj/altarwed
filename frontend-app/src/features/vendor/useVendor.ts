@@ -11,6 +11,8 @@ export interface VendorProfile {
   isChristianOwned: boolean
   denominationIds: string[]
   isVerified: boolean
+  // Listing visibility toggle. false = paused (hidden from the directory, no new inquiries).
+  isActive: boolean
   priceTier: string | null
   bio: string | null
   description: string | null
@@ -63,6 +65,16 @@ export function useUpdateVendorProfile() {
     mutationFn: (payload: UpdateVendorPayload) =>
       apiClient.patch('/api/v1/vendors/me', payload).then(r => r.data),
     onSuccess: (updated: VendorProfile) => qc.setQueryData(ME_KEY, updated),
+  })
+}
+
+// Pause (active=false) or resume (active=true) the vendor's own public listing.
+export function useSetListingActive() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (active: boolean) =>
+      apiClient.patch('/api/v1/vendors/me/listing', { active }).then(r => r.data as VendorProfile),
+    onSuccess: updated => qc.setQueryData(ME_KEY, updated),
   })
 }
 

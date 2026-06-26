@@ -20,7 +20,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -93,6 +95,20 @@ class VendorServiceTest {
         verify(vendorRepository, never()).deleteById(vendorId);
         verify(portfolioPhotoRepository, never()).findAllByVendorId(vendorId);
         verify(blobStorage, never()).delete(anyString());
+    }
+
+    @Test
+    void setListingActive_pausesWithoutTouchingVerification() {
+        UUID vendorId = UUID.randomUUID();
+        // Helper builds a vendor with isActive=true, isVerified=true.
+        when(vendorRepository.findById(vendorId)).thenReturn(Optional.of(vendorWithLogo(vendorId, null)));
+        when(vendorRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Vendor paused = vendorService.setListingActive(vendorId, false);
+
+        assertThat(paused.isActive()).isFalse();
+        // Pausing must not disturb subscription/verification state.
+        assertThat(paused.isVerified()).isTrue();
     }
 
     private Vendor vendorWithLogo(UUID id, String logoUrl) {

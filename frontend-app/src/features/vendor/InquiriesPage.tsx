@@ -21,11 +21,12 @@ export default function InquiriesPage() {
 
   return (
     <div className="min-h-screen bg-[#fdfaf6]">
-      <header className="border-b border-[#e8dcc8] bg-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
-        <span className="font-serif text-xl font-bold text-[#3b2f2f] shrink-0">AltarWed</span>
-        <Link to="/vendor" className="shrink-0 text-sm text-[#8a6a4a] hover:text-[#3b2f2f] transition">
+      <header className="border-b border-[#e8dcc8] bg-white px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3">
+        <Link to="/vendor" className="text-sm text-[#8a6a4a] hover:text-[#3b2f2f] transition">
           ← Dashboard
         </Link>
+        <span className="text-[#e8dcc8]" aria-hidden="true">|</span>
+        <span className="font-serif text-lg font-semibold text-[#3b2f2f]">Inquiries</span>
       </header>
 
       <main className="mx-auto max-w-2xl px-4 sm:px-6 py-6 sm:py-10">

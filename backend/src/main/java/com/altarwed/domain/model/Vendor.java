@@ -57,9 +57,13 @@ public record Vendor(
                 bio, description, websiteUrl, phone, url, viewCount, contactEmail, createdAt, LocalDateTime.now());
     }
 
-    public Vendor deactivated() {
+    // Vendor-controlled "pause/resume listing". isActive is the directory-visibility + accepting-
+    // inquiries gate (findAllActive requires it; VendorInquiryService blocks inquiries without it)
+    // and is independent of isVerified (subscription state), so pausing never fights the Stripe
+    // webhooks and never affects login. Pause = false, resume = true.
+    public Vendor withListingActive(boolean active) {
         return new Vendor(id, businessName, category, city, state, email, passwordHash,
-                isChristianOwned, denominationIds, false, isVerified, priceTier,
+                isChristianOwned, denominationIds, active, isVerified, priceTier,
                 bio, description, websiteUrl, phone, logoUrl, viewCount, contactEmail, createdAt, LocalDateTime.now());
     }
 }

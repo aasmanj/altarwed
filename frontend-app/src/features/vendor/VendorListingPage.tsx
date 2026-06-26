@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { useVendorProfile, useUpdateVendorProfile, useUploadVendorLogo } from './useVendor'
+import { useVendorProfile, useUpdateVendorProfile, useUploadVendorLogo, useSetListingActive } from './useVendor'
 import {
   usePortfolioPhotos,
   useUploadPortfolioPhoto,
@@ -48,6 +48,7 @@ export default function VendorListingPage() {
   const { data: vendor, isLoading } = useVendorProfile()
   const update = useUpdateVendorProfile()
   const uploadLogo = useUploadVendorLogo()
+  const setListingActive = useSetListingActive()
   const portfolioPhotos = usePortfolioPhotos(vendor?.id)
   const uploadPortfolioPhoto = useUploadPortfolioPhoto()
   const deletePortfolioPhoto = useDeletePortfolioPhoto()
@@ -143,11 +144,12 @@ export default function VendorListingPage() {
 
   return (
     <div className="min-h-screen bg-[#fdfaf6]">
-      <header className="border-b border-[#e8dcc8] bg-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
-        <span className="font-serif text-xl font-bold text-[#3b2f2f] shrink-0">AltarWed</span>
-        <Link to="/vendor" className="shrink-0 text-sm text-[#8a6a4a] hover:text-[#3b2f2f] transition">
+      <header className="border-b border-[#e8dcc8] bg-white px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3">
+        <Link to="/vendor" className="text-sm text-[#8a6a4a] hover:text-[#3b2f2f] transition">
           ← Dashboard
         </Link>
+        <span className="text-[#e8dcc8]" aria-hidden="true">|</span>
+        <span className="font-serif text-lg font-semibold text-[#3b2f2f]">My Listing</span>
       </header>
 
       <main className="mx-auto max-w-2xl px-4 sm:px-6 py-6 sm:py-10">
@@ -157,16 +159,42 @@ export default function VendorListingPage() {
             This is how your business appears to couples on AltarWed
           </p>
           {vendor && (
-            <div className="mt-3 flex items-start gap-3">
-              <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                vendor.isVerified ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-              }`}>
-                {vendor.isVerified ? 'Verified' : 'Pending verification'}
-              </span>
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                  !vendor.isVerified
+                    ? 'bg-yellow-100 text-yellow-700'
+                    : vendor.isActive
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-stone-200 text-stone-600'
+                }`}>
+                  {!vendor.isVerified ? 'Pending verification' : vendor.isActive ? 'Live' : 'Paused'}
+                </span>
+                {vendor.isVerified && (
+                  <button
+                    type="button"
+                    onClick={() => setListingActive.mutate(!vendor.isActive)}
+                    disabled={setListingActive.isPending}
+                    className="text-xs font-medium text-[#8a6a4a] hover:text-[#3b2f2f] underline underline-offset-2 disabled:opacity-50"
+                  >
+                    {setListingActive.isPending
+                      ? 'Saving...'
+                      : vendor.isActive ? 'Pause listing' : 'Resume listing'}
+                  </button>
+                )}
+              </div>
               {!vendor.isVerified && (
-                <p className="text-xs text-[#8a6a4a] mt-0.5">
+                <p className="text-xs text-[#8a6a4a]">
                   Your listing is under review. Once verified, it will appear in the public directory.
                 </p>
+              )}
+              {vendor.isVerified && !vendor.isActive && (
+                <p className="text-xs text-[#8a6a4a]">
+                  Your listing is paused, so couples can't find you and you won't receive new inquiries. Resume any time.
+                </p>
+              )}
+              {setListingActive.isError && (
+                <p className="text-xs text-rose-600">Could not update your listing. Please try again.</p>
               )}
             </div>
           )}
