@@ -35,6 +35,9 @@ public class RsvpInviteTokenEntity {
     @Column(name = "used_at")
     private LocalDateTime usedAt;
 
+    @Column(name = "source", length = 16)
+    private String source;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

@@ -30,6 +30,11 @@ public class GuestService {
     private static final Logger log = LoggerFactory.getLogger(GuestService.class);
     private static final int INVITE_EXPIRY_DAYS = 30;
     private static final int MAX_INVITE_SENDS = 3;
+    private static final int SEARCH_TOKEN_EXPIRY_HOURS = 1;
+    // The public find-invitation search ignores queries shorter than this so a single
+    // character cannot enumerate masked initials or mint tokens by brute force. Public so the
+    // controller's pre-check shares one source of truth and cannot silently drift from the service.
+    public static final int MIN_SEARCH_QUERY_LENGTH = 2;
 
     private final GuestRepository guestRepository;
     private final RsvpInviteTokenRepository tokenRepository;
@@ -339,9 +344,20 @@ public class GuestService {
      * returns up to 5 matching guests with masked names and short-lived (1-hour) RSVP tokens.
      * Issues fresh tokens without revoking existing email-invite tokens so the emailed link
      * continues to work alongside the one returned here.
+     *
+     * This endpoint is unauthenticated, so it is hardened against table-bloat abuse: a query
+     * shorter than {@code MIN_SEARCH_QUERY_LENGTH} is rejected without any DB work, and a
+     * matched guest who already holds a valid search token has that single row rotated in place
+     * (new hash, refreshed expiry) instead of having a brand-new row minted on every name guess.
      */
     @Transactional
     public List<com.altarwed.application.dto.RsvpFindResult> findGuestsByName(String slug, String name) {
+        // Reject too-short queries before touching the database so scripted single-character
+        // guesses cannot mint tokens or enumerate masked initials.
+        if (name == null || name.trim().length() < MIN_SEARCH_QUERY_LENGTH) {
+            return List.of();
+        }
+
         var website = websiteRepository.findBySlug(slug)
                 .orElseThrow(() -> new IllegalArgumentException("Wedding not found"));
         if (!website.isPublished()) {
@@ -357,10 +373,18 @@ public class GuestService {
         return matches.stream()
                 .map(g -> {
                     String rawToken = UUID.randomUUID().toString();
+                    // Reuse the guest's existing valid search-token row when present: rotate its
+                    // hash and expiry in place rather than inserting a new row, so repeated name
+                    // searches stay bounded to one search token per guest. Email-invite tokens are
+                    // never matched here, so the emailed link is left intact.
+                    UUID existingTokenId = tokenRepository
+                            .findValidSearchToken(g.id(), LocalDateTime.now())
+                            .map(RsvpInviteToken::id)
+                            .orElse(null);
                     RsvpInviteToken searchToken = new RsvpInviteToken(
-                            null, hash(rawToken), g.id(),
-                            LocalDateTime.now().plusHours(1),
-                            false, null
+                            existingTokenId, hash(rawToken), g.id(),
+                            LocalDateTime.now().plusHours(SEARCH_TOKEN_EXPIRY_HOURS),
+                            false, null, RsvpInviteToken.SOURCE_SEARCH
                     );
                     tokenRepository.save(searchToken);
                     return new com.altarwed.application.dto.RsvpFindResult(maskName(g.name()), rawToken);
@@ -624,7 +648,7 @@ public class GuestService {
         RsvpInviteToken token = new RsvpInviteToken(
                 null, hash(rawToken), guest.id(),
                 LocalDateTime.now().plusDays(INVITE_EXPIRY_DAYS),
-                false, null
+                false, null, RsvpInviteToken.SOURCE_INVITE
         );
         tokenRepository.save(token);
 
@@ -662,6 +686,10 @@ public class GuestService {
         return guestRepository.save(updated);
     }
 
+    // token.source() (SEARCH vs INVITE) is intentionally NOT checked here. The discriminator
+    // exists only so the find-search can rotate its own row in place; it is not a trust
+    // boundary. Both kinds grant exactly the same capability: RSVP for that one guest. Do not
+    // assume token-type isolation, none is enforced.
     private RsvpInviteToken resolveToken(String rawToken) {
         RsvpInviteToken token = tokenRepository.findByTokenHash(hash(rawToken))
                 .orElseThrow(() -> {

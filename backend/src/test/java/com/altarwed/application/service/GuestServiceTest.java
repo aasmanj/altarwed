@@ -8,6 +8,8 @@ import com.altarwed.domain.model.EmailRecipient;
 import com.altarwed.domain.model.Guest;
 import com.altarwed.domain.model.GuestRsvpStatus;
 import com.altarwed.domain.model.RsvpInviteToken;
+import com.altarwed.domain.model.WeddingWebsite;
+import com.altarwed.application.dto.RsvpFindResult;
 import com.altarwed.domain.port.CoupleRepository;
 import com.altarwed.domain.port.GuestRepository;
 import com.altarwed.domain.port.RsvpInviteTokenRepository;
@@ -31,8 +33,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -199,7 +204,7 @@ class GuestServiceTest {
         Guest g = guest(coupleId, "Anna", "anna@example.com");
         RsvpInviteToken token = new RsvpInviteToken(
                 UUID.randomUUID(), "tokenhash", g.id(),
-                LocalDateTime.now().plusDays(1), false, null);
+                LocalDateTime.now().plusDays(1), false, null, RsvpInviteToken.SOURCE_INVITE);
 
         when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(token));
         when(guestRepository.findById(g.id())).thenReturn(Optional.of(g));
@@ -235,5 +240,57 @@ class GuestServiceTest {
         verify(tokenRepository, never()).save(any());
         verify(asyncEmailService, never())
                 .sendRsvpInviteEmail(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    // ---------------------------------------------------------------------------
+    // findGuestsByName is unauthenticated, so it is hardened against token-table bloat:
+    //   - a matched guest who already holds a valid search token has that one row rotated in
+    //     place rather than a new row minted on every name guess (issue #31);
+    //   - a query shorter than the minimum does no DB work at all.
+    // ---------------------------------------------------------------------------
+
+    @Test
+    void findGuestsByName_rotatesExistingSearchTokenInPlace_soNoSecondRowIsCreated() {
+        UUID coupleId = UUID.randomUUID();
+        String slug = "jordan-and-eden";
+        Guest g = guest(coupleId, "Jordan Aasman", null);
+
+        WeddingWebsite website = mock(WeddingWebsite.class);
+        when(website.isPublished()).thenReturn(true);
+        when(website.coupleId()).thenReturn(coupleId);
+        when(websiteRepository.findBySlug(slug)).thenReturn(Optional.of(website));
+        when(guestRepository.findByCoupleIdAndNameContaining(coupleId, "Jordan")).thenReturn(List.of(g));
+
+        // The first call finds no existing token (mints a new row); the second call finds the
+        // token the first call persisted and must rotate it instead of inserting a new one.
+        RsvpInviteToken existing = new RsvpInviteToken(
+                UUID.randomUUID(), "oldhash", g.id(),
+                LocalDateTime.now().plusHours(1), false, null, RsvpInviteToken.SOURCE_SEARCH);
+        when(tokenRepository.findValidSearchToken(eq(g.id()), any()))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(existing));
+        when(tokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service().findGuestsByName(slug, "Jordan");
+        service().findGuestsByName(slug, "Jordan");
+
+        ArgumentCaptor<RsvpInviteToken> saved = ArgumentCaptor.forClass(RsvpInviteToken.class);
+        verify(tokenRepository, times(2)).save(saved.capture());
+        List<RsvpInviteToken> tokens = saved.getAllValues();
+        // First call inserts a fresh row (null id); second call reuses the existing row's id,
+        // so JPA updates in place and no second token row is created.
+        assertThat(tokens.get(0).id()).isNull();
+        assertThat(tokens.get(0).source()).isEqualTo(RsvpInviteToken.SOURCE_SEARCH);
+        assertThat(tokens.get(1).id()).isEqualTo(existing.id());
+    }
+
+    @Test
+    void findGuestsByName_returnsEmptyAndWritesNothing_forSubMinimumQuery() {
+        List<RsvpFindResult> result = service().findGuestsByName("jordan-and-eden", "J");
+
+        assertThat(result).isEmpty();
+        // Too-short query is rejected before any repository is touched: no token row, no lookup.
+        verify(tokenRepository, never()).save(any());
+        verifyNoInteractions(websiteRepository, guestRepository);
     }
 }
