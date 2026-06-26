@@ -28,6 +28,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -70,12 +71,16 @@ class GuestServiceTest {
     }
 
     private Guest guest(UUID coupleId, String name, String email) {
+        return guest(coupleId, name, email, 0);
+    }
+
+    private Guest guest(UUID coupleId, String name, String email, int inviteSendCount) {
         return new Guest(
                 UUID.randomUUID(), coupleId, name, email, null,
                 GuestRsvpStatus.PENDING, false, null, null, null,
                 null, null, null,
                 null, null, null, null, null,
-                null, 0,
+                null, inviteSendCount,
                 null, null, null, null, null, null,
                 null, null, null,
                 null, false);
@@ -282,6 +287,62 @@ class GuestServiceTest {
         assertThat(tokens.get(0).id()).isNull();
         assertThat(tokens.get(0).source()).isEqualTo(RsvpInviteToken.SOURCE_SEARCH);
         assertThat(tokens.get(1).id()).isEqualTo(existing.id());
+    }
+
+    // ---------------------------------------------------------------------------
+    // sendAllPendingInvites is resilient to an over-cap guest: it skips the guest already at
+    // MAX_INVITE_SENDS instead of letting issueInvite throw mid-loop and roll back the whole
+    // @Transactional batch (which previously returned 500 and re-sent everyone on retry).
+    // ---------------------------------------------------------------------------
+
+    @Test
+    void sendAllPendingInvites_skipsOverCapGuest_andStillInvitesEligibleOnes() {
+        UUID coupleId = UUID.randomUUID();
+        Guest eligibleA = guest(coupleId, "Anna", "anna@example.com", 1);
+        Guest overCap   = guest(coupleId, "Bo", "bo@example.com", 3); // at MAX_INVITE_SENDS = 3
+        Guest eligibleB = guest(coupleId, "Cy", "cy@example.com", 0);
+
+        when(guestRepository.findAllByCoupleId(coupleId))
+                .thenReturn(List.of(eligibleA, overCap, eligibleB));
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
+        when(guestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        int invited = service().sendAllPendingInvites(coupleId);
+
+        // Two eligible guests invited, over-cap guest skipped, and the batch never throws.
+        assertThat(invited).isEqualTo(2);
+
+        ArgumentCaptor<Guest> saved = ArgumentCaptor.forClass(Guest.class);
+        verify(guestRepository, times(2)).save(saved.capture());
+        assertThat(saved.getAllValues())
+                .extracting(Guest::id)
+                .containsExactlyInAnyOrder(eligibleA.id(), eligibleB.id())
+                .doesNotContain(overCap.id());
+
+        // Each eligible guest got a fresh invite token persisted; the over-cap guest did not.
+        verify(tokenRepository, times(2)).save(any());
+        // No invite email queued for the over-cap guest's address.
+        verify(asyncEmailService, never()).sendRsvpInviteEmail(
+                eq("bo@example.com"), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void sendAllPendingInvites_doesNotThrow_whenEveryGuestIsOverCap() {
+        UUID coupleId = UUID.randomUUID();
+        Guest overCapA = guest(coupleId, "Anna", "anna@example.com", 3);
+        Guest overCapB = guest(coupleId, "Bo", "bo@example.com", 4);
+
+        when(guestRepository.findAllByCoupleId(coupleId))
+                .thenReturn(List.of(overCapA, overCapB));
+
+        assertThatCode(() -> {
+            int invited = service().sendAllPendingInvites(coupleId);
+            assertThat(invited).isZero();
+        }).doesNotThrowAnyException();
+
+        verify(guestRepository, never()).save(any());
+        verify(tokenRepository, never()).save(any());
     }
 
     @Test

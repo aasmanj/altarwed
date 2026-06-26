@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -36,8 +35,16 @@ public class RsvpReminderService {
     }
 
     // fixedRate = 3_600_000 ms = 1 hour. initialDelay avoids a burst immediately on startup.
+    //
+    // Intentionally NOT @Transactional (mirrors GoogleSheetSyncService.triggerSync). An outer
+    // transaction here would make every per-guest send share one unit of work: when one guest
+    // throws (invite cap or GuestUnsubscribedException), the inner @Transactional sendInvite
+    // interceptor marks the shared transaction rollback-only, so even though the catch below
+    // swallows the exception, the whole batch dies at commit with UnexpectedRollbackException,
+    // undoing every other guest's token save and remindAt clear (and re-reminding them next run).
+    // Without it, each guestService.sendInvite call is its own committed unit of work, so one
+    // failed guest is skipped and counted, never fatal to the rest.
     @Scheduled(fixedRate = 3_600_000, initialDelay = 60_000)
-    @Transactional
     public void sendDueReminders() {
         UUID runId = UUID.randomUUID();
         long startMs = System.currentTimeMillis();
