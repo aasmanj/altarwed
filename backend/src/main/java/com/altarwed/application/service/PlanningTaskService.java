@@ -32,13 +32,24 @@ public class PlanningTaskService {
         return taskRepository.findAllByCoupleId(coupleId);
     }
 
+    // Custom tasks start at 1000 so they sort after the seeded defaults (which top out in the
+    // low hundreds). New custom tasks then append after the current highest custom sort_order.
+    private static final int CUSTOM_SORT_BASE = 1000;
+
     @Transactional
     public PlanningTask addTask(UUID coupleId, CreatePlanningTaskRequest req) {
-        long count = taskRepository.countByCoupleId(coupleId);
+        // max(sortOrder)+1, not count: after a delete the count no longer equals the next free
+        // slot, which would collide a new task's sort_order with an existing one. orElse keeps
+        // the first custom task at CUSTOM_SORT_BASE even when only lower-ordered seeds exist.
+        int nextSort = taskRepository.findAllByCoupleId(coupleId).stream()
+                .mapToInt(PlanningTask::sortOrder)
+                .filter(order -> order >= CUSTOM_SORT_BASE)
+                .max()
+                .orElse(CUSTOM_SORT_BASE - 1) + 1;
         PlanningTask task = new PlanningTask(
                 null, coupleId, req.title(), req.category(),
                 req.dueMonthsBefore(), false, null,
-                false, (int) count + 1000,
+                false, nextSort,
                 null, null,
                 LocalDateTime.now(), LocalDateTime.now()
         );
