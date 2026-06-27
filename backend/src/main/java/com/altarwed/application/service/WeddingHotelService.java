@@ -27,7 +27,10 @@ public class WeddingHotelService {
 
     @Transactional
     public WeddingHotel addHotel(UUID websiteId, WeddingHotelRequest req) {
-        int nextOrder = hotelRepository.findAllByWebsiteId(websiteId).size();
+        int nextOrder = hotelRepository.findAllByWebsiteId(websiteId).stream()
+                .mapToInt(WeddingHotel::sortOrder)
+                .max()
+                .orElse(-1) + 1;
         WeddingHotel hotel = new WeddingHotel(
                 null, websiteId, req.name(), req.address(),
                 req.bookingUrl(), req.blockRate(), req.distanceFromVenue(),
