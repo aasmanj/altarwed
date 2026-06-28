@@ -1,0 +1,150 @@
+package com.altarwed.application.service;
+
+import com.altarwed.domain.port.BlobStoragePort;
+import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+/**
+ * Verifies that validate() trusts the real bytes (magic-number sniffing), not the client-supplied
+ * multipart Content-Type. The reject cases below pass under the new logic and would have failed
+ * under the old header-only check, which accepted anything whose declared type was on the allowlist.
+ */
+class MediaUploadServiceTest {
+
+    private final BlobStoragePort blobStorage = mock(BlobStoragePort.class);
+    private final MediaUploadService service = new MediaUploadService(blobStorage);
+    private final UUID id = UUID.randomUUID();
+
+    // --- Real image signatures (leading magic bytes), padded so each file is non-empty. ---
+
+    private static byte[] pngBytes() {
+        return concat(new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}, filler());
+    }
+
+    private static byte[] jpegBytes() {
+        return concat(new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0}, filler());
+    }
+
+    private static byte[] webpBytes() {
+        // "RIFF" (4) + 4-byte length placeholder + "WEBP" (4)
+        return concat(new byte[]{0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50}, filler());
+    }
+
+    private static byte[] filler() {
+        return new byte[]{0, 1, 2, 3, 4, 5, 6, 7};
+    }
+
+    private static byte[] concat(byte[] a, byte[] b) {
+        byte[] out = new byte[a.length + b.length];
+        System.arraycopy(a, 0, out, 0, a.length);
+        System.arraycopy(b, 0, out, a.length, b.length);
+        return out;
+    }
+
+    @Test
+    void rejects_html_bytes_disguised_as_png() {
+        // Declares image/png but carries HTML/script bytes. The old header-only check accepted this.
+        byte[] html = "<!DOCTYPE html><script>alert(1)</script>".getBytes(StandardCharsets.UTF_8);
+        MultipartFile file = new MockMultipartFile("file", "evil.png", "image/png", html);
+
+        assertThatThrownBy(() -> service.uploadWeddingPartyPhoto(id, file))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("JPEG, PNG, and WebP");
+
+        verifyNoUpload();
+    }
+
+    @Test
+    void rejects_non_image_bytes_even_when_header_claims_png() {
+        // Proves the client Content-Type alone can no longer smuggle a file in: a real (non-image)
+        // PDF signature with a spoofed image/png header is still rejected by byte sniffing.
+        byte[] pdf = concat("%PDF-1.7".getBytes(StandardCharsets.UTF_8), filler());
+        MultipartFile file = new MockMultipartFile("file", "doc.png", "image/png", pdf);
+
+        assertThatThrownBy(() -> service.uploadWeddingPhoto(id, file))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoUpload();
+    }
+
+    @Test
+    void accepts_real_png() throws IOException {
+        when(blobStorage.upload(any(), any(), anyLong(), any())).thenReturn("https://blob/x.png");
+        MultipartFile file = new MockMultipartFile("file", "real.png", "image/png", pngBytes());
+
+        String url = service.uploadWeddingPartyPhoto(id, file);
+
+        assertThat(url).isEqualTo("https://blob/x.png");
+        verify(blobStorage).upload(any(), any(), anyLong(), any());
+    }
+
+    @Test
+    void accepts_real_jpeg() throws IOException {
+        when(blobStorage.upload(any(), any(), anyLong(), any())).thenReturn("https://blob/x.jpg");
+        MultipartFile file = new MockMultipartFile("file", "real.jpg", "image/jpeg", jpegBytes());
+
+        assertThat(service.uploadHeroPhoto(id, file)).isEqualTo("https://blob/x.jpg");
+        verify(blobStorage).upload(any(), any(), anyLong(), any());
+    }
+
+    @Test
+    void accepts_real_webp() throws IOException {
+        when(blobStorage.upload(any(), any(), anyLong(), any())).thenReturn("https://blob/x.webp");
+        MultipartFile file = new MockMultipartFile("file", "real.webp", "image/webp", webpBytes());
+
+        assertThat(service.uploadBlockImage(id, file)).isEqualTo("https://blob/x.webp");
+        verify(blobStorage).upload(any(), any(), anyLong(), any());
+    }
+
+    @Test
+    void sniffed_type_must_also_match_declared_allowlist_so_a_real_png_under_a_jpeg_header_passes() throws IOException {
+        // The bytes are a real PNG; the declared header is image/jpeg (both on the allowlist).
+        // The current contract only requires the sniffed type to be on the allowlist, so this passes.
+        when(blobStorage.upload(any(), any(), anyLong(), any())).thenReturn("https://blob/x.bin");
+        MultipartFile file = new MockMultipartFile("file", "mismatch.jpg", "image/jpeg", pngBytes());
+
+        assertThat(service.uploadVenuePhoto(id, file)).isEqualTo("https://blob/x.bin");
+    }
+
+    @Test
+    void still_rejects_disallowed_declared_type_up_front() {
+        // Existing behavior preserved: a declared type that is not on the allowlist is rejected
+        // before sniffing. GIF is intentionally not on the allowlist, even with real GIF bytes.
+        byte[] gif = concat(new byte[]{0x47, 0x49, 0x46, 0x38, 0x39, 0x61}, filler());
+        MultipartFile file = new MockMultipartFile("file", "anim.gif", "image/gif", gif);
+
+        assertThatThrownBy(() -> service.uploadWeddingPhoto(id, file))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoUpload();
+    }
+
+    @Test
+    void still_rejects_empty_file() {
+        MultipartFile file = new MockMultipartFile("file", "empty.png", "image/png", new byte[0]);
+
+        assertThatThrownBy(() -> service.uploadWeddingPhoto(id, file))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("empty");
+
+        verifyNoUpload();
+    }
+
+    private void verifyNoUpload() {
+        verify(blobStorage, never()).upload(any(), any(), anyLong(), any());
+    }
+}
