@@ -39,13 +39,21 @@ public class VendorPortfolioPhotoService {
             log.warn("vendor portfolio cap exceeded, vendorId={}", vendorId);
             throw new PortfolioCapExceededException();
         }
+        // Server-authoritative append position: max(sortOrder)+1, not the photo count. After a
+        // middle photo is deleted the count no longer equals the next free slot, so a count-based
+        // sortOrder would collide with an existing photo. The cap above still uses the count, which
+        // is correct for a cap. Mirrors WeddingPhotoService and WeddingPartyMemberService.
+        int nextSort = repository.findAllByVendorId(vendorId).stream()
+                .mapToInt(VendorPortfolioPhoto::sortOrder)
+                .max()
+                .orElse(-1) + 1;
         String photoUrl = mediaUploadService.uploadVendorPortfolioPhoto(vendorId, file);
         VendorPortfolioPhoto photo = new VendorPortfolioPhoto(
                 null,
                 vendorId,
                 photoUrl,
                 (caption != null && !caption.isBlank()) ? caption.trim() : null,
-                current,
+                nextSort,
                 null
         );
         VendorPortfolioPhoto saved = repository.save(photo);
