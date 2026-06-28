@@ -30,6 +30,7 @@ val bucket4jVersion = "8.10.1"
 val azureStorageVersion = "12.29.0"
 val testcontainersVersion = "1.20.4"
 val stripeVersion = "25.12.0"
+val zxingVersion = "3.5.3"
 
 dependencies {
     // Web
@@ -72,6 +73,10 @@ dependencies {
 
     // Stripe, vendor subscription billing
     implementation("com.stripe:stripe-java:$stripeVersion")
+
+    // ZXing, QR code generation for print postcards
+    implementation("com.google.zxing:core:$zxingVersion")
+    implementation("com.google.zxing:javase:$zxingVersion")
 
     // ---- Test dependencies ----
     testImplementation("org.springframework.boot:spring-boot-starter-test")

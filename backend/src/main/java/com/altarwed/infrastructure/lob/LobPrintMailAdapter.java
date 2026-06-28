@@ -12,6 +12,15 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.EncodeHintType;
+import com.google.zxing.MultiFormatWriter;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.common.BitMatrix;
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
@@ -185,9 +194,11 @@ public class LobPrintMailAdapter implements PrintMailPort {
                 return s.length() > 32 ? s.substring(0, 32) : s;
             }
         }
+        // expected_delivery_date is set once Lob dispatches the piece to the post office
+        // but before USPS performs its first scan. Lob's dashboard calls this "Total Sent".
         Object expected = postcard.get("expected_delivery_date");
         if (expected != null && !expected.toString().isBlank()) {
-            return "Mailed";
+            return "Sent";
         }
         return null;
     }
@@ -195,12 +206,16 @@ public class LobPrintMailAdapter implements PrintMailPort {
     // Package-private so the request contract (use_type, size, conditional mail_type) is unit
     // testable without a live Lob call; sendPostcard stays focused on the HTTP exchange.
     Map<String, Object> buildRequestBody(PostcardRequest req) {
+        // Pre-compute QR once per postcard request so renderBack() is not called per recipient
+        // in the batch loop with the same URL repeatedly.
+        String qrBase64 = generateQrCodeBase64(req.weddingUrl() != null ? req.weddingUrl() : "https://altarwed.com");
+
         Map<String, Object> body = new HashMap<>();
         body.put("description", req.templateKey() + " for " + req.coupleNames());
         body.put("to", addressMap(req.to()));
         body.put("from", addressMap(req.from()));
         body.put("front", renderFront(req));
-        body.put("back", renderBack(req));
+        body.put("back", renderBack(req, qrBase64));
         body.put("size", POSTCARD_SIZE);
         // Required by Lob on every mail piece; see MAIL_USE_TYPE for why "operational".
         body.put("use_type", MAIL_USE_TYPE);
@@ -248,36 +263,48 @@ public class LobPrintMailAdapter implements PrintMailPort {
     }
 
     String renderFront(PostcardRequest req) {
-        boolean saveTheDate = "SAVE_THE_DATE_CLASSIC".equals(req.templateKey())
-                || req.templateKey().startsWith("SAVE_THE_DATE");
+        boolean saveTheDate = req.templateKey() == null || req.templateKey().startsWith("SAVE_THE_DATE");
         String headline = saveTheDate ? "Save the Date" : "You're Invited";
-        // CSS context, escape() only handles HTML entities. Single quote / backslash
-        // would terminate the url('...') literal, so percent-encode them defensively.
+
+        // Only PHOTO variants use the hero image. CLASSIC variants always render the
+        // cream/gold gradient regardless of whether a hero photo exists -- the template
+        // description says "no photo" and couples choose Classic specifically for that.
         String safePhotoUrl = req.heroPhotoUrl() == null ? null
                 : escape(req.heroPhotoUrl()).replace("\\", "%5C").replace("'", "%27");
-        String photo = safePhotoUrl != null
+        boolean usePhoto = safePhotoUrl != null
+                && req.templateKey() != null
+                && req.templateKey().endsWith("_PHOTO");
+
+        String cardBg = usePhoto
                 ? "background-image:url('" + safePhotoUrl + "');background-size:cover;background-position:center;"
                 : "background:linear-gradient(135deg,#fdfaf6,#f5e9d4);";
+        String cardColor    = usePhoto ? "#fff"                            : "#3b2f2f";
+        String textShadow   = usePhoto ? "0 2px 8px rgba(0,0,0,0.45)"     : "none";
+        String labelColor   = usePhoto ? "#f5e9d4"                         : "#a08060";
+        String verseColor   = usePhoto ? "#f5e9d4"                         : "#a08060";
+        String overlayHtml  = usePhoto ? "<div class=\"overlay\"></div>"   : "";
 
         // Dimensions are the Lob 6x11 BLEED size (11.25in x 6.25in), NOT the 11in x 6in trim
         // (see POSTCARD_SIZE comment). The card background fills the full bleed so there is no
         // white edge after trimming; text sits inside the ~0.25in-from-bleed safe zone via the
         // .content padding and the verse offset.
+        // charset=utf-8 prevents the renderer from interpreting multi-byte UTF-8 sequences
+        // (e.g. U+00B7 middle dot in venue names) as Latin-1, which produces Â· mojibake.
         return """
-                <html><head><style>
+                <html><head><meta charset="utf-8"><style>
                   @page { size: 11.25in 6.25in; margin: 0; }
                   body { margin:0; font-family: Georgia, serif; width:11.25in; height:6.25in; }
-                  .card { width:11.25in; height:6.25in; position:relative; %s color:#fff; text-shadow:0 2px 8px rgba(0,0,0,0.45); }
+                  .card { width:11.25in; height:6.25in; position:relative; %s color:%s; text-shadow:%s; }
                   .overlay { position:absolute; inset:0; background:linear-gradient(180deg,rgba(0,0,0,0.15),rgba(0,0,0,0.55)); }
                   .content { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0.7in; text-align:center; }
-                  .label { font-size:14pt; letter-spacing:0.4em; text-transform:uppercase; color:#f5e9d4; margin-bottom:0.2in; }
+                  .label { font-size:14pt; letter-spacing:0.4em; text-transform:uppercase; color:%s; margin-bottom:0.2in; }
                   .names { font-size:48pt; margin:0; font-weight:bold; }
                   .amp { font-size:32pt; color:#d4af6a; margin:0.05in 0; }
                   .date { font-size:22pt; margin-top:0.3in; }
-                  .verse { position:absolute; bottom:0.4in; left:0; right:0; font-size:11pt; color:#f5e9d4; font-style:italic; }
+                  .verse { position:absolute; bottom:0.4in; left:0; right:0; font-size:11pt; color:%s; font-style:italic; }
                 </style></head><body>
                   <div class="card">
-                    <div class="overlay"></div>
+                    %s
                     <div class="content">
                       <div class="label">%s</div>
                       <div class="names">%s</div>
@@ -286,20 +313,27 @@ public class LobPrintMailAdapter implements PrintMailPort {
                     <div class="verse">"Above all, love each other deeply." - 1 Peter 4:8</div>
                   </div>
                 </body></html>
-                """.formatted(photo, headline, escape(req.coupleNames()), escape(req.weddingDate()));
+                """.formatted(cardBg, cardColor, textShadow, labelColor, verseColor,
+                        overlayHtml, headline, escape(req.coupleNames()), escape(req.weddingDate()));
     }
 
-    String renderBack(PostcardRequest req) {
+    String renderBack(PostcardRequest req, String qrBase64) {
         String venueLine = req.venueLine() != null && !req.venueLine().isBlank()
                 ? "<div style='margin-top:6pt;font-size:12pt;'>" + escape(req.venueLine()) + "</div>"
                 : "";
         String url = req.weddingUrl() != null ? escape(req.weddingUrl()) : "altarwed.com";
 
+        String qrHtml = qrBase64 != null
+                ? "<div class=\"qr\"><img src=\"data:image/png;base64," + qrBase64
+                        + "\" alt=\"Scan for wedding website\" /><p class=\"qr-label\">Scan to visit our site</p></div>"
+                : "";
+
         // Bleed size again (11.25in x 6.25in, see POSTCARD_SIZE). The left half carries our
         // message; the right half is left blank so Lob can print the recipient address block and
         // barcode there (Lob reserves the right side of the postcard back for addressing).
+        // charset=utf-8 -- same reason as renderFront; prevents U+00B7 mojibake in venueLine.
         return """
-                <html><head><style>
+                <html><head><meta charset="utf-8"><style>
                   @page { size: 11.25in 6.25in; margin: 0; }
                   body { margin:0; font-family: Georgia, serif; width:11.25in; height:6.25in; color:#3b2f2f; }
                   .left { position:absolute; left:0; top:0; width:5.5in; height:6.25in; padding:0.5in; box-sizing:border-box; background:#fdfaf6; }
@@ -307,6 +341,9 @@ public class LobPrintMailAdapter implements PrintMailPort {
                   .title { font-size:22pt; margin:0.1in 0; }
                   .body { font-size:12pt; line-height:1.6; }
                   .url { margin-top:0.4in; font-size:14pt; color:#a08060; }
+                  .qr { margin-top:0.25in; }
+                  .qr img { width:1.1in; height:1.1in; display:block; }
+                  .qr-label { font-size:9pt; color:#a08060; margin:3pt 0 0; }
                 </style></head><body>
                   <div class="left">
                     <div class="label">From the desk of</div>
@@ -318,9 +355,28 @@ public class LobPrintMailAdapter implements PrintMailPort {
                     </div>
                     %s
                     <div class="url">%s</div>
+                    %s
                   </div>
                 </body></html>
-                """.formatted(escape(req.coupleNames()), venueLine, url);
+                """.formatted(escape(req.coupleNames()), venueLine, url, qrHtml);
+    }
+
+    private String generateQrCodeBase64(String url) {
+        try {
+            Map<EncodeHintType, Object> hints = new HashMap<>();
+            hints.put(EncodeHintType.MARGIN, 1);
+            BitMatrix matrix = new MultiFormatWriter().encode(url, BarcodeFormat.QR_CODE, 300, 300, hints);
+            BufferedImage image = MatrixToImageWriter.toBufferedImage(matrix);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            ImageIO.write(image, "PNG", out);
+            return Base64.getEncoder().encodeToString(out.toByteArray());
+        } catch (Throwable e) {
+            // Catch Throwable (not just Exception) because AWT/headless init failures on Linux
+            // throw NoClassDefFoundError / UnsatisfiedLinkError -- both are Errors, not Exceptions.
+            // QR is best-effort: a failure skips the QR but must not break the postcard send.
+            log.warn("qr code generation failed, url={}", url, e);
+            return null;
+        }
     }
 
     private static String escape(String s) {

@@ -288,6 +288,7 @@ export default function CommunicationsPage() {
                 </button>
               ))}
             </div>
+            <PostcardPreview templateKey={templateKey} user={user!} />
           </div>
 
           {/* 3. Guest list */}
@@ -576,19 +577,94 @@ function PastOrderCard({
   )
 }
 
-// Maps a recipient's delivery status to a friendly label + color. The status is either our own
-// submit state (SUBMITTED/FAILED) or a Lob USPS tracking event ("Mailed", "In Transit",
-// "Delivered", "Returned to Sender", ...), so match defensively on keywords rather than exact values.
+// Maps a recipient's delivery status to a friendly label + color. Values are either our own
+// submit state (SUBMITTED/FAILED) or Lob USPS tracking event names, which match Lob's dashboard
+// columns exactly: "Sent" (dispatched, no USPS scan yet), "In Transit", "Processed for Delivery",
+// "Delivered", "Re-Routed", "Returned to Sender".
 function deliveryStatusStyle(status: string | null): { label: string; cls: string } {
   const s = (status ?? '').toLowerCase()
   if (s === '' || s === 'submitted') return { label: 'Submitted', cls: 'bg-stone-100 text-stone-600' }
   if (s === 'failed') return { label: 'Failed', cls: 'bg-rose-100 text-rose-700' }
-  if (s.includes('return')) return { label: status as string, cls: 'bg-rose-100 text-rose-700' }
+  if (s.includes('returned')) return { label: status as string, cls: 'bg-rose-100 text-rose-700' }
   // Exact match only: "Processed for Delivery" / "Out for Delivery" are still in transit, not done.
-  if (s === 'delivered') return { label: status as string, cls: 'bg-emerald-100 text-emerald-700' }
-  if (s.includes('mailed')) return { label: 'Mailed', cls: 'bg-sky-100 text-sky-700' }
+  if (s === 'delivered') return { label: 'Delivered', cls: 'bg-emerald-100 text-emerald-700' }
+  // "Sent" = dispatched to post office, awaiting first USPS scan (Lob dashboard "Total Sent").
+  // Keep "mailed" match for any legacy rows written before this rename.
+  if (s === 'sent' || s === 'mailed') return { label: 'Sent', cls: 'bg-sky-100 text-sky-700' }
   // In Transit, In Local Area, Processed for Delivery, Re-Routed, etc.
   return { label: status as string, cls: 'bg-amber-100 text-amber-700' }
+}
+
+function PostcardPreview({
+  templateKey,
+  user,
+}: {
+  templateKey: TemplateKey
+  user: { partnerOneName: string | null; partnerTwoName: string | null; weddingDate: string | null }
+}) {
+  const isPhoto = templateKey.endsWith('_PHOTO')
+  const isSaveTheDate = templateKey.startsWith('SAVE_THE_DATE')
+  const headline = isSaveTheDate ? 'Save the Date' : "You're Invited"
+  const names = [user.partnerOneName, user.partnerTwoName].filter(Boolean).join(' & ') || 'Your Names'
+  const dateLabel = user.weddingDate
+    ? new Date(user.weddingDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : null
+
+  return (
+    <div className="mt-4">
+      <p className="text-xs text-stone-400 mb-2 uppercase tracking-wide font-medium">Front preview</p>
+      <div
+        aria-label={`${templateKey} postcard front preview`}
+        style={{
+          width: '100%',
+          maxWidth: '440px',
+          aspectRatio: '11 / 6',
+          position: 'relative',
+          borderRadius: '6px',
+          overflow: 'hidden',
+          background: isPhoto
+            ? 'linear-gradient(135deg, #4a3f35, #2a2018)'
+            : 'linear-gradient(135deg, #fdfaf6, #f5e9d4)',
+          border: '1px solid #e5e0d8',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px',
+          textAlign: 'center',
+          fontFamily: 'Georgia, serif',
+          color: isPhoto ? '#fff' : '#3b2f2f',
+          boxSizing: 'border-box',
+        }}
+      >
+        {isPhoto && (
+          <>
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.55))' }} />
+            <span style={{ position: 'absolute', fontSize: '11px', color: 'rgba(255,255,255,0.35)', fontFamily: 'system-ui', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', whiteSpace: 'nowrap' }}>
+              Your couple photo
+            </span>
+          </>
+        )}
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{
+            fontSize: '9px',
+            letterSpacing: '0.35em',
+            textTransform: 'uppercase',
+            color: isPhoto ? '#f5e9d4' : '#a08060',
+            marginBottom: '6px',
+          }}>
+            {headline}
+          </div>
+          <div style={{ fontSize: names.length > 24 ? '13px' : '16px', fontWeight: 'bold', lineHeight: 1.25 }}>
+            {names}
+          </div>
+          {dateLabel && (
+            <div style={{ fontSize: '11px', marginTop: '8px', opacity: 0.85 }}>{dateLabel}</div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function DeliveryStatusBadge({ status }: { status: string | null }) {
