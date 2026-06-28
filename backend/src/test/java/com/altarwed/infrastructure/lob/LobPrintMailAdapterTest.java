@@ -58,7 +58,7 @@ class LobPrintMailAdapterTest {
 
     @Test
     void back_renders_at_lob_bleed_dimensions() {
-        String back = adapter.renderBack(request("SAVE_THE_DATE_CLASSIC"));
+        String back = adapter.renderBack(request("SAVE_THE_DATE_CLASSIC"), null);
         assertThat(back).contains("@page { size: 11.25in 6.25in;");
         assertThat(back).contains("width:11.25in; height:6.25in;");
         assertThat(back).doesNotContain("size: 11in 6in");
@@ -141,12 +141,13 @@ class LobPrintMailAdapterTest {
     }
 
     @Test
-    void deriveDeliveryStatus_falls_back_to_mailed_when_no_events_yet() {
+    void deriveDeliveryStatus_returns_sent_when_scheduled_but_no_usps_scan_yet() {
         // No USPS scans yet (always the case in test mode), but Lob scheduled a delivery date.
+        // This matches Lob's dashboard "Total Sent" category.
         Map<String, Object> postcard = Map.of(
                 "tracking_events", List.of(),
                 "expected_delivery_date", "2026-07-15");
-        assertThat(adapter.deriveDeliveryStatus(postcard)).isEqualTo("Mailed");
+        assertThat(adapter.deriveDeliveryStatus(postcard)).isEqualTo("Sent");
     }
 
     @Test
