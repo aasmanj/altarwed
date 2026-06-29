@@ -37,42 +37,42 @@ public class MediaUploadService {
     }
 
     public String uploadWeddingPartyPhoto(UUID memberId, MultipartFile file) throws IOException {
-        validate(file);
-        String ext = getExtension(file.getContentType());
+        String contentType = validate(file);
+        String ext = getExtension(contentType);
         String blobName = "wedding-party/" + memberId + "/" + UUID.randomUUID() + ext;
-        return blobStorage.upload(blobName, file.getInputStream(), file.getSize(), file.getContentType());
+        return blobStorage.upload(blobName, file.getInputStream(), file.getSize(), contentType);
     }
 
     public String uploadWeddingPhoto(UUID websiteId, MultipartFile file) throws IOException {
-        validate(file);
-        String ext = getExtension(file.getContentType());
+        String contentType = validate(file);
+        String ext = getExtension(contentType);
         String blobName = "wedding-photos/" + websiteId + "/" + UUID.randomUUID() + ext;
-        return blobStorage.upload(blobName, file.getInputStream(), file.getSize(), file.getContentType());
+        return blobStorage.upload(blobName, file.getInputStream(), file.getSize(), contentType);
     }
 
     // Generic block image: stored under blocks/{websiteId}/ so it's scoped to the
     // website but not tied to any specific table row (unlike WeddingPhoto or party photos).
     public String uploadBlockImage(UUID websiteId, MultipartFile file) throws IOException {
-        validate(file);
-        String ext = getExtension(file.getContentType());
+        String contentType = validate(file);
+        String ext = getExtension(contentType);
         String blobName = "blocks/" + websiteId + "/" + UUID.randomUUID() + ext;
-        return blobStorage.upload(blobName, file.getInputStream(), file.getSize(), file.getContentType());
+        return blobStorage.upload(blobName, file.getInputStream(), file.getSize(), contentType);
     }
 
     public String uploadHeroPhoto(UUID websiteId, MultipartFile file) throws IOException {
-        validate(file);
-        String ext = getExtension(file.getContentType());
+        String contentType = validate(file);
+        String ext = getExtension(contentType);
         String blobName = "hero/" + websiteId + "/" + UUID.randomUUID() + ext;
-        return blobStorage.upload(blobName, file.getInputStream(), file.getSize(), file.getContentType());
+        return blobStorage.upload(blobName, file.getInputStream(), file.getSize(), contentType);
     }
 
     public String uploadStdImage(UUID websiteId, MultipartFile file) throws IOException {
-        validate(file);
-        String ext = getExtension(file.getContentType());
+        String contentType = validate(file);
+        String ext = getExtension(contentType);
         String blobName = "std-images/" + websiteId + "/" + UUID.randomUUID() + ext;
         log.info("submitting std image to blob storage, websiteId={}", websiteId);
         try {
-            String url = blobStorage.upload(blobName, file.getInputStream(), file.getSize(), file.getContentType());
+            String url = blobStorage.upload(blobName, file.getInputStream(), file.getSize(), contentType);
             log.info("std image stored in blob, websiteId={}", websiteId);
             return url;
         } catch (Exception ex) {
@@ -82,12 +82,12 @@ public class MediaUploadService {
     }
 
     public String uploadVenuePhoto(UUID websiteId, MultipartFile file) throws IOException {
-        validate(file);
-        String ext = getExtension(file.getContentType());
+        String contentType = validate(file);
+        String ext = getExtension(contentType);
         String blobName = "venue-photos/" + websiteId + "/" + UUID.randomUUID() + ext;
         log.info("submitting venue photo to blob storage, websiteId={}", websiteId);
         try {
-            String url = blobStorage.upload(blobName, file.getInputStream(), file.getSize(), file.getContentType());
+            String url = blobStorage.upload(blobName, file.getInputStream(), file.getSize(), contentType);
             log.info("venue photo stored in blob, websiteId={}", websiteId);
             return url;
         } catch (Exception ex) {
@@ -97,12 +97,12 @@ public class MediaUploadService {
     }
 
     public String uploadVendorLogo(UUID vendorId, MultipartFile file) throws IOException {
-        validate(file);
-        String ext = getExtension(file.getContentType());
+        String contentType = validate(file);
+        String ext = getExtension(contentType);
         String blobName = "vendor-logos/" + vendorId + "/" + UUID.randomUUID() + ext;
         log.info("submitting vendor logo to blob storage, vendorId={}", vendorId);
         try {
-            String url = blobStorage.upload(blobName, file.getInputStream(), file.getSize(), file.getContentType());
+            String url = blobStorage.upload(blobName, file.getInputStream(), file.getSize(), contentType);
             log.info("vendor logo stored in blob, vendorId={}", vendorId);
             return url;
         } catch (Exception ex) {
@@ -112,12 +112,12 @@ public class MediaUploadService {
     }
 
     public String uploadVendorPortfolioPhoto(UUID vendorId, MultipartFile file) throws IOException {
-        validate(file);
-        String ext = getExtension(file.getContentType());
+        String contentType = validate(file);
+        String ext = getExtension(contentType);
         String blobName = "vendor-portfolio/" + vendorId + "/" + UUID.randomUUID() + ext;
         log.info("submitting vendor portfolio photo to blob storage, vendorId={}", vendorId);
         try {
-            String url = blobStorage.upload(blobName, file.getInputStream(), file.getSize(), file.getContentType());
+            String url = blobStorage.upload(blobName, file.getInputStream(), file.getSize(), contentType);
             log.info("vendor portfolio photo stored in blob, vendorId={}", vendorId);
             return url;
         } catch (Exception ex) {
@@ -126,7 +126,11 @@ public class MediaUploadService {
         }
     }
 
-    private void validate(MultipartFile file) throws IOException {
+    // Validates the upload and returns the content-type sniffed from the file's magic bytes. The
+    // returned value (not file.getContentType(), which an attacker fully controls) is the type that
+    // should drive the stored blob extension and metadata, so the bytes on disk and their declared
+    // type always agree.
+    private String validate(MultipartFile file) throws IOException {
         if (file.isEmpty()) throw new IllegalArgumentException("File is empty");
         if (!ALLOWED_TYPES.contains(file.getContentType()))
             throw new IllegalArgumentException("Only JPEG, PNG, and WebP images are allowed");
@@ -142,6 +146,7 @@ public class MediaUploadService {
                     file.getContentType());
             throw new IllegalArgumentException("Only JPEG, PNG, and WebP images are allowed");
         }
+        return sniffedType;
     }
 
     // Reads only the leading bytes needed for signature detection, not the whole file. MultipartFile
