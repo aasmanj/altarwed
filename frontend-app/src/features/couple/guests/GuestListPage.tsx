@@ -426,7 +426,7 @@ export default function GuestListPage() {
                   Connect your Google account or paste a published CSV URL. We sync every 15 minutes.
                 </p>
               </div>
-              <button onClick={() => setShowSheetSync(false)} className="text-brown-light hover:text-brown text-xl">x</button>
+              <button onClick={() => setShowSheetSync(false)} aria-label="Close" className="text-brown-light hover:text-brown leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded"><X size={20} /></button>
             </div>
 
             {/* One-way sync notice */}
