@@ -11,6 +11,7 @@ import com.altarwed.domain.port.VendorSubscriptionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -202,7 +203,18 @@ public class VendorPromoService {
                 now
         );
         promoCodeRepository.save(incremented);
-        promoCodeRepository.saveRedemption(new VendorPromoRedemption(null, code.id(), vendorId, now));
+        try {
+            // The DB UNIQUE(code_id, vendor_id) on vendor_promo_redemptions (migration V76) is the
+            // race-proof guard: two concurrent redeem calls for the same vendor + code can both pass
+            // the in-memory cap check above, but only one INSERT survives. The loser surfaces here as
+            // a DataIntegrityViolationException; we translate it into the same client-facing 4xx the
+            // rest of the redeem path uses (InvalidPromoCodeException -> 400) so the @Transactional
+            // rolls back the count increment above instead of leaking a raw 500 to the caller.
+            promoCodeRepository.saveRedemption(new VendorPromoRedemption(null, code.id(), vendorId, now));
+        } catch (DataIntegrityViolationException ex) {
+            log.warn("promo redemption rejected, already redeemed by this vendor, codeId={}, vendorId={}", code.id(), vendorId);
+            throw new InvalidPromoCodeException("You have already redeemed this promo code.");
+        }
         log.info("vendor promo code consumed, codeId={}, vendorId={}", code.id(), vendorId);
     }
 }

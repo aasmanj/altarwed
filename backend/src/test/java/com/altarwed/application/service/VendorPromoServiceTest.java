@@ -10,6 +10,7 @@ import com.altarwed.domain.port.VendorPromoCodeRepository;
 import com.altarwed.domain.port.VendorSubscriptionRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -162,6 +163,28 @@ class VendorPromoServiceTest {
 
         verify(subscriptionRepository, never()).save(any());
         verify(vendorService, never()).verify(any());
+    }
+
+    @Test
+    void double_redemption_by_the_same_vendor_is_translated_to_an_invalid_code_rejection() {
+        // The vendor passes every in-memory check (valid, under cap, not expired) but the
+        // append-only INSERT trips the DB UNIQUE(code_id, vendor_id) constraint (V76) because this
+        // vendor already redeemed this code. The service must catch the raw DataIntegrityViolation
+        // and re-throw the domain InvalidPromoCodeException (a clean 400), never leak a 500.
+        VendorPromoCode code = dbCode(10, null, 3);
+        when(promoCodeRepository.count()).thenReturn(1L);
+        when(promoCodeRepository.findByCodeIgnoreCase("LAUNCH50")).thenReturn(Optional.of(code));
+        when(subscriptionRepository.findByVendorId(vendorId)).thenReturn(Optional.empty());
+        when(subscriptionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(promoCodeRepository.saveRedemption(any()))
+                .thenThrow(new DataIntegrityViolationException("uq_vendor_promo_redemptions_code_vendor"));
+
+        assertThatThrownBy(() -> service("FREEVENDOR").redeem(vendorId, "LAUNCH50"))
+                .isInstanceOf(InvalidPromoCodeException.class)
+                .hasMessageContaining("already redeemed");
+
+        // The audit insert was attempted (that is what trips the constraint).
+        verify(promoCodeRepository).saveRedemption(any());
     }
 
     // -------------------------------------------------------------------------
