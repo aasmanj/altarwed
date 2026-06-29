@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
+import { formatShortDate } from '@/lib/date'
 
 export const metadata: Metadata = {
   title: 'Find a Wedding | AltarWed',
@@ -41,12 +42,6 @@ async function searchWeddings(name: string, year: string): Promise<SearchResult[
   }
 }
 
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return ''
-  const d = new Date(dateStr + 'T00:00:00')
-  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-}
-
 export default async function FindWeddingPage({
   searchParams,
 }: {
@@ -80,12 +75,12 @@ export default async function FindWeddingPage({
               name="name"
               defaultValue={name}
               placeholder="Search by name"
-              className="flex-1 rounded-xl border border-[#e8dcc8] bg-white px-4 py-3 text-sm text-[#3b2f2f] placeholder-[#8a6a4a] focus:border-[#d4af6a] focus:outline-none"
+              className="flex-1 rounded-xl border border-[#e8dcc8] bg-white px-4 py-3 text-base sm:text-sm text-[#3b2f2f] placeholder-[#8a6a4a] focus:border-[#d4af6a] focus:outline-none"
             />
             <select
               name="year"
               defaultValue={year}
-              className="rounded-xl border border-[#e8dcc8] bg-white px-4 py-3 text-sm text-[#3b2f2f] focus:border-[#d4af6a] focus:outline-none"
+              className="rounded-xl border border-[#e8dcc8] bg-white px-4 py-3 text-base sm:text-sm text-[#3b2f2f] focus:border-[#d4af6a] focus:outline-none"
             >
               <option value="">Any year</option>
               {yearOptions.map(y => (
@@ -124,7 +119,7 @@ export default async function FindWeddingPage({
                             {r.partnerTwoName} &amp; {r.partnerOneName}
                           </p>
                           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[#8a6a4a]">
-                            {r.weddingDate && <span>{formatDate(r.weddingDate)}</span>}
+                            {r.weddingDate && <span>{formatShortDate(r.weddingDate)}</span>}
                             {r.venueCity && r.venueState && (
                               <span>{r.venueCity}, {r.venueState}</span>
                             )}

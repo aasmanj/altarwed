@@ -168,7 +168,7 @@ export default function RsvpForm({
           hasRegistry ? (
             <a
               href={`/wedding/${weddingSlug}/registry`}
-              className="inline-block mt-2 rounded-xl border border-[#d4af6a] px-5 py-2.5 text-sm font-semibold text-[#3b2f2f] hover:bg-[#d4af6a]/10 transition"
+              className="inline-block mt-2 rounded-xl border border-[#d4af6a] px-5 py-3 text-sm font-semibold text-[#3b2f2f] hover:bg-[#d4af6a]/10 transition"
             >
               Now go check out the registry →
             </a>
@@ -201,7 +201,7 @@ export default function RsvpForm({
               key={opt.value}
               type="button"
               onClick={() => handleStatusSelect(opt.value)}
-              className={`rounded-xl border py-3 text-sm font-medium transition ${
+              className={`min-h-[44px] rounded-xl border py-3 text-sm font-medium transition ${
                 status === opt.value
                   ? 'border-[#4a1942] bg-[#4a1942] text-white'
                   : 'border-[#e8dcc8] text-[#3b2f2f] hover:border-[#d4af6a]'
@@ -219,7 +219,7 @@ export default function RsvpForm({
           <button
             type="button"
             onClick={() => handleStatusSelect('PENDING')}
-            className={`w-full rounded-xl border py-2.5 text-sm font-medium transition ${
+            className={`min-h-[44px] w-full rounded-xl border py-2.5 text-sm font-medium transition ${
               status === 'PENDING'
                 ? 'border-[#4a1942] bg-[#4a1942]/10 text-[#4a1942]'
                 : 'border-[#e8dcc8] text-[#6b5344] hover:border-[#d4af6a]'
@@ -234,7 +234,7 @@ export default function RsvpForm({
                   key={days}
                   type="button"
                   onClick={() => setRemindInDays(days)}
-                  className={`flex-1 rounded-lg border py-2 text-sm font-medium transition ${
+                  className={`flex-1 rounded-lg border py-3 text-sm font-medium transition ${
                     remindInDays === days
                       ? 'border-[#4a1942] bg-[#4a1942] text-white'
                       : 'border-[#e8dcc8] text-[#3b2f2f] hover:border-[#d4af6a]'
@@ -259,7 +259,7 @@ export default function RsvpForm({
             value={plusOne}
             onChange={e => setPlusOne(e.target.value)}
             placeholder="Your +1's name"
-            className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
+            className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-base sm:text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
           />
         </div>
       )}
@@ -276,7 +276,7 @@ export default function RsvpForm({
               value={dietary}
               onChange={e => setDietary(e.target.value)}
               placeholder="e.g. vegetarian, gluten-free, nut allergy"
-              className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
+              className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-base sm:text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
             />
           </div>
           <div>
@@ -288,7 +288,7 @@ export default function RsvpForm({
               value={song}
               onChange={e => setSong(e.target.value)}
               placeholder="e.g. How Great Thou Art"
-              className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
+              className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-base sm:text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
             />
           </div>
         </>
@@ -311,7 +311,7 @@ export default function RsvpForm({
                         key={opt}
                         type="button"
                         onClick={() => setVal(opt)}
-                        className={`flex-1 rounded-lg border py-2 text-sm font-medium transition ${
+                        className={`flex-1 rounded-lg border py-3 text-sm font-medium transition ${
                           val === opt
                             ? 'border-[#4a1942] bg-[#4a1942] text-white'
                             : 'border-[#e8dcc8] text-[#3b2f2f] hover:border-[#d4af6a]'
@@ -333,7 +333,7 @@ export default function RsvpForm({
                     value={val}
                     onChange={e => setVal(e.target.value)}
                     required={q.required}
-                    className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
+                    className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-base sm:text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
                   >
                     <option value="">Select...</option>
                     {q.options.map(o => <option key={o} value={o}>{o}</option>)}
@@ -350,7 +350,7 @@ export default function RsvpForm({
                   value={val}
                   onChange={e => setVal(e.target.value)}
                   required={q.required}
-                  className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
+                  className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-base sm:text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
                 />
               </div>
             )
@@ -370,7 +370,7 @@ export default function RsvpForm({
             rows={3}
             maxLength={1000}
             placeholder="A blessing, a prayer, congratulations…"
-            className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a] resize-none"
+            className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-base sm:text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a] resize-none"
           />
         </div>
       )}
@@ -390,7 +390,7 @@ export default function RsvpForm({
                       key={s}
                       type="button"
                       onClick={() => setPartyStatuses(prev => ({ ...prev, [m.guestId]: s }))}
-                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                      className={`min-h-[44px] rounded-lg border px-3 py-2.5 text-sm font-medium transition ${
                         partyStatuses[m.guestId] === s
                           ? 'border-[#4a1942] bg-[#4a1942] text-white'
                           : 'border-[#e8dcc8] text-[#6b5344] hover:border-[#d4af6a]'
@@ -410,7 +410,7 @@ export default function RsvpForm({
                     onChange={e => setPartyDietary(prev => ({ ...prev, [m.guestId]: e.target.value }))}
                     placeholder="Dietary restrictions (optional)"
                     aria-label={`Dietary restrictions for ${m.name}`}
-                    className="w-full rounded-lg border border-[#e8dcc8] px-3 py-2 text-[#3b2f2f] text-xs focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
+                    className="w-full rounded-lg border border-[#e8dcc8] px-3 py-2 text-[#3b2f2f] text-base sm:text-xs focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
                   />
                   <input
                     type="text"
@@ -418,7 +418,7 @@ export default function RsvpForm({
                     onChange={e => setPartySong(prev => ({ ...prev, [m.guestId]: e.target.value }))}
                     placeholder="Song request (optional)"
                     aria-label={`Song request for ${m.name}`}
-                    className="w-full rounded-lg border border-[#e8dcc8] px-3 py-2 text-[#3b2f2f] text-xs focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
+                    className="w-full rounded-lg border border-[#e8dcc8] px-3 py-2 text-[#3b2f2f] text-base sm:text-xs focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
                   />
                 </div>
               )}

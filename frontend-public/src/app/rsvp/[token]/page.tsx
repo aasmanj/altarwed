@@ -105,7 +105,7 @@ export default async function RsvpPage(
 
       {/* RSVP card */}
       <div className="max-w-lg mx-auto px-4 py-12">
-        <div className="bg-white rounded-2xl border border-[#e8dcc8] shadow-sm p-8">
+        <div className="bg-white rounded-2xl border border-[#e8dcc8] shadow-sm p-6 sm:p-8">
           <p className="text-[#6b5344] mb-6 text-center">
             {data.partyName
               ? <>Dear <strong className="text-[#3b2f2f]">{data.partyName}</strong>, please let us know if you&apos;ll be joining us.</>
