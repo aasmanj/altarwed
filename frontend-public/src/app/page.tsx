@@ -351,7 +351,7 @@ export default function HomePage() {
               <div className="p-6">
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <h4 className="font-semibold text-[#3b2f2f]">Grace Light Photography</h4>
+                    <h4 className="font-semibold text-[#3b2f2f]">Jessica Leigh Photography</h4>
                     <p className="text-xs text-[#8a6a4a]">Photographer · Fredericksburg, VA</p>
                   </div>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-[#d4af6a]/10 text-[#a07840] font-medium border border-[#d4af6a]/20">Christian-owned</span>
