@@ -410,13 +410,13 @@ export default async function HomePage() {
             </h2>
             <p className="text-white/65 text-lg leading-relaxed max-w-2xl mx-auto mb-10 text-balance">
               If your business is an expression of your faith, you belong on AltarWed.
-              List your business free and connect with Christian couples who are actively looking for vendors who share their values.
+              List free as one of our first 25 vendors and connect with Christian couples who are actively looking for vendors who share their values.
             </p>
             <a
               href="https://app.altarwed.com/register/vendor"
               className="inline-flex items-center px-7 py-3.5 rounded-lg bg-[#d4af6a] text-white font-semibold hover:bg-[#b8943a] transition shadow-md text-sm"
             >
-              List your business free →
+              Claim your spot →
             </a>
           </div>
         </section>
