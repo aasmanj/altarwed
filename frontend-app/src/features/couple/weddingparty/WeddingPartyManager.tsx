@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { ChevronUp, ChevronDown } from 'lucide-react'
+import { ChevronUp, ChevronDown, Camera } from 'lucide-react'
 import { useConfirm } from '@/components/ConfirmDialog'
 import {
   useWeddingParty, useAddMember, useUpdateMember, useDeleteMember, useUploadMemberPhoto, useReorderParty,
@@ -295,10 +295,13 @@ function MemberCard({ member, onEdit, onDelete, onPhotoUpload, onReposition, isU
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
-          className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition flex items-center justify-center disabled:cursor-wait"
+          aria-label={`Upload photo for ${member.name}`}
+          className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition flex items-center justify-center disabled:cursor-wait focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           title="Upload photo"
         >
-          <span className="text-white text-xs font-medium">{isUploading ? '…' : '📷'}</span>
+          {isUploading
+            ? <span className="text-white text-xs font-medium">…</span>
+            : <Camera size={18} className="text-white" aria-hidden="true" />}
         </button>
         <input
           ref={fileInputRef}
