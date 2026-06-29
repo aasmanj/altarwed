@@ -14,6 +14,14 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-serif;
   }
+
+  /* iOS Safari zooms the viewport whenever a focused form control has a
+     font-size below 16px, and the zoom stays active after blur, leaving the
+     whole page enlarged. Default every control to 16px; individual controls
+     opt back down to smaller text on sm+ (desktop) where zoom is not a concern. */
+  input, textarea, select {
+    @apply text-base;
+  }
 }
 
 @layer utilities {
