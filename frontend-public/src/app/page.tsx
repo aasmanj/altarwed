@@ -127,7 +127,32 @@ const testimonials = [
   },
 ]
 
-export default function HomePage() {
+const JESSICA_LEIGH_ID = 'ba8eb512-086d-43bc-ac2d-f15e0e8a492e'
+
+interface SpotlightVendor {
+  id: string
+  businessName: string
+  category: string
+  city: string
+  state: string
+  isChristianOwned: boolean
+  logoUrl: string | null
+  description: string | null
+}
+
+async function getSpotlightVendor(): Promise<SpotlightVendor | null> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
+  try {
+    const res = await fetch(`${apiUrl}/api/v1/vendors/${JESSICA_LEIGH_ID}`, { next: { revalidate: 3600 } })
+    if (!res.ok) return null
+    return res.json()
+  } catch {
+    return null
+  }
+}
+
+export default async function HomePage() {
+  const spotlightVendor = await getSpotlightVendor()
   return (
     <>
       <script
@@ -337,34 +362,39 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Vendor card mockup */}
-            <div className="bg-white rounded-2xl border border-[#e8dcc8] shadow-md overflow-hidden">
-              <div className="relative h-36">
-                <Image
-                  src="/vendor-photographer.jpg"
-                  alt="A Christian wedding photographer capturing a couple at sunset"
-                  fill
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  className="object-cover"
-                />
-              </div>
+            {/* Live vendor card -- Jessica Leigh Photography */}
+            <Link
+              href={`/vendors/${JESSICA_LEIGH_ID}`}
+              className="bg-white rounded-2xl border border-[#e8dcc8] shadow-md overflow-hidden hover:border-[#d4af6a] hover:shadow-lg transition block"
+            >
               <div className="p-6">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <h4 className="font-semibold text-[#3b2f2f]">Jessica Leigh Photography</h4>
-                    <p className="text-xs text-[#8a6a4a]">Photographer · Fredericksburg, VA</p>
+                <div className="flex items-start justify-between gap-2 mb-4">
+                  <div className="h-16 w-16 rounded-full bg-[#f5ede0] border border-[#e8dcc8] flex items-center justify-center shrink-0 overflow-hidden">
+                    {spotlightVendor?.logoUrl
+                      ? <img src={spotlightVendor.logoUrl} alt={`${spotlightVendor.businessName} logo`} className="h-full w-full object-cover" />
+                      : <span className="font-serif text-2xl text-[#8a6a4a]">J</span>
+                    }
                   </div>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-[#d4af6a]/10 text-[#a07840] font-medium border border-[#d4af6a]/20">Christian-owned</span>
+                  {spotlightVendor?.isChristianOwned && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-[#d4af6a]/10 text-[#a07840] font-medium border border-[#d4af6a]/20">✝ Christian-owned</span>
+                  )}
                 </div>
-                <p className="text-sm text-[#6b5344] leading-relaxed">
-                  We pray with every couple before the ceremony. Capturing covenant moments is our ministry.
+                <h4 className="font-serif font-semibold text-[#3b2f2f] mb-0.5">
+                  {spotlightVendor?.businessName ?? 'Jessica Leigh Photography'}
+                </h4>
+                <p className="text-xs text-[#d4af6a] font-medium uppercase tracking-wide mb-3">
+                  Photographer · {spotlightVendor?.city ?? 'Durham'}, {spotlightVendor?.state ?? 'NC'}
                 </p>
-                <div className="mt-4 pt-4 border-t border-[#e8dcc8] flex items-center justify-between">
-                  <span className="text-xs text-[#8a6a4a]">Baptist · Non-denominational</span>
+                {spotlightVendor?.description && (
+                  <p className="text-sm text-[#6b5344] leading-relaxed line-clamp-3">
+                    {spotlightVendor.description}
+                  </p>
+                )}
+                <div className="mt-4 pt-4 border-t border-[#e8dcc8] flex items-center justify-end">
                   <span className="text-sm text-[#d4af6a] font-semibold">View listing →</span>
                 </div>
               </div>
-            </div>
+            </Link>
           </div>
         </section>
 
