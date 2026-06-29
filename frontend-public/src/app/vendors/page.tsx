@@ -176,7 +176,7 @@ export default async function VendorsPage({
                   <div className="flex flex-col gap-1 items-end">
                     {vendor.isChristianOwned && (
                       <span className="text-xs bg-[#d4af6a]/10 text-[#8a6a4a] font-medium px-2 py-0.5 rounded-full">
-                        ✝ Christian-owned
+                        Christian-owned
                       </span>
                     )}
                     {vendor.isVerified && (

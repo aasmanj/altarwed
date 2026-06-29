@@ -320,7 +320,7 @@ export default async function HomePage() {
           <div className="max-w-3xl mx-auto px-6 text-center">
             {testimonials.map((t) => (
               <div key={t.name}>
-                <div className="text-[#d4af6a] text-2xl mb-4">✦ ✦ ✦</div>
+                <div className="text-[#d4af6a] text-2xl mb-4" aria-hidden="true">✦ ✦ ✦</div>
                 <blockquote className="font-serif text-xl sm:text-2xl text-[#3b2f2f] italic leading-relaxed mb-6">
                   &ldquo;{t.quote}&rdquo;
                 </blockquote>
@@ -376,7 +376,7 @@ export default async function HomePage() {
                     }
                   </div>
                   {spotlightVendor?.isChristianOwned && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-[#d4af6a]/10 text-[#a07840] font-medium border border-[#d4af6a]/20">✝ Christian-owned</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-[#d4af6a]/10 text-[#a07840] font-medium border border-[#d4af6a]/20">Christian-owned</span>
                   )}
                 </div>
                 <h4 className="font-serif font-semibold text-[#3b2f2f] mb-0.5">
@@ -489,7 +489,7 @@ export default async function HomePage() {
         {/* ── Final CTA ────────────────────────────────────────────────── */}
         <section className="bg-[#f5ede0] py-24">
           <div className="max-w-3xl mx-auto px-6 text-center">
-            <div className="text-[#d4af6a] text-2xl mb-6">✦</div>
+            <div className="text-[#d4af6a] text-2xl mb-6" aria-hidden="true">✦</div>
             <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#3b2f2f] mb-4 text-balance">
               Start planning your wedding day
             </h2>

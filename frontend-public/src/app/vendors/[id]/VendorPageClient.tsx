@@ -139,7 +139,7 @@ export default function VendorPageClient({ vendor, portfolioPhotos, category }: 
             <div className="flex gap-2 mt-3 flex-wrap">
               {vendor.isChristianOwned && (
                 <span className="text-xs bg-[#d4af6a]/10 text-[#8a6a4a] font-medium px-3 py-1 rounded-full border border-[#d4af6a]/30">
-                  ✝ Christian-owned
+                  Christian-owned
                 </span>
               )}
               {vendor.isVerified && (

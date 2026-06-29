@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { Hotel } from 'lucide-react'
+import { Hotel, MapPin, DollarSign } from 'lucide-react'
 import { getWedding } from '@/app/wedding/[slug]/data'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
@@ -64,10 +64,16 @@ export default async function TravelPage(
                   )}
                   <div className="flex flex-wrap gap-4 mb-4 text-sm">
                     {hotel.distanceFromVenue && (
-                      <span className="text-[#6b5344]">📍 {hotel.distanceFromVenue} from venue</span>
+                      <span className="inline-flex items-center gap-1.5 text-[#6b5344]">
+                        <MapPin className="w-4 h-4 text-[#d4af6a]" strokeWidth={1.5} aria-hidden="true" />
+                        {hotel.distanceFromVenue} from venue
+                      </span>
                     )}
                     {hotel.blockRate && (
-                      <span className="text-[#6b5344]">💰 {hotel.blockRate}</span>
+                      <span className="inline-flex items-center gap-1.5 text-[#6b5344]">
+                        <DollarSign className="w-4 h-4 text-[#d4af6a]" strokeWidth={1.5} aria-hidden="true" />
+                        {hotel.blockRate}
+                      </span>
                     )}
                   </div>
                   {hotel.bookingUrl && (
