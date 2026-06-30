@@ -1,5 +1,6 @@
 package com.altarwed.application.dto;
 
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -22,9 +23,9 @@ public record UpdateWeddingWebsiteRequest(
         // V57: CSS hex color string for the tagline text (e.g. "#ffffff"). null = no change.
         @Pattern(regexp = "^#[0-9a-fA-F]{3,8}$") @Size(max = 20) String heroTaglineColor,
 
-        String ourStory,
+        @Size(max = 10000) String ourStory,
         @Size(max = 200) String scriptureReference,
-        String scriptureText,
+        @Size(max = 10000) String scriptureText,
         // V57: translation code (e.g. "ESV", "NIV"). null = no change.
         @Size(max = 20) String scriptureTranslation,
 
@@ -36,11 +37,11 @@ public record UpdateWeddingWebsiteRequest(
         @Size(max = 100) String dressCode,
         // V58: venue photo URL and additional info.
         @Size(max = 2000) String venuePhotoUrl,
-        String venueAdditionalInfo,
+        @Size(max = 10000) String venueAdditionalInfo,
 
         @Size(max = 200) String hotelName,
         @Size(max = 500) String hotelUrl,
-        String hotelDetails,
+        @Size(max = 10000) String hotelDetails,
 
         @Size(max = 500) String registryUrl1,
         @Size(max = 100) String registryLabel1,
@@ -51,10 +52,10 @@ public record UpdateWeddingWebsiteRequest(
 
         LocalDate rsvpDeadline,
 
-        String partnerOneVows,
-        String partnerTwoVows,
+        @Size(max = 10000) String partnerOneVows,
+        @Size(max = 10000) String partnerTwoVows,
 
-        BigDecimal goalBudget,
+        @Digits(integer = 8, fraction = 2) BigDecimal goalBudget,
 
         // V34: opaque CSV / JSON. Frontend builds them; backend never inspects.
         @Size(max = 500)   String hiddenTabs,
