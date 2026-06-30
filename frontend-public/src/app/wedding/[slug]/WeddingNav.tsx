@@ -49,15 +49,20 @@ export default function WeddingNav({
   // visibility override (did they explicitly hide it?). Hidden wins: couples
   // intentionally opting out of a tab is a stronger signal than the default
   // content-gate heuristic.
+  //
+  // RSVP is pinned second, right after HOME, so it stays reachable near the start
+  // of the horizontally-scrolling mobile nav instead of sitting last off the right
+  // edge of a 375px screen (issue #104). HARD_VISIBLE already guarantees HOME and
+  // RSVP always render, so moving RSVP up the list can never drop a tab.
   const tabs = [
     { tab: 'HOME',          label: label('HOME',          'Home'),          href: base,                    show: visible('HOME') },
+    { tab: 'RSVP',          label: label('RSVP',          'RSVP'),          href: `${base}/rsvp`,          show: visible('RSVP') },
     { tab: 'OUR_STORY',     label: label('OUR_STORY',     'Our Story'),     href: `${base}/story`,         show: hasStory       && visible('OUR_STORY') },
     { tab: 'DETAILS',       label: label('DETAILS',       'The Wedding'),   href: `${base}/details`,       show: hasDetails     && visible('DETAILS') },
     { tab: 'WEDDING_PARTY', label: label('WEDDING_PARTY', 'Wedding Party'), href: `${base}/wedding-party`, show: hasParty       && visible('WEDDING_PARTY') },
     { tab: 'TRAVEL',        label: label('TRAVEL',        'Travel'),        href: `${base}/travel`,        show: hasTravel      && visible('TRAVEL') },
     { tab: 'REGISTRY',      label: label('REGISTRY',      'Registry'),      href: `${base}/registry`,      show: hasRegistry    && visible('REGISTRY') },
     { tab: 'PHOTOS',        label: label('PHOTOS',        'Photos'),        href: `${base}/photos`,        show: hasPhotos      && visible('PHOTOS') },
-    { tab: 'RSVP',          label: label('RSVP',          'RSVP'),          href: `${base}/rsvp`,          show: visible('RSVP') },
   ].filter(t => t.show)
 
   function isActive(href: string) {

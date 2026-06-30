@@ -100,7 +100,25 @@ export default async function WeddingHomePage(
     </div>
   )
 
-  return <TabBlocks slug={slug} tab="HOME" wedding={wedding} fallback={fallback} />
+  return (
+    <>
+      {/* Persistent RSVP call to action, rendered above TabBlocks so it appears on
+          every published HOME page whether the couple uses the legacy scalar
+          template (fallback) or the block editor (TabBlocks swaps in custom blocks
+          and would otherwise leave RSVP only in the nav). High-contrast gold on
+          dark brown clears WCAG AA (6.2:1); full width on mobile, inline on sm+.
+          Pairs with the nav reorder to fix issue #104 (RSVP hard to find on mobile). */}
+      <div className="mb-10 text-center">
+        <Link
+          href={`${base}/rsvp`}
+          className="inline-block w-full sm:w-auto px-8 py-3 bg-[#d4af6a] text-[#3b2f2f] font-semibold rounded-full text-sm hover:bg-[#c49a58] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af6a] focus-visible:ring-offset-2 focus-visible:ring-offset-[#fdfaf6]"
+        >
+          RSVP
+        </Link>
+      </div>
+      <TabBlocks slug={slug} tab="HOME" wedding={wedding} fallback={fallback} />
+    </>
+  )
 }
 
 function QuickCard({ Icon, label, value }: { Icon: React.ElementType; label: string; value: string }) {
