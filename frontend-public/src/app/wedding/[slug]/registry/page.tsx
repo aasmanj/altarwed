@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getWedding } from '@/app/wedding/[slug]/data'
+import TabBlocks from '@/components/blocks/TabBlocks'
 
 export default async function RegistryPage(
   { params }: { params: Promise<{ slug: string }> }
@@ -14,7 +15,7 @@ export default async function RegistryPage(
     { label: wedding.registryLabel3 ?? 'Registry', url: wedding.registryUrl3 },
   ].filter(r => r.url)
 
-  return (
+  const fallback = (
     <div className="space-y-10">
       <SectionHeading>Registry</SectionHeading>
 
@@ -44,6 +45,8 @@ export default async function RegistryPage(
       )}
     </div>
   )
+
+  return <TabBlocks slug={slug} tab="REGISTRY" wedding={wedding} fallback={fallback} />
 }
 
 function SectionHeading({ children }: { children: React.ReactNode }) {

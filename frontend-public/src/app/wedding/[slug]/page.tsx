@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { BookHeart, Calendar, Camera, Clock, Gift, Hotel, Mail, MapPin, PenLine, Shirt, Users } from 'lucide-react'
 import { getWedding, hasWeddingPartyMembers, hasWeddingPhotos } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
+import TabBlocks from '@/components/blocks/TabBlocks'
 
 export default async function WeddingHomePage(
   { params }: { params: Promise<{ slug: string }> }
@@ -21,7 +22,7 @@ export default async function WeddingHomePage(
   const countdown = wedding.weddingDate ? daysUntilDate(wedding.weddingDate) : null
   const base = `/wedding/${slug}`
 
-  return (
+  const fallback = (
     <div className="space-y-10">
       {/* Welcome */}
       <div className="text-center">
@@ -98,6 +99,8 @@ export default async function WeddingHomePage(
       </div>
     </div>
   )
+
+  return <TabBlocks slug={slug} tab="HOME" wedding={wedding} fallback={fallback} />
 }
 
 function QuickCard({ Icon, label, value }: { Icon: React.ElementType; label: string; value: string }) {

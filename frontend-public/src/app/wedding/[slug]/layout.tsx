@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import WeddingNav from './WeddingNav'
 import ComingSoon from './ComingSoon'
-import { parseTabCustomisation, hasWeddingPartyMembers, hasWeddingPhotos } from './data'
+import { parseTabCustomisation, hasWeddingPartyMembers, hasWeddingPhotos, getAllBlocks, computeTabsWithContent } from './data'
 import { getWedding } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
 
@@ -71,18 +71,29 @@ export default async function WeddingLayout({
   const heroImage = wedding.heroPhotoUrl ?? '/hero-wedding.jpg'
   const countdown = wedding.weddingDate ? daysUntilDate(wedding.weddingDate) : null
 
-  const hasStory    = !!wedding.ourStory
-  const hasDetails  = !!(wedding.venueName || wedding.ceremonyTime || wedding.dressCode)
-  const hasRegistry = !!(wedding.registryUrl1 || wedding.registryUrl2 || wedding.registryUrl3)
-  const hasTravel   = !!(wedding.hotelName)
-
-  // Wedding Party and Photos have no scalar flag on the wedding record (their
-  // content lives in separate tables), so gate them on a real content check.
-  // Run in parallel; both are cached, so this adds no perceptible render cost.
-  const [hasParty, hasPhotos] = await Promise.all([
+  // Gate each nav tab on REAL content. A tab shows if it has scalar content OR
+  // block-editor content. The block editor is now the primary authoring surface,
+  // so most couples fill a tab via blocks and leave the legacy scalar field empty;
+  // without the block check those tabs (e.g. a STORY_ENTRY with no ourStory scalar)
+  // would be hidden and their content unreachable. All three fetches are 60s-cached.
+  const [hasPartyMembers, hasPhotosPresent, allBlocks] = await Promise.all([
     hasWeddingPartyMembers(wedding.id),
     hasWeddingPhotos(slug),
+    getAllBlocks(slug),
   ])
+  const tabsWithContent = computeTabsWithContent(allBlocks, wedding, hasPartyMembers, hasPhotosPresent)
+
+  // OUR_STORY / DETAILS / REGISTRY pages render blocks (via TabBlocks), so a tab the
+  // couple filled only via the block editor must show even with the scalar field empty.
+  const hasStory    = !!wedding.ourStory || tabsWithContent.has('OUR_STORY')
+  const hasDetails  = !!(wedding.venueName || wedding.ceremonyTime || wedding.dressCode) || tabsWithContent.has('DETAILS')
+  const hasRegistry = !!(wedding.registryUrl1 || wedding.registryUrl2 || wedding.registryUrl3) || tabsWithContent.has('REGISTRY')
+  // Travel / Wedding Party / Photos pages render from their own hotels/party/photos
+  // tables, NOT from blocks, so gate them on that content only. ORing in block content
+  // here would reveal the tab while the page renders "coming soon" (a dead tab).
+  const hasTravel   = !!(wedding.hotelName)
+  const hasParty    = hasPartyMembers
+  const hasPhotos   = hasPhotosPresent
 
   // Parse the couple's tab customisations (hidden tabs + relabeled tabs).
   // Done on every layout render so changes from the editor show up after the

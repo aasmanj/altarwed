@@ -1,3 +1,5 @@
+import type { WeddingPartyMember, WeddingPhoto } from '@/components/blocks/BlockRenderer'
+
 export interface WeddingWebsite {
   id: string
   slug: string
@@ -178,4 +180,105 @@ export async function getBlocks(slug: string, tab: BlockTab, fresh = false): Pro
   } catch {
     return []
   }
+}
+
+// All blocks across every tab for a site (no tab filter). Used by the layout to
+// decide which nav tabs have block-backed content, not just scalar content.
+export async function getAllBlocks(slug: string): Promise<WeddingPageBlock[]> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
+  try {
+    const res = await fetch(`${apiUrl}/api/v1/wedding-page-blocks/slug/${slug}`, { next: { revalidate: 60 } })
+    if (!res.ok) return []
+    return res.json()
+  } catch {
+    return []
+  }
+}
+
+// Party members + photos for the dynamic grid blocks on the PUBLIC site (60s ISR,
+// unlike the preview which fetches them no-store). Typed against BlockRenderer's
+// shapes so they drop straight into <BlockRenderer>.
+export async function getPartyMembers(websiteId: string): Promise<WeddingPartyMember[]> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
+  try {
+    const res = await fetch(`${apiUrl}/api/v1/wedding-party/website/${websiteId}`, { next: { revalidate: 60 } })
+    if (!res.ok) return []
+    return res.json()
+  } catch {
+    return []
+  }
+}
+
+export async function getPhotos(slug: string): Promise<WeddingPhoto[]> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
+  try {
+    const res = await fetch(`${apiUrl}/api/v1/wedding-photos/website/slug/${slug}`, { next: { revalidate: 60 } })
+    if (!res.ok) return []
+    return res.json()
+  } catch {
+    return []
+  }
+}
+
+// True when a block will render visible content for a guest. Mirrors the null /
+// empty-state returns in BlockRenderer so a tab holding only empty blocks is
+// treated as having no content (it falls back to the scalar template and stays
+// out of the nav) rather than showing a blank section.
+export function blockHasContent(
+  block: WeddingPageBlock,
+  wedding: WeddingWebsite,
+  hasPartyMembers: boolean,
+  hasPhotosPresent: boolean,
+): boolean {
+  let c: Record<string, unknown> = {}
+  try { c = JSON.parse(block.contentJson) } catch { c = {} }
+  const s = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
+  switch (block.type) {
+    case 'TEXT': return !!s(c.markdown)
+    case 'HEADING': return !!s(c.text)
+    case 'IMAGE': return !!s(c.url)
+    case 'STORY_ENTRY': return !!(s(c.body) || s(c.imageUrl) || s(c.dateLabel))
+    case 'SCRIPTURE': {
+      // Mirror BlockRenderer's HOME pinned-verse suppression (BlockRenderer.tsx
+      // SCRIPTURE case): a HOME scripture block that only repeats the layout's
+      // pinned verse renders null there, so it is NOT content. Older sites were
+      // backfill-seeded exactly this block; without this guard a couple whose only
+      // HOME block is that verse would skip the scalar fallback and render a blank
+      // home body. Keep this in sync with BlockRenderer's null-returns.
+      const text = s(c.text)
+      const pinned = (wedding.scriptureText ?? '').trim()
+      if (block.tab === 'HOME' && pinned && text === pinned) return false
+      return !!(text || s(c.reference))
+    }
+    case 'RSVP_CTA': return true
+    case 'COUNTDOWN': return !!wedding.weddingDate
+    case 'VENUE_CARD': return !!wedding.venueName
+    case 'HOTEL_CARD': return !!wedding.hotelName
+    case 'REGISTRY_CARD': {
+      const slot = typeof c.slot === 'number' ? c.slot : 1
+      const url = slot === 1 ? wedding.registryUrl1 : slot === 2 ? wedding.registryUrl2 : wedding.registryUrl3
+      return !!url
+    }
+    case 'WEDDING_PARTY_GRID': return hasPartyMembers
+    case 'PHOTO_ALBUM_GRID': return hasPhotosPresent
+    case 'VOWS_PREVIEW': return !!(wedding.partnerOneVows || wedding.partnerTwoVows)
+    case 'DIVIDER': return false
+    default: return false
+  }
+}
+
+// Set of tabs with at least one content-bearing block. The layout ORs this with
+// the scalar-content flags so a tab a couple filled only via the block editor
+// (e.g. a STORY_ENTRY with no legacy ourStory scalar) still appears in the nav.
+export function computeTabsWithContent(
+  blocks: WeddingPageBlock[],
+  wedding: WeddingWebsite,
+  hasPartyMembers: boolean,
+  hasPhotosPresent: boolean,
+): Set<BlockTab> {
+  const set = new Set<BlockTab>()
+  for (const b of blocks) {
+    if (blockHasContent(b, wedding, hasPartyMembers, hasPhotosPresent)) set.add(b.tab)
+  }
+  return set
 }

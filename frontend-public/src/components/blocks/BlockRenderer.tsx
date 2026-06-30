@@ -108,11 +108,16 @@ export default function BlockRenderer({ block, wedding, partyMembers = [], photo
       const sideRaw = str(content.side, 'ALL')
       const side = (sideRaw === 'BRIDE' || sideRaw === 'GROOM') ? sideRaw : 'ALL'
       const members = side === 'ALL' ? partyMembers : partyMembers.filter(m => m.side === side)
+      // On the live public site (preview=false) an empty grid renders nothing rather
+      // than the editor's "members will appear here" placeholder, matching the card blocks.
+      if (members.length === 0 && !preview) return null
       return <WeddingPartyGridBlock members={members} wedding={wedding} side={side} />
     }
     case 'PHOTO_ALBUM_GRID':
+      if (photos.length === 0 && !preview) return null
       return <PhotoAlbumGridBlock photos={photos} wedding={wedding} />
     case 'VOWS_PREVIEW':
+      if (!wedding.partnerOneVows && !wedding.partnerTwoVows && !preview) return null
       return (
         <VowsPreviewBlock
           partnerOneName={wedding.partnerOneName}
@@ -155,6 +160,7 @@ function TextBlock({ markdown }: { markdown: string }) {
 }
 
 function HeadingBlock({ text, level }: { text: string; level: number }) {
+  if (!text.trim()) return null
   const cls = 'font-serif text-[#3b2f2f] font-bold'
   if (level === 2) return <h2 className={`${cls} text-3xl sm:text-4xl`}>{text}</h2>
   if (level === 3) return <h3 className={`${cls} text-2xl sm:text-3xl`}>{text}</h3>

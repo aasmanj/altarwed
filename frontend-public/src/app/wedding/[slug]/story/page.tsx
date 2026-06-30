@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getWedding } from '@/app/wedding/[slug]/data'
+import TabBlocks from '@/components/blocks/TabBlocks'
 
 export default async function StoryPage(
   { params }: { params: Promise<{ slug: string }> }
@@ -8,16 +9,7 @@ export default async function StoryPage(
   const wedding = await getWedding(slug)
   if (!wedding) notFound()
 
-  if (!wedding.ourStory) {
-    return (
-      <div className="text-center py-16 text-[#8a6a4a]">
-        <p className="font-serif text-2xl mb-2">Our story is being written…</p>
-        <p className="text-sm">Check back soon.</p>
-      </div>
-    )
-  }
-
-  return (
+  const fallback = wedding.ourStory ? (
     <div className="space-y-14">
       <SectionHeading>Our Story</SectionHeading>
 
@@ -26,7 +18,14 @@ export default async function StoryPage(
         <Prose text={wedding.ourStory} />
       </div>
     </div>
+  ) : (
+    <div className="text-center py-16 text-[#8a6a4a]">
+      <p className="font-serif text-2xl mb-2">Our story is being written…</p>
+      <p className="text-sm">Check back soon.</p>
+    </div>
   )
+
+  return <TabBlocks slug={slug} tab="OUR_STORY" wedding={wedding} fallback={fallback} />
 }
 
 function SectionHeading({ children }: { children: React.ReactNode }) {

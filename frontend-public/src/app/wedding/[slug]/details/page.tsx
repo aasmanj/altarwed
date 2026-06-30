@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { Calendar, Clock, MapPin, Shirt } from 'lucide-react'
 import { getWedding } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate as formatDate } from '@/lib/date'
+import TabBlocks from '@/components/blocks/TabBlocks'
 
 export default async function DetailsPage(
   { params }: { params: Promise<{ slug: string }> }
@@ -10,7 +11,7 @@ export default async function DetailsPage(
   const wedding = await getWedding(slug)
   if (!wedding) notFound()
 
-  return (
+  const fallback = (
     <div className="space-y-10">
       <SectionHeading>The Wedding</SectionHeading>
 
@@ -42,6 +43,8 @@ export default async function DetailsPage(
       )}
     </div>
   )
+
+  return <TabBlocks slug={slug} tab="DETAILS" wedding={wedding} fallback={fallback} />
 }
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
