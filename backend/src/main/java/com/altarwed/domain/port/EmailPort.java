@@ -48,6 +48,17 @@ public interface EmailPort {
                                       String dashboardUrl,
                                       String guestReplyToEmail);
 
+    // Sent once when a vendor registers. If isFoundingVendor=true the listing is already
+    // live and the email says so; otherwise it explains the listing is under review.
+    void sendVendorWelcomeEmail(String toEmail, String businessName,
+                                String listingUrl, String dashboardUrl,
+                                boolean isFoundingVendor);
+
+    // Sent when an unverified vendor is approved (admin manually verifies, or promo code
+    // redeemed). Not sent for founding vendors because they are already live at registration.
+    void sendVendorVerifiedEmail(String toEmail, String businessName,
+                                 String listingUrl, String dashboardUrl);
+
     // Internal admin alert, sent to the platform owner when a new vendor registers.
     // autoVerified=true means the vendor is already live (founding vendor, first 25);
     // false means they need manual verification before appearing in the directory.

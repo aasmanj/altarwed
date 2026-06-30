@@ -102,4 +102,17 @@ public class AsyncEmailService {
                                                String partnerTwoName, String slug, String siteUrl) {
         emailPort.sendCoupleWebsiteCreatedAlert(coupleEmail, partnerOneName, partnerTwoName, slug, siteUrl);
     }
+
+    @Async("emailExecutor")
+    public void sendVendorWelcomeEmail(String toEmail, String businessName,
+                                       String listingUrl, String dashboardUrl,
+                                       boolean isFoundingVendor) {
+        emailPort.sendVendorWelcomeEmail(toEmail, businessName, listingUrl, dashboardUrl, isFoundingVendor);
+    }
+
+    @Async("emailExecutor")
+    public void sendVendorVerifiedEmail(String toEmail, String businessName,
+                                        String listingUrl, String dashboardUrl) {
+        emailPort.sendVendorVerifiedEmail(toEmail, businessName, listingUrl, dashboardUrl);
+    }
 }

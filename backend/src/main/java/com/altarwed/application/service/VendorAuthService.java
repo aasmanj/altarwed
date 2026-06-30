@@ -35,6 +35,7 @@ public class VendorAuthService {
     private final AsyncEmailService asyncEmailService;
     private final VendorPromoService vendorPromoService;
     private final String publicBaseUrl;
+    private final String appBaseUrl;
     private final long foundingVendorCap;
 
     public VendorAuthService(
@@ -45,6 +46,7 @@ public class VendorAuthService {
             AsyncEmailService asyncEmailService,
             VendorPromoService vendorPromoService,
             @Value("${altarwed.nextjs.base-url:https://www.altarwed.com}") String publicBaseUrl,
+            @Value("${altarwed.app.base-url:https://app.altarwed.com}") String appBaseUrl,
             @Value("${altarwed.vendor.founding-cap:25}") long foundingVendorCap
     ) {
         this.vendorRepository = vendorRepository;
@@ -54,6 +56,7 @@ public class VendorAuthService {
         this.asyncEmailService = asyncEmailService;
         this.vendorPromoService = vendorPromoService;
         this.publicBaseUrl = publicBaseUrl;
+        this.appBaseUrl = appBaseUrl;
         this.foundingVendorCap = foundingVendorCap;
     }
 
@@ -112,7 +115,12 @@ public class VendorAuthService {
             vendorPromoService.grantFoundingVendorAccess(saved.id());
         }
 
-        String listingUrl = publicBaseUrl + "/vendors/" + saved.id();
+        String listingUrl   = publicBaseUrl + "/vendors/" + saved.id();
+        String dashboardUrl = appBaseUrl + "/dashboard";
+        asyncEmailService.sendVendorWelcomeEmail(saved.email(), saved.businessName(),
+                listingUrl, dashboardUrl, isFoundingVendor);
+        log.info("vendor welcome email queued, vendorId={}", saved.id());
+
         asyncEmailService.sendVendorRegistrationAlert(
                 saved.businessName(),
                 saved.category() != null ? saved.category().name() : "UNKNOWN",

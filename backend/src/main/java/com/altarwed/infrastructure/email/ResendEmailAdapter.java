@@ -666,6 +666,131 @@ public class ResendEmailAdapter implements EmailPort {
         postEmail("couple-website-created-alert", adminAlertEmail, body);
     }
 
+    @Override
+    public void sendVendorWelcomeEmail(String toEmail, String businessName,
+                                       String listingUrl, String dashboardUrl,
+                                       boolean isFoundingVendor) {
+        String statusLine = isFoundingVendor
+                ? "Your listing is <strong>live now</strong> as a founding vendor of AltarWed."
+                : "Your listing is under review. We will email you once it is approved and visible to couples.";
+        String statusText = isFoundingVendor
+                ? "Your listing is live now as a founding vendor of AltarWed."
+                : "Your listing is under review. We will email you once it is approved and visible to couples.";
+        String subjectSuffix = isFoundingVendor ? " - your listing is live!" : " - welcome aboard";
+
+        String html = """
+                <div style="font-family:Georgia,serif;max-width:540px;margin:0 auto;background:#fdfaf6;padding:40px;border-radius:8px;">
+                  <p style="text-align:center;color:#a08060;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">AltarWed Vendors</p>
+                  <h1 style="text-align:center;color:#3b2f2f;font-size:26px;margin:0 0 16px;">Welcome, %s</h1>
+                  <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">%s</p>
+                  <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
+                    AltarWed is a faith-first wedding marketplace connecting Christian couples with vendors who share their values. We are glad you are here.
+                  </p>
+                  <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
+                    Complete your profile to make the best first impression: add a bio, description, price tier, and logo. Couples who find your listing will be able to send you inquiries directly.
+                  </p>
+                  <div style="text-align:center;margin:28px 0 12px;">
+                    <a href="%s"
+                       style="display:inline-block;padding:12px 28px;background:#3b2f2f;color:#d4af6a;text-decoration:none;border-radius:4px;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">
+                      Go to your dashboard
+                    </a>
+                  </div>
+                  %s
+                  <p style="text-align:center;color:#a08060;font-size:11px;margin-top:32px;">
+                    "Whatever you do, work at it with all your heart, as working for the Lord." (Col 3:23)
+                  </p>
+                </div>
+                """.formatted(
+                escapeHtml(businessName),
+                statusLine,
+                dashboardUrl,
+                isFoundingVendor
+                        ? "<div style=\"text-align:center;margin-bottom:24px;\"><a href=\"" + listingUrl
+                          + "\" style=\"color:#3b2f2f;font-size:13px;\">View your public listing</a></div>"
+                        : ""
+        );
+
+        String text = """
+                Welcome to AltarWed, %s
+
+                %s
+
+                AltarWed is a faith-first wedding marketplace connecting Christian couples with vendors who share their values. We are glad you are here.
+
+                Complete your profile to make the best first impression:
+                %s
+
+                Dashboard: %s
+                %s
+                "Whatever you do, work at it with all your heart, as working for the Lord." (Col 3:23)
+                """.formatted(
+                businessName, statusText,
+                "Add a bio, description, price tier, and logo. Couples who find your listing will be able to send inquiries directly.",
+                dashboardUrl,
+                isFoundingVendor ? "Your listing: " + listingUrl + "\n" : ""
+        );
+
+        Map<String, Object> body = Map.of(
+                "from", "AltarWed <" + fromEmail + ">",
+                "to", List.of(toEmail),
+                "subject", "Welcome to AltarWed" + subjectSuffix,
+                "html", html,
+                "text", text
+        );
+
+        postEmail("vendor-welcome", toEmail, body);
+    }
+
+    @Override
+    public void sendVendorVerifiedEmail(String toEmail, String businessName,
+                                        String listingUrl, String dashboardUrl) {
+        String html = """
+                <div style="font-family:Georgia,serif;max-width:540px;margin:0 auto;background:#fdfaf6;padding:40px;border-radius:8px;">
+                  <p style="text-align:center;color:#a08060;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">AltarWed Vendors</p>
+                  <h1 style="text-align:center;color:#3b2f2f;font-size:26px;margin:0 0 8px;">Your listing is live!</h1>
+                  <p style="text-align:center;color:#6b5344;font-size:16px;margin:0 0 28px;">%s is now visible to Christian couples on AltarWed.</p>
+                  <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
+                    Couples searching for faith-aligned vendors in your area can now find and contact you. Log in to complete your profile and make the strongest first impression.
+                  </p>
+                  <div style="text-align:center;margin:28px 0 12px;">
+                    <a href="%s"
+                       style="display:inline-block;padding:12px 28px;background:#3b2f2f;color:#d4af6a;text-decoration:none;border-radius:4px;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">
+                      View your listing
+                    </a>
+                  </div>
+                  <div style="text-align:center;margin-bottom:24px;">
+                    <a href="%s" style="color:#3b2f2f;font-size:13px;">Go to your dashboard</a>
+                  </div>
+                  <p style="text-align:center;color:#a08060;font-size:11px;margin-top:32px;">
+                    "Whatever you do, work at it with all your heart, as working for the Lord." (Col 3:23)
+                  </p>
+                </div>
+                """.formatted(escapeHtml(businessName), listingUrl, dashboardUrl);
+
+        String text = """
+                Your AltarWed listing is live!
+
+                %s is now visible to Christian couples on AltarWed.
+
+                Couples searching for faith-aligned vendors in your area can now find and contact you. Log in to complete your profile and make the strongest first impression.
+
+                View your listing: %s
+                Dashboard: %s
+
+                "Whatever you do, work at it with all your heart, as working for the Lord." (Col 3:23)
+                """.formatted(businessName, listingUrl, dashboardUrl);
+
+        Map<String, Object> body = Map.of(
+                "from", "AltarWed <" + fromEmail + ">",
+                "to", List.of(toEmail),
+                "subject", "Your AltarWed listing is live - " + businessName,
+                "html", html,
+                "text", text
+        );
+
+        postEmail("vendor-verified", toEmail, body);
+    }
+
     // Routes guest replies to the couple's own inbox. Skipped when the couple address is
     // missing or invalid (the reply then falls back to the From address) rather than
     // sending Resend a malformed reply_to that could 422 the whole message. We never put

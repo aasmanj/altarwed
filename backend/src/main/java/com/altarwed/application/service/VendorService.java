@@ -12,6 +12,7 @@ import com.altarwed.domain.port.VendorPortfolioPhotoRepository;
 import com.altarwed.domain.port.VendorRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,17 +34,26 @@ public class VendorService {
     private final VendorPortfolioPhotoRepository portfolioPhotoRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final BlobStoragePort blobStorage;
+    private final AsyncEmailService asyncEmailService;
+    private final String publicBaseUrl;
+    private final String appBaseUrl;
 
     public VendorService(VendorRepository vendorRepository,
                          InquiryRepository inquiryRepository,
                          VendorPortfolioPhotoRepository portfolioPhotoRepository,
                          RefreshTokenRepository refreshTokenRepository,
-                         BlobStoragePort blobStorage) {
+                         BlobStoragePort blobStorage,
+                         AsyncEmailService asyncEmailService,
+                         @Value("${altarwed.nextjs.base-url:https://www.altarwed.com}") String publicBaseUrl,
+                         @Value("${altarwed.app.base-url:https://app.altarwed.com}") String appBaseUrl) {
         this.vendorRepository = vendorRepository;
         this.inquiryRepository = inquiryRepository;
         this.portfolioPhotoRepository = portfolioPhotoRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.blobStorage = blobStorage;
+        this.asyncEmailService = asyncEmailService;
+        this.publicBaseUrl = publicBaseUrl;
+        this.appBaseUrl = appBaseUrl;
     }
 
     @Transactional(readOnly = true)
@@ -95,6 +105,12 @@ public class VendorService {
         log.info("vendor verify started, vendorId={}", vendorId);
         Vendor saved = vendorRepository.save(getById(vendorId).withVerified());
         log.info("vendor verified, vendorId={}", vendorId);
+        // Queue the "you're live" email after the REQUIRES_NEW commit so the listing is
+        // actually visible before the vendor receives the link.
+        String listingUrl  = publicBaseUrl + "/vendors/" + saved.id();
+        String dashboardUrl = appBaseUrl + "/dashboard";
+        asyncEmailService.sendVendorVerifiedEmail(saved.email(), saved.businessName(), listingUrl, dashboardUrl);
+        log.info("vendor verified email queued, vendorId={}", vendorId);
         return saved;
     }
 
