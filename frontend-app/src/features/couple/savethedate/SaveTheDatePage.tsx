@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import ImageDropzone from '@/components/ImageDropzone'
+import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 import { Link } from 'react-router-dom'
 import confetti from 'canvas-confetti'
 import { useAuth } from '@/core/auth/AuthContext'
@@ -7,7 +8,7 @@ import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
-import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
+import { useWeddingWebsite, usePublishWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { useGuests, type SaveTheDateSendResult } from '@/features/couple/guests/useGuests'
 import InvalidEmailsModal from './InvalidEmailsModal'
 import { QRCodeCanvas } from 'qrcode.react'
@@ -30,6 +31,7 @@ export default function SaveTheDatePage() {
   const coupleId = user?.id ?? ''
   const qc = useQueryClient()
   const { data: website } = useWeddingWebsite(coupleId)
+  const publishSite = usePublishWeddingWebsite(coupleId)
   const { data: guests = [] } = useGuests(coupleId)
   const [sent, setSent] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[] | null>(null)
@@ -80,10 +82,17 @@ export default function SaveTheDatePage() {
 
   async function handleSend() {
     if (sendMutation.isPending || sent || sendCount === 0) return
+    // Word the confirm copy from the live published state so the couple knows
+    // exactly where the "Visit Our Wedding Website" link will land before they
+    // commit to emailing the whole list.
+    const published = website?.isPublished ?? false
     if (!await confirm({
       title: `Send save-the-dates to ${sendCount} guest${sendCount !== 1 ? 's' : ''}?`,
-      message: 'Each selected guest will receive your faith-themed announcement. Make sure your wedding website is published first.',
-      confirmLabel: 'Send now',
+      message: published
+        ? 'Each selected guest will receive your faith-themed announcement with a link to your published wedding website.'
+        : 'Your wedding website is not published yet, so the "Visit Our Wedding Website" link will land on a Coming Soon page. Publish it first, or send now and publish later.',
+      confirmLabel: published ? 'Send now' : 'Send anyway',
+      tone: published ? 'default' : 'danger',
     })) return
     sendMutation.mutate()
   }
@@ -150,10 +159,18 @@ export default function SaveTheDatePage() {
                   {uploadStdImage.isPending ? 'Uploading…' : 'Replace'}
                   <input
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept={IMAGE_ACCEPT}
                     className="sr-only"
                     disabled={uploadStdImage.isPending}
-                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadStdImage.mutate(f) }}
+                    onChange={e => {
+                      const f = e.target.files?.[0]
+                      // Reset so picking the same file twice still fires onChange.
+                      e.target.value = ''
+                      // Convert HEIC/HEIF (the default iPhone format) to JPEG before
+                      // upload, matching the empty-state ImageDropzone path. Without
+                      // this the raw input silently rejected camera-roll photos.
+                      if (f) void normalizeImageFile(f).then(n => uploadStdImage.mutate(n))
+                    }}
                   />
                 </label>
                 <button
@@ -292,6 +309,34 @@ export default function SaveTheDatePage() {
                   })}
                 </div>
               </div>
+
+              {website && !website.isPublished && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-2">
+                      <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                      </svg>
+                      <p className="text-sm text-amber-800">
+                        Your wedding site is not published yet. Guests who click the link will see a Coming Soon page.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => publishSite.mutate(true)}
+                      disabled={publishSite.isPending}
+                      className="self-start whitespace-nowrap rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-700 disabled:opacity-50 sm:self-auto"
+                    >
+                      {publishSite.isPending ? 'Publishing…' : 'Publish now'}
+                    </button>
+                  </div>
+                  {publishSite.isError && (
+                    <p className="mt-2 text-xs text-red-600">
+                      Could not publish. Try again, or publish from the website editor.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 border-t border-stone-100">
                 <div>
