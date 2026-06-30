@@ -23,9 +23,11 @@ if (import.meta.env.DEV) {
 }
 
 const queryClient = new QueryClient({
-  // Global fallback so no mutation can fail fully silently (issue #95). React
+  // Global fallback for mutations with no onError handler (issue #95). React
   // Query runs this BEFORE each mutation's own onError, so we skip the generic
-  // toast when a mutation already surfaces its own error, avoiding double toasts.
+  // toast when a mutation already declares onError, avoiding double toasts. Note:
+  // mutations with rollback-only onError handlers are exempted by this guard and
+  // still fail without a toast; those are tracked separately.
   mutationCache: new MutationCache({
     onError: (_error, _variables, _context, mutation) => {
       if (mutation.options.onError) return
