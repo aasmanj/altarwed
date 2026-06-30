@@ -538,8 +538,8 @@ function StoryEntryBlock({
 
       {/* Body + image side by side when both present */}
       {hasImage ? (
-        <div className={`flex gap-5 items-start ${imagePosition === 'left' ? 'flex-row' : 'flex-row-reverse'}`}>
-          {/* Photo, fixed width on md+, full width below */}
+        <div className={`flex gap-4 items-start flex-col ${imagePosition === 'left' ? 'sm:flex-row' : 'sm:flex-row-reverse'} sm:gap-5`}>
+          {/* Photo, fixed width on sm+, full width on mobile */}
           <div className="w-full sm:w-2/5 flex-shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
