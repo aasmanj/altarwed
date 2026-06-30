@@ -1,5 +1,6 @@
 package com.altarwed.application.service;
 
+import com.altarwed.domain.exception.FileTooLargeException;
 import com.altarwed.domain.port.BlobStoragePort;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -152,6 +153,35 @@ class MediaUploadServiceTest {
                 .isInstanceOf(IllegalArgumentException.class);
 
         verifyNoUpload();
+    }
+
+    @Test
+    void rejects_a_file_over_the_20_mb_limit_with_file_too_large() {
+        // Issue #93: the limit is 20 MB (was 15). A 21 MB PNG (valid magic bytes so it would pass the
+        // type/signature checks) must be rejected on size alone, and as a FileTooLargeException so the
+        // web layer maps it to 413 rather than the old generic 400.
+        byte[] oversize = concat(new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A},
+                new byte[21 * 1024 * 1024]);
+        MultipartFile file = new MockMultipartFile("file", "huge.png", "image/png", oversize);
+
+        assertThatThrownBy(() -> service.uploadWeddingPhoto(id, file))
+                .isInstanceOf(FileTooLargeException.class)
+                .hasMessageContaining("20 MB");
+
+        verifyNoUpload();
+    }
+
+    @Test
+    void accepts_a_file_just_under_the_20_mb_limit() throws IOException {
+        // A ~19 MB PNG (under the new 20 MB cap) that would have been rejected under the old 15 MB
+        // limit now uploads. Asserts the limit really moved, not just the message.
+        when(blobStorage.upload(any(), any(), anyLong(), any())).thenReturn("https://blob/big.png");
+        byte[] underLimit = concat(new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A},
+                new byte[19 * 1024 * 1024]);
+        MultipartFile file = new MockMultipartFile("file", "big.png", "image/png", underLimit);
+
+        assertThat(service.uploadWeddingPhoto(id, file)).isEqualTo("https://blob/big.png");
+        verify(blobStorage).upload(any(), any(), anyLong(), any());
     }
 
     @Test

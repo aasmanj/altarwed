@@ -17,6 +17,7 @@ import SortableBlockList from './SortableBlockList'
 import WebsiteSectionDrawer from './WebsiteSectionDrawer'
 import { BlockEditContext, type WebsiteSection } from './blockEditContext'
 import { normalizeImageFile, isAllowedImageType, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
+import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from '@/lib/uploadConstants'
 import {
   ALLOWED_TYPES_PER_TAB,
   BLOCK_TABS,
@@ -41,10 +42,16 @@ const previewUrl = (slug: string, tab: BlockTab) =>
   `${PREVIEW_ORIGIN}/preview/${slug}/${tab.toLowerCase()}`
 
 function heroUploadErrorMessage(err: unknown): string {
-  const status = (err as { response?: { status?: number } })?.response?.status
-  if (status === 413) return 'Photo too large (max 20 MB). Try compressing it or choosing a smaller file.'
+  const response = (err as { response?: { status?: number; data?: { detail?: string } } })?.response
+  const status = response?.status
+  const detail = response?.data?.detail
+  if (status === 413) return detail ?? `Photo too large (max ${MAX_UPLOAD_MB} MB). Try compressing it or choosing a smaller file.`
   if (status === 415) return 'Format not supported. Please upload a JPEG, PNG, or WebP photo.'
   if (status === 401 || status === 403) return 'Session expired. Refresh the page and try again.'
+  // 400 from the backend (wrong type, empty file, oversize that slipped past the container cap)
+  // now carries a real ProblemDetail reason; surface it instead of the misleading "check your
+  // connection" the user used to see for a perfectly connected upload.
+  if (status === 400 && detail) return detail
   return 'Upload failed. Check your connection and try again, or choose a different photo.'
 }
 
@@ -353,8 +360,8 @@ export default function SideBySideEditor() {
       if (heroInputRef.current) heroInputRef.current.value = ''
       return
     }
-    if (file.size > 20 * 1024 * 1024) {
-      setHeroUploadError('Photo too large (max 20 MB). Try compressing it or choosing a smaller file.')
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setHeroUploadError(`Photo too large (max ${MAX_UPLOAD_MB} MB). Try compressing it or choosing a smaller file.`)
       if (heroInputRef.current) heroInputRef.current.value = ''
       return
     }
@@ -602,8 +609,8 @@ export default function SideBySideEditor() {
                 setHeroUploadError('Format not supported. Please upload a JPEG, PNG, or WebP photo.')
                 return
               }
-              if (file.size > 20 * 1024 * 1024) {
-                setHeroUploadError('Photo too large (max 20 MB). Try compressing it or choosing a smaller file.')
+              if (file.size > MAX_UPLOAD_BYTES) {
+                setHeroUploadError(`Photo too large (max ${MAX_UPLOAD_MB} MB). Try compressing it or choosing a smaller file.`)
                 return
               }
               const form = new FormData()
@@ -1246,7 +1253,7 @@ function HeroSettings({
             )}
             </div>
             <p className="mt-1.5 text-[10px] text-stone-400 leading-snug">
-              JPEG, PNG, or WebP. Up to 15 MB.
+              JPEG, PNG, or WebP. Up to {MAX_UPLOAD_MB} MB.
             </p>
           </div>
 

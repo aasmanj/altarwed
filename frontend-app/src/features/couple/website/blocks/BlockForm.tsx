@@ -8,6 +8,7 @@ import { useConfirm } from '@/components/ConfirmDialog'
 import { defaultContentJson, type BlockType, type WeddingPageBlock } from './types'
 import { useOpenWebsiteSection, type WebsiteSection } from './blockEditContext'
 import { normalizeImageFile, isAllowedImageType, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
+import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from '@/lib/uploadConstants'
 
 // Debounced autosave: every time `contentJson` changes locally, schedule a save
 // 150ms later. New keystrokes reset the timer (classic debounce). On unmount
@@ -458,8 +459,8 @@ function BlockImageUpload({
       setError('Only JPEG, PNG, or WebP images are supported.')
       return
     }
-    if (file.size > 15 * 1024 * 1024) {
-      setError('Image must be under 15 MB.')
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError(`Image must be under ${MAX_UPLOAD_MB} MB.`)
       return
     }
     setError(null)
@@ -473,8 +474,11 @@ function BlockImageUpload({
         { headers: { 'Content-Type': 'multipart/form-data' } },
       )
       onUploaded(res.data.url)
-    } catch {
-      setError('Upload failed. Try again.')
+    } catch (err: unknown) {
+      // Surface the backend's real ProblemDetail reason (oversize -> 413, bad type/empty -> 400)
+      // instead of a generic "try again" the user cannot act on.
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setError(detail ?? 'Upload failed. Try again.')
     } finally {
       setUploading(false)
       if (inputRef.current) inputRef.current.value = ''

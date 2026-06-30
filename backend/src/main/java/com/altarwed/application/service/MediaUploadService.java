@@ -1,5 +1,6 @@
 package com.altarwed.application.service;
 
+import com.altarwed.domain.exception.FileTooLargeException;
 import com.altarwed.domain.port.BlobStoragePort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +17,7 @@ public class MediaUploadService {
 
     private static final Logger log = LoggerFactory.getLogger(MediaUploadService.class);
     private static final Set<String> ALLOWED_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
-    private static final long MAX_BYTES = 15 * 1024 * 1024; // 15 MB
+    private static final long MAX_BYTES = 20 * 1024 * 1024; // 20 MB
 
     // Image file signatures (magic bytes). We sniff the real type from the leading bytes rather
     // than trust the client-supplied multipart Content-Type, which an attacker fully controls and
@@ -135,7 +136,7 @@ public class MediaUploadService {
         if (!ALLOWED_TYPES.contains(file.getContentType()))
             throw new IllegalArgumentException("Only JPEG, PNG, and WebP images are allowed");
         if (file.getSize() > MAX_BYTES)
-            throw new IllegalArgumentException("File must be under 15 MB");
+            throw new FileTooLargeException("File must be under 20 MB");
         // Defense in depth: the Content-Type checked above is attacker-controlled, so confirm the
         // actual bytes carry an allowed image signature. The allowlist stays the single source of
         // truth (a sniffed type not in ALLOWED_TYPES is still rejected), so adding a signature later

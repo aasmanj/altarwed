@@ -17,6 +17,7 @@ import com.altarwed.domain.exception.InvalidRefreshTokenException;
 import com.altarwed.domain.exception.InvalidRsvpTokenException;
 import com.altarwed.domain.exception.DenominationNotFoundException;
 import com.altarwed.domain.exception.EmailAlreadyExistsException;
+import com.altarwed.domain.exception.FileTooLargeException;
 import com.altarwed.domain.exception.GuestUnsubscribedException;
 import com.altarwed.domain.exception.SlugAlreadyTakenException;
 import com.altarwed.domain.exception.StorageNotConfiguredException;
@@ -42,6 +43,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.io.IOException;
@@ -347,6 +349,25 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    // 413: the multipart body exceeded spring.servlet.multipart.max-file-size (20 MB), so Spring
+    // rejected it at the container boundary BEFORE the request ever reached the controller or
+    // MediaUploadService. Without this handler it fell to the catch-all 500 and paged on-call for a
+    // routine "your photo is too big". The detail is safe to show; it carries no PII. We do not log
+    // here: an oversize upload is an expected client mistake, not a server fault.
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ProblemDetail handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
+        return payloadTooLarge("File exceeds the 20 MB upload limit.");
+    }
+
+    // 413: an upload that slipped past the container size cap (e.g. a request whose declared
+    // multipart size was understated) but is still larger than MAX_BYTES once MediaUploadService
+    // measures it. Same user-facing meaning as above, so same status and a real, surfacable reason
+    // instead of the old generic 400 the frontend could not distinguish from a bad file type.
+    @ExceptionHandler(FileTooLargeException.class)
+    public ProblemDetail handleFileTooLarge(FileTooLargeException ex) {
+        return payloadTooLarge(ex.getMessage());
+    }
+
     // Thrown while serializing the response body. Two very different causes hide here:
     //  1. The client hung up mid-response (browser navigated away, an SPA token-refresh retry
     //     cancelled the in-flight request, or a proxy closed the connection) -> the root cause is
@@ -420,6 +441,14 @@ public class GlobalExceptionHandler {
         pd.setType(URI.create("https://altarwed.com/problems/internal-error"));
         pd.setTitle("Internal Server Error");
         pd.setDetail("An unexpected error occurred. Please try again later.");
+        return pd;
+    }
+
+    private static ProblemDetail payloadTooLarge(String detail) {
+        var pd = ProblemDetail.forStatus(HttpStatus.PAYLOAD_TOO_LARGE);
+        pd.setType(URI.create("https://altarwed.com/problems/file-too-large"));
+        pd.setTitle("File Too Large");
+        pd.setDetail(detail);
         return pd;
     }
 

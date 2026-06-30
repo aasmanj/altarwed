@@ -1,10 +1,12 @@
 package com.altarwed.web.exception;
 
+import com.altarwed.domain.exception.FileTooLargeException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.io.IOException;
 import java.net.SocketException;
@@ -95,5 +97,25 @@ class GlobalExceptionHandlerTest {
         ProblemDetail pd = handler.handleUnexpected(new RuntimeException("unexpected"), notCommitted());
         assertThat(pd).isNotNull();
         assertThat(pd.getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR.value());
+    }
+
+    // Issue #93: an upload over spring.servlet.multipart.max-file-size used to fall to the catch-all
+    // 500 and page on-call. It must now be a clean 413 with a real, user-facing reason.
+    @Test
+    void maxUploadSizeExceeded_maps_to_413_with_a_clean_message() {
+        ProblemDetail pd = handler.handleMaxUploadSizeExceeded(new MaxUploadSizeExceededException(20L * 1024 * 1024));
+        assertThat(pd).isNotNull();
+        assertThat(pd.getStatus()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE.value());
+        assertThat(pd.getDetail()).contains("20 MB");
+    }
+
+    // A service-layer oversize (FileTooLargeException) is the same user-facing meaning, so it must
+    // also be 413 (not the old generic 400 the frontend could not distinguish from a bad file type).
+    @Test
+    void fileTooLarge_maps_to_413_and_surfaces_the_service_message() {
+        ProblemDetail pd = handler.handleFileTooLarge(new FileTooLargeException("File must be under 20 MB"));
+        assertThat(pd).isNotNull();
+        assertThat(pd.getStatus()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE.value());
+        assertThat(pd.getDetail()).isEqualTo("File must be under 20 MB");
     }
 }

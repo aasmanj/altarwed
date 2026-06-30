@@ -17,6 +17,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
+import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from '@/lib/uploadConstants'
 import ImageRepositionModal from '@/components/ImageRepositionModal'
 import { framingStyle, apiFraming } from '@/lib/imageFraming'
 
@@ -131,6 +132,7 @@ export default function PhotosPage() {
   const [repositioning, setRepositioning] = useState<Photo | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   // Close lightbox on Escape
   useEffect(() => {
@@ -144,12 +146,35 @@ export default function PhotosPage() {
     const files = Array.from(e.target.files ?? [])
     if (!files.length || !websiteId) return
     e.target.value = ''
+    setUploadError(null)
 
-    setUploadProgress({ done: 0, total: files.length })
-    for (let i = 0; i < files.length; i++) {
-      const normalized = await normalizeImageFile(files[i])
-      await upload.mutateAsync({ file: normalized, caption: files.length === 1 ? caption : '' })
-      setUploadProgress({ done: i + 1, total: files.length })
+    // Normalize first (HEIC -> JPEG can change the byte size), then reject anything over the
+    // shared limit BEFORE the POST. The server still enforces MAX_BYTES authoritatively (413);
+    // this is early UX so the couple is not made to wait on an upload that cannot succeed.
+    const tooLarge: string[] = []
+    const accepted: File[] = []
+    for (const picked of files) {
+      const normalized = await normalizeImageFile(picked)
+      if (normalized.size > MAX_UPLOAD_BYTES) {
+        tooLarge.push(picked.name)
+      } else {
+        accepted.push(normalized)
+      }
+    }
+
+    if (tooLarge.length) {
+      setUploadError(
+        tooLarge.length === files.length
+          ? `Each photo must be under ${MAX_UPLOAD_MB} MB. Try compressing and uploading again.`
+          : `Skipped ${tooLarge.length} photo(s) over ${MAX_UPLOAD_MB} MB; the rest were uploaded.`
+      )
+    }
+    if (!accepted.length) return
+
+    setUploadProgress({ done: 0, total: accepted.length })
+    for (let i = 0; i < accepted.length; i++) {
+      await upload.mutateAsync({ file: accepted[i], caption: accepted.length === 1 ? caption : '' })
+      setUploadProgress({ done: i + 1, total: accepted.length })
     }
     setCaption('')
     setUploadProgress(null)
@@ -238,7 +263,10 @@ export default function PhotosPage() {
               onChange={handleFileChange}
             />
           </div>
-          <p className="text-xs text-stone-400 mt-2">JPEG, PNG, WebP, or HEIC · Max 15 MB · Select multiple photos at once</p>
+          <p className="text-xs text-stone-400 mt-2">JPEG, PNG, WebP, or HEIC · Max {MAX_UPLOAD_MB} MB · Select multiple photos at once</p>
+          {uploadError && (
+            <p role="alert" className="text-xs text-red-600 mt-2">{uploadError}</p>
+          )}
         </div>
 
         {/* Photo grid */}

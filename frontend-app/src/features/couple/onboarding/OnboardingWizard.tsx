@@ -8,6 +8,7 @@ import { apiClient } from '@/core/api/client'
 import { useCreateWeddingWebsite, useUpdateWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { formatShortDate } from '@/lib/date'
 import { normalizeImageFile, isAllowedImageType } from '@/lib/normalizeImageFile'
+import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from '@/lib/uploadConstants'
 import ImageDropzone from '@/components/ImageDropzone'
 import { readPersistedState, writePersistedState, clearPersistentState } from '@/lib/usePersistentState'
 
@@ -160,8 +161,8 @@ export default function OnboardingWizard() {
       setHeroError('That image type is not supported. Please use a JPEG, PNG, or WebP (or an iPhone HEIC photo).')
       return
     }
-    if (file.size > 20 * 1024 * 1024) {
-      setHeroError('That photo is over 20 MB. Please choose a smaller image.')
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setHeroError(`That photo is over ${MAX_UPLOAD_MB} MB. Please choose a smaller image.`)
       return
     }
     setHeroFile(file)
@@ -641,7 +642,7 @@ function Step5Hero({
         >
           <span className="block w-full text-center py-4 text-sm text-[#8a6a4a]">
             <ImagePlus className="inline-block w-4 h-4 mr-1" />
-            Drag a photo here, or click to choose (JPEG, PNG, WebP, HEIC up to 15 MB)
+            Drag a photo here, or click to choose (JPEG, PNG, WebP, HEIC up to {MAX_UPLOAD_MB} MB)
           </span>
         </ImageDropzone>
         {heroError && (

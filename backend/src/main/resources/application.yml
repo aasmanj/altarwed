@@ -7,6 +7,11 @@ spring:
 
   servlet:
     multipart:
+      # Single upload-size limit, kept in lockstep with MediaUploadService.MAX_BYTES and the
+      # frontend MAX_UPLOAD_MB constant. Exceeding it raises MaxUploadSizeExceededException, which
+      # GlobalExceptionHandler maps to a clean 413. request-size is held one MB above file-size so
+      # the multipart envelope overhead (boundaries, headers) on a full 20 MB file does not trip the
+      # request cap before the per-file check and its 413 message can run.
       max-file-size: 20MB
       max-request-size: 21MB
 
