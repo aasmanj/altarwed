@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { apiClient } from '@/core/api/client'
 import type { BlockTab, BlockType, WeddingPageBlock } from './types'
 
@@ -29,6 +30,9 @@ export function useCreateBlock(websiteId: string) {
         .post(`/api/v1/wedding-page-blocks/website/${websiteId}`, payload)
         .then(r => r.data as WeddingPageBlock),
     onSuccess: () => qc.invalidateQueries({ queryKey: blocksKey(websiteId) }),
+    // Before issue #105 a failed create was fully silent: the picker closed, no
+    // block appeared, no error. The couple thought "Add block" was broken.
+    onError: () => toast.error('Failed to add block. Please try again.'),
   })
 }
 
@@ -55,6 +59,8 @@ export function useUpdateBlock(websiteId: string) {
     },
     onError: (_e, _p, ctx) => {
       if (ctx?.previous) qc.setQueryData(blocksKey(websiteId), ctx.previous)
+      // Surface the failure instead of silently reverting the optimistic edit (#95).
+      toast.error('Block save failed. Please try again.')
     },
     onSettled: () => qc.invalidateQueries({ queryKey: blocksKey(websiteId) }),
   })
@@ -66,6 +72,7 @@ export function useDeleteBlock(websiteId: string) {
     mutationFn: (blockId: string) =>
       apiClient.delete(`/api/v1/wedding-page-blocks/website/${websiteId}/${blockId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: blocksKey(websiteId) }),
+    onError: () => toast.error('Failed to remove block. Please try again.'),
   })
 }
 
@@ -99,6 +106,8 @@ export function useReorderBlocks(websiteId: string) {
     },
     onError: (_e, _p, ctx) => {
       if (ctx?.previous) qc.setQueryData(blocksKey(websiteId), ctx.previous)
+      // Surface the failure instead of silently reverting the optimistic reorder (#95).
+      toast.error('Could not save the new order. Please try again.')
     },
     onSettled: () => qc.invalidateQueries({ queryKey: blocksKey(websiteId) }),
   })

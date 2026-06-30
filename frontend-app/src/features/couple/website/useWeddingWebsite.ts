@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { apiClient } from '@/core/api/client'
 
 export interface WeddingWebsite {
@@ -95,7 +96,7 @@ export function useCreateWeddingWebsite(coupleId: string) {
 
 export function useUpdateWeddingWebsite(coupleId: string) {
   const qc = useQueryClient()
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: (payload: UpdateWebsitePayload) =>
       apiClient.patch(`/api/v1/wedding-websites/couple/${coupleId}`, payload).then(r => r.data),
 
@@ -113,13 +114,21 @@ export function useUpdateWeddingWebsite(coupleId: string) {
     // Server response wins: replace optimistic data with the real saved record.
     onSuccess: (data) => qc.setQueryData(['wedding-website', coupleId], data),
 
-    // If the PATCH fails, roll back to what was in the cache before the mutation.
-    onError: (_err, _payload, context) => {
+    // If the PATCH fails, roll back to what was in the cache before the mutation,
+    // then surface the failure. Before issue #95 this rolled back silently: the
+    // couple's typed change vanished from the preview with no message, despite the
+    // footer promising "Edits save automatically." The Retry action re-runs the
+    // same PATCH so a transient network blip doesn't quietly cost them their edit.
+    onError: (_err, payload, context) => {
       if (context?.previous) {
         qc.setQueryData(['wedding-website', coupleId], context.previous)
       }
+      toast.error('Save failed. Please try again.', {
+        action: { label: 'Retry', onClick: () => mutation.mutate(payload) },
+      })
     },
   })
+  return mutation
 }
 
 export function usePublishWeddingWebsite(coupleId: string) {
