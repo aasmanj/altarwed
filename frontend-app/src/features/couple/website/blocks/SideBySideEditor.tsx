@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
-import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2, ImagePlus, Smartphone, Monitor, Settings2, Pencil } from 'lucide-react'
+import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2, AlertCircle, ImagePlus, Smartphone, Monitor, Settings2, Pencil } from 'lucide-react'
 import { apiClient } from '@/core/api/client'
 import { captureEvent } from '@/core/analytics/analytics'
+import confetti from 'canvas-confetti'
 import { useWeddingWebsite, usePublishWeddingWebsite, useUpdateWeddingWebsite, type WeddingWebsite } from '../useWeddingWebsite'
+import ShareModal from '../ShareModal'
 import {
   useBackfillBlocks,
   useCreateBlock,
@@ -93,6 +95,10 @@ export default function SideBySideEditor() {
   const [lastAddedBlockId, setLastAddedBlockId] = useState<string | null>(null)
   // Settings drawer (per-tab visibility + custom labels).
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // Share modal shown after the draft -> live publish transition (issue #94).
+  // Publishing is the bottom-of-funnel viral moment, so the primary editor must
+  // prompt the couple to share immediately, mirroring the classic editor.
+  const [showShareModal, setShowShareModal] = useState(false)
   const heroInputRef = useRef<HTMLInputElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
@@ -290,6 +296,11 @@ export default function SideBySideEditor() {
 
   const liveUrl = `${PREVIEW_ORIGIN}/wedding/${website.slug}`
   const tabPreviewUrl = previewUrl(website.slug, activeTab)
+  const coupleNames = `${website.partnerOneName} & ${website.partnerTwoName}`
+  // True when the most recent content save failed and has not been superseded by a
+  // successful one. Drives the persistent "Save failed" pill (#95), a sticky signal
+  // that outlives the auto-dismissing toast.
+  const saveFailed = updateWebsite.isError || create.isError || update.isError || remove.isError || reorder.isError
 
   // Full iframe reload. Used only for changes the live-preview channel can't
   // express: hero photo upload (server-rendered Image), publish toggle (toggles
@@ -338,7 +349,13 @@ export default function SideBySideEditor() {
         // Fire only on the publish transition (not unpublish): this is the
         // bottom-of-funnel "a live wedding site now exists" conversion, the event
         // that closes signup -> created -> published.
-        if (publishing) captureEvent('website_published', { slug: website.slug })
+        if (publishing) {
+          captureEvent('website_published', { slug: website.slug })
+          // Mirror the classic editor: confetti + the ShareModal prompting the
+          // couple to send their new live link at the highest-leverage instant.
+          confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 }, colors: ['#d4af6a', '#3b2f2f', '#f5ede0'] })
+          setShowShareModal(true)
+        }
       },
     })
   }
@@ -403,7 +420,11 @@ export default function SideBySideEditor() {
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            {savedAgo && (
+            {saveFailed ? (
+              <span role="status" className="inline-flex items-center gap-1 text-xs text-red-700 bg-red-50 px-2 py-1 rounded-full">
+                <AlertCircle size={12} /> Save failed
+              </span>
+            ) : savedAgo && (
               <span className="hidden sm:inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full">
                 <CheckCircle2 size={12} /> Saved {savedAgo}
               </span>
@@ -813,6 +834,13 @@ export default function SideBySideEditor() {
           onClose={() => { setDrawerSection(null); bumpPreview() }}
         />
       )}
+
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        slug={website.slug}
+        coupleNames={coupleNames}
+      />
     </div>
     </BlockEditContext.Provider>
   )

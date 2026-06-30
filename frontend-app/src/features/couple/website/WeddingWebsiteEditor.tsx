@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import confetti from 'canvas-confetti'
@@ -67,6 +67,24 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
     setForm(prev => ({ ...prev, [field]: e.target.value }))
     setSaved(false)
   }
+
+  // Snapshot of the form as first loaded so we can tell whether the couple has
+  // actually changed anything (on mount `saved` is false but nothing is dirty yet).
+  const pristineFormRef = useRef(form)
+
+  // Warn before a hard refresh or tab close when there are unsaved edits (#106).
+  // The classic editor persists only on the "Save changes" button, so without this
+  // a reload would silently wipe everything the couple typed.
+  useEffect(() => {
+    const isDirty = !saved && JSON.stringify(form) !== JSON.stringify(pristineFormRef.current)
+    if (!isDirty) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [form, saved])
 
   // Registry is backed by three fixed slots, but couples shouldn't be greeted by
   // three empty boxes. Show one to start (plus any already filled), and let them

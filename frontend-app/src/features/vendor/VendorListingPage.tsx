@@ -94,6 +94,19 @@ export default function VendorListingPage() {
     }
   }, [vendor])
 
+  // Warn before a hard refresh or tab close when there are unsaved edits (#106).
+  // The listing form persists only on "Save changes"; `saved === false` means the
+  // vendor has typed changes not yet saved (null = untouched, true = saved).
+  useEffect(() => {
+    if (saved !== false) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [saved])
+
   const set = (field: keyof typeof form) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {

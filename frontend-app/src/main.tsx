@@ -1,7 +1,8 @@
 import React, { StrictMode } from 'react'
 import ReactDOM, { createRoot } from 'react-dom/client'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { toast } from 'sonner'
 import App from './App'
 import './index.css'
 import { initAnalytics } from '@/core/analytics/analytics'
@@ -22,6 +23,17 @@ if (import.meta.env.DEV) {
 }
 
 const queryClient = new QueryClient({
+  // Global fallback for mutations with no onError handler (issue #95). React
+  // Query runs this BEFORE each mutation's own onError, so we skip the generic
+  // toast when a mutation already declares onError, avoiding double toasts. Note:
+  // mutations with rollback-only onError handlers are exempted by this guard and
+  // still fail without a toast; those are tracked separately.
+  mutationCache: new MutationCache({
+    onError: (_error, _variables, _context, mutation) => {
+      if (mutation.options.onError) return
+      toast.error('Something went wrong. Please try again.')
+    },
+  }),
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5,
