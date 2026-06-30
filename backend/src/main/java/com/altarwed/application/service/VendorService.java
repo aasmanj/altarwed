@@ -103,14 +103,30 @@ public class VendorService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Vendor verify(UUID vendorId) {
         log.info("vendor verify started, vendorId={}", vendorId);
-        Vendor saved = vendorRepository.save(getById(vendorId).withVerified());
+        Vendor existing = getById(vendorId);
+        if (existing.isVerified()) {
+            // Idempotency guard: re-verifying an already-live vendor (admin double-click,
+            // promo redeem after admin approval) must not send a duplicate "you're live" email.
+            log.info("vendor already verified, no-op, vendorId={}", vendorId);
+            return existing;
+        }
+        Vendor saved = vendorRepository.save(existing.withVerified());
         log.info("vendor verified, vendorId={}", vendorId);
-        // Queue the "you're live" email after the REQUIRES_NEW commit so the listing is
-        // actually visible before the vendor receives the link.
-        String listingUrl  = publicBaseUrl + "/vendors/" + saved.id();
+        // @Async has no transaction awareness -- dispatching sendVendorVerifiedEmail() directly
+        // races the REQUIRES_NEW commit and can fire before the row is visible on other
+        // connections. afterCommit() guarantees the email queues only after this transaction
+        // commits, so the public listing URL in the email is live when the vendor clicks it.
+        String listingUrl   = publicBaseUrl + "/vendors/" + saved.id();
         String dashboardUrl = appBaseUrl + "/dashboard";
-        asyncEmailService.sendVendorVerifiedEmail(saved.email(), saved.businessName(), listingUrl, dashboardUrl);
-        log.info("vendor verified email queued, vendorId={}", vendorId);
+        String vendorEmail     = saved.email();
+        String vendorBizName   = saved.businessName();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                asyncEmailService.sendVendorVerifiedEmail(vendorEmail, vendorBizName, listingUrl, dashboardUrl);
+                log.info("vendor verified email queued, vendorId={}", vendorId);
+            }
+        });
         return saved;
     }
 

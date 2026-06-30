@@ -48,3 +48,8 @@ WHERE hero_photo_url LIKE '%photo-1583939003579%';
 
 UPDATE wedding_websites SET hero_photo_url = @blob + '/altar-couple.jpg'
 WHERE hero_photo_url LIKE '%photo-1511795409834%';
+
+-- Catch-all: any Unsplash URL not matched above (historical defaults, manual edits)
+-- maps to altar-couple.jpg so removing images.unsplash.com from remotePatterns is safe.
+UPDATE wedding_websites SET hero_photo_url = @blob + '/altar-couple.jpg'
+WHERE hero_photo_url LIKE '%unsplash.com%';
