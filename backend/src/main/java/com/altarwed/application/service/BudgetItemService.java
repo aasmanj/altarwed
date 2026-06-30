@@ -9,6 +9,8 @@ import com.altarwed.domain.exception.CoupleNotFoundException;
 import com.altarwed.domain.model.BudgetItem;
 import com.altarwed.domain.port.BudgetItemRepository;
 import com.altarwed.domain.port.CoupleRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,8 @@ import java.util.UUID;
 
 @Service
 public class BudgetItemService {
+
+    private static final Logger log = LoggerFactory.getLogger(BudgetItemService.class);
 
     private final BudgetItemRepository budgetItemRepository;
     private final CoupleRepository coupleRepository;
@@ -66,7 +70,9 @@ public class BudgetItemService {
                 req.estimatedCost(), req.actualCost(), Boolean.TRUE.equals(req.isPaid()), req.notes(),
                 null, null
         );
-        return budgetItemRepository.save(item);
+        BudgetItem saved = budgetItemRepository.save(item);
+        log.info("budget item created, coupleId={}, itemId={}", coupleId, saved.id());
+        return saved;
     }
 
     @Transactional
@@ -87,7 +93,9 @@ public class BudgetItemService {
                 existing.createdAt(),
                 null
         );
-        return budgetItemRepository.save(updated);
+        BudgetItem saved = budgetItemRepository.save(updated);
+        log.info("budget item updated, coupleId={}, itemId={}", coupleId, saved.id());
+        return saved;
     }
 
     @Transactional
@@ -96,5 +104,6 @@ public class BudgetItemService {
             throw new BudgetItemNotFoundException(itemId.toString());
         }
         budgetItemRepository.deleteById(itemId);
+        log.info("budget item deleted, coupleId={}, itemId={}", coupleId, itemId);
     }
 }
