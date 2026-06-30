@@ -63,7 +63,7 @@ hook; before pushing any frontend change I run that workspace's linter myself (`
 | Trigger | What to say |
 |---|---|
 | Jordan finishes a feature branch with >~5 files changed and is ready to merge | "This is a good candidate for `/ultrareview` before merging -- it runs multiple agents in parallel and catches things I miss in single-pass review. Type `/ultrareview` to launch it." |
-| Jordan asks about next steps, what to build, or monitoring | "Phase 7 is already live. This is the right time to set up scheduled monitoring agents via `/schedule`: (1) nightly sitemap.xml validity check, (2) weekly check that /wedding/[jordan-slug] loads and is indexed. Want to do that now?" |
+| Jordan asks about next steps, what to build, or monitoring | "Phase 8 (Stripe billing) is live; the current priority is the hardening backlog (issues #89-#118). Also a good time for scheduled monitoring via `/schedule`: (1) nightly sitemap.xml validity check, (2) weekly check that /wedding/[jordan-slug] loads and is indexed. Want to do that now?" |
 | Jordan asks about monitoring, uptime, or "what happens when something breaks in prod" | "The right answer is a scheduled Claude agent via `/schedule` -- it runs on cron, checks your endpoints, and can notify you. Want to set one up now?" |
 | Jordan ships a new public-facing page (in `frontend-public/`) | "Before pushing, run `npm run lint` in `frontend-public/` to catch accessibility violations, then Tab through the page. See `frontend-public/CLAUDE.md` for the a11y checklist." |
 
@@ -81,8 +81,11 @@ Zola, built for Christian couples with faith, scripture, and devotion at the cen
 their site seeds Facebook/Pinterest/organic campaigns. Couples are free; **revenue is
 vendor-side only** (monthly subscriptions). The marketing homepage is live at altarwed.com.
 
-**Status:** shipped through Phase 7c -- couples and vendors can fully self-serve. **Next
-engineering priority: Phase 8, Stripe billing** for vendor subscriptions.
+**Status:** shipped through Phase 8 -- couples and vendors fully self-serve, and Stripe vendor
+subscription billing is live (Checkout + Customer Portal, webhook-verified and idempotent).
+**Next engineering priority: the reliability/security hardening backlog** (GitHub issues
+#89-#118 from the 2026-06-29 audit) before the marketing push. P0s are #89 (anonymous RSVP
+token leak) and #90 (page-builder blocks not rendering on the live public site).
 
 Depth lives in memory (recalled on relevance), not here:
 - `project_altarwed_context` -- product goals, current phase, domain owned

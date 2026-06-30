@@ -176,6 +176,8 @@ Vendor controllers use `authentication.getName()` to load the vendor by email, t
 - `RsvpReminderService` -- hourly poll, send reminder emails
 - `AdminMetricsService` -- funnel analytics, UTM attribution
 - `AsyncEmailService` -- thin @Async wrapper; ALL email sends go through this
+- `StripeService` -- vendor subscription billing (Phase 8): Checkout session, Customer Portal,
+  and webhook handling with idempotent, state-convergent upserts (signature verified in `StripeAdapter`, raw `byte[]` body preserved)
 
 ### Patterns
 - **Async email:** all sends use `AsyncEmailService` (`@Async("emailExecutor")` wrapping

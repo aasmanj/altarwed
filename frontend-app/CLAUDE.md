@@ -43,9 +43,16 @@ Authenticated SPA for couples and vendors. SEO does not matter here — everythi
 - Inquiry inbox: list with unread badge, mark-read
 - Dashboard overview card with unread inquiry count
 
+## What's Live (Phase 8, Stripe billing)
+- **Vendor subscription billing**: Stripe Checkout to start a subscription and the Stripe
+  Customer Portal for self-serve plan changes/cancellation. Vendor tiers only (couples are
+  free). Backend is webhook-verified and idempotent.
+
 ## What's Next
-- **Stripe billing UI** (Phase 8): checkout button to start subscription, Stripe Customer
-  Portal link for self-serve plan changes/cancellation. Vendor tiers only (couples are free).
+- Reliability/security hardening backlog (GitHub issues #89-#118 from the 2026-06-29 audit)
+  before the marketing push. Frontend P0/P1s: #90 (page-builder blocks must render on the live
+  public site), #92 (album upload error handling), #93 (unify upload size limit + error
+  surfacing), #94 (share moment on publish).
 
 ## Key Conventions
 - Date parsing: use `formatWeddingDate` / `daysUntilDate` from `src/lib/date.ts` — never
