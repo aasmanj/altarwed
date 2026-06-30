@@ -1,6 +1,7 @@
 package com.altarwed.web.exception;
 
 import com.altarwed.domain.exception.FileTooLargeException;
+import com.altarwed.domain.exception.UnsupportedImageTypeException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -117,5 +118,16 @@ class GlobalExceptionHandlerTest {
         assertThat(pd).isNotNull();
         assertThat(pd.getStatus()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE.value());
         assertThat(pd.getDetail()).isEqualTo("File must be under 20 MB");
+    }
+
+    // A wrong image type (bad declared Content-Type or magic-byte mismatch) must map to 415, not the
+    // generic 400, so the frontend's distinct "unsupported file type" branch fires. Before this the
+    // service threw IllegalArgumentException -> 400 and that 415 branch was dead code.
+    @Test
+    void unsupportedImageType_maps_to_415() {
+        ProblemDetail pd = handler.handleUnsupportedImageType(new UnsupportedImageTypeException("Only JPEG, PNG, and WebP images are allowed"));
+        assertThat(pd).isNotNull();
+        assertThat(pd.getStatus()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE.value());
+        assertThat(pd.getDetail()).isEqualTo("Only JPEG, PNG, and WebP images are allowed");
     }
 }

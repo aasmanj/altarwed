@@ -21,6 +21,7 @@ import com.altarwed.domain.exception.FileTooLargeException;
 import com.altarwed.domain.exception.GuestUnsubscribedException;
 import com.altarwed.domain.exception.SlugAlreadyTakenException;
 import com.altarwed.domain.exception.StorageNotConfiguredException;
+import com.altarwed.domain.exception.UnsupportedImageTypeException;
 import com.altarwed.domain.exception.WeddingWebsiteAlreadyExistsException;
 import com.altarwed.domain.exception.VendorNotFoundException;
 import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
@@ -366,6 +367,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(FileTooLargeException.class)
     public ProblemDetail handleFileTooLarge(FileTooLargeException ex) {
         return payloadTooLarge(ex.getMessage());
+    }
+
+    // 415: the upload's image type (declared Content-Type or magic-byte sniff) is not on the
+    // allowlist. Distinct from the generic 400 so the frontend can surface a "this file type is
+    // not supported" message the couple can act on, and so it never collides with the 413
+    // too-large branch. The service already WARN-logs a sniff mismatch; no PII in the detail.
+    @ExceptionHandler(UnsupportedImageTypeException.class)
+    public ProblemDetail handleUnsupportedImageType(UnsupportedImageTypeException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+        pd.setType(URI.create("https://altarwed.com/problems/unsupported-media-type"));
+        pd.setTitle("Unsupported Media Type");
+        pd.setDetail(ex.getMessage());
+        return pd;
     }
 
     // Thrown while serializing the response body. Two very different causes hide here:

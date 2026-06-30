@@ -1,6 +1,7 @@
 package com.altarwed.application.service;
 
 import com.altarwed.domain.exception.FileTooLargeException;
+import com.altarwed.domain.exception.UnsupportedImageTypeException;
 import com.altarwed.domain.port.BlobStoragePort;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -66,7 +67,7 @@ class MediaUploadServiceTest {
         MultipartFile file = new MockMultipartFile("file", "evil.png", "image/png", html);
 
         assertThatThrownBy(() -> service.uploadWeddingPartyPhoto(id, file))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(UnsupportedImageTypeException.class)
                 .hasMessageContaining("JPEG, PNG, and WebP");
 
         verifyNoUpload();
@@ -80,7 +81,7 @@ class MediaUploadServiceTest {
         MultipartFile file = new MockMultipartFile("file", "doc.png", "image/png", pdf);
 
         assertThatThrownBy(() -> service.uploadWeddingPhoto(id, file))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(UnsupportedImageTypeException.class);
 
         verifyNoUpload();
     }
@@ -150,7 +151,7 @@ class MediaUploadServiceTest {
         MultipartFile file = new MockMultipartFile("file", "anim.gif", "image/gif", gif);
 
         assertThatThrownBy(() -> service.uploadWeddingPhoto(id, file))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(UnsupportedImageTypeException.class);
 
         verifyNoUpload();
     }

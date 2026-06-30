@@ -1,6 +1,7 @@
 package com.altarwed.application.service;
 
 import com.altarwed.domain.exception.FileTooLargeException;
+import com.altarwed.domain.exception.UnsupportedImageTypeException;
 import com.altarwed.domain.port.BlobStoragePort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -134,7 +135,7 @@ public class MediaUploadService {
     private String validate(MultipartFile file) throws IOException {
         if (file.isEmpty()) throw new IllegalArgumentException("File is empty");
         if (!ALLOWED_TYPES.contains(file.getContentType()))
-            throw new IllegalArgumentException("Only JPEG, PNG, and WebP images are allowed");
+            throw new UnsupportedImageTypeException("Only JPEG, PNG, and WebP images are allowed");
         if (file.getSize() > MAX_BYTES)
             throw new FileTooLargeException("File must be under 20 MB");
         // Defense in depth: the Content-Type checked above is attacker-controlled, so confirm the
@@ -145,7 +146,7 @@ public class MediaUploadService {
         if (sniffedType == null || !ALLOWED_TYPES.contains(sniffedType)) {
             log.warn("upload rejected, bytes do not match an allowed image signature, declaredContentType={}",
                     file.getContentType());
-            throw new IllegalArgumentException("Only JPEG, PNG, and WebP images are allowed");
+            throw new UnsupportedImageTypeException("Only JPEG, PNG, and WebP images are allowed");
         }
         return sniffedType;
     }
