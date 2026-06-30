@@ -115,36 +115,6 @@ class VendorServiceTest {
         assertThat(paused.isVerified()).isTrue();
     }
 
-    @Test
-    void search_blankFilter_capsResultsAtMaxSearchResults() {
-        // A blank-filter directory request falls back to findAllActive(). If the table
-        // has more rows than the cap, the public response must still be capped.
-        when(vendorRepository.findAllActive()).thenReturn(activeVendors(VendorRepository.MAX_SEARCH_RESULTS + 50));
-
-        List<Vendor> results = vendorService.search(null, null);
-
-        assertThat(results).hasSize(VendorRepository.MAX_SEARCH_RESULTS);
-    }
-
-    @Test
-    void search_filteredByCategory_capsResultsAtMaxSearchResults() {
-        when(vendorRepository.findByCategory(VendorCategory.PHOTOGRAPHER))
-                .thenReturn(activeVendors(VendorRepository.MAX_SEARCH_RESULTS + 10));
-
-        List<Vendor> results = vendorService.search(null, VendorCategory.PHOTOGRAPHER);
-
-        assertThat(results).hasSize(VendorRepository.MAX_SEARCH_RESULTS);
-    }
-
-    @Test
-    void search_belowCap_returnsEverything() {
-        when(vendorRepository.findAllActive()).thenReturn(activeVendors(7));
-
-        List<Vendor> results = vendorService.search(null, null);
-
-        assertThat(results).hasSize(7);
-    }
-
     // -------------------------------------------------------------------------
     // getVendors: server-side pagination, price-tier forwarding, and sort (issue #108)
     // -------------------------------------------------------------------------

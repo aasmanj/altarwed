@@ -3,6 +3,8 @@ import Link from 'next/link'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Find Christian Wedding Vendors | AltarWed',
   description: 'Browse faith-aligned photographers, florists, venues, officiants, and more for your Christian wedding.',

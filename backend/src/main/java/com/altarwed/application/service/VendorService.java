@@ -231,24 +231,6 @@ public class VendorService {
         return (s == null || s.isBlank()) ? null : s;
     }
 
-    @Transactional(readOnly = true)
-    public List<Vendor> search(String city, VendorCategory category) {
-        List<Vendor> results;
-        if (city != null && category != null) {
-            results = vendorRepository.findByCityAndCategory(city, category);
-        } else if (city != null) {
-            results = vendorRepository.findByCity(city);
-        } else if (category != null) {
-            results = vendorRepository.findByCategory(category);
-        } else {
-            // Blank filter: the directory page would otherwise fetch every active vendor.
-            results = vendorRepository.findAllActive();
-        }
-        // The repository already caps each query at the database; the limit here is a
-        // defensive second layer so the public response is never larger than the cap.
-        return results.stream().limit(VendorRepository.MAX_SEARCH_RESULTS).toList();
-    }
-
     // Hard upper bound on a single page so an unauthenticated caller can never request an
     // arbitrarily large slice; the candidate set is itself capped at MAX_SEARCH_RESULTS.
     public static final int MAX_PAGE_SIZE = 50;
