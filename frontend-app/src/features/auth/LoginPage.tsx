@@ -1,19 +1,16 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 
 export default function LoginPage() {
   const { login, user } = useAuth()
-  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Already logged in, redirect to appropriate dashboard
   if (user) {
-    navigate(user.role === 'VENDOR' ? '/vendor' : '/dashboard', { replace: true })
-    return null
+    return <Navigate to={user.role === 'VENDOR' ? '/vendor' : '/dashboard'} replace />
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

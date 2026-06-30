@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import confetti from 'canvas-confetti'
 import { useAuth } from '@/core/auth/AuthContext'
@@ -35,10 +35,18 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  if (user) {
-    navigate('/dashboard', { replace: true })
-    return null
-  }
+  // Redirect an already-authenticated visitor to their dashboard from an effect,
+  // not during render. Calling navigate() while rendering mutates Router state as
+  // a render side effect, which React warns about and can trigger a render loop.
+  // Returning null below stays a pure render, so we still avoid flashing the
+  // signup form at someone who is already logged in.
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, navigate])
+
+  if (user) return null
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(prev => ({ ...prev, [field]: e.target.value }))
