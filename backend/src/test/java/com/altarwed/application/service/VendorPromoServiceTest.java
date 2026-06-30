@@ -33,7 +33,7 @@ class VendorPromoServiceTest {
     private final UUID vendorId = UUID.randomUUID();
 
     private VendorPromoService service(String configuredCode) {
-        return new VendorPromoService(subscriptionRepository, promoCodeRepository, vendorService, configuredCode);
+        return new VendorPromoService(subscriptionRepository, promoCodeRepository, vendorService, configuredCode, 12);
     }
 
     private VendorPromoCode dbCode(Integer maxRedemptions, OffsetDateTime expiresAt, Integer redeemedCount) {
