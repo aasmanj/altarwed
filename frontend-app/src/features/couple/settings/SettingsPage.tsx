@@ -10,6 +10,31 @@ export default function SettingsPage() {
   const confirm = useConfirm()
   const navigate = useNavigate()
   const [deleting, setDeleting] = useState(false)
+  const [sendingReset, setSendingReset] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
+
+  // Password changes reuse the existing forgot-password flow: we email the
+  // signed-in couple a one-time reset link instead of accepting a new password
+  // directly here. That keeps a single, already-hardened code path (rate limited,
+  // token hashed server-side) and needs no new backend endpoint.
+  async function handleSendPasswordReset() {
+    if (!user) return
+    setSendingReset(true)
+    try {
+      await apiClient.post('/api/v1/auth/forgot-password', { email: user.email })
+      setResetSent(true)
+      toast.success('A password reset link has been sent to your email.')
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status
+      if (status === 429) {
+        toast.error('Too many attempts. Please wait a minute and try again.')
+      } else {
+        toast.error('Something went wrong. Please try again or email hello@altarwed.com.')
+      }
+    } finally {
+      setSendingReset(false)
+    }
+  }
 
   async function handleDeleteAccount() {
     const confirmed = await confirm({
@@ -65,6 +90,32 @@ export default function SettingsPage() {
               <p><span className="font-medium text-brown">Bride:</span> {user.partnerTwoName}</p>
             )}
           </div>
+        </section>
+
+        {/* Password */}
+        <section className="bg-white rounded-2xl border border-gold-light p-6 space-y-4">
+          <h2 className="font-serif text-lg font-semibold text-brown">Password</h2>
+          <p className="text-sm text-brown-light">
+            We will email a secure reset link to{' '}
+            <span className="font-medium text-brown">{user?.email}</span> so you can set a new
+            password. The link expires after a short while.
+          </p>
+          {resetSent && (
+            <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+              A password reset link has been sent to your email. Open it to choose a new password.
+            </div>
+          )}
+          <button
+            onClick={handleSendPasswordReset}
+            disabled={sendingReset}
+            className="px-4 py-2 rounded-lg bg-gold text-white text-sm font-medium hover:bg-gold-dark disabled:opacity-50 disabled:cursor-not-allowed transition"
+          >
+            {sendingReset
+              ? 'Sending...'
+              : resetSent
+                ? 'Resend reset email'
+                : 'Send password reset email'}
+          </button>
         </section>
 
         {/* Danger zone */}

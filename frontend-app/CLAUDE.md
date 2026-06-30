@@ -35,7 +35,8 @@ Authenticated SPA for couples and vendors. SEO does not matter here — everythi
 - Scripture browser (modal; selected verse locked from manual edit)
 - Hotel blocks: multiple hotel entries
 - Google Sheets guest sync: connect sheet, 15-min auto-poll
-- Account settings: profile, password change, delete account
+- Account settings: read-only account info, password reset via emailed link (reuses the
+  forgot-password flow), delete account. Names/email are not editable in-app yet.
 
 ### Vendor dashboard
 - Listing management: bio, description, phone, website URL, price tier, denomination tags
