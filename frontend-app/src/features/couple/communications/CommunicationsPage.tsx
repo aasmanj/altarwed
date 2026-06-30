@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useCallback, useRef, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Mail, Send, AlertCircle, Loader2, RefreshCw } from 'lucide-react'
+import { QRCodeCanvas } from 'qrcode.react'
 import { useAuth } from '@/core/auth/AuthContext'
 import { useConfirm } from '@/components/ConfirmDialog'
 import PageHeader from '@/components/PageHeader'
@@ -290,7 +291,13 @@ export default function CommunicationsPage() {
                 </button>
               ))}
             </div>
-            <PostcardPreview templateKey={templateKey} user={user!} heroPhotoUrl={website?.heroPhotoUrl ?? null} websiteLoading={websiteLoading} />
+            <PostcardPreview
+              templateKey={templateKey}
+              user={user!}
+              heroPhotoUrl={website?.heroPhotoUrl ?? null}
+              websiteLoading={websiteLoading}
+              weddingUrl={website ? `https://www.altarwed.com/wedding/${website.slug}` : null}
+            />
           </div>
 
           {/* 3. Guest list */}
@@ -602,12 +609,17 @@ function PostcardPreview({
   user,
   heroPhotoUrl,
   websiteLoading,
+  weddingUrl,
 }: {
   templateKey: TemplateKey
   user: { partnerOneName: string | null; partnerTwoName: string | null; weddingDate: string | null }
   heroPhotoUrl: string | null
   websiteLoading: boolean
+  weddingUrl: string | null
 }) {
+  const [enlarged, setEnlarged] = useState(false)
+  const modalRef = useRef<HTMLDivElement>(null)
+
   const isPhoto = templateKey.endsWith('_PHOTO')
   const isSaveTheDate = templateKey.startsWith('SAVE_THE_DATE')
   const headline = isSaveTheDate ? 'Save the Date' : "You're Invited"
@@ -616,137 +628,190 @@ function PostcardPreview({
     ? new Date(user.weddingDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : null
   const hasPhoto = isPhoto && !!heroPhotoUrl
+  const qrUrl = weddingUrl ?? 'https://altarwed.com'
 
-  const cardBase = {
-    width: '100%',
-    aspectRatio: '11 / 6' as const,
-    position: 'relative' as const,
-    borderRadius: '6px',
-    overflow: 'hidden' as const,
-    border: '1px solid #e5e0d8',
-    boxSizing: 'border-box' as const,
+  const close = useCallback(() => setEnlarged(false), [])
+
+  useEffect(() => {
+    if (!enlarged) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
+    document.addEventListener('keydown', onKey)
+    modalRef.current?.focus()
+    return () => document.removeEventListener('keydown', onKey)
+  }, [enlarged, close])
+
+  function FrontCard({ large }: { large: boolean }) {
+    const fs = large
+      ? { label: '14px', names: names.length > 24 ? '22px' : '28px', date: '18px' }
+      : { label: '9px',  names: names.length > 24 ? '13px' : '16px', date: '11px' }
+    const pad = large ? '28px' : '16px'
+    return (
+      <div
+        style={{
+          width: '100%', aspectRatio: '11 / 6', position: 'relative', borderRadius: '6px',
+          overflow: 'hidden', border: '1px solid #e5e0d8', boxSizing: 'border-box',
+          background: isPhoto ? 'linear-gradient(135deg, #4a3f35, #2a2018)' : 'linear-gradient(135deg, #fdfaf6, #f5e9d4)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          padding: pad, textAlign: 'center', fontFamily: 'Georgia, serif',
+          color: isPhoto ? '#fff' : '#3b2f2f',
+        }}
+      >
+        {isPhoto && (
+          <>
+            {hasPhoto ? (
+              <img src={heroPhotoUrl!} alt="" aria-hidden="true"
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <span style={{ position: 'absolute', fontSize: large ? '16px' : '11px', color: 'rgba(255,255,255,0.35)', fontFamily: 'system-ui', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', whiteSpace: 'nowrap' }}>
+                Your couple photo
+              </span>
+            )}
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.55))' }} />
+          </>
+        )}
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ fontSize: fs.label, letterSpacing: '0.35em', textTransform: 'uppercase', color: isPhoto ? '#f5e9d4' : '#a08060', marginBottom: large ? '10px' : '6px' }}>
+            {headline}
+          </div>
+          <div style={{ fontSize: fs.names, fontWeight: 'bold', lineHeight: 1.25 }}>{names}</div>
+          {dateLabel && <div style={{ fontSize: fs.date, marginTop: large ? '12px' : '8px', opacity: 0.85 }}>{dateLabel}</div>}
+        </div>
+      </div>
+    )
   }
 
-  return (
-    <div className="mt-4">
-      <div className="grid grid-cols-2 gap-3">
-        {/* Front */}
-        <div>
-          <p className="text-xs text-stone-400 mb-2 uppercase tracking-wide font-medium">Front</p>
-          <div
-            aria-label={`${templateKey} postcard front preview`}
-            style={{
-              ...cardBase,
-              background: isPhoto ? 'linear-gradient(135deg, #4a3f35, #2a2018)' : 'linear-gradient(135deg, #fdfaf6, #f5e9d4)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '16px',
-              textAlign: 'center',
-              fontFamily: 'Georgia, serif',
-              color: isPhoto ? '#fff' : '#3b2f2f',
-            }}
-          >
-            {isPhoto && (
-              <>
-                {hasPhoto ? (
-                  <img
-                    src={heroPhotoUrl!}
-                    alt=""
-                    aria-hidden="true"
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                ) : (
-                  <span style={{ position: 'absolute', fontSize: '11px', color: 'rgba(255,255,255,0.35)', fontFamily: 'system-ui', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', whiteSpace: 'nowrap' }}>
-                    Your couple photo
-                  </span>
-                )}
-                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.55))' }} />
-              </>
-            )}
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              <div style={{ fontSize: '9px', letterSpacing: '0.35em', textTransform: 'uppercase', color: isPhoto ? '#f5e9d4' : '#a08060', marginBottom: '6px' }}>
-                {headline}
+  function BackCard({ large }: { large: boolean }) {
+    const fs = large
+      ? { label: '10px', names: names.length > 24 ? '15px' : '18px', date: '11px', body: '9px', bodySmall: '8px', meta: '7px', qrLabel: '7px' }
+      : { label: '6px',  names: names.length > 24 ? '9px' : '11px',  date: '7px',  body: '5.5px', bodySmall: '5px', meta: '4.5px', qrLabel: '4.5px' }
+    const qrSize = large ? 72 : 32
+    const pad = large ? '18px 18px 18px 20px' : '10px 10px 10px 12px'
+    const stampW = large ? 30 : 18
+    const stampH = large ? 36 : 22
+    return (
+      <div style={{
+        width: '100%', aspectRatio: '11 / 6', position: 'relative', borderRadius: '6px',
+        overflow: 'hidden', border: '1px solid #e5e0d8', boxSizing: 'border-box',
+        background: '#fdfaf6', display: 'flex', fontFamily: 'Georgia, serif', color: '#3b2f2f',
+      }}>
+        {/* Message area */}
+        <div style={{ flex: '0 0 54%', padding: pad, borderRight: '1px solid #e5e0d8', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: large ? '5px' : '3px' }}>
+          <div style={{ fontSize: fs.label, letterSpacing: '0.3em', textTransform: 'uppercase', color: '#a08060' }}>{headline}</div>
+          <div style={{ fontSize: fs.names, fontWeight: 'bold', lineHeight: 1.2 }}>{names}</div>
+          {dateLabel && <div style={{ fontSize: fs.date, color: '#8a6a4a', marginTop: '1px' }}>{dateLabel}</div>}
+          {isSaveTheDate ? (
+            <>
+              <div style={{ fontSize: fs.body, color: '#8a6a4a', marginTop: large ? '8px' : '5px' }}>Formal invitation to follow</div>
+              <div style={{ fontSize: fs.bodySmall, fontStyle: 'italic', color: '#a08060', marginTop: large ? '6px' : '4px', lineHeight: 1.35 }}>
+                "And over all these virtues put on love, which binds them all together in perfect unity." Col 3:14
               </div>
-              <div style={{ fontSize: names.length > 24 ? '13px' : '16px', fontWeight: 'bold', lineHeight: 1.25 }}>
-                {names}
-              </div>
-              {dateLabel && (
-                <div style={{ fontSize: '11px', marginTop: '8px', opacity: 0.85 }}>{dateLabel}</div>
-              )}
-            </div>
-          </div>
-          {isPhoto && !websiteLoading && !heroPhotoUrl && (
-            <p className="text-xs text-stone-400 mt-1.5">
-              Upload a couple photo on your wedding website to see it here.
-            </p>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: fs.body, color: '#8a6a4a', marginTop: large ? '8px' : '5px' }}>Please join us as we celebrate our marriage ceremony</div>
+              <div style={{ fontSize: fs.body, fontStyle: 'italic', color: '#a08060', marginTop: large ? '5px' : '3px' }}>Venue · City, State</div>
+              <div style={{ fontSize: fs.bodySmall, color: '#a08060', marginTop: '2px' }}>Kindly RSVP</div>
+            </>
           )}
+          {/* QR code */}
+          <div style={{ marginTop: large ? '10px' : '5px' }}>
+            <QRCodeCanvas value={qrUrl} size={qrSize} fgColor="#3b2f2f" bgColor="#fdfaf6" level="M" />
+            <div style={{ fontSize: fs.qrLabel, color: '#a08060', marginTop: large ? '4px' : '2px' }}>Scan to visit our site</div>
+          </div>
+          <div style={{ fontSize: fs.meta, color: '#c0b0a0', marginTop: 'auto', paddingTop: large ? '8px' : '5px' }}>altarwed.com</div>
         </div>
 
-        {/* Back */}
-        <div>
-          <p className="text-xs text-stone-400 mb-2 uppercase tracking-wide font-medium">Back</p>
-          <div
-            aria-label={`${templateKey} postcard back preview`}
-            style={{ ...cardBase, background: '#fdfaf6', display: 'flex', fontFamily: 'Georgia, serif', color: '#3b2f2f' }}
-          >
-            {/* Message area */}
-            <div style={{ flex: '0 0 54%', padding: '10px 10px 10px 12px', borderRight: '1px solid #e5e0d8', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '3px' }}>
-              <div style={{ fontSize: '6px', letterSpacing: '0.3em', textTransform: 'uppercase', color: '#a08060' }}>
-                {headline}
-              </div>
-              <div style={{ fontSize: names.length > 24 ? '9px' : '11px', fontWeight: 'bold', lineHeight: 1.2 }}>
-                {names}
-              </div>
-              {dateLabel && (
-                <div style={{ fontSize: '7px', color: '#8a6a4a', marginTop: '1px' }}>{dateLabel}</div>
-              )}
-              {isSaveTheDate ? (
-                <>
-                  <div style={{ fontSize: '5.5px', color: '#8a6a4a', marginTop: '5px' }}>Formal invitation to follow</div>
-                  <div style={{ fontSize: '5px', fontStyle: 'italic', color: '#a08060', marginTop: '4px', lineHeight: 1.35 }}>
-                    "And over all these virtues put on love, which binds them all together in perfect unity." Col 3:14
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div style={{ fontSize: '5.5px', color: '#8a6a4a', marginTop: '5px' }}>Please join us as we celebrate</div>
-                  <div style={{ fontSize: '5.5px', color: '#8a6a4a' }}>our marriage ceremony</div>
-                  <div style={{ fontSize: '5.5px', fontStyle: 'italic', color: '#a08060', marginTop: '4px' }}>
-                    Venue · City, State
-                  </div>
-                  <div style={{ fontSize: '5px', color: '#a08060', marginTop: '2px' }}>Kindly RSVP</div>
-                </>
-              )}
-              <div style={{ fontSize: '4.5px', color: '#c0b0a0', marginTop: 'auto', paddingTop: '6px' }}>altarwed.com</div>
+        {/* Mailing area */}
+        <div style={{ flex: 1, padding: large ? '12px' : '8px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: large ? '8px' : '4px' }}>
+            <div style={{ fontSize: fs.meta, color: '#a08060', lineHeight: 1.6, fontFamily: 'system-ui' }}>
+              <div>{names.split(' & ')[0] || 'Your Name'}</div>
+              <div>Your Address</div>
+              <div>City, ST 00000</div>
             </div>
-
-            {/* Mailing area */}
-            <div style={{ flex: 1, padding: '8px', display: 'flex', flexDirection: 'column' }}>
-              {/* Return address + stamp row */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                <div style={{ fontSize: '4.5px', color: '#a08060', lineHeight: 1.6, fontFamily: 'system-ui' }}>
-                  <div>{names.split(' & ')[0] || 'Your Name'}</div>
-                  <div>Your Address</div>
-                  <div>City, ST 00000</div>
-                </div>
-                <div style={{ width: '18px', height: '22px', border: '1px solid #d0c8b8', borderRadius: '1px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontSize: '3px', color: '#d0c8b8', fontFamily: 'system-ui', textAlign: 'center' }}>STAMP</span>
-                </div>
-              </div>
-
-              {/* Recipient address lines */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '7px', paddingTop: '2px' }}>
-                {[0, 1, 2].map(i => (
-                  <div key={i} style={{ borderBottom: '0.5px solid #d0c8b8' }} />
-                ))}
-              </div>
+            <div style={{ width: `${stampW}px`, height: `${stampH}px`, border: '1px solid #d0c8b8', borderRadius: '1px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: large ? '5px' : '3px', color: '#d0c8b8', fontFamily: 'system-ui', textAlign: 'center' }}>STAMP</span>
             </div>
+          </div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: large ? '12px' : '7px', paddingTop: '2px' }}>
+            {[0, 1, 2].map(i => <div key={i} style={{ borderBottom: '0.5px solid #d0c8b8' }} />)}
           </div>
         </div>
       </div>
-    </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="mt-4">
+        <p className="text-xs text-stone-400 mb-2 uppercase tracking-wide font-medium">
+          Preview <span className="normal-case font-normal">(click to enlarge)</span>
+        </p>
+        <button
+          className="w-full text-left cursor-zoom-in"
+          onClick={() => setEnlarged(true)}
+          aria-label="Enlarge postcard preview"
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-stone-400 mb-1.5 font-medium">Front</p>
+              <FrontCard large={false} />
+            </div>
+            <div>
+              <p className="text-xs text-stone-400 mb-1.5 font-medium">Back</p>
+              <BackCard large={false} />
+            </div>
+          </div>
+        </button>
+        {isPhoto && !websiteLoading && !heroPhotoUrl && (
+          <p className="text-xs text-stone-400 mt-1.5">
+            Upload a couple photo on your wedding website to see it here.
+          </p>
+        )}
+      </div>
+
+      {enlarged && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Postcard preview enlarged"
+          ref={modalRef}
+          tabIndex={-1}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8"
+        >
+          {/* Backdrop */}
+          <button
+            type="button"
+            aria-label="Close preview"
+            onClick={close}
+            className="absolute inset-0 bg-black/70 w-full border-0 cursor-default"
+          />
+          {/* Content */}
+          <div className="relative z-10 w-full" style={{ maxWidth: 'min(90vw, 880px)' }}>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold text-white">Postcard preview</p>
+              <button
+                onClick={close}
+                className="text-white/70 hover:text-white text-sm underline"
+                aria-label="Close preview"
+              >
+                Close
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-white/60 mb-1.5 uppercase tracking-wide font-medium">Front</p>
+                <FrontCard large={true} />
+              </div>
+              <div>
+                <p className="text-xs text-white/60 mb-1.5 uppercase tracking-wide font-medium">Back</p>
+                <BackCard large={true} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
