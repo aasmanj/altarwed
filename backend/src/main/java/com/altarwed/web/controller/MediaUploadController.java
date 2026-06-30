@@ -98,8 +98,14 @@ public class MediaUploadController {
             @AuthenticationPrincipal String email
     ) throws IOException {
         accessGuard.assertOwnsWebsite(websiteId, email);
+        // Capture the prior blob URL before the upload so we can delete it once the new URL is saved
+        // (issue #101: replacing a hero photo otherwise leaks the old blob in storage forever).
+        String oldUrl = mediaUploadService.currentHeroPhotoUrl(websiteId);
         String url = mediaUploadService.uploadHeroPhoto(websiteId, file);
         weddingWebsiteService.updateHeroPhoto(websiteId, url);
+        // Delete the replaced blob only after the new URL is durably persisted. If the persist threw,
+        // this line never runs and the old blob is kept; deleteBlobBestEffort itself never throws.
+        mediaUploadService.deleteBlobBestEffort(oldUrl, "hero for websiteId=" + websiteId);
         return ResponseEntity.ok(Map.of("photoUrl", url));
     }
 
@@ -110,8 +116,11 @@ public class MediaUploadController {
             @AuthenticationPrincipal String email
     ) throws IOException {
         accessGuard.assertOwnsWebsite(websiteId, email);
+        // Capture the prior venue blob before replacing it, then clean it up post-persist (issue #101).
+        String oldUrl = mediaUploadService.currentVenuePhotoUrl(websiteId);
         String url = mediaUploadService.uploadVenuePhoto(websiteId, file);
         weddingWebsiteService.updateVenuePhoto(websiteId, url);
+        mediaUploadService.deleteBlobBestEffort(oldUrl, "venue for websiteId=" + websiteId);
         return ResponseEntity.ok(Map.of("photoUrl", url));
     }
 
@@ -122,8 +131,11 @@ public class MediaUploadController {
             @AuthenticationPrincipal String email
     ) throws IOException {
         accessGuard.assertOwnsWebsite(websiteId, email);
+        // Capture the prior save-the-date blob before replacing it, then clean it up post-persist (issue #101).
+        String oldUrl = mediaUploadService.currentStdImageUrl(websiteId);
         String url = mediaUploadService.uploadStdImage(websiteId, file);
         weddingWebsiteService.updateStdImage(websiteId, url);
+        mediaUploadService.deleteBlobBestEffort(oldUrl, "std for websiteId=" + websiteId);
         return ResponseEntity.ok(Map.of("imageUrl", url));
     }
 
