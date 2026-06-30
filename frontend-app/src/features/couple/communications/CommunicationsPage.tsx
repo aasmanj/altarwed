@@ -617,73 +617,135 @@ function PostcardPreview({
     : null
   const hasPhoto = isPhoto && !!heroPhotoUrl
 
+  const cardBase = {
+    width: '100%',
+    aspectRatio: '11 / 6' as const,
+    position: 'relative' as const,
+    borderRadius: '6px',
+    overflow: 'hidden' as const,
+    border: '1px solid #e5e0d8',
+    boxSizing: 'border-box' as const,
+  }
+
   return (
     <div className="mt-4">
-      <p className="text-xs text-stone-400 mb-2 uppercase tracking-wide font-medium">Front preview</p>
-      <div
-        aria-label={`${templateKey} postcard front preview`}
-        style={{
-          width: '100%',
-          maxWidth: '440px',
-          aspectRatio: '11 / 6',
-          position: 'relative',
-          borderRadius: '6px',
-          overflow: 'hidden',
-          background: isPhoto
-            ? 'linear-gradient(135deg, #4a3f35, #2a2018)'
-            : 'linear-gradient(135deg, #fdfaf6, #f5e9d4)',
-          border: '1px solid #e5e0d8',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '16px',
-          textAlign: 'center',
-          fontFamily: 'Georgia, serif',
-          color: isPhoto ? '#fff' : '#3b2f2f',
-          boxSizing: 'border-box',
-        }}
-      >
-        {isPhoto && (
-          <>
-            {hasPhoto ? (
-              <img
-                src={heroPhotoUrl!}
-                alt=""
-                aria-hidden="true"
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            ) : (
-              <span style={{ position: 'absolute', fontSize: '11px', color: 'rgba(255,255,255,0.35)', fontFamily: 'system-ui', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', whiteSpace: 'nowrap' }}>
-                Your couple photo
-              </span>
+      <div className="grid grid-cols-2 gap-3">
+        {/* Front */}
+        <div>
+          <p className="text-xs text-stone-400 mb-2 uppercase tracking-wide font-medium">Front</p>
+          <div
+            aria-label={`${templateKey} postcard front preview`}
+            style={{
+              ...cardBase,
+              background: isPhoto ? 'linear-gradient(135deg, #4a3f35, #2a2018)' : 'linear-gradient(135deg, #fdfaf6, #f5e9d4)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px',
+              textAlign: 'center',
+              fontFamily: 'Georgia, serif',
+              color: isPhoto ? '#fff' : '#3b2f2f',
+            }}
+          >
+            {isPhoto && (
+              <>
+                {hasPhoto ? (
+                  <img
+                    src={heroPhotoUrl!}
+                    alt=""
+                    aria-hidden="true"
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <span style={{ position: 'absolute', fontSize: '11px', color: 'rgba(255,255,255,0.35)', fontFamily: 'system-ui', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', whiteSpace: 'nowrap' }}>
+                    Your couple photo
+                  </span>
+                )}
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.55))' }} />
+              </>
             )}
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.55))' }} />
-          </>
-        )}
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{
-            fontSize: '9px',
-            letterSpacing: '0.35em',
-            textTransform: 'uppercase',
-            color: isPhoto ? '#f5e9d4' : '#a08060',
-            marginBottom: '6px',
-          }}>
-            {headline}
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ fontSize: '9px', letterSpacing: '0.35em', textTransform: 'uppercase', color: isPhoto ? '#f5e9d4' : '#a08060', marginBottom: '6px' }}>
+                {headline}
+              </div>
+              <div style={{ fontSize: names.length > 24 ? '13px' : '16px', fontWeight: 'bold', lineHeight: 1.25 }}>
+                {names}
+              </div>
+              {dateLabel && (
+                <div style={{ fontSize: '11px', marginTop: '8px', opacity: 0.85 }}>{dateLabel}</div>
+              )}
+            </div>
           </div>
-          <div style={{ fontSize: names.length > 24 ? '13px' : '16px', fontWeight: 'bold', lineHeight: 1.25 }}>
-            {names}
-          </div>
-          {dateLabel && (
-            <div style={{ fontSize: '11px', marginTop: '8px', opacity: 0.85 }}>{dateLabel}</div>
+          {isPhoto && !websiteLoading && !heroPhotoUrl && (
+            <p className="text-xs text-stone-400 mt-1.5">
+              Upload a couple photo on your wedding website to see it here.
+            </p>
           )}
         </div>
+
+        {/* Back */}
+        <div>
+          <p className="text-xs text-stone-400 mb-2 uppercase tracking-wide font-medium">Back</p>
+          <div
+            aria-label={`${templateKey} postcard back preview`}
+            style={{ ...cardBase, background: '#fdfaf6', display: 'flex', fontFamily: 'Georgia, serif', color: '#3b2f2f' }}
+          >
+            {/* Message area */}
+            <div style={{ flex: '0 0 54%', padding: '10px 10px 10px 12px', borderRight: '1px solid #e5e0d8', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '3px' }}>
+              <div style={{ fontSize: '6px', letterSpacing: '0.3em', textTransform: 'uppercase', color: '#a08060' }}>
+                {headline}
+              </div>
+              <div style={{ fontSize: names.length > 24 ? '9px' : '11px', fontWeight: 'bold', lineHeight: 1.2 }}>
+                {names}
+              </div>
+              {dateLabel && (
+                <div style={{ fontSize: '7px', color: '#8a6a4a', marginTop: '1px' }}>{dateLabel}</div>
+              )}
+              {isSaveTheDate ? (
+                <>
+                  <div style={{ fontSize: '5.5px', color: '#8a6a4a', marginTop: '5px' }}>Formal invitation to follow</div>
+                  <div style={{ fontSize: '5px', fontStyle: 'italic', color: '#a08060', marginTop: '4px', lineHeight: 1.35 }}>
+                    "And over all these virtues put on love, which binds them all together in perfect unity." Col 3:14
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: '5.5px', color: '#8a6a4a', marginTop: '5px' }}>Please join us as we celebrate</div>
+                  <div style={{ fontSize: '5.5px', color: '#8a6a4a' }}>our marriage ceremony</div>
+                  <div style={{ fontSize: '5.5px', fontStyle: 'italic', color: '#a08060', marginTop: '4px' }}>
+                    Venue · City, State
+                  </div>
+                  <div style={{ fontSize: '5px', color: '#a08060', marginTop: '2px' }}>Kindly RSVP</div>
+                </>
+              )}
+              <div style={{ fontSize: '4.5px', color: '#c0b0a0', marginTop: 'auto', paddingTop: '6px' }}>altarwed.com</div>
+            </div>
+
+            {/* Mailing area */}
+            <div style={{ flex: 1, padding: '8px', display: 'flex', flexDirection: 'column' }}>
+              {/* Return address + stamp row */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                <div style={{ fontSize: '4.5px', color: '#a08060', lineHeight: 1.6, fontFamily: 'system-ui' }}>
+                  <div>{names.split(' & ')[0] || 'Your Name'}</div>
+                  <div>Your Address</div>
+                  <div>City, ST 00000</div>
+                </div>
+                <div style={{ width: '18px', height: '22px', border: '1px solid #d0c8b8', borderRadius: '1px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: '3px', color: '#d0c8b8', fontFamily: 'system-ui', textAlign: 'center' }}>STAMP</span>
+                </div>
+              </div>
+
+              {/* Recipient address lines */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '7px', paddingTop: '2px' }}>
+                {[0, 1, 2].map(i => (
+                  <div key={i} style={{ borderBottom: '0.5px solid #d0c8b8' }} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      {isPhoto && !websiteLoading && !heroPhotoUrl && (
-        <p className="text-xs text-stone-400 mt-1.5">
-          Upload a couple photo on your wedding website to see it here.
-        </p>
-      )}
     </div>
   )
 }
