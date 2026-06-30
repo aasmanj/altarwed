@@ -1,6 +1,7 @@
 package com.altarwed.application.service;
 
 import com.altarwed.application.dto.CeremonySectionRequest;
+import com.altarwed.domain.exception.CeremonySectionNotFoundException;
 import com.altarwed.domain.model.CeremonySection;
 import com.altarwed.domain.port.CeremonySectionRepository;
 import org.springframework.stereotype.Service;
@@ -41,7 +42,7 @@ public class CeremonySectionService {
     public CeremonySection update(UUID coupleId, UUID id, CeremonySectionRequest req) {
         CeremonySection existing = repository.findById(id)
                 .filter(s -> s.coupleId().equals(coupleId))
-                .orElseThrow(() -> new IllegalArgumentException("Ceremony section not found: " + id));
+                .orElseThrow(() -> new CeremonySectionNotFoundException(id.toString()));
         CeremonySection updated = new CeremonySection(
                 existing.id(), existing.coupleId(), req.title(), req.sectionType(),
                 req.content(), req.sortOrder(), existing.createdAt(), LocalDateTime.now()
@@ -53,7 +54,7 @@ public class CeremonySectionService {
     public void delete(UUID coupleId, UUID id) {
         repository.findById(id)
                 .filter(s -> s.coupleId().equals(coupleId))
-                .orElseThrow(() -> new IllegalArgumentException("Ceremony section not found: " + id));
+                .orElseThrow(() -> new CeremonySectionNotFoundException(id.toString()));
         repository.deleteById(id);
     }
 }
