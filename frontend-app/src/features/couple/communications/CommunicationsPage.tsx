@@ -13,6 +13,7 @@ import {
   type PrintOrder,
   type PrintOrderType,
 } from './usePrintOrders'
+import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 
 type TemplateKey =
   | 'SAVE_THE_DATE_CLASSIC'
@@ -45,6 +46,7 @@ export default function CommunicationsPage() {
   const { user } = useAuth()
   const confirm = useConfirm()
   const coupleId = user?.id ?? ''
+  const { data: website, isLoading: websiteLoading } = useWeddingWebsite(coupleId)
   const { data: guests = [], isLoading: guestsLoading, isError: guestsError, refetch: refetchGuests } = useGuests(coupleId)
   const { data: orders = [], isLoading: ordersLoading, isError: ordersError, refetch: refetchOrders } = usePrintOrders(coupleId)
   const createOrder = useCreatePrintOrder(coupleId)
@@ -288,7 +290,7 @@ export default function CommunicationsPage() {
                 </button>
               ))}
             </div>
-            <PostcardPreview templateKey={templateKey} user={user!} />
+            <PostcardPreview templateKey={templateKey} user={user!} heroPhotoUrl={website?.heroPhotoUrl ?? null} websiteLoading={websiteLoading} />
           </div>
 
           {/* 3. Guest list */}
@@ -598,9 +600,13 @@ function deliveryStatusStyle(status: string | null): { label: string; cls: strin
 function PostcardPreview({
   templateKey,
   user,
+  heroPhotoUrl,
+  websiteLoading,
 }: {
   templateKey: TemplateKey
   user: { partnerOneName: string | null; partnerTwoName: string | null; weddingDate: string | null }
+  heroPhotoUrl: string | null
+  websiteLoading: boolean
 }) {
   const isPhoto = templateKey.endsWith('_PHOTO')
   const isSaveTheDate = templateKey.startsWith('SAVE_THE_DATE')
@@ -609,6 +615,7 @@ function PostcardPreview({
   const dateLabel = user.weddingDate
     ? new Date(user.weddingDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : null
+  const hasPhoto = isPhoto && !!heroPhotoUrl
 
   return (
     <div className="mt-4">
@@ -639,10 +646,19 @@ function PostcardPreview({
       >
         {isPhoto && (
           <>
+            {hasPhoto ? (
+              <img
+                src={heroPhotoUrl!}
+                alt=""
+                aria-hidden="true"
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              <span style={{ position: 'absolute', fontSize: '11px', color: 'rgba(255,255,255,0.35)', fontFamily: 'system-ui', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', whiteSpace: 'nowrap' }}>
+                Your couple photo
+              </span>
+            )}
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.55))' }} />
-            <span style={{ position: 'absolute', fontSize: '11px', color: 'rgba(255,255,255,0.35)', fontFamily: 'system-ui', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', whiteSpace: 'nowrap' }}>
-              Your couple photo
-            </span>
           </>
         )}
         <div style={{ position: 'relative', zIndex: 1 }}>
@@ -663,6 +679,11 @@ function PostcardPreview({
           )}
         </div>
       </div>
+      {isPhoto && !websiteLoading && !heroPhotoUrl && (
+        <p className="text-xs text-stone-400 mt-1.5">
+          Upload a couple photo on your wedding website to see it here.
+        </p>
+      )}
     </div>
   )
 }
