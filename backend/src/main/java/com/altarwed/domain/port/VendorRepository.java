@@ -33,4 +33,6 @@ public interface VendorRepository {
     void deleteById(UUID id);
 
     void incrementViewCount(UUID id);
+
+    long countVerified();
 }

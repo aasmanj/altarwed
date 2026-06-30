@@ -17,6 +17,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   INVITATION:      'Invitations & Stationery',
   TRANSPORTATION:  'Transportation',
   COORDINATOR:     'Wedding Coordinator',
+  COUNSELING:      'Pre-Marital Counseling',
   OTHER:           'Other',
 }
 

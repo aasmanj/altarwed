@@ -555,7 +555,15 @@ public class ResendEmailAdapter implements EmailPort {
     @Override
     public void sendVendorRegistrationAlert(String businessName, String category,
                                              String city, String state, String vendorEmail,
-                                             String vendorId, String adminListingUrl) {
+                                             String vendorId, String adminListingUrl,
+                                             boolean autoVerified) {
+        String verifiedNote = autoVerified
+                ? "This vendor is a <strong>Founding Vendor</strong> and has been auto-verified. Their listing is live in the directory. If it looks like spam or a non-faith-based business, unverify it:"
+                : "This vendor is <strong>NOT yet verified</strong> and is not visible in the directory. To publish their listing:";
+        String verifiedNoteText = autoVerified
+                ? "This vendor is a Founding Vendor and has been auto-verified. Listing is live."
+                : "This vendor is NOT yet verified. To make their listing live:";
+
         String html = """
                 <div style="font-family:Georgia,serif;max-width:520px;margin:0 auto;background:#fdfaf6;padding:32px;border-radius:8px;border:1px solid #e8dcc8;">
                   <p style="text-align:center;color:#a08060;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">AltarWed Admin</p>
@@ -567,9 +575,7 @@ public class ResendEmailAdapter implements EmailPort {
                     <tr><td style="color:#6b5344;padding:5px 0;">Email</td><td style="color:#3b2f2f;">%s</td></tr>
                     <tr><td style="color:#6b5344;padding:5px 0;">Vendor ID</td><td style="color:#a08060;font-size:11px;">%s</td></tr>
                   </table>
-                  <p style="color:#6b5344;font-size:13px;margin-bottom:20px;">
-                    This vendor is <strong>auto-verified</strong> and visible in the directory. If the listing looks like spam or a non-faith-based business, you can unverify it:
-                  </p>
+                  <p style="color:#6b5344;font-size:13px;margin-bottom:20px;">%s</p>
                   <div style="text-align:center;">
                     <a href="%s"
                        style="display:inline-block;padding:10px 24px;background:#3b2f2f;color:#d4af6a;text-decoration:none;border-radius:4px;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">
@@ -581,9 +587,13 @@ public class ResendEmailAdapter implements EmailPort {
                 escapeHtml(businessName), escapeHtml(category),
                 escapeHtml(city), escapeHtml(state),
                 escapeHtml(vendorEmail), escapeHtml(vendorId),
+                verifiedNote,
                 adminListingUrl
         );
 
+        String verifyAction = autoVerified
+                ? "To unverify: PATCH " + apiBaseUrl + "/api/v1/admin/vendors/" + vendorId + "/unverify"
+                : "To verify: PATCH " + apiBaseUrl + "/api/v1/admin/vendors/" + vendorId + "/verify";
         String text = """
                 New vendor registered on AltarWed
 
@@ -593,13 +603,12 @@ public class ResendEmailAdapter implements EmailPort {
                 Email: %s
                 Vendor ID: %s
 
-                This vendor is auto-verified. To unverify:
-                PATCH %s (requires admin auth)
+                %s
+                %s (requires admin auth)
 
                 Public listing: %s
                 """.formatted(businessName, category, city, state, vendorEmail, vendorId,
-                apiBaseUrl + "/api/v1/admin/vendors/" + vendorId + "/unverify",
-                adminListingUrl);
+                verifiedNoteText, verifyAction, adminListingUrl);
 
         Map<String, Object> body = Map.of(
                 "from", "AltarWed <" + fromEmail + ">",
@@ -610,6 +619,51 @@ public class ResendEmailAdapter implements EmailPort {
         );
 
         postEmail("vendor-registration-alert", adminAlertEmail, body);
+    }
+
+    @Override
+    public void sendCoupleWebsiteCreatedAlert(String coupleEmail, String partnerOneName,
+                                               String partnerTwoName, String slug, String siteUrl) {
+        String html = """
+                <div style="font-family:Georgia,serif;max-width:520px;margin:0 auto;background:#fdfaf6;padding:32px;border-radius:8px;border:1px solid #e8dcc8;">
+                  <p style="text-align:center;color:#a08060;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">AltarWed Admin</p>
+                  <h2 style="text-align:center;color:#3b2f2f;font-size:22px;margin:0 0 24px;">New wedding website created</h2>
+                  <table style="width:100%%;border-collapse:collapse;font-size:14px;margin-bottom:24px;">
+                    <tr><td style="color:#6b5344;padding:5px 0;width:120px;">Couple</td><td style="color:#3b2f2f;font-weight:600;">%s &amp; %s</td></tr>
+                    <tr><td style="color:#6b5344;padding:5px 0;">Email</td><td style="color:#3b2f2f;">%s</td></tr>
+                    <tr><td style="color:#6b5344;padding:5px 0;">URL</td><td style="color:#3b2f2f;">%s</td></tr>
+                  </table>
+                  <div style="text-align:center;">
+                    <a href="%s"
+                       style="display:inline-block;padding:10px 24px;background:#3b2f2f;color:#d4af6a;text-decoration:none;border-radius:4px;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">
+                      View site
+                    </a>
+                  </div>
+                </div>
+                """.formatted(
+                escapeHtml(partnerOneName), escapeHtml(partnerTwoName),
+                escapeHtml(coupleEmail), escapeHtml(slug),
+                siteUrl
+        );
+
+        String text = """
+                New wedding website created on AltarWed
+
+                Couple: %s & %s
+                Email: %s
+                Slug: %s
+                Site: %s
+                """.formatted(partnerOneName, partnerTwoName, coupleEmail, slug, siteUrl);
+
+        Map<String, Object> body = Map.of(
+                "from", "AltarWed <" + fromEmail + ">",
+                "to", List.of(adminAlertEmail),
+                "subject", "New wedding site: " + partnerOneName + " & " + partnerTwoName,
+                "html", html,
+                "text", text
+        );
+
+        postEmail("couple-website-created-alert", adminAlertEmail, body);
     }
 
     // Routes guest replies to the couple's own inbox. Skipped when the couple address is

@@ -69,7 +69,7 @@ public class WeddingWebsiteService {
     }
 
     @Transactional
-    public WeddingWebsite create(UUID coupleId, CreateWeddingWebsiteRequest request) {
+    public WeddingWebsite create(UUID coupleId, String coupleEmail, CreateWeddingWebsiteRequest request) {
         if (websiteRepository.existsByCoupleId(coupleId)) {
             throw new WeddingWebsiteAlreadyExistsException(coupleId);
         }
@@ -103,6 +103,12 @@ public class WeddingWebsiteService {
         WeddingWebsite saved = websiteRepository.save(website);
         log.info("wedding website created, coupleId={}, websiteId={}, slug={}",
                  coupleId, saved.id(), saved.slug());
+
+        String siteUrl = "https://www.altarwed.com/wedding/" + saved.slug();
+        asyncEmailService.sendCoupleWebsiteCreatedAlert(
+                coupleEmail, saved.partnerOneName(), saved.partnerTwoName(), saved.slug(), siteUrl);
+        log.info("couple website created alert queued, coupleId={}", coupleId);
+
         return saved;
     }
 

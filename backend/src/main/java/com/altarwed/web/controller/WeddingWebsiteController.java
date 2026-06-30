@@ -65,7 +65,7 @@ public class WeddingWebsiteController {
     ) {
         accessGuard.assertOwns(coupleId, email);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(mapper.toResponse(websiteService.create(coupleId, request)));
+                .body(mapper.toResponse(websiteService.create(coupleId, email, request)));
     }
 
     @GetMapping("/couple/{coupleId}")
