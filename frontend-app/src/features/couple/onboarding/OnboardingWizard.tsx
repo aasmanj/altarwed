@@ -641,7 +641,7 @@ function Step5Hero({
         >
           <span className="block w-full text-center py-4 text-sm text-[#8a6a4a]">
             <ImagePlus className="inline-block w-4 h-4 mr-1" />
-            Drag a photo here, or click to choose (JPEG, PNG, WebP, HEIC up to 15 MB)
+            Drag a photo here, or click to choose (JPEG, PNG, WebP, HEIC up to 20 MB)
           </span>
         </ImageDropzone>
         {heroError && (

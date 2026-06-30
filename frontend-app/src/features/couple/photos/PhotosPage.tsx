@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useRef, type ReactNode, type CSSProperties } from 'react'
 import { Camera, ExternalLink, X, Crop, GripVertical } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor, KeyboardSensor,
   useSensor, useSensors, type DragEndEvent,
@@ -16,9 +17,15 @@ import { useModalA11y } from '@/lib/useModalA11y'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
-import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
+import { normalizeImageFile, isAllowedImageType, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 import ImageRepositionModal from '@/components/ImageRepositionModal'
 import { framingStyle, apiFraming } from '@/lib/imageFraming'
+
+// Mirror the server cap (application.yml multipart max-file-size = 20 MB) so an
+// oversize file is rejected client-side with a clear reason instead of failing
+// mid-upload with a generic error. Kept local to this file to honor the issue's
+// scope; unifying every uploader onto one shared constant is tracked in #93.
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
 interface Photo {
   id: string
@@ -51,6 +58,10 @@ function useUploadPhoto(websiteId: string) {
       }).then(r => r.data)
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['wedding-photos', websiteId] }),
+    // Defensive backstop. The batch loop in handleFileChange catches and
+    // summarizes per-file failures for the user; this guarantees a failure is
+    // never silently swallowed even if a future caller omits that try/catch.
+    onError: (err: unknown) => console.error('Wedding photo upload failed', err),
   })
 }
 
@@ -145,14 +156,51 @@ export default function PhotosPage() {
     if (!files.length || !websiteId) return
     e.target.value = ''
 
+    // Resilient batch upload: one bad file (oversize, unsupported type, network
+    // blip) must never brick the whole batch or leave the spinner stuck. Each
+    // file is validated and uploaded independently, failures are collected and
+    // summarized at the end, and uploadProgress is ALWAYS reset in finally so
+    // the button can never get permanently stuck on "Uploading...".
+    const failures: string[] = []
+    let uploaded = 0
+
     setUploadProgress({ done: 0, total: files.length })
-    for (let i = 0; i < files.length; i++) {
-      const normalized = await normalizeImageFile(files[i])
-      await upload.mutateAsync({ file: normalized, caption: files.length === 1 ? caption : '' })
-      setUploadProgress({ done: i + 1, total: files.length })
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const original = files[i]
+        try {
+          // Convert HEIC/HEIF to JPEG first, then validate the result so a
+          // converted iPhone photo passes the jpeg/png/webp whitelist.
+          const normalized = await normalizeImageFile(original)
+          if (!isAllowedImageType(normalized)) {
+            failures.push(`${original.name} (unsupported type)`)
+            continue
+          }
+          if (normalized.size > MAX_UPLOAD_BYTES) {
+            failures.push(`${original.name} (over 20 MB)`)
+            continue
+          }
+          await upload.mutateAsync({ file: normalized, caption: files.length === 1 ? caption : '' })
+          uploaded++
+        } catch {
+          failures.push(`${original.name} (upload failed)`)
+        } finally {
+          setUploadProgress({ done: i + 1, total: files.length })
+        }
+      }
+    } finally {
+      setUploadProgress(null)
     }
-    setCaption('')
-    setUploadProgress(null)
+
+    // Only clear the caption once at least one photo landed, so a couple whose
+    // single upload failed can retry without retyping it.
+    if (uploaded > 0) setCaption('')
+
+    if (failures.length > 0) {
+      toast.error(
+        `${uploaded} of ${files.length} uploaded. ${failures.length} failed: ${failures.join(', ')}`,
+      )
+    }
   }
 
   const closeLightbox = useCallback(() => setLightboxUrl(null), [])
@@ -238,7 +286,7 @@ export default function PhotosPage() {
               onChange={handleFileChange}
             />
           </div>
-          <p className="text-xs text-stone-400 mt-2">JPEG, PNG, WebP, or HEIC · Max 15 MB · Select multiple photos at once</p>
+          <p className="text-xs text-stone-400 mt-2">JPEG, PNG, WebP, or HEIC · Max 20 MB · Select multiple photos at once</p>
         </div>
 
         {/* Photo grid */}
