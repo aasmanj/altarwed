@@ -8,6 +8,8 @@ import com.altarwed.application.dto.RegisterVendorRequest;
 import com.altarwed.application.dto.ReorderPortfolioPhotosRequest;
 import com.altarwed.application.dto.SubscriptionResponse;
 import com.altarwed.application.dto.UpdateVendorRequest;
+import com.altarwed.application.dto.VendorPageResponse;
+import com.altarwed.application.dto.VendorPageResult;
 import com.altarwed.application.dto.VendorPortfolioPhotoResponse;
 import com.altarwed.application.dto.VendorProfileResponse;
 import com.altarwed.application.dto.VendorResponse;
@@ -148,16 +150,25 @@ public class VendorController {
         return ResponseEntity.noContent().build();
     }
 
+    // Public directory listing. Paginated and filterable server-side; the legacy bare-array
+    // body is replaced by { vendors, total } so the page can render "Showing N of M" and
+    // prev/next. category and city stay backwards-compatible; priceTier ("$"/"$$"/"$$$") moves
+    // the tier filter off the client; sort=name gives alphabetical, default is most-viewed.
     @GetMapping
-    public ResponseEntity<List<VendorResponse>> search(
+    public ResponseEntity<VendorPageResponse> search(
             @RequestParam(required = false) String city,
-            @RequestParam(required = false) VendorCategory category
+            @RequestParam(required = false) VendorCategory category,
+            @RequestParam(required = false) String priceTier,
+            @RequestParam(required = false) String sort,
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "20") Integer size
     ) {
-        var vendors = vendorService.search(city, category)
+        VendorPageResult result = vendorService.getVendors(category, city, priceTier, sort, page, size);
+        List<VendorResponse> vendors = result.vendors()
                 .stream()
                 .map(vendorMapper::toResponse)
                 .toList();
-        return ResponseEntity.ok(vendors);
+        return ResponseEntity.ok(new VendorPageResponse(vendors, result.total()));
     }
 
     @GetMapping("/{id}")

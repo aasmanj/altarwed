@@ -75,6 +75,29 @@ public class VendorRepositoryAdapter implements VendorRepository {
     }
 
     @Override
+    public List<Vendor> findByFilters(VendorCategory category, String city, String priceTier) {
+        boolean hasCity = city != null && !city.isBlank();
+        List<Vendor> base;
+        if (hasCity && category != null) {
+            base = findByCityAndCategory(city, category);
+        } else if (hasCity) {
+            base = findByCity(city);
+        } else if (category != null) {
+            base = findByCategory(category);
+        } else {
+            base = findAllActive();
+        }
+        if (priceTier == null || priceTier.isBlank()) {
+            return base;
+        }
+        // No DB-derived query exists for price tier, and adding one would multiply the
+        // category/city query combinations. Filtering the already-capped candidate set in
+        // memory keeps the tier filter server-side and is cheap at this scale: the cap above
+        // bounds it at MAX_SEARCH_RESULTS rows.
+        return base.stream().filter(v -> priceTier.equals(v.priceTier())).toList();
+    }
+
+    @Override
     public long countVerified() {
         return jpaRepository.countByIsVerifiedTrue();
     }

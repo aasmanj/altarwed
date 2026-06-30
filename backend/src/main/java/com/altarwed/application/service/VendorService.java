@@ -1,6 +1,7 @@
 package com.altarwed.application.service;
 
 import com.altarwed.application.dto.UpdateVendorRequest;
+import com.altarwed.application.dto.VendorPageResult;
 import com.altarwed.application.dto.VendorStatsResponse;
 import com.altarwed.domain.exception.VendorNotFoundException;
 import com.altarwed.domain.model.Vendor;
@@ -21,6 +22,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -229,21 +231,52 @@ public class VendorService {
         return (s == null || s.isBlank()) ? null : s;
     }
 
+    // Hard upper bound on a single page so an unauthenticated caller can never request an
+    // arbitrarily large slice; the candidate set is itself capped at MAX_SEARCH_RESULTS.
+    public static final int MAX_PAGE_SIZE = 50;
+
+    /**
+     * Paginated public directory query. Fetches the capped candidate set matching the
+     * category/city/priceTier filters, sorts it, and returns the requested page along with the
+     * total number of matches so the UI can render "Showing N of M" plus prev/next controls.
+     *
+     * @param sort "name" for alphabetical A-Z; anything else (or null) uses the default
+     *             popularity order (most-viewed first), a lightweight relevance proxy.
+     */
     @Transactional(readOnly = true)
-    public List<Vendor> search(String city, VendorCategory category) {
-        List<Vendor> results;
-        if (city != null && category != null) {
-            results = vendorRepository.findByCityAndCategory(city, category);
-        } else if (city != null) {
-            results = vendorRepository.findByCity(city);
-        } else if (category != null) {
-            results = vendorRepository.findByCategory(category);
-        } else {
-            // Blank filter: the directory page would otherwise fetch every active vendor.
-            results = vendorRepository.findAllActive();
+    public VendorPageResult getVendors(VendorCategory category, String city, String priceTier,
+                                       String sort, int page, int size) {
+        int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+        int safePage = Math.max(page, 0);
+        // Defensive second cap: the adapter already pages each query, but never let the
+        // reported total exceed MAX_SEARCH_RESULTS even if a future query path forgets to.
+        List<Vendor> matches = new ArrayList<>(
+                vendorRepository.findByFilters(category, city, priceTier).stream()
+                        .limit(VendorRepository.MAX_SEARCH_RESULTS)
+                        .toList());
+        sortInPlace(matches, sort);
+        int total = matches.size();
+        // Long arithmetic guards against int overflow on a hostile page value before clamping.
+        int from = (int) Math.min((long) safePage * safeSize, total);
+        int to = Math.min(from + safeSize, total);
+        List<Vendor> pageItems = List.copyOf(matches.subList(from, to));
+        log.debug("vendor directory queried, total={}, page={}, size={}, returned={}",
+                total, safePage, safeSize, pageItems.size());
+        return new VendorPageResult(pageItems, total);
+    }
+
+    // Default order is "most viewed first" (a lightweight popularity/relevance proxy); sort=name
+    // is alphabetical A-Z. Both fall back to business name as the deterministic tiebreak so a
+    // given filter+sort always renders the same order across requests.
+    private void sortInPlace(List<Vendor> vendors, String sort) {
+        Comparator<Vendor> byName = Comparator.comparing(
+                Vendor::businessName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+        if ("name".equalsIgnoreCase(sort)) {
+            vendors.sort(byName);
+            return;
         }
-        // The repository already caps each query at the database; the limit here is a
-        // defensive second layer so the public response is never larger than the cap.
-        return results.stream().limit(VendorRepository.MAX_SEARCH_RESULTS).toList();
+        Comparator<Vendor> byViewsDesc = Comparator.comparingInt(
+                (Vendor v) -> v.viewCount() != null ? v.viewCount() : 0).reversed();
+        vendors.sort(byViewsDesc.thenComparing(byName));
     }
 }

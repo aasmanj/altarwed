@@ -30,6 +30,14 @@ public interface VendorRepository {
 
     List<Vendor> findAllActive();
 
+    // Public directory query with an optional server-side price-tier filter, used by the
+    // paginated GET /api/v1/vendors. Returns the active+verified candidate set matching the
+    // given category/city/priceTier, already capped at MAX_SEARCH_RESULTS in a deterministic
+    // order. Sorting, the page slice, and the total count are applied by the service on top of
+    // this capped set (cheap at current scale). A null or blank argument means "no filter on
+    // that field"; this keeps the tier filter on the backend instead of in the browser.
+    List<Vendor> findByFilters(VendorCategory category, String city, String priceTier);
+
     void deleteById(UUID id);
 
     void incrementViewCount(UUID id);
