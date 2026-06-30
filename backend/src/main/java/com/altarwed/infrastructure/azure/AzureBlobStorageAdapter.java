@@ -13,6 +13,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.InputStream;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 
 @Component
 public class AzureBlobStorageAdapter implements BlobStoragePort {
@@ -126,13 +128,19 @@ public class AzureBlobStorageAdapter implements BlobStoragePort {
             log.warn("blob delete skipped, url does not match container, url={}", blobUrl);
             return;
         }
-        log.info("blob delete started, blobName={}", blobName);
+        // getBlobUrl() returns a URL-encoded path (e.g. "hero%2Fuuid.jpg"). getBlobClient() takes a
+        // plain blob name and re-encodes it, so passing the encoded form produces a double-encoded URL
+        // ("hero%252Fuuid.jpg") that points to a non-existent blob. Decode first.
+        // URLDecoder is form-decoding (+ -> space), not strict path-decoding. Safe here because
+        // blob names are "{prefix}/{websiteId-UUID}/{UUID}.{ext}" -- no '+', '%', or spaces.
+        String decodedBlobName = URLDecoder.decode(blobName, StandardCharsets.UTF_8);
+        log.info("blob delete started, blobName={}", decodedBlobName);
         try {
-            var blobClient = container.getBlobClient(blobName);
+            var blobClient = container.getBlobClient(decodedBlobName);
             boolean deleted = blobClient.deleteIfExists();
-            log.info("blob delete completed, blobName={}, existed={}", blobName, deleted);
+            log.info("blob delete completed, blobName={}, existed={}", decodedBlobName, deleted);
         } catch (BlobStorageException ex) {
-            log.error("blob delete failed, blobName={}, statusCode={}", blobName, ex.getStatusCode(), ex);
+            log.error("blob delete failed, blobName={}, statusCode={}", decodedBlobName, ex.getStatusCode(), ex);
             throw ex;
         }
     }
