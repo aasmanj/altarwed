@@ -131,6 +131,26 @@ public class WeddingWebsiteService {
         return websiteRepository.findAllPublished();
     }
 
+    // Current hero / venue / save-the-date blob URLs for a website, so a replace or remove can delete
+    // the prior blob after the new state is persisted (issue #101 orphan-blob cleanup). Returns null
+    // when the website or the field is unset, which MediaUploadService.deleteBlobBestEffort treats as
+    // a no-op. These live here, on the service that owns those fields, so the controller reads the old
+    // URL through a service rather than a repository (web -> application -> domain).
+    @Transactional(readOnly = true)
+    public String currentHeroPhotoUrl(UUID websiteId) {
+        return websiteRepository.findById(websiteId).map(WeddingWebsite::heroPhotoUrl).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public String currentVenuePhotoUrl(UUID websiteId) {
+        return websiteRepository.findById(websiteId).map(WeddingWebsite::venuePhotoUrl).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public String currentStdImageUrl(UUID websiteId) {
+        return websiteRepository.findById(websiteId).map(WeddingWebsite::stdImageUrl).orElse(null);
+    }
+
     @Transactional
     public void delete(UUID coupleId) {
         log.info("wedding website deletion started, coupleId={}", coupleId);

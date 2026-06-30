@@ -1,7 +1,6 @@
 package com.altarwed.application.service;
 
 import com.altarwed.domain.port.BlobStoragePort;
-import com.altarwed.domain.port.WeddingWebsiteRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
@@ -34,8 +33,7 @@ import static org.mockito.Mockito.when;
 class MediaUploadServiceTest {
 
     private final BlobStoragePort blobStorage = mock(BlobStoragePort.class);
-    private final WeddingWebsiteRepository websiteRepository = mock(WeddingWebsiteRepository.class);
-    private final MediaUploadService service = new MediaUploadService(blobStorage, websiteRepository);
+    private final MediaUploadService service = new MediaUploadService(blobStorage);
     private final UUID id = UUID.randomUUID();
 
     // --- Real image signatures (leading magic bytes), padded so each file is non-empty. ---

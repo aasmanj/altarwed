@@ -100,7 +100,7 @@ public class MediaUploadController {
         accessGuard.assertOwnsWebsite(websiteId, email);
         // Capture the prior blob URL before the upload so we can delete it once the new URL is saved
         // (issue #101: replacing a hero photo otherwise leaks the old blob in storage forever).
-        String oldUrl = mediaUploadService.currentHeroPhotoUrl(websiteId);
+        String oldUrl = weddingWebsiteService.currentHeroPhotoUrl(websiteId);
         String url = mediaUploadService.uploadHeroPhoto(websiteId, file);
         weddingWebsiteService.updateHeroPhoto(websiteId, url);
         // Delete the replaced blob only after the new URL is durably persisted. If the persist threw,
@@ -117,7 +117,7 @@ public class MediaUploadController {
     ) throws IOException {
         accessGuard.assertOwnsWebsite(websiteId, email);
         // Capture the prior venue blob before replacing it, then clean it up post-persist (issue #101).
-        String oldUrl = mediaUploadService.currentVenuePhotoUrl(websiteId);
+        String oldUrl = weddingWebsiteService.currentVenuePhotoUrl(websiteId);
         String url = mediaUploadService.uploadVenuePhoto(websiteId, file);
         weddingWebsiteService.updateVenuePhoto(websiteId, url);
         mediaUploadService.deleteBlobBestEffort(oldUrl, "venue", websiteId);
@@ -132,7 +132,7 @@ public class MediaUploadController {
     ) throws IOException {
         accessGuard.assertOwnsWebsite(websiteId, email);
         // Capture the prior save-the-date blob before replacing it, then clean it up post-persist (issue #101).
-        String oldUrl = mediaUploadService.currentStdImageUrl(websiteId);
+        String oldUrl = weddingWebsiteService.currentStdImageUrl(websiteId);
         String url = mediaUploadService.uploadStdImage(websiteId, file);
         weddingWebsiteService.updateStdImage(websiteId, url);
         mediaUploadService.deleteBlobBestEffort(oldUrl, "std", websiteId);
@@ -145,7 +145,12 @@ public class MediaUploadController {
             @AuthenticationPrincipal String email
     ) {
         accessGuard.assertOwnsWebsite(websiteId, email);
+        // Removing the save-the-date image must also delete its blob, otherwise the row is cleared
+        // but the blob is orphaned in storage (issue #101). Capture the URL, clear it, then best-effort
+        // delete after the clear is persisted.
+        String oldUrl = weddingWebsiteService.currentStdImageUrl(websiteId);
         weddingWebsiteService.updateStdImage(websiteId, null);
+        mediaUploadService.deleteBlobBestEffort(oldUrl, "std-remove", websiteId);
         return ResponseEntity.noContent().build();
     }
 }

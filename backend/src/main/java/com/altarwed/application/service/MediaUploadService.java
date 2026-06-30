@@ -1,8 +1,6 @@
 package com.altarwed.application.service;
 
-import com.altarwed.domain.model.WeddingWebsite;
 import com.altarwed.domain.port.BlobStoragePort;
-import com.altarwed.domain.port.WeddingWebsiteRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -44,15 +42,9 @@ public class MediaUploadService {
     private static final int SIGNATURE_PROBE_BYTES = 16;
 
     private final BlobStoragePort blobStorage;
-    // Read-only access to the website row so a replace can capture the prior hero/venue/std blob URL
-    // for best-effort cleanup (issue #101). Injecting the WeddingWebsiteRepository domain port into
-    // this application service (application -> domain is allowed) keeps the controller from calling a
-    // repository directly, honoring the web -> application -> domain rule.
-    private final WeddingWebsiteRepository websiteRepository;
 
-    public MediaUploadService(BlobStoragePort blobStorage, WeddingWebsiteRepository websiteRepository) {
+    public MediaUploadService(BlobStoragePort blobStorage) {
         this.blobStorage = blobStorage;
-        this.websiteRepository = websiteRepository;
     }
 
     public String uploadWeddingPartyPhoto(UUID memberId, MultipartFile file) throws IOException {
@@ -158,24 +150,6 @@ public class MediaUploadService {
         } catch (Exception ex) {
             log.warn("old blob delete failed (best-effort, ignoring), field={}, websiteId={}", field, websiteId, ex);
         }
-    }
-
-    // The three readers below let MediaUploadController capture the URL of the blob a hero/venue/std
-    // replace is about to overwrite, then delete it via deleteBlobBestEffort once the new URL is
-    // persisted (issue #101). MediaUploadService already owns the hero/venue/std upload paths, so
-    // reading the current URL for those same fields keeps the cleanup cohesive here and keeps the
-    // controller from touching a repository directly. Returns null when the website or field is unset,
-    // which deleteBlobBestEffort treats as a no-op.
-    public String currentHeroPhotoUrl(UUID websiteId) {
-        return websiteRepository.findById(websiteId).map(WeddingWebsite::heroPhotoUrl).orElse(null);
-    }
-
-    public String currentVenuePhotoUrl(UUID websiteId) {
-        return websiteRepository.findById(websiteId).map(WeddingWebsite::venuePhotoUrl).orElse(null);
-    }
-
-    public String currentStdImageUrl(UUID websiteId) {
-        return websiteRepository.findById(websiteId).map(WeddingWebsite::stdImageUrl).orElse(null);
     }
 
     // Validates the upload and returns the content-type sniffed from the file's magic bytes. The
