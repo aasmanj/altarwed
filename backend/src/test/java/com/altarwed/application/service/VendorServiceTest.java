@@ -1,5 +1,6 @@
 package com.altarwed.application.service;
 
+import com.altarwed.application.dto.VendorPageResult;
 import com.altarwed.domain.exception.VendorNotFoundException;
 import com.altarwed.domain.model.Vendor;
 import com.altarwed.domain.model.VendorCategory;
@@ -142,6 +143,115 @@ class VendorServiceTest {
         List<Vendor> results = vendorService.search(null, null);
 
         assertThat(results).hasSize(7);
+    }
+
+    // -------------------------------------------------------------------------
+    // getVendors: server-side pagination, price-tier forwarding, and sort (issue #108)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void getVendors_returnsRequestedPageAndTotalAcrossAllMatches() {
+        // 25 matches, page size 20: page 0 has 20, page 1 has the remaining 5; total is 25 on both.
+        when(vendorRepository.findByFilters(null, null, null)).thenReturn(namedVendors(25));
+
+        VendorPageResult page0 = vendorService.getVendors(null, null, null, "name", 0, 20);
+        assertThat(page0.vendors()).hasSize(20);
+        assertThat(page0.total()).isEqualTo(25);
+
+        VendorPageResult page1 = vendorService.getVendors(null, null, null, "name", 1, 20);
+        assertThat(page1.vendors()).hasSize(5);
+        assertThat(page1.total()).isEqualTo(25);
+    }
+
+    @Test
+    void getVendors_clampsPageSizeToFifty() {
+        when(vendorRepository.findByFilters(null, null, null)).thenReturn(namedVendors(60));
+
+        // A caller asking for size=1000 must never receive more than the 50-row page cap.
+        VendorPageResult result = vendorService.getVendors(null, null, null, null, 0, 1000);
+
+        assertThat(result.vendors()).hasSize(VendorService.MAX_PAGE_SIZE);
+        assertThat(result.total()).isEqualTo(60);
+    }
+
+    @Test
+    void getVendors_overpagedRequest_returnsEmptyPageButRealTotal() {
+        when(vendorRepository.findByFilters(null, null, null)).thenReturn(namedVendors(3));
+
+        // page 9 is past the end; the slice is empty but total still reflects every match.
+        VendorPageResult result = vendorService.getVendors(null, null, null, "name", 9, 20);
+
+        assertThat(result.vendors()).isEmpty();
+        assertThat(result.total()).isEqualTo(3);
+    }
+
+    @Test
+    void getVendors_sortName_ordersAlphabeticallyCaseInsensitive() {
+        when(vendorRepository.findByFilters(null, null, null)).thenReturn(List.of(
+                vendorNamed("Zion Films"),
+                vendorNamed("aaron blooms"),
+                vendorNamed("Mercy Catering")));
+
+        VendorPageResult result = vendorService.getVendors(null, null, null, "name", 0, 20);
+
+        assertThat(result.vendors())
+                .extracting(Vendor::businessName)
+                .containsExactly("aaron blooms", "Mercy Catering", "Zion Films");
+    }
+
+    @Test
+    void getVendors_defaultSort_ordersByViewCountDescending() {
+        when(vendorRepository.findByFilters(null, null, null)).thenReturn(List.of(
+                vendorNamedWithViews("Low", 2),
+                vendorNamedWithViews("High", 40),
+                vendorNamedWithViews("Mid", 17)));
+
+        VendorPageResult result = vendorService.getVendors(null, null, null, null, 0, 20);
+
+        assertThat(result.vendors())
+                .extracting(Vendor::businessName)
+                .containsExactly("High", "Mid", "Low");
+    }
+
+    @Test
+    void getVendors_forwardsCategoryCityAndPriceTierToRepository() {
+        when(vendorRepository.findByFilters(VendorCategory.FLORIST, "Austin", "$$"))
+                .thenReturn(namedVendors(2));
+
+        VendorPageResult result =
+                vendorService.getVendors(VendorCategory.FLORIST, "Austin", "$$", "name", 0, 20);
+
+        assertThat(result.total()).isEqualTo(2);
+        // The tier filter is server-side: the service forwards it to the repository unchanged.
+        verify(vendorRepository).findByFilters(VendorCategory.FLORIST, "Austin", "$$");
+    }
+
+    @Test
+    void getVendors_cappsTotalAtMaxSearchResults() {
+        // Defensive second cap: even if a query path returns more than the directory cap,
+        // the reported total never exceeds it.
+        when(vendorRepository.findByFilters(null, null, null))
+                .thenReturn(namedVendors(VendorRepository.MAX_SEARCH_RESULTS + 30));
+
+        VendorPageResult result = vendorService.getVendors(null, null, null, "name", 0, 20);
+
+        assertThat(result.total()).isEqualTo(VendorRepository.MAX_SEARCH_RESULTS);
+    }
+
+    private List<Vendor> namedVendors(int count) {
+        return IntStream.range(0, count)
+                .mapToObj(i -> vendorNamed(String.format("Vendor %03d", i)))
+                .toList();
+    }
+
+    private Vendor vendorNamed(String name) {
+        return vendorNamedWithViews(name, 0);
+    }
+
+    private Vendor vendorNamedWithViews(String name, int views) {
+        return new Vendor(UUID.randomUUID(), name, VendorCategory.PHOTOGRAPHER, "Austin", "TX",
+                "v@example.com", "hash", false, null, true, true, null, null, null, null, null,
+                null, views, null, LocalDateTime.now(), LocalDateTime.now());
     }
 
     private List<Vendor> activeVendors(int count) {

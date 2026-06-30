@@ -47,37 +47,53 @@ const CATEGORY_LABELS: Record<string, string> = {
   OTHER:          'Other',
 }
 
-async function getVendors(category?: string, city?: string): Promise<Vendor[]> {
+const PAGE_SIZE = 20
+
+interface VendorPage {
+  vendors: Vendor[]
+  total: number
+}
+
+async function getVendors(category?: string, city?: string, tier?: string, page = 0): Promise<VendorPage> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
   const params = new URLSearchParams()
   if (category) params.set('category', category)
   if (city) params.set('city', city)
+  // Price tier is filtered server-side now (backend `priceTier` param), not in the browser.
+  if (tier) params.set('priceTier', tier)
+  params.set('page', String(page))
+  params.set('size', String(PAGE_SIZE))
   // Short cache, new vendors should appear within 15 seconds
   try {
     const res = await fetch(`${apiUrl}/api/v1/vendors?${params}`, { next: { revalidate: 15 } })
-    if (!res.ok) return []
-    return res.json()
+    if (!res.ok) return { vendors: [], total: 0 }
+    const data = await res.json()
+    // Defensive: tolerate the legacy bare-array body during a deploy skew window.
+    if (Array.isArray(data)) return { vendors: data, total: data.length }
+    return { vendors: data.vendors ?? [], total: data.total ?? 0 }
   } catch {
-    return []
+    return { vendors: [], total: 0 }
   }
 }
 
 export default async function VendorsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string; city?: string; tier?: string }>
+  searchParams: Promise<{ category?: string; city?: string; tier?: string; page?: string }>
 }) {
-  const { category, city, tier } = await searchParams
-  const allVendors = await getVendors(category, city)
-  // Tier filter is applied client-side (after the API call) so the filter
-  // chips can stay sticky in the URL without requiring a backend search param.
-  // Cheap to do here because the vendor list is already paged-by-category.
-  const vendors = tier
-    ? allVendors.filter(v => v.priceTier === tier)
-    : allVendors
+  const { category, city, tier, page: pageParam } = await searchParams
+  const page = Math.max(0, Number.parseInt(pageParam ?? '', 10) || 0)
+  // Pagination, sort, and the price-tier filter all run server-side now; this page just
+  // renders the slice the API returns plus prev/next controls.
+  const { vendors, total } = await getVendors(category, city, tier, page)
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const from = page * PAGE_SIZE
+  const hasPrev = page > 0
+  const hasNext = page + 1 < totalPages
 
   const categories = Object.entries(CATEGORY_LABELS)
-  const buildHref = (next: { category?: string; city?: string; tier?: string }) => {
+  const buildHref = (next: { category?: string; city?: string; tier?: string; page?: number }) => {
     const params = new URLSearchParams()
     const c = next.category ?? category
     const ci = next.city ?? city
@@ -85,9 +101,14 @@ export default async function VendorsPage({
     if (c) params.set('category', c)
     if (ci) params.set('city', ci)
     if (t) params.set('tier', t)
+    // Only paginate explicitly (prev/next). Changing a filter omits page, resetting to page 1.
+    if (next.page && next.page > 0) params.set('page', String(next.page))
     const qs = params.toString()
     return qs ? `/vendors?${qs}` : '/vendors'
   }
+
+  const prevHref = buildHref({ page: page - 1 })
+  const nextHref = buildHref({ page: page + 1 })
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
@@ -148,8 +169,15 @@ export default async function VendorsPage({
           )}
         </form>
 
+        {/* Result count */}
+        {vendors.length > 0 && (
+          <p className="mb-5 text-sm text-[#8a6a4a]">
+            Showing {from + 1}-{from + vendors.length} of {total} vendors
+          </p>
+        )}
+
         {/* Grid */}
-        {vendors.length === 0 ? (
+        {total === 0 ? (
           <div className="text-center py-20">
             <p className="text-[#8a6a4a] text-lg mb-2">No vendors listed yet in this area</p>
             <p className="text-sm text-[#8a6a4a]">
@@ -200,6 +228,37 @@ export default async function VendorsPage({
               </Link>
             ))}
           </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <nav className="mt-10 flex items-center justify-center gap-4" aria-label="Vendor directory pagination">
+            {hasPrev ? (
+              <Link href={prevHref}
+                className="rounded-lg border border-[#e8dcc8] px-4 py-2 text-sm font-medium text-[#6b5344] hover:border-[#d4af6a] transition">
+                ← Previous
+              </Link>
+            ) : (
+              <span aria-disabled="true"
+                className="rounded-lg border border-[#f0e9dc] px-4 py-2 text-sm font-medium text-[#c9bda8]">
+                ← Previous
+              </span>
+            )}
+            <span className="text-sm text-[#8a6a4a]">
+              Page {Math.min(page + 1, totalPages)} of {totalPages}
+            </span>
+            {hasNext ? (
+              <Link href={nextHref}
+                className="rounded-lg border border-[#e8dcc8] px-4 py-2 text-sm font-medium text-[#6b5344] hover:border-[#d4af6a] transition">
+                Next →
+              </Link>
+            ) : (
+              <span aria-disabled="true"
+                className="rounded-lg border border-[#f0e9dc] px-4 py-2 text-sm font-medium text-[#c9bda8]">
+                Next →
+              </span>
+            )}
+          </nav>
         )}
       </div>
 
