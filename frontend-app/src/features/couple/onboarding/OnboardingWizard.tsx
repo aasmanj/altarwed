@@ -24,15 +24,16 @@ type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 
 const inputCls = 'w-full rounded-lg border border-[#e8dcc8] px-4 py-3 text-[#3b2f2f] text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]'
 
-// Curated default hero photos. Same set the side-by-side editor offers, so the
-// wizard and the editor stay visually consistent.
+// Curated default hero photos hosted on Azure Blob (altarwed-media/defaults/hero/).
+// Same set the side-by-side editor offers so the wizard and editor stay consistent.
+const HERO_BASE = 'https://altarwedprodstorage.blob.core.windows.net/altarwed-media/defaults/hero'
 const DEFAULT_HERO_PHOTOS = [
-  'https://images.unsplash.com/photo-1519741497674-611481863552?w=1600&q=80',
-  'https://images.unsplash.com/photo-1606800052052-a08af7148866?w=1600&q=80',
-  'https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?w=1600&q=80',
-  'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=1600&q=80',
-  'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=1600&q=80',
-  'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=1600&q=80',
+  `${HERO_BASE}/altar-couple.jpg`,
+  `${HERO_BASE}/church-arch.jpg`,
+  `${HERO_BASE}/garden-vows.jpg`,
+  `${HERO_BASE}/sunset-walk.jpg`,
+  `${HERO_BASE}/ring-exchange.jpg`,
+  `${HERO_BASE}/chapel-door.jpg`,
 ]
 
 // Common registries couples link. Tapping one fills the label so a non-technical

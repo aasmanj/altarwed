@@ -5,9 +5,9 @@ const nextConfig: NextConfig = {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       { protocol: 'https', hostname: '*.blob.core.windows.net' },
-      // Curated default hero photos offered in the onboarding wizard and side-by-side
-      // editor are served from Unsplash. Without this, Next.js Image optimization returns
-      // 400 for any couple who picked a stock photo, leaving their hero blank.
+      // Legacy: couples who registered before the stock photos were migrated to Azure Blob
+      // may have Unsplash URLs saved as heroPhotoUrl. Keep this entry until a DB migration
+      // updates those rows, otherwise their hero goes blank again.
       { protocol: 'https', hostname: 'images.unsplash.com' },
     ],
   },
