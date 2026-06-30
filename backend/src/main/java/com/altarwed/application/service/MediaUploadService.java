@@ -147,16 +147,16 @@ public class MediaUploadService {
 
     // Deletes a blob that a replace operation orphaned (issue #101). Best-effort: it never throws, so
     // a failed cleanup leaves a logged, recoverable orphan rather than failing a request whose new URL
-    // has already been persisted. context is a non-PII label (field name + internal websiteId) so the
-    // WARN is actionable without leaking guest data. Callers must invoke this AFTER the new URL is
-    // saved, so a delete never runs for a blob the request still depends on.
-    public void deleteBlobBestEffort(String url, String context) {
+    // has already been persisted. field and websiteId are non-PII structured args so App Insights can
+    // index and filter by websiteId in KQL. Callers must invoke this AFTER the new URL is saved, so a
+    // delete never runs for a blob the request still depends on.
+    public void deleteBlobBestEffort(String url, String field, UUID websiteId) {
         if (url == null || url.isBlank()) return;
         try {
             blobStorage.delete(url);
-            log.info("old blob deleted, context={}", context);
+            log.info("old blob deleted, field={}, websiteId={}", field, websiteId);
         } catch (Exception ex) {
-            log.warn("old blob delete failed (best-effort, ignoring), context={}", context, ex);
+            log.warn("old blob delete failed (best-effort, ignoring), field={}, websiteId={}", field, websiteId, ex);
         }
     }
 

@@ -264,8 +264,8 @@ class MediaUploadServiceTest {
 
     @Test
     void deleteBlobBestEffort_is_a_noop_for_null_or_blank_url() {
-        service.deleteBlobBestEffort(null, "hero for websiteId=" + id);
-        service.deleteBlobBestEffort("   ", "hero for websiteId=" + id);
+        service.deleteBlobBestEffort(null, "hero", id);
+        service.deleteBlobBestEffort("   ", "hero", id);
 
         verify(blobStorage, never()).delete(any());
     }
@@ -275,7 +275,7 @@ class MediaUploadServiceTest {
         doThrow(new RuntimeException("azure unavailable")).when(blobStorage).delete(any());
 
         // Must not propagate: a failed cleanup never fails the caller's already-persisted request.
-        service.deleteBlobBestEffort("https://blob/old-hero.png", "hero for websiteId=" + id);
+        service.deleteBlobBestEffort("https://blob/old-hero.png", "hero", id);
 
         verify(blobStorage).delete("https://blob/old-hero.png");
     }

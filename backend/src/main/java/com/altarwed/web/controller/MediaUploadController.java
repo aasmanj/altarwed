@@ -105,7 +105,7 @@ public class MediaUploadController {
         weddingWebsiteService.updateHeroPhoto(websiteId, url);
         // Delete the replaced blob only after the new URL is durably persisted. If the persist threw,
         // this line never runs and the old blob is kept; deleteBlobBestEffort itself never throws.
-        mediaUploadService.deleteBlobBestEffort(oldUrl, "hero for websiteId=" + websiteId);
+        mediaUploadService.deleteBlobBestEffort(oldUrl, "hero", websiteId);
         return ResponseEntity.ok(Map.of("photoUrl", url));
     }
 
@@ -120,7 +120,7 @@ public class MediaUploadController {
         String oldUrl = mediaUploadService.currentVenuePhotoUrl(websiteId);
         String url = mediaUploadService.uploadVenuePhoto(websiteId, file);
         weddingWebsiteService.updateVenuePhoto(websiteId, url);
-        mediaUploadService.deleteBlobBestEffort(oldUrl, "venue for websiteId=" + websiteId);
+        mediaUploadService.deleteBlobBestEffort(oldUrl, "venue", websiteId);
         return ResponseEntity.ok(Map.of("photoUrl", url));
     }
 
@@ -135,7 +135,7 @@ public class MediaUploadController {
         String oldUrl = mediaUploadService.currentStdImageUrl(websiteId);
         String url = mediaUploadService.uploadStdImage(websiteId, file);
         weddingWebsiteService.updateStdImage(websiteId, url);
-        mediaUploadService.deleteBlobBestEffort(oldUrl, "std for websiteId=" + websiteId);
+        mediaUploadService.deleteBlobBestEffort(oldUrl, "std", websiteId);
         return ResponseEntity.ok(Map.of("imageUrl", url));
     }
 
