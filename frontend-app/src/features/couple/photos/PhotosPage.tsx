@@ -16,9 +16,11 @@ import { useModalA11y } from '@/lib/useModalA11y'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
-import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
+import { normalizeImageFile, isAllowedImageType, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
+import { toast } from 'sonner'
 import ImageRepositionModal from '@/components/ImageRepositionModal'
 import { framingStyle, apiFraming } from '@/lib/imageFraming'
+import { runPhotoBatch, summarizePhotoBatch } from './photoBatchUpload'
 
 interface Photo {
   id: string
@@ -145,14 +147,28 @@ export default function PhotosPage() {
     if (!files.length || !websiteId) return
     e.target.value = ''
 
-    setUploadProgress({ done: 0, total: files.length })
-    for (let i = 0; i < files.length; i++) {
-      const normalized = await normalizeImageFile(files[i])
-      await upload.mutateAsync({ file: normalized, caption: files.length === 1 ? caption : '' })
-      setUploadProgress({ done: i + 1, total: files.length })
+    // Per-file isolation lives in runPhotoBatch: one bad file (over the size
+    // cap, unconvertible HEIC, network blip) must not brick the whole batch or
+    // strand the spinner. uploadProgress is reset in finally no matter what.
+    const total = files.length
+    const singleCaption = total === 1 ? caption : ''
+    setUploadProgress({ done: 0, total })
+    let result
+    try {
+      result = await runPhotoBatch(files, {
+        normalize: normalizeImageFile,
+        isAllowedType: isAllowedImageType,
+        upload: (file) => upload.mutateAsync({ file, caption: singleCaption }),
+        onProgress: (done) => setUploadProgress({ done, total }),
+      })
+    } finally {
+      setCaption('')
+      setUploadProgress(null)
     }
-    setCaption('')
-    setUploadProgress(null)
+
+    const summary = summarizePhotoBatch(result, total)
+    if (summary.kind === 'success') toast.success(summary.message)
+    else toast.error(summary.message)
   }
 
   const closeLightbox = useCallback(() => setLightboxUrl(null), [])
@@ -226,7 +242,7 @@ export default function PhotosPage() {
               className="px-5 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50 transition-colors"
             >
               {isUploading
-                ? `Uploading ${uploadProgress!.done + 1} of ${uploadProgress!.total}…`
+                ? `Uploading ${Math.min(uploadProgress!.done + 1, uploadProgress!.total)} of ${uploadProgress!.total}…`
                 : '+ Upload Photos'}
             </button>
             <input
