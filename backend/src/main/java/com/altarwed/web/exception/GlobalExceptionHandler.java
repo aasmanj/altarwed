@@ -1,7 +1,10 @@
 package com.altarwed.web.exception;
 
 import com.altarwed.domain.exception.BlogPostNotFoundException;
+import com.altarwed.domain.exception.CeremonySectionNotFoundException;
+import com.altarwed.domain.exception.PlanningTaskNotFoundException;
 import com.altarwed.domain.exception.PortfolioCapExceededException;
+import com.altarwed.domain.exception.WeddingHotelNotFoundException;
 import com.altarwed.domain.exception.BudgetItemNotFoundException;
 import com.altarwed.domain.exception.SeatingTableNotFoundException;
 import com.altarwed.domain.exception.CustomQuestionNotFoundException;
@@ -42,6 +45,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.io.IOException;
@@ -286,6 +290,32 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BlogPostNotFoundException.class)
     public ProblemDetail handleBlogPostNotFound(BlogPostNotFoundException ex) {
         return notFound("blog-post-not-found", ex.getMessage());
+    }
+
+    @ExceptionHandler(CeremonySectionNotFoundException.class)
+    public ProblemDetail handleCeremonySectionNotFound(CeremonySectionNotFoundException ex) {
+        return notFound("ceremony-section-not-found", ex.getMessage());
+    }
+
+    @ExceptionHandler(PlanningTaskNotFoundException.class)
+    public ProblemDetail handlePlanningTaskNotFound(PlanningTaskNotFoundException ex) {
+        return notFound("planning-task-not-found", ex.getMessage());
+    }
+
+    @ExceptionHandler(WeddingHotelNotFoundException.class)
+    public ProblemDetail handleWeddingHotelNotFound(WeddingHotelNotFoundException ex) {
+        return notFound("wedding-hotel-not-found", ex.getMessage());
+    }
+
+    // Thrown when the request body exceeds spring.servlet.multipart.max-file-size or
+    // max-request-size. Without this, the exception falls to the catch-all 500 and pages on-call.
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ProblemDetail handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.PAYLOAD_TOO_LARGE);
+        pd.setType(URI.create("https://altarwed.com/problems/upload-too-large"));
+        pd.setTitle("File Too Large");
+        pd.setDetail("The uploaded file exceeds the maximum allowed size of 20 MB.");
+        return pd;
     }
 
     @ExceptionHandler(PortfolioCapExceededException.class)
