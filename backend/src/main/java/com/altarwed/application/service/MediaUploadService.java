@@ -6,8 +6,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Iterator;
 import java.util.Set;
 import java.util.UUID;
 
@@ -16,7 +20,14 @@ public class MediaUploadService {
 
     private static final Logger log = LoggerFactory.getLogger(MediaUploadService.class);
     private static final Set<String> ALLOWED_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
-    private static final long MAX_BYTES = 15 * 1024 * 1024; // 15 MB
+    // One upload limit, matched to spring.servlet.multipart.max-file-size (20MB) in application.yml
+    // and the frontend client checks, so a file that clears the client and multipart layers is not
+    // then rejected here with a contradictory number (issue #93). Phone photos are routinely 10-25 MB.
+    private static final long MAX_BYTES = 20 * 1024 * 1024; // 20 MB
+    // Pixel-flood / decompression-bomb cap (issue #98). A tiny file can declare an enormous canvas;
+    // the public site's image optimizer would rasterize it per guest and exhaust memory on the
+    // shared SSR server. 40 MP sits well above any real phone or DSLR photo, so honest uploads pass.
+    private static final long MAX_MEGAPIXELS = 40;
 
     // Image file signatures (magic bytes). We sniff the real type from the leading bytes rather
     // than trust the client-supplied multipart Content-Type, which an attacker fully controls and
@@ -126,6 +137,21 @@ public class MediaUploadService {
         }
     }
 
+    // Deletes a blob that a replace operation orphaned (issue #101). Best-effort: it never throws, so
+    // a failed cleanup leaves a logged, recoverable orphan rather than failing a request whose new URL
+    // has already been persisted. field and websiteId are non-PII structured args so App Insights can
+    // index and filter by websiteId in KQL. Callers must invoke this AFTER the new URL is saved, so a
+    // delete never runs for a blob the request still depends on.
+    public void deleteBlobBestEffort(String url, String field, UUID websiteId) {
+        if (url == null || url.isBlank()) return;
+        try {
+            blobStorage.delete(url);
+            log.info("old blob deleted, field={}, websiteId={}", field, websiteId);
+        } catch (Exception ex) {
+            log.warn("old blob delete failed (best-effort, ignoring), field={}, websiteId={}", field, websiteId, ex);
+        }
+    }
+
     // Validates the upload and returns the content-type sniffed from the file's magic bytes. The
     // returned value (not file.getContentType(), which an attacker fully controls) is the type that
     // should drive the stored blob extension and metadata, so the bytes on disk and their declared
@@ -135,7 +161,7 @@ public class MediaUploadService {
         if (!ALLOWED_TYPES.contains(file.getContentType()))
             throw new IllegalArgumentException("Only JPEG, PNG, and WebP images are allowed");
         if (file.getSize() > MAX_BYTES)
-            throw new IllegalArgumentException("File must be under 15 MB");
+            throw new IllegalArgumentException("File must be under 20 MB");
         // Defense in depth: the Content-Type checked above is attacker-controlled, so confirm the
         // actual bytes carry an allowed image signature. The allowlist stays the single source of
         // truth (a sniffed type not in ALLOWED_TYPES is still rejected), so adding a signature later
@@ -146,7 +172,49 @@ public class MediaUploadService {
                     file.getContentType());
             throw new IllegalArgumentException("Only JPEG, PNG, and WebP images are allowed");
         }
+        // Issue #87: the declared Content-Type must equal the sniffed type. Both being on the
+        // allowlist is not enough; PNG bytes declared as image/jpeg is a dishonest upload. Same
+        // opaque message as the checks above so we never leak the detected type back to the caller.
+        if (!sniffedType.equals(file.getContentType())) {
+            log.warn("upload rejected, declared content-type does not match sniffed bytes, declaredContentType={}",
+                    file.getContentType());
+            throw new IllegalArgumentException("Only JPEG, PNG, and WebP images are allowed");
+        }
+        // Issue #98: reject a pixel-flood / decompression-bomb canvas before it can be stored.
+        rejectIfPixelFlood(file);
         return sniffedType;
+    }
+
+    // Reads the image dimensions from the header via an ImageReader WITHOUT decoding (rasterizing)
+    // the pixels, then caps total megapixels. A small file can declare a huge canvas; rasterizing it
+    // on the shared SSR image optimizer would exhaust memory for every guest who loads the page.
+    // Best-effort by design: if ImageIO cannot read the dimensions we let the upload through, because
+    // the magic-byte and size checks above are the authoritative gates and we must not reject a valid
+    // image just because the header was unreadable here.
+    private void rejectIfPixelFlood(MultipartFile file) {
+        try {
+            try (ImageInputStream imageStream = ImageIO.createImageInputStream(file.getInputStream())) {
+                if (imageStream == null) return;
+                Iterator<ImageReader> readers = ImageIO.getImageReaders(imageStream);
+                if (!readers.hasNext()) return;
+                ImageReader reader = readers.next();
+                try {
+                    reader.setInput(imageStream, true, true);
+                    long pixels = (long) reader.getWidth(0) * reader.getHeight(0);
+                    if (pixels > MAX_MEGAPIXELS * 1_000_000L) {
+                        log.warn("upload rejected, image dimensions exceed cap, megapixels={}",
+                                pixels / 1_000_000L);
+                        throw new IllegalArgumentException("Image dimensions are too large");
+                    }
+                } finally {
+                    reader.dispose();
+                }
+            }
+        } catch (IllegalArgumentException e) {
+            throw e; // our own validation rejection above, propagate it to the caller (HTTP 400)
+        } catch (Exception ignored) {
+            // Dimension read is best-effort; an unreadable header falls through to allow the upload.
+        }
     }
 
     // Reads only the leading bytes needed for signature detection, not the whole file. MultipartFile

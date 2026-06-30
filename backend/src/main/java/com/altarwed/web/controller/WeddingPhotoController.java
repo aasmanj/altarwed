@@ -4,6 +4,7 @@ import com.altarwed.application.dto.AddWeddingPhotoRequest;
 import com.altarwed.application.dto.ReorderWeddingPhotosRequest;
 import com.altarwed.application.dto.UpdateWeddingPhotoRequest;
 import com.altarwed.application.dto.WeddingPhotoResponse;
+import com.altarwed.application.service.MediaUploadService;
 import com.altarwed.application.service.WeddingPhotoService;
 import com.altarwed.web.mapper.WeddingPhotoMapper;
 import com.altarwed.web.security.CoupleAccessGuard;
@@ -23,11 +24,14 @@ public class WeddingPhotoController {
     private final WeddingPhotoService service;
     private final WeddingPhotoMapper mapper;
     private final CoupleAccessGuard accessGuard;
+    private final MediaUploadService mediaUploadService;
 
-    public WeddingPhotoController(WeddingPhotoService service, WeddingPhotoMapper mapper, CoupleAccessGuard accessGuard) {
+    public WeddingPhotoController(WeddingPhotoService service, WeddingPhotoMapper mapper,
+                                  CoupleAccessGuard accessGuard, MediaUploadService mediaUploadService) {
         this.service = service;
         this.mapper = mapper;
         this.accessGuard = accessGuard;
+        this.mediaUploadService = mediaUploadService;
     }
 
     // Public, fetched by Next.js /wedding/[slug]/photos page
@@ -86,7 +90,10 @@ public class WeddingPhotoController {
             @AuthenticationPrincipal String email
     ) {
         accessGuard.assertOwnsWebsite(websiteId, email);
-        service.deletePhoto(websiteId, photoId);
+        // deletePhoto returns the photo's URL; delete its blob after the row delete commits so the
+        // blob is not orphaned in storage (issue #101). Best-effort, never fails the request.
+        String url = service.deletePhoto(websiteId, photoId);
+        mediaUploadService.deleteBlobBestEffort(url, "album-photo", websiteId);
         return ResponseEntity.noContent().build();
     }
 }

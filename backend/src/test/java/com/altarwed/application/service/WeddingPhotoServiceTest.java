@@ -1,6 +1,7 @@
 package com.altarwed.application.service;
 
 import com.altarwed.application.dto.AddWeddingPhotoRequest;
+import com.altarwed.domain.exception.WeddingPhotoNotFoundException;
 import com.altarwed.domain.model.WeddingPhoto;
 import com.altarwed.domain.model.WeddingWebsite;
 import com.altarwed.domain.port.WeddingPhotoRepository;
@@ -122,5 +123,43 @@ class WeddingPhotoServiceTest {
         assertThatThrownBy(() -> service().reorderPhotos(websiteId, List.of(p0.id())))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(photoRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void deletePhoto_deletesRow_andReturnsBlobUrlForCleanup() {
+        // deletePhoto returns the photo's URL so the controller can delete the blob after commit
+        // (issue #101). The row is deleted and the URL handed back.
+        UUID websiteId = UUID.randomUUID();
+        WeddingPhoto p = photo(websiteId, 0);
+        when(photoRepository.findById(p.id())).thenReturn(Optional.of(p));
+
+        String url = service().deletePhoto(websiteId, p.id());
+
+        assertThat(url).isEqualTo(p.url());
+        verify(photoRepository).deleteById(p.id());
+    }
+
+    @Test
+    void deletePhoto_photoFromAnotherAlbum_isRejected_andDeletesNothing() {
+        // IDOR guard: a photo id that belongs to a different website is treated as not-found, and no
+        // row is deleted (so no blob is deleted either).
+        UUID websiteId = UUID.randomUUID();
+        WeddingPhoto foreign = photo(UUID.randomUUID(), 0);
+        when(photoRepository.findById(foreign.id())).thenReturn(Optional.of(foreign));
+
+        assertThatThrownBy(() -> service().deletePhoto(websiteId, foreign.id()))
+                .isInstanceOf(WeddingPhotoNotFoundException.class);
+        verify(photoRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void deletePhoto_missingPhoto_isRejected_andDeletesNothing() {
+        UUID websiteId = UUID.randomUUID();
+        UUID photoId = UUID.randomUUID();
+        when(photoRepository.findById(photoId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service().deletePhoto(websiteId, photoId))
+                .isInstanceOf(WeddingPhotoNotFoundException.class);
+        verify(photoRepository, never()).deleteById(any());
     }
 }

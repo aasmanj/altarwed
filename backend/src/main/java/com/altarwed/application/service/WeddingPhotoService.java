@@ -100,11 +100,16 @@ public class WeddingPhotoService {
         log.info("wedding photo album reordered, websiteId={}, count={}", websiteId, reordered.size());
     }
 
+    // Returns the URL of the deleted photo so the controller can delete its blob after this delete
+    // commits (issue #101: the row delete alone leaves the blob orphaned in storage). Uses findById +
+    // ownership filter (like updatePhoto) so the same read both authorizes and yields the URL.
     @Transactional
-    public void deletePhoto(UUID websiteId, UUID photoId) {
-        if (!photoRepository.existsByIdAndWeddingWebsiteId(photoId, websiteId)) {
-            throw new WeddingPhotoNotFoundException(photoId.toString());
-        }
+    public String deletePhoto(UUID websiteId, UUID photoId) {
+        WeddingPhoto photo = photoRepository.findById(photoId)
+                .filter(p -> p.weddingWebsiteId().equals(websiteId))
+                .orElseThrow(() -> new WeddingPhotoNotFoundException(photoId.toString()));
         photoRepository.deleteById(photoId);
+        log.info("wedding photo deleted, websiteId={}, photoId={}", websiteId, photoId);
+        return photo.url();
     }
 }

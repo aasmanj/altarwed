@@ -152,8 +152,28 @@ public class VendorService {
 
     @Transactional
     public Vendor updateLogoUrl(UUID vendorId, String logoUrl) {
-        Vendor saved = vendorRepository.save(getById(vendorId).withLogoUrl(logoUrl));
+        // Capture the prior logo URL so its blob can be cleaned up on replace (issue #101: a new logo
+        // upload otherwise leaks the old blob in storage forever, growing cost unbounded at scale).
+        Vendor existing = getById(vendorId);
+        String oldLogoUrl = existing.logoUrl();
+        Vendor saved = vendorRepository.save(existing.withLogoUrl(logoUrl));
         log.info("vendor logo updated, vendorId={}", vendorId);
+
+        // Delete the replaced blob only AFTER this transaction commits, mirroring deleteVendor: the
+        // delete is irreversible, so running it inside the transaction would risk deleting the old
+        // blob for an update that a commit-time failure then rolls back (leaving the row pointing at a
+        // deleted blob). With no active transaction (e.g. a direct unit-test call) fall back to inline.
+        List<String> oldBlobs = oldLogoUrl == null ? List.of() : List.of(oldLogoUrl);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    deleteBlobsBestEffort(vendorId, oldBlobs);
+                }
+            });
+        } else {
+            deleteBlobsBestEffort(vendorId, oldBlobs);
+        }
         return saved;
     }
 
@@ -213,16 +233,16 @@ public class VendorService {
         log.info("vendor hard deleted, vendorId={}, blobs={}", vendorId, blobUrls.size());
     }
 
-    // Best-effort, isolated per blob: one storage failure must not block the others.
-    // A failure leaves a recoverable, logged orphan, far better than failing the
-    // already-committed delete over a transient storage error. WARN not ERROR: a
-    // tolerated per-item batch failure, not an on-call page.
+    // Best-effort, isolated per blob: one storage failure must not block the others. A failure leaves
+    // a recoverable, logged orphan, far better than failing an already-committed change over a
+    // transient storage error. Shared by the hard-delete and logo-replace paths. WARN not ERROR: a
+    // tolerated per-item cleanup failure, not an on-call page.
     private void deleteBlobsBestEffort(UUID vendorId, List<String> blobUrls) {
         for (String url : blobUrls) {
             try {
                 blobStorage.delete(url);
             } catch (RuntimeException ex) {
-                log.warn("vendor blob orphaned, delete failed during hard delete, vendorId={}, url={}", vendorId, url, ex);
+                log.warn("vendor blob orphaned, delete failed (best-effort, ignoring), vendorId={}, url={}", vendorId, url, ex);
             }
         }
     }
