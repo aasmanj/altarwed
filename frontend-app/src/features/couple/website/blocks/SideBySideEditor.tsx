@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2, ImagePlus, Smartphone, Monitor, Settings2, Pencil } from 'lucide-react'
 import { apiClient } from '@/core/api/client'
@@ -16,7 +16,7 @@ import {
 import SortableBlockList from './SortableBlockList'
 import WebsiteSectionDrawer from './WebsiteSectionDrawer'
 import { BlockEditContext, type WebsiteSection } from './blockEditContext'
-import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
+import { normalizeImageFile, isAllowedImageType, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 import {
   ALLOWED_TYPES_PER_TAB,
   BLOCK_TABS,
@@ -40,9 +40,21 @@ const PREVIEW_ORIGIN =
 const previewUrl = (slug: string, tab: BlockTab) =>
   `${PREVIEW_ORIGIN}/preview/${slug}/${tab.toLowerCase()}`
 
+function heroUploadErrorMessage(err: unknown): string {
+  const status = (err as { response?: { status?: number } })?.response?.status
+  if (status === 413) return 'Photo too large (max 20 MB). Try compressing it or choosing a smaller file.'
+  if (status === 415) return 'Format not supported. Please upload a JPEG, PNG, or WebP photo.'
+  if (status === 401 || status === 403) return 'Session expired. Refresh the page and try again.'
+  return 'Upload failed. Check your connection and try again, or choose a different photo.'
+}
+
 export default function SideBySideEditor() {
   const { user } = useAuth()
   const coupleId = user?.id ?? ''
+  const location = useLocation()
+  const [wizardNotice, setWizardNotice] = useState<string | null>(
+    (location.state as { notice?: string } | null)?.notice ?? null
+  )
 
   const { data: website, isLoading: websiteLoading } = useWeddingWebsite(coupleId)
   const websiteId = website?.id
@@ -65,6 +77,7 @@ export default function SideBySideEditor() {
   const [previewLoading, setPreviewLoading] = useState(true)
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
   const [heroUploading, setHeroUploading] = useState(false)
+  const [heroUploadError, setHeroUploadError] = useState<string | null>(null)
   // Persisted preview viewport mode. Couples need to know what guests see on
   // phones (the majority of RSVPers) so we expose a one-click mobile toggle.
   // localStorage so the choice survives page reloads.
@@ -333,7 +346,18 @@ export default function SideBySideEditor() {
   const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = e.target.files?.[0]
     if (!picked || !websiteId) return
+    setHeroUploadError(null)
     const file = await normalizeImageFile(picked)
+    if (!isAllowedImageType(file)) {
+      setHeroUploadError('Format not supported. Please upload a JPEG, PNG, or WebP photo.')
+      if (heroInputRef.current) heroInputRef.current.value = ''
+      return
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      setHeroUploadError('Photo too large (max 20 MB). Try compressing it or choosing a smaller file.')
+      if (heroInputRef.current) heroInputRef.current.value = ''
+      return
+    }
     const form = new FormData()
     form.append('file', file)
     setHeroUploading(true)
@@ -342,6 +366,8 @@ export default function SideBySideEditor() {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       bumpPreview()
+    } catch (err: unknown) {
+      setHeroUploadError(heroUploadErrorMessage(err))
     } finally {
       setHeroUploading(false)
       // Reset so re-selecting the same file triggers onChange again
@@ -414,6 +440,20 @@ export default function SideBySideEditor() {
           </div>
         </div>
       </header>
+
+      {/* Notice from onboarding wizard when hero upload failed mid-flow */}
+      {wizardNotice && (
+        <div role="alert" className="flex items-start gap-3 bg-amber-50 border-b border-amber-200 px-6 py-3 text-sm text-amber-900">
+          <span className="flex-1">{wizardNotice}</span>
+          <button
+            onClick={() => setWizardNotice(null)}
+            aria-label="Dismiss"
+            className="text-amber-600 hover:text-amber-900 flex-shrink-0 leading-none"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* ── Main split layout ───────────────────────────────────────────
           Flex with explicit percentages so the draggable divider can resize
@@ -551,10 +591,21 @@ export default function SideBySideEditor() {
             website={website}
             websiteId={websiteId ?? ''}
             heroUploading={heroUploading}
+            heroUploadError={heroUploadError}
+            onHeroErrorDismiss={() => setHeroUploadError(null)}
             onHeroUploadClick={() => heroInputRef.current?.click()}
             onHeroDrop={async (dropped) => {
               if (!websiteId) return
+              setHeroUploadError(null)
               const file = await normalizeImageFile(dropped)
+              if (!isAllowedImageType(file)) {
+                setHeroUploadError('Format not supported. Please upload a JPEG, PNG, or WebP photo.')
+                return
+              }
+              if (file.size > 20 * 1024 * 1024) {
+                setHeroUploadError('Photo too large (max 20 MB). Try compressing it or choosing a smaller file.')
+                return
+              }
               const form = new FormData()
               form.append('file', file)
               setHeroUploading(true)
@@ -565,6 +616,8 @@ export default function SideBySideEditor() {
                 )
                 if (res.data?.url) sendPreviewUpdate('heroPhotoUrl', res.data.url)
                 bumpPreview()
+              } catch (err: unknown) {
+                setHeroUploadError(heroUploadErrorMessage(err))
               } finally {
                 setHeroUploading(false)
               }
@@ -891,6 +944,8 @@ function useDebouncedSave<T>(persistedSave: (value: T) => void) {
 function HeroSettings({
   website,
   heroUploading,
+  heroUploadError,
+  onHeroErrorDismiss,
   onHeroUploadClick,
   onHeroDrop,
   onTaglineSave,
@@ -918,6 +973,8 @@ function HeroSettings({
   }
   websiteId: string
   heroUploading: boolean
+  heroUploadError: string | null
+  onHeroErrorDismiss: () => void
   onHeroUploadClick: () => void
   onHeroDrop: (file: File) => void | Promise<void>
   onTaglineSave: (tagline: string) => void
@@ -1156,6 +1213,12 @@ function HeroSettings({
               </button>
             </div>
 
+            {heroUploadError && (
+              <div role="alert" className="flex items-start gap-1.5 mt-1 mb-1 text-[10px] text-red-700 leading-snug bg-red-50 border border-red-200 rounded px-2 py-1.5">
+                <span className="flex-1">{heroUploadError}</span>
+                <button onClick={onHeroErrorDismiss} aria-label="Dismiss" className="text-red-400 hover:text-red-700 flex-shrink-0 leading-none">×</button>
+              </div>
+            )}
             <p className="text-[10px] text-stone-400 leading-snug mb-2">
               A wide landscape photo works best. Tall portrait shots get cropped top and bottom in the banner.
             </p>

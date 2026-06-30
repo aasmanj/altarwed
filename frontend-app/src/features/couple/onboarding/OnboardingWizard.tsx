@@ -160,8 +160,8 @@ export default function OnboardingWizard() {
       setHeroError('That image type is not supported. Please use a JPEG, PNG, or WebP (or an iPhone HEIC photo).')
       return
     }
-    if (file.size > 15 * 1024 * 1024) {
-      setHeroError('That photo is over 15 MB. Please choose a smaller image.')
+    if (file.size > 20 * 1024 * 1024) {
+      setHeroError('That photo is over 20 MB. Please choose a smaller image.')
       return
     }
     setHeroFile(file)
@@ -227,8 +227,8 @@ export default function OnboardingWizard() {
       }
 
       // 3. Hero file upload. Has to happen AFTER website creation because
-      //    the endpoint is keyed by websiteId. If it fails, the couple still
-      //    gets the rest of the wizard's data, we don't roll back.
+      //    the endpoint is keyed by websiteId. If it fails, site is still
+      //    created -- send the couple to the editor with an actionable notice.
       if (heroFile) {
         try {
           const form = new FormData()
@@ -238,8 +238,19 @@ export default function OnboardingWizard() {
             form,
             { headers: { 'Content-Type': 'multipart/form-data' } },
           )
-        } catch {
-          // Non-blocking
+        } catch (uploadErr: unknown) {
+          const status = (uploadErr as { response?: { status?: number } })?.response?.status
+          let notice: string
+          if (status === 413) {
+            notice = 'Your hero photo was too large and could not be uploaded. Try a file under 20 MB from the editor.'
+          } else if (status === 415) {
+            notice = 'That photo format is not supported. Upload a JPEG, PNG, or WebP from the editor.'
+          } else {
+            notice = 'Your site was created, but the hero photo failed to upload. You can try again from the editor.'
+          }
+          clearPersistentState(ONBOARDING_KEY)
+          navigate('/dashboard/website/editor', { state: { notice } })
+          return
         }
       }
 
