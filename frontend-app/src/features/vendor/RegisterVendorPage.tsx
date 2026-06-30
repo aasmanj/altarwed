@@ -19,6 +19,7 @@ const CATEGORIES = [
   { value: 'HAIR_AND_MAKEUP', label: 'Hair & Makeup',   icon: '💄' },
   { value: 'VIDEOGRAPHER',    label: 'Videographer',    icon: '🎥' },
   { value: 'COORDINATOR',     label: 'Coordinator',     icon: '📋' },
+  { value: 'COUNSELING',      label: 'Pre-Marital Counseling', icon: '🤝' },
   { value: 'OFFICIANT',       label: 'Officiant',       icon: '⛪' },
   { value: 'TRANSPORTATION',  label: 'Transportation',  icon: '🚗' },
   { value: 'INVITATION',      label: 'Invitations',     icon: '✉️' },

@@ -33,7 +33,10 @@ public class VendorAuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AsyncEmailService asyncEmailService;
+    private final VendorPromoService vendorPromoService;
     private final String publicBaseUrl;
+    private final String appBaseUrl;
+    private final long foundingVendorCap;
 
     public VendorAuthService(
             VendorRepository vendorRepository,
@@ -41,14 +44,20 @@ public class VendorAuthService {
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             AsyncEmailService asyncEmailService,
-            @Value("${altarwed.nextjs.base-url:https://www.altarwed.com}") String publicBaseUrl
+            VendorPromoService vendorPromoService,
+            @Value("${altarwed.nextjs.base-url:https://www.altarwed.com}") String publicBaseUrl,
+            @Value("${altarwed.app.base-url:https://app.altarwed.com}") String appBaseUrl,
+            @Value("${altarwed.vendor.founding-cap:25}") long foundingVendorCap
     ) {
         this.vendorRepository = vendorRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.asyncEmailService = asyncEmailService;
+        this.vendorPromoService = vendorPromoService;
         this.publicBaseUrl = publicBaseUrl;
+        this.appBaseUrl = appBaseUrl;
+        this.foundingVendorCap = foundingVendorCap;
     }
 
     @Transactional
@@ -59,6 +68,9 @@ public class VendorAuthService {
             log.warn("vendor registration rejected, email already exists, email={}", maskedEmail);
             throw new EmailAlreadyExistsException(request.email());
         }
+
+        // Check before saving so we get an accurate pre-registration count.
+        boolean isFoundingVendor = foundingVendorCap > 0 && vendorRepository.countVerified() < foundingVendorCap;
 
         var vendor = new Vendor(
                 null,
@@ -71,7 +83,9 @@ public class VendorAuthService {
                 Boolean.TRUE.equals(request.isChristianOwned()),
                 request.denominationIds() != null ? request.denominationIds() : List.of(),
                 true,
-                false,  // starts unverified; Stripe webhook verifies on ACTIVE/TRIALING
+                isFoundingVendor,  // founding vendors are verified at construction so the subscription
+                                   // save below (T1) sees the committed row -- avoids the REQUIRES_NEW
+                                   // isolation problem where T2 can't read T1's uncommitted vendor row
                 null,   // priceTier
                 null,   // bio
                 null,   // description
@@ -90,9 +104,23 @@ public class VendorAuthService {
         String rawRefresh = jwtService.generateRefreshToken(saved.email(), ROLE_VENDOR, saved.id());
         persistRefreshToken(rawRefresh, saved.id(), ROLE_VENDOR);
 
-        log.info("vendor registration succeeded, vendorId={}, email={}", saved.id(), maskedEmail);
+        log.info("vendor registration succeeded, vendorId={}, isFoundingVendor={}, email={}",
+                saved.id(), isFoundingVendor, maskedEmail);
 
-        String listingUrl = publicBaseUrl + "/vendors/" + saved.id();
+        // Save the founding subscription record in the same transaction as the vendor row.
+        // grantFoundingVendorAccess() does NOT call vendorService.verify() here -- the vendor
+        // is already isVerified=true from construction, so there is no REQUIRES_NEW round-trip
+        // that would open a second connection and fail to see the uncommitted vendor row.
+        if (isFoundingVendor) {
+            vendorPromoService.grantFoundingVendorAccess(saved.id());
+        }
+
+        String listingUrl   = publicBaseUrl + "/vendors/" + saved.id();
+        String dashboardUrl = appBaseUrl + "/dashboard";
+        asyncEmailService.sendVendorWelcomeEmail(saved.email(), saved.businessName(),
+                listingUrl, dashboardUrl, isFoundingVendor);
+        log.info("vendor welcome email queued, vendorId={}", saved.id());
+
         asyncEmailService.sendVendorRegistrationAlert(
                 saved.businessName(),
                 saved.category() != null ? saved.category().name() : "UNKNOWN",
@@ -100,7 +128,8 @@ public class VendorAuthService {
                 saved.state(),
                 saved.email(),
                 saved.id().toString(),
-                listingUrl
+                listingUrl,
+                isFoundingVendor
         );
         log.info("vendor registration alert queued, vendorId={}", saved.id());
 

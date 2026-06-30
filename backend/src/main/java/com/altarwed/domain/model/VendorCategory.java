@@ -14,5 +14,6 @@ public enum VendorCategory {
     TRANSPORTATION,
     COORDINATOR,
     ALTERATIONS,
+    COUNSELING,
     OTHER
 }

@@ -85,14 +85,34 @@ public class AsyncEmailService {
     @Async("emailExecutor")
     public void sendVendorRegistrationAlert(String businessName, String category,
                                              String city, String state, String vendorEmail,
-                                             String vendorId, String adminListingUrl) {
+                                             String vendorId, String adminListingUrl,
+                                             boolean autoVerified) {
         emailPort.sendVendorRegistrationAlert(businessName, category,
-                city, state, vendorEmail, vendorId, adminListingUrl);
+                city, state, vendorEmail, vendorId, adminListingUrl, autoVerified);
     }
 
     @Async("emailExecutor")
     public void sendWeddingPublishedEmail(String toEmail, String partnerOneName,
                                           String partnerTwoName, String weddingUrl) {
         emailPort.sendWeddingPublishedEmail(toEmail, partnerOneName, partnerTwoName, weddingUrl);
+    }
+
+    @Async("emailExecutor")
+    public void sendCoupleWebsiteCreatedAlert(String coupleEmail, String partnerOneName,
+                                               String partnerTwoName, String slug, String siteUrl) {
+        emailPort.sendCoupleWebsiteCreatedAlert(coupleEmail, partnerOneName, partnerTwoName, slug, siteUrl);
+    }
+
+    @Async("emailExecutor")
+    public void sendVendorWelcomeEmail(String toEmail, String businessName,
+                                       String listingUrl, String dashboardUrl,
+                                       boolean isFoundingVendor) {
+        emailPort.sendVendorWelcomeEmail(toEmail, businessName, listingUrl, dashboardUrl, isFoundingVendor);
+    }
+
+    @Async("emailExecutor")
+    public void sendVendorVerifiedEmail(String toEmail, String businessName,
+                                        String listingUrl, String dashboardUrl) {
+        emailPort.sendVendorVerifiedEmail(toEmail, businessName, listingUrl, dashboardUrl);
     }
 }

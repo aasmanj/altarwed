@@ -14,10 +14,10 @@ export default async function RsvpTabPage(
     <div className="space-y-10">
       <SectionHeading>RSVP</SectionHeading>
 
-      <div className="rounded-2xl border-2 border-[#d4af6a] bg-[#d4af6a]/5 p-8 sm:p-10 space-y-8">
+      <div className="rounded-2xl border-2 border-[#d4af6a] bg-[#d4af6a]/5 p-6 sm:p-10 space-y-8">
         {/* Heading row */}
         <div className="text-center">
-          <p className="font-serif text-3xl font-bold text-[#3b2f2f] mb-2">Will you join us?</p>
+          <p className="font-serif text-2xl sm:text-3xl font-bold text-[#3b2f2f] mb-2">Will you join us?</p>
           {wedding.rsvpDeadline && (
             <p className="text-sm text-[#8a6a4a]">
               Please RSVP by {formatWeddingDate(wedding.rsvpDeadline)}

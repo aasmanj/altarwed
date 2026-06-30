@@ -131,6 +131,10 @@ altarwed:
     # and first vendors). Not a secret; shared deliberately. Empty value disables redemption.
     # Override per-environment via VENDOR_PROMO_CODE; defaults to FREEVENDOR so it works out of the box.
     promo-code: ${VENDOR_PROMO_CODE:FREEVENDOR}
+    # Founding vendor program: first N vendors to register get auto-verified for a free period.
+    # Set founding-cap=0 to disable the program entirely.
+    founding-cap: ${VENDOR_FOUNDING_CAP:25}
+    founding-period-months: ${VENDOR_FOUNDING_PERIOD_MONTHS:12}
 
   unsubscribe:
     # No default: a missing secret produces broken unsubscribe links but must not crash the app.

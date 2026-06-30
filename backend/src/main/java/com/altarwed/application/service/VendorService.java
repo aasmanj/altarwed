@@ -12,6 +12,7 @@ import com.altarwed.domain.port.VendorPortfolioPhotoRepository;
 import com.altarwed.domain.port.VendorRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,17 +34,26 @@ public class VendorService {
     private final VendorPortfolioPhotoRepository portfolioPhotoRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final BlobStoragePort blobStorage;
+    private final AsyncEmailService asyncEmailService;
+    private final String publicBaseUrl;
+    private final String appBaseUrl;
 
     public VendorService(VendorRepository vendorRepository,
                          InquiryRepository inquiryRepository,
                          VendorPortfolioPhotoRepository portfolioPhotoRepository,
                          RefreshTokenRepository refreshTokenRepository,
-                         BlobStoragePort blobStorage) {
+                         BlobStoragePort blobStorage,
+                         AsyncEmailService asyncEmailService,
+                         @Value("${altarwed.nextjs.base-url:https://www.altarwed.com}") String publicBaseUrl,
+                         @Value("${altarwed.app.base-url:https://app.altarwed.com}") String appBaseUrl) {
         this.vendorRepository = vendorRepository;
         this.inquiryRepository = inquiryRepository;
         this.portfolioPhotoRepository = portfolioPhotoRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.blobStorage = blobStorage;
+        this.asyncEmailService = asyncEmailService;
+        this.publicBaseUrl = publicBaseUrl;
+        this.appBaseUrl = appBaseUrl;
     }
 
     @Transactional(readOnly = true)
@@ -93,8 +103,30 @@ public class VendorService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Vendor verify(UUID vendorId) {
         log.info("vendor verify started, vendorId={}", vendorId);
-        Vendor saved = vendorRepository.save(getById(vendorId).withVerified());
+        Vendor existing = getById(vendorId);
+        if (existing.isVerified()) {
+            // Idempotency guard: re-verifying an already-live vendor (admin double-click,
+            // promo redeem after admin approval) must not send a duplicate "you're live" email.
+            log.info("vendor already verified, no-op, vendorId={}", vendorId);
+            return existing;
+        }
+        Vendor saved = vendorRepository.save(existing.withVerified());
         log.info("vendor verified, vendorId={}", vendorId);
+        // @Async has no transaction awareness -- dispatching sendVendorVerifiedEmail() directly
+        // races the REQUIRES_NEW commit and can fire before the row is visible on other
+        // connections. afterCommit() guarantees the email queues only after this transaction
+        // commits, so the public listing URL in the email is live when the vendor clicks it.
+        String listingUrl   = publicBaseUrl + "/vendors/" + saved.id();
+        String dashboardUrl = appBaseUrl + "/dashboard";
+        String vendorEmail     = saved.email();
+        String vendorBizName   = saved.businessName();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                asyncEmailService.sendVendorVerifiedEmail(vendorEmail, vendorBizName, listingUrl, dashboardUrl);
+                log.info("vendor verified email queued, vendorId={}", vendorId);
+            }
+        });
         return saved;
     }
 

@@ -75,6 +75,11 @@ public class VendorRepositoryAdapter implements VendorRepository {
     }
 
     @Override
+    public long countVerified() {
+        return jpaRepository.countByIsVerifiedTrue();
+    }
+
+    @Override
     public void deleteById(UUID id) {
         jpaRepository.deleteById(id);
     }

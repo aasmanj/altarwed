@@ -19,6 +19,9 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
+// FOUNDING_PERIOD_MONTHS is injected from altarwed.vendor.founding-period-months (application.yml)
+// so Jordan can adjust the free window without a code change (VENDOR_FOUNDING_PERIOD_MONTHS env var).
+
 /**
  * Comp-code redemption for vendors. A valid promo code grants a FREE listing equivalent to a paid
  * subscription, deliberately WITHOUT touching Stripe: comped vendors (the founder's friends and the
@@ -45,17 +48,20 @@ public class VendorPromoService {
     private final VendorPromoCodeRepository promoCodeRepository;
     private final VendorService vendorService;
     private final String promoCode;
+    private final int foundingPeriodMonths;
 
     public VendorPromoService(
             VendorSubscriptionRepository subscriptionRepository,
             VendorPromoCodeRepository promoCodeRepository,
             VendorService vendorService,
-            @Value("${altarwed.vendor.promo-code:}") String promoCode
+            @Value("${altarwed.vendor.promo-code:}") String promoCode,
+            @Value("${altarwed.vendor.founding-period-months:12}") int foundingPeriodMonths
     ) {
         this.subscriptionRepository = subscriptionRepository;
         this.promoCodeRepository = promoCodeRepository;
         this.vendorService = vendorService;
         this.promoCode = promoCode;
+        this.foundingPeriodMonths = foundingPeriodMonths;
     }
 
     @Transactional
@@ -111,6 +117,38 @@ public class VendorPromoService {
 
         log.info("vendor promo redeemed, comped subscription granted, vendorId={}", vendorId);
         return saved;
+    }
+
+    /**
+     * Save a FEATURED subscription record for a founding vendor (first N to register).
+     *
+     * The vendor is already isVerified=true from the Vendor constructor in VendorAuthService,
+     * so this method only persists the subscription record -- it intentionally does NOT call
+     * vendorService.verify(). Calling verify() here would open a REQUIRES_NEW transaction that
+     * cannot see the uncommitted vendor row from the parent transaction, causing VendorNotFoundException.
+     *
+     * currentPeriodEnd gives the dashboard a "free until" date and lets Phase 8 Stripe billing
+     * detect when the founding period lapses without a schema change.
+     */
+    @Transactional
+    public void grantFoundingVendorAccess(UUID vendorId) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime periodEnd = now.plusMonths(foundingPeriodMonths);
+        VendorSubscription foundingSub = new VendorSubscription(
+                null,
+                vendorId,
+                PlanTier.FEATURED,
+                SubscriptionStatus.ACTIVE,
+                null,                   // no Stripe customer
+                null,                   // no Stripe subscription id (comped marker)
+                now,                    // currentPeriodStart
+                periodEnd,              // currentPeriodEnd: free through this date
+                null,                   // cancelledAt
+                now,
+                now
+        );
+        subscriptionRepository.save(foundingSub);
+        log.info("founding vendor access granted, vendorId={}, freeUntil={}", vendorId, periodEnd);
     }
 
     /**

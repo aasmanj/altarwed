@@ -26,6 +26,8 @@ public interface VendorJpaRepository extends JpaRepository<VendorEntity, UUID> {
 
     List<VendorEntity> findAllByIsActiveTrueAndIsVerifiedTrue(Pageable pageable);
 
+    long countByIsVerifiedTrue();
+
     @Transactional
     @Modifying
     @Query("UPDATE VendorEntity v SET v.viewCount = v.viewCount + 1 WHERE v.id = :id")

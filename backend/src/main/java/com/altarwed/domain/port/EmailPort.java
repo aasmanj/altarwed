@@ -48,11 +48,29 @@ public interface EmailPort {
                                       String dashboardUrl,
                                       String guestReplyToEmail);
 
-    // Internal admin alert, sent to the platform owner when a new vendor registers
-    // so they can review the listing and unverify bad actors.
+    // Sent once when a vendor registers. If isFoundingVendor=true the listing is already
+    // live and the email says so; otherwise it explains the listing is under review.
+    void sendVendorWelcomeEmail(String toEmail, String businessName,
+                                String listingUrl, String dashboardUrl,
+                                boolean isFoundingVendor);
+
+    // Sent when an unverified vendor is approved (admin manually verifies, or promo code
+    // redeemed). Not sent for founding vendors because they are already live at registration.
+    void sendVendorVerifiedEmail(String toEmail, String businessName,
+                                 String listingUrl, String dashboardUrl);
+
+    // Internal admin alert, sent to the platform owner when a new vendor registers.
+    // autoVerified=true means the vendor is already live (founding vendor, first 25);
+    // false means they need manual verification before appearing in the directory.
     void sendVendorRegistrationAlert(String businessName, String category,
                                      String city, String state, String vendorEmail,
-                                     String vendorId, String adminListingUrl);
+                                     String vendorId, String adminListingUrl,
+                                     boolean autoVerified);
+
+    // Internal admin alert, sent to the platform owner when a couple creates a new
+    // wedding website so Jordan can track growth and reach out to early couples.
+    void sendCoupleWebsiteCreatedAlert(String coupleEmail, String partnerOneName,
+                                       String partnerTwoName, String slug, String siteUrl);
 
     // Vendor inquiry: the couple sends a question/booking inquiry to a vendor.
     // The vendor receives a formatted email with the couple's contact info and

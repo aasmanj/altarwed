@@ -145,6 +145,16 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           value: 'FREEVENDOR'
         }
         {
+          // Founding vendor program: first N verified vendors get auto-verified for a free period.
+          // Set to 0 to close the program. application.yml defaults: cap=25, period=12 months.
+          name: 'VENDOR_FOUNDING_CAP'
+          value: '25'
+        }
+        {
+          name: 'VENDOR_FOUNDING_PERIOD_MONTHS'
+          value: '12'
+        }
+        {
           // Browser API key for the Google Picker (restricted to our referrers +
           // Picker/Sheets APIs). Low-sensitivity but kept in Key Vault for parity.
           name: 'GOOGLE_PICKER_API_KEY'

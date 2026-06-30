@@ -16,6 +16,7 @@ const CATEGORIES = [
   { value: 'CAKE',            label: 'Cake' },
   { value: 'CATERER',         label: 'Caterer' },
   { value: 'COORDINATOR',     label: 'Wedding Coordinator' },
+  { value: 'COUNSELING',      label: 'Pre-Marital Counseling' },
   { value: 'FLORIST',         label: 'Florist' },
   { value: 'HAIR_AND_MAKEUP', label: 'Hair & Makeup' },
   { value: 'INVITATION',      label: 'Invitations & Stationery' },

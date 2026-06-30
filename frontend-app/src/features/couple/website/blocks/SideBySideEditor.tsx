@@ -859,15 +859,16 @@ const TAB_HINTS: Record<BlockTab, string> = {
 }
 
 // ── Default hero photos ───────────────────────────────────────────────────────
-// Curated Unsplash photos that work well as wedding hero backgrounds.
-// Couples can pick one as a starting point before uploading their own photo.
+// Self-hosted on Azure Blob (altarwed-media/defaults/hero/) so there is no
+// dependency on Unsplash CDN availability or terms of service.
+const HERO_BASE = 'https://altarwedprodstorage.blob.core.windows.net/altarwed-media/defaults/hero'
 const DEFAULT_HERO_PHOTOS = [
-  { label: 'Altar couple',   url: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1600&q=80' },
-  { label: 'Church arch',    url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=1600&q=80' },
-  { label: 'Garden vows',    url: 'https://images.unsplash.com/photo-1465495976277-4387d4b0e4a6?w=1600&q=80' },
-  { label: 'Sunset walk',    url: 'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=1600&q=80' },
-  { label: 'Ring exchange',  url: 'https://images.unsplash.com/photo-1537633552985-df8429e8048b?w=1600&q=80' },
-  { label: 'Chapel door',    url: 'https://images.unsplash.com/photo-1550005809-91ad75fb315f?w=1600&q=80' },
+  { label: 'Altar couple',  url: `${HERO_BASE}/altar-couple.jpg`  },
+  { label: 'Church arch',   url: `${HERO_BASE}/church-arch.jpg`   },
+  { label: 'Garden vows',   url: `${HERO_BASE}/garden-vows.jpg`   },
+  { label: 'Sunset walk',   url: `${HERO_BASE}/sunset-walk.jpg`   },
+  { label: 'Ring exchange', url: `${HERO_BASE}/ring-exchange.jpg` },
+  { label: 'Chapel door',   url: `${HERO_BASE}/chapel-door.jpg`   },
 ]
 
 // Debounced save hook: returns a `schedule(value)` callback that calls `persistedSave`
