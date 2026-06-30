@@ -22,7 +22,14 @@ export function ProtectedRoute({ children, role }: Props) {
   }
 
   if (!isAuthenticated) return <Navigate to="/login" replace />
-  if (role && user?.role !== role) return <Navigate to="/login" replace />
+  // Role mismatch on an authenticated user (e.g. a logged-in vendor following a
+  // couple-only link). Send them to their own dashboard instead of /login, which
+  // would wrongly imply they are signed out. Route paths mirror App.tsx: couples
+  // live under /dashboard, vendors under /vendor.
+  if (role && user?.role !== role) {
+    const dashboardPath = user?.role === 'VENDOR' ? '/vendor' : '/dashboard'
+    return <Navigate to={dashboardPath} replace />
+  }
 
   return <>{children}</>
 }
