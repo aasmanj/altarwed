@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, Link2, MessageCircle, Send } from 'lucide-react'
+import { X, Link2, MessageCircle, Send, Share2 } from 'lucide-react'
 
 interface Props {
   isOpen: boolean
@@ -62,7 +62,9 @@ export default function ShareModal({ isOpen, onClose, slug, coupleNames }: Props
         </button>
 
         <div className="text-center mb-6">
-          <div className="text-3xl mb-2">🎉</div>
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#fdf6ea]">
+            <Share2 className="h-6 w-6 text-[#d4af6a]" aria-hidden="true" />
+          </div>
           <h2 id="share-modal-title" className="font-serif text-2xl font-bold text-[#3b2f2f]">
             Your site is live!
           </h2>

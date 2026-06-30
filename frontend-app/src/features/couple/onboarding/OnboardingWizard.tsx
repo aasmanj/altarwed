@@ -258,6 +258,10 @@ export default function OnboardingWizard() {
     <div className="min-h-screen bg-[#fdfaf6] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-lg">
 
+        {/* Visually-hidden page title so the heading outline has a top level
+            (step headings start at h2). One h1 per page. */}
+        <h1 className="sr-only">Wedding Setup</h1>
+
         {/* Progress */}
         <div className="mb-8 text-center">
           <p className="text-xs uppercase tracking-widest text-[#8a6a4a] mb-2">

@@ -28,7 +28,6 @@ export async function POST(req: NextRequest) {
   }
 
   revalidatePath(`/wedding/${slug}`)
-  console.log(`[revalidate] Purged /wedding/${slug}`)
 
   return NextResponse.json({ revalidated: true, slug })
 }

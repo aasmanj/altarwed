@@ -48,7 +48,11 @@ public class VendorPromoCodeRepositoryAdapter implements VendorPromoCodeReposito
 
     @Override
     public VendorPromoRedemption saveRedemption(VendorPromoRedemption redemption) {
-        return toDomain(redemptionRepository.save(toEntity(redemption)));
+        // saveAndFlush (not save): force the INSERT to hit the DB now so the
+        // UNIQUE(code_id, vendor_id) constraint (V76) fires synchronously as a
+        // DataIntegrityViolationException the service can catch, rather than at transaction commit
+        // (after the service method returns) where it would escape as an unhandled 500.
+        return toDomain(redemptionRepository.saveAndFlush(toEntity(redemption)));
     }
 
     private VendorPromoCode toDomain(VendorPromoCodeEntity e) {

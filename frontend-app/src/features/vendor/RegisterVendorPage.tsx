@@ -3,6 +3,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import { useQuery } from '@tanstack/react-query'
+import {
+  Camera, Landmark, Flower2, UtensilsCrossed, CakeSlice, Music, Scissors,
+  Video, ClipboardList, Church, Car, Mail, Shirt, Sparkles, PartyPopper, MessageCircle,
+} from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
 import { apiClient } from '@/core/api/client'
 import { useCreateCheckoutSession } from './useSubscription'
@@ -10,21 +14,21 @@ import type { SubscriptionInfo } from './useSubscription'
 import PromoCodeBox from './PromoCodeBox'
 
 const CATEGORIES = [
-  { value: 'PHOTOGRAPHER',    label: 'Photographer',    icon: '📷' },
-  { value: 'VENUE',           label: 'Venue',           icon: '🏛️' },
-  { value: 'FLORIST',         label: 'Florist',         icon: '💐' },
-  { value: 'CATERER',         label: 'Caterer',         icon: '🍽️' },
-  { value: 'CAKE',            label: 'Cake',            icon: '🎂' },
-  { value: 'MUSIC',           label: 'Music',           icon: '🎵' },
-  { value: 'HAIR_AND_MAKEUP', label: 'Hair & Makeup',   icon: '💄' },
-  { value: 'VIDEOGRAPHER',    label: 'Videographer',    icon: '🎥' },
-  { value: 'COORDINATOR',     label: 'Coordinator',     icon: '📋' },
-  { value: 'COUNSELING',      label: 'Pre-Marital Counseling', icon: '🤝' },
-  { value: 'OFFICIANT',       label: 'Officiant',       icon: '⛪' },
-  { value: 'TRANSPORTATION',  label: 'Transportation',  icon: '🚗' },
-  { value: 'INVITATION',      label: 'Invitations',     icon: '✉️' },
-  { value: 'ALTERATIONS',     label: 'Alterations',     icon: '🪡' },
-  { value: 'OTHER',           label: 'Other',           icon: '✨' },
+  { value: 'PHOTOGRAPHER',    label: 'Photographer',          icon: Camera },
+  { value: 'VENUE',           label: 'Venue',                 icon: Landmark },
+  { value: 'FLORIST',         label: 'Florist',               icon: Flower2 },
+  { value: 'CATERER',         label: 'Caterer',               icon: UtensilsCrossed },
+  { value: 'CAKE',            label: 'Cake',                  icon: CakeSlice },
+  { value: 'MUSIC',           label: 'Music',                 icon: Music },
+  { value: 'HAIR_AND_MAKEUP', label: 'Hair & Makeup',         icon: Scissors },
+  { value: 'VIDEOGRAPHER',    label: 'Videographer',          icon: Video },
+  { value: 'COORDINATOR',     label: 'Coordinator',           icon: ClipboardList },
+  { value: 'COUNSELING',      label: 'Pre-Marital Counseling', icon: MessageCircle },
+  { value: 'OFFICIANT',       label: 'Officiant',             icon: Church },
+  { value: 'TRANSPORTATION',  label: 'Transportation',        icon: Car },
+  { value: 'INVITATION',      label: 'Invitations',           icon: Mail },
+  { value: 'ALTERATIONS',     label: 'Alterations',           icon: Shirt },
+  { value: 'OTHER',           label: 'Other',                 icon: Sparkles },
 ]
 
 const STEP_LABELS = ['Category', 'Details', 'Account', 'Get listed']
@@ -222,21 +226,24 @@ function CategoryStep({
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-        {CATEGORIES.map(cat => (
-          <button
-            key={cat.value}
-            type="button"
-            onClick={() => onSelectCategory(cat.value)}
-            className={`rounded-xl border p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af6a] ${
-              category === cat.value
-                ? 'border-[#d4af6a] bg-[#fdf6eb] shadow-sm'
-                : 'border-[#e8dcc8] bg-white hover:border-[#d4af6a]/50 hover:bg-[#fdf6eb]/40'
-            }`}
-          >
-            <span className="text-xl block mb-1" aria-hidden="true">{cat.icon}</span>
-            <span className="text-xs font-medium text-[#3b2f2f] leading-tight">{cat.label}</span>
-          </button>
-        ))}
+        {CATEGORIES.map(cat => {
+          const Icon = cat.icon
+          return (
+            <button
+              key={cat.value}
+              type="button"
+              onClick={() => onSelectCategory(cat.value)}
+              className={`rounded-xl border p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af6a] ${
+                category === cat.value
+                  ? 'border-[#d4af6a] bg-[#fdf6eb] shadow-sm'
+                  : 'border-[#e8dcc8] bg-white hover:border-[#d4af6a]/50 hover:bg-[#fdf6eb]/40'
+              }`}
+            >
+              <Icon className="w-5 h-5 mb-1.5 text-[#8a6a4a]" aria-hidden="true" />
+              <span className="text-xs font-medium text-[#3b2f2f] leading-tight">{cat.label}</span>
+            </button>
+          )
+        })}
       </div>
 
       <label htmlFor="wiz-christianOwned" className="flex items-center gap-3 cursor-pointer rounded-xl border border-[#e8dcc8] bg-white p-4 hover:border-[#d4af6a]/50 transition">
@@ -440,7 +447,7 @@ function StripeStep({
   return (
     <div className="space-y-5 pt-4">
       <div className="text-center py-3">
-        <div className="text-4xl mb-3" aria-hidden="true">🎉</div>
+        <PartyPopper className="w-10 h-10 mx-auto mb-3 text-[#d4af6a]" aria-hidden="true" />
         <h1 className="font-serif text-2xl font-bold text-[#3b2f2f]">Your account is ready!</h1>
         <p className="text-sm text-[#8a6a4a] mt-1">
           Subscribe to publish your listing and start reaching couples.

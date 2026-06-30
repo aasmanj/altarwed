@@ -2,10 +2,12 @@ package com.altarwed.application.service;
 
 import com.altarwed.domain.port.BlobStoragePort;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
@@ -13,6 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -118,6 +121,24 @@ class MediaUploadServiceTest {
         MultipartFile file = new MockMultipartFile("file", "mismatch.jpg", "image/jpeg", pngBytes());
 
         assertThat(service.uploadVenuePhoto(id, file)).isEqualTo("https://blob/x.bin");
+    }
+
+    @Test
+    void stores_blob_extension_and_metadata_from_sniffed_type_not_declared_header() throws IOException {
+        // A real PNG declared as image/jpeg (both on the allowlist). The stored blob name and the
+        // content-type metadata must follow the sniffed bytes (image/png -> .png), not the attacker
+        // controlled header (image/jpeg -> .jpg). Before threading sniffedType out of validate(),
+        // both used file.getContentType() and this asserted .png/image/png would have failed.
+        when(blobStorage.upload(any(), any(), anyLong(), eq("image/png"))).thenReturn("https://blob/x.png");
+        MultipartFile file = new MockMultipartFile("file", "mismatch.jpg", "image/jpeg", pngBytes());
+
+        service.uploadVenuePhoto(id, file);
+
+        ArgumentCaptor<String> blobName = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> contentType = ArgumentCaptor.forClass(String.class);
+        verify(blobStorage).upload(blobName.capture(), any(InputStream.class), anyLong(), contentType.capture());
+        assertThat(blobName.getValue()).endsWith(".png");
+        assertThat(contentType.getValue()).isEqualTo("image/png");
     }
 
     @Test

@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   const audienceId = process.env.RESEND_AUDIENCE_ID
 
   if (!apiKey || !audienceId) {
-    console.log(`[waitlist] New signup, email: ${email}, name: ${name || '(not provided)'}`)
+    console.log('[waitlist] signup received')
     return NextResponse.json({ ok: true })
   }
 
@@ -32,8 +32,7 @@ export async function POST(req: NextRequest) {
   })
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    console.error('[waitlist] Resend error:', res.status, text)
+    console.error('[waitlist] Resend error, status:', res.status)
     return NextResponse.json({ error: 'Failed to join waitlist' }, { status: 500 })
   }
 
