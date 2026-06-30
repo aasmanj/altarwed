@@ -6,6 +6,8 @@ import com.altarwed.domain.exception.PlanningTaskNotFoundException;
 import com.altarwed.domain.model.PlanningTask;
 import com.altarwed.domain.model.PlanningTaskCategory;
 import com.altarwed.domain.port.PlanningTaskRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +17,8 @@ import java.util.UUID;
 
 @Service
 public class PlanningTaskService {
+
+    private static final Logger log = LoggerFactory.getLogger(PlanningTaskService.class);
 
     private final PlanningTaskRepository taskRepository;
 
@@ -53,7 +57,9 @@ public class PlanningTaskService {
                 null, null,
                 LocalDateTime.now(), LocalDateTime.now()
         );
-        return taskRepository.save(task);
+        PlanningTask saved = taskRepository.save(task);
+        log.info("planning task created, coupleId={}, taskId={}", coupleId, saved.id());
+        return saved;
     }
 
     @Transactional
@@ -72,7 +78,9 @@ public class PlanningTaskService {
                 req.assignee() != null ? blankToNull(req.assignee()) : existing.assignee(),
                 existing.createdAt(), LocalDateTime.now()
         );
-        return taskRepository.save(updated);
+        PlanningTask saved = taskRepository.save(updated);
+        log.info("planning task updated, coupleId={}, taskId={}", coupleId, saved.id());
+        return saved;
     }
 
     @Transactional
@@ -81,6 +89,7 @@ public class PlanningTaskService {
             throw new PlanningTaskNotFoundException(taskId.toString());
         }
         taskRepository.deleteById(taskId);
+        log.info("planning task deleted, coupleId={}, taskId={}", coupleId, taskId);
     }
 
     // -------------------------------------------------------------------------
@@ -162,5 +171,6 @@ public class PlanningTaskService {
         )).toList();
 
         taskRepository.saveAll(tasks);
+        log.info("planning tasks seeded, coupleId={}, count={}", coupleId, tasks.size());
     }
 }

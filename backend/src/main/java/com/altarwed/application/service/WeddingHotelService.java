@@ -4,6 +4,8 @@ import com.altarwed.application.dto.WeddingHotelRequest;
 import com.altarwed.domain.exception.WeddingHotelNotFoundException;
 import com.altarwed.domain.model.WeddingHotel;
 import com.altarwed.domain.port.WeddingHotelRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +15,8 @@ import java.util.UUID;
 
 @Service
 public class WeddingHotelService {
+
+    private static final Logger log = LoggerFactory.getLogger(WeddingHotelService.class);
 
     private final WeddingHotelRepository hotelRepository;
 
@@ -37,7 +41,9 @@ public class WeddingHotelService {
                 req.sortOrder() != null ? req.sortOrder() : nextOrder,
                 LocalDateTime.now(), LocalDateTime.now()
         );
-        return hotelRepository.save(hotel);
+        WeddingHotel saved = hotelRepository.save(hotel);
+        log.info("wedding hotel created, websiteId={}, hotelId={}", websiteId, saved.id());
+        return saved;
     }
 
     @Transactional
@@ -53,7 +59,9 @@ public class WeddingHotelService {
                 req.sortOrder()           != null ? req.sortOrder()           : existing.sortOrder(),
                 existing.createdAt(), LocalDateTime.now()
         );
-        return hotelRepository.save(updated);
+        WeddingHotel saved = hotelRepository.save(updated);
+        log.info("wedding hotel updated, websiteId={}, hotelId={}", websiteId, saved.id());
+        return saved;
     }
 
     @Transactional
@@ -62,6 +70,7 @@ public class WeddingHotelService {
             throw new WeddingHotelNotFoundException(hotelId.toString());
         }
         hotelRepository.deleteById(hotelId);
+        log.info("wedding hotel deleted, websiteId={}, hotelId={}", websiteId, hotelId);
     }
 
     private WeddingHotel getHotel(UUID websiteId, UUID hotelId) {

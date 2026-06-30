@@ -5,6 +5,8 @@ import com.altarwed.application.dto.UpdateSeatingTableRequest;
 import com.altarwed.domain.exception.SeatingTableNotFoundException;
 import com.altarwed.domain.model.SeatingTable;
 import com.altarwed.domain.port.SeatingTableRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +16,8 @@ import java.util.UUID;
 
 @Service
 public class SeatingTableService {
+
+    private static final Logger log = LoggerFactory.getLogger(SeatingTableService.class);
 
     private final SeatingTableRepository repository;
 
@@ -34,7 +38,9 @@ public class SeatingTableService {
                 .orElse(-1) + 1;
         int capacity = req.capacity() != null ? req.capacity() : 8;
         SeatingTable table = new SeatingTable(null, coupleId, req.name(), capacity, nextSort, null, null);
-        return repository.save(table);
+        SeatingTable saved = repository.save(table);
+        log.info("seating table created, coupleId={}, tableId={}", coupleId, saved.id());
+        return saved;
     }
 
     @Transactional
@@ -47,7 +53,9 @@ public class SeatingTableService {
                 req.sortOrder() != null ? req.sortOrder() : existing.sortOrder(),
                 existing.createdAt(), LocalDateTime.now()
         );
-        return repository.save(updated);
+        SeatingTable saved = repository.save(updated);
+        log.info("seating table updated, coupleId={}, tableId={}", coupleId, saved.id());
+        return saved;
     }
 
     @Transactional
@@ -56,6 +64,7 @@ public class SeatingTableService {
             throw new SeatingTableNotFoundException(tableId.toString());
         }
         repository.deleteById(tableId);
+        log.info("seating table deleted, coupleId={}, tableId={}", coupleId, tableId);
     }
 
     private SeatingTable get(UUID coupleId, UUID tableId) {
