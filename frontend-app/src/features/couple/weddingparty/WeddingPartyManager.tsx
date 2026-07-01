@@ -6,6 +6,7 @@ import {
   type WeddingPartyMember, type PartySide,
 } from './useWeddingParty'
 import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from '@/lib/upload'
 import { cropToSquare } from '@/lib/imageCrop'
 import ImageRepositionModal from '@/components/ImageRepositionModal'
 import { framingStyle, apiFraming } from '@/lib/imageFraming'
@@ -388,8 +389,8 @@ function MemberForm({ initial, onSubmit, onCancel, isPending, allowPhoto = false
     try {
       // Convert HEIC/HEIF first (canvas in cropToSquare cannot decode them).
       const file = await normalizeImageFile(picked)
-      if (file.size > 15 * 1024 * 1024) {
-        setCropError('Photo must be under 15 MB.')
+      if (file.size > MAX_UPLOAD_BYTES) {
+        setCropError(`Photo must be under ${MAX_UPLOAD_LABEL}.`)
         return
       }
       const cropped = await cropToSquare(file)
