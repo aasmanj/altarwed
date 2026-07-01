@@ -26,7 +26,7 @@ Google's crawler actually hit, so SEO and accessibility rules below are load-bea
 - `/blog` -- Blog index; `/blog/[slug]` -- post (Article JSON-LD); 7 posts seeded
 - `/resources` -- Affiliate resources page
 - `/privacy`, `/terms` -- Legal pages
-- `/sitemap.xml` -- Dynamic sitemap from DB
+- `/sitemap.xml` -- Sitemap index; paginated child sitemaps at `/sitemap/[id].xml` (50k-URL cap)
 
 ### Preview (internal)
 - `/preview/[slug]/[tab]` -- Block editor preview iframe (no site chrome); used by `frontend-app`.
@@ -39,7 +39,8 @@ Google's crawler actually hit, so SEO and accessibility rules below are load-bea
   Open Graph (`og:*`) tags, a canonical URL, and JSON-LD schema appropriate to the page type
   (Article for blog, LocalBusiness for vendor pages).
 - Image `alt` text with descriptive keywords.
-- Dynamic sitemap generated from DB at `/sitemap.xml`.
+- Dynamic sitemap generated from DB at `/sitemap.xml` (a sitemap index that references paginated
+  child sitemaps at `/sitemap/[id].xml`, each kept under Google's 50,000-URL cap for scale).
 
 ### ISR revalidate values
 - Wedding pages: **60s**
