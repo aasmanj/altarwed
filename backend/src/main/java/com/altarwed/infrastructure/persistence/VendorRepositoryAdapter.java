@@ -7,6 +7,7 @@ import com.altarwed.infrastructure.persistence.entity.VendorEntity;
 import com.altarwed.infrastructure.persistence.repository.VendorJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
@@ -42,59 +43,39 @@ public class VendorRepositoryAdapter implements VendorRepository {
         return jpaRepository.existsByEmail(email);
     }
 
-    // Every public directory query is capped at the database so a blank-filter request
-    // can never stream the whole active-vendor table (egress / DoS vector). The sort is
-    // deterministic (business name, then the id primary key as a tiebreaker) so the capped
-    // window is stable across requests: with no ORDER BY, SQL Server may return any 100 of
-    // N rows in any order, and some verified vendors would randomly never appear.
-    private static final PageRequest SEARCH_CAP = PageRequest.of(
-            0, MAX_SEARCH_RESULTS,
-            Sort.by(Sort.Direction.ASC, "businessName").and(Sort.by(Sort.Direction.ASC, "id")));
+    // Deterministic directory orderings, applied by the database (issue #135). "name" is
+    // alphabetical A-Z; the default is most-viewed first (a lightweight popularity proxy). Both
+    // tie-break on the id primary key so a given filter+sort renders the same order every request
+    // (without a total order, SQL Server may return equal-key rows in any order, so the capped
+    // window would be unstable and some vendors could randomly never appear). Case-insensitivity
+    // of business_name comes from SQL Server's default collation, so no LOWER() is applied to the
+    // sort key, keeping it index-friendly.
+    private static final Sort NAME_SORT = Sort.by(
+            Sort.Order.asc("businessName"), Sort.Order.asc("id"));
+    private static final Sort DEFAULT_SORT = Sort.by(
+            Sort.Order.desc("viewCount"), Sort.Order.asc("businessName"), Sort.Order.asc("id"));
+
+    private static Sort directorySort(String sort) {
+        return "name".equalsIgnoreCase(sort) ? NAME_SORT : DEFAULT_SORT;
+    }
+
+    // Blank filter values ("", "  ") mean "no filter": normalize them to null so the query's
+    // "(:x IS NULL OR ...)" branch short-circuits instead of matching on an empty string.
+    private static String blankToNull(String s) {
+        return (s == null || s.isBlank()) ? null : s;
+    }
 
     @Override
-    public List<Vendor> findByCity(String city) {
-        return jpaRepository.findByCityIgnoreCaseAndIsActiveTrueAndIsVerifiedTrue(city, SEARCH_CAP)
+    public List<Vendor> findDirectoryPage(VendorCategory category, String city, String priceTier,
+                                          String sort, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, directorySort(sort));
+        return jpaRepository.findDirectory(category, blankToNull(city), blankToNull(priceTier), pageable)
                 .stream().map(this::toDomain).toList();
     }
 
     @Override
-    public List<Vendor> findByCityAndCategory(String city, VendorCategory category) {
-        return jpaRepository.findByCityIgnoreCaseAndCategoryAndIsActiveTrueAndIsVerifiedTrue(city, category, SEARCH_CAP)
-                .stream().map(this::toDomain).toList();
-    }
-
-    @Override
-    public List<Vendor> findByCategory(VendorCategory category) {
-        return jpaRepository.findByCategoryAndIsActiveTrueAndIsVerifiedTrue(category, SEARCH_CAP)
-                .stream().map(this::toDomain).toList();
-    }
-
-    @Override
-    public List<Vendor> findAllActive() {
-        return jpaRepository.findAllByIsActiveTrueAndIsVerifiedTrue(SEARCH_CAP).stream().map(this::toDomain).toList();
-    }
-
-    @Override
-    public List<Vendor> findByFilters(VendorCategory category, String city, String priceTier) {
-        boolean hasCity = city != null && !city.isBlank();
-        List<Vendor> base;
-        if (hasCity && category != null) {
-            base = findByCityAndCategory(city, category);
-        } else if (hasCity) {
-            base = findByCity(city);
-        } else if (category != null) {
-            base = findByCategory(category);
-        } else {
-            base = findAllActive();
-        }
-        if (priceTier == null || priceTier.isBlank()) {
-            return base;
-        }
-        // No DB-derived query exists for price tier, and adding one would multiply the
-        // category/city query combinations. Filtering the already-capped candidate set in
-        // memory keeps the tier filter server-side and is cheap at this scale: the cap above
-        // bounds it at MAX_SEARCH_RESULTS rows.
-        return base.stream().filter(v -> priceTier.equals(v.priceTier())).toList();
+    public long countDirectory(VendorCategory category, String city, String priceTier) {
+        return jpaRepository.countDirectory(category, blankToNull(city), blankToNull(priceTier));
     }
 
     @Override
