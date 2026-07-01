@@ -10,6 +10,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite, usePublishWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { useGuests, type SaveTheDateSendResult } from '@/features/couple/guests/useGuests'
+import { formatWeddingDate } from '@/lib/date'
 import InvalidEmailsModal from './InvalidEmailsModal'
 import { QRCodeCanvas } from 'qrcode.react'
 
@@ -126,11 +127,7 @@ export default function SaveTheDatePage() {
   const coupleNames = user?.partnerOneName && user?.partnerTwoName
     ? `${user.partnerTwoName} & ${user.partnerOneName}`
     : 'The Couple'
-  const weddingDate = website?.weddingDate
-    ? new Date(website.weddingDate + 'T12:00:00').toLocaleDateString('en-US', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      })
-    : 'Date TBD'
+  const weddingDate = website?.weddingDate ? formatWeddingDate(website.weddingDate) : 'Date TBD'
   const weddingUrl = website
     ? `https://www.altarwed.com/wedding/${website.slug}`
     : 'https://www.altarwed.com'
@@ -449,7 +446,7 @@ export default function SaveTheDatePage() {
         {/* Tips */}
         <div className="bg-amber-50 border border-amber-100 rounded-xl p-5 text-sm text-amber-800 space-y-1">
           <p className="font-semibold mb-2">Tips</p>
-          <p>· Send save-the-dates 6–12 months before the wedding for destination weddings, 4–6 months for local.</p>
+          <p>· Send save-the-dates 6 to 12 months before the wedding for destination weddings, 4 to 6 months for local.</p>
           <p>· Make sure your wedding website is published before sending so guests can visit it.</p>
           <p>· Formal invitations with RSVP links can be sent separately from the Guest List page.</p>
         </div>

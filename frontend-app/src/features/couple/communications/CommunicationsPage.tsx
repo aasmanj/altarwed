@@ -15,6 +15,8 @@ import {
   type PrintOrderType,
 } from './usePrintOrders'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
+import { coupleDisplayName } from '@/lib/coupleName'
+import { formatShortDate } from '@/lib/date'
 
 type TemplateKey =
   | 'SAVE_THE_DATE_CLASSIC'
@@ -623,10 +625,11 @@ function PostcardPreview({
   const isPhoto = templateKey.endsWith('_PHOTO')
   const isSaveTheDate = templateKey.startsWith('SAVE_THE_DATE')
   const headline = isSaveTheDate ? 'Save the Date' : "You're Invited"
-  const names = [user.partnerOneName, user.partnerTwoName].filter(Boolean).join(' & ') || 'Your Names'
-  const dateLabel = user.weddingDate
-    ? new Date(user.weddingDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-    : null
+  // Bride-first (partnerTwoName) to match the printed postcard, the website, and the STD email.
+  const names = coupleDisplayName(user.partnerOneName, user.partnerTwoName)
+  // formatShortDate gives "Month D, YYYY" (no weekday), matching the printed card's MMMM d, yyyy,
+  // and parses YYYY-MM-DD at local noon so it never rolls back a day in negative-UTC timezones.
+  const dateLabel = user.weddingDate ? formatShortDate(user.weddingDate) : null
   const hasPhoto = isPhoto && !!heroPhotoUrl
   const qrUrl = weddingUrl ?? 'https://altarwed.com'
 
