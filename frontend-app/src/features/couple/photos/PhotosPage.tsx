@@ -17,6 +17,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { normalizeImageFile, isAllowedImageType, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
+import { MAX_UPLOAD_LABEL } from '@/lib/upload'
 import { toast } from 'sonner'
 import ImageRepositionModal from '@/components/ImageRepositionModal'
 import { framingStyle, apiFraming } from '@/lib/imageFraming'
@@ -254,7 +255,7 @@ export default function PhotosPage() {
               onChange={handleFileChange}
             />
           </div>
-          <p className="text-xs text-stone-400 mt-2">JPEG, PNG, WebP, or HEIC · Max 15 MB · Select multiple photos at once</p>
+          <p className="text-xs text-stone-400 mt-2">JPEG, PNG, WebP, or HEIC · Max {MAX_UPLOAD_LABEL} · Select multiple photos at once</p>
         </div>
 
         {/* Photo grid */}

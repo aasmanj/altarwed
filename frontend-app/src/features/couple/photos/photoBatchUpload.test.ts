@@ -90,6 +90,6 @@ describe('summarizePhotoBatch', () => {
     const s = summarizePhotoBatch({ uploaded: 0, failed: ['x.jpg'] }, 1)
     expect(s.kind).toBe('error')
     expect(s.message).toContain('Upload failed for: x.jpg')
-    expect(s.message).toContain('under 15 MB')
+    expect(s.message).toContain('under 20 MB')
   })
 })

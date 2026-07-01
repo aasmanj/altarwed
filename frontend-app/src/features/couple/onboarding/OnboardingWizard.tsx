@@ -8,6 +8,7 @@ import { apiClient } from '@/core/api/client'
 import { useCreateWeddingWebsite, useUpdateWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { formatShortDate } from '@/lib/date'
 import { normalizeImageFile, isAllowedImageType } from '@/lib/normalizeImageFile'
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, uploadErrorMessage } from '@/lib/upload'
 import ImageDropzone from '@/components/ImageDropzone'
 import { readPersistedState, writePersistedState, clearPersistentState } from '@/lib/usePersistentState'
 
@@ -160,8 +161,8 @@ export default function OnboardingWizard() {
       setHeroError('That image type is not supported. Please use a JPEG, PNG, or WebP (or an iPhone HEIC photo).')
       return
     }
-    if (file.size > 20 * 1024 * 1024) {
-      setHeroError('That photo is over 20 MB. Please choose a smaller image.')
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setHeroError(`That photo is over ${MAX_UPLOAD_LABEL}. Please choose a smaller image.`)
       return
     }
     setHeroFile(file)
@@ -239,15 +240,12 @@ export default function OnboardingWizard() {
             { headers: { 'Content-Type': 'multipart/form-data' } },
           )
         } catch (uploadErr: unknown) {
-          const status = (uploadErr as { response?: { status?: number } })?.response?.status
-          let notice: string
-          if (status === 413) {
-            notice = 'Your hero photo was too large and could not be uploaded. Try a file under 20 MB from the editor.'
-          } else if (status === 415) {
-            notice = 'That photo format is not supported. Upload a JPEG, PNG, or WebP from the editor.'
-          } else {
-            notice = 'Your site was created, but the hero photo failed to upload. You can try again from the editor.'
-          }
+          // The site is created either way; surface the backend's real
+          // rejection detail (size / type / dimensions on a 413/415/400) so the
+          // couple knows what to fix instead of guessing, and reassure them the
+          // photo can still be added from the editor.
+          const reason = uploadErrorMessage(uploadErr, 'The hero photo failed to upload.')
+          const notice = `Your site was created, but the hero photo could not be added: ${reason} You can add or replace it from the editor.`
           clearPersistentState(ONBOARDING_KEY)
           navigate('/dashboard/website/editor', { state: { notice } })
           return
@@ -641,7 +639,7 @@ function Step5Hero({
         >
           <span className="block w-full text-center py-4 text-sm text-[#8a6a4a]">
             <ImagePlus className="inline-block w-4 h-4 mr-1" />
-            Drag a photo here, or click to choose (JPEG, PNG, WebP, HEIC up to 15 MB)
+            Drag a photo here, or click to choose (JPEG, PNG, WebP, HEIC up to {MAX_UPLOAD_LABEL})
           </span>
         </ImageDropzone>
         {heroError && (

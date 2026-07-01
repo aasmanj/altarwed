@@ -5,7 +5,12 @@
 // collected by name, and onProgress always fires so the caller can reset the
 // spinner in a finally. See issue #92.
 
-export const MAX_PHOTO_BYTES = 15 * 1024 * 1024
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from '@/lib/upload'
+
+// Re-exported under the album-specific name the callers/tests already use, but
+// sourced from the single shared cap so it can never drift from the other
+// uploaders or the backend. See issues #93 and #136.
+export const MAX_PHOTO_BYTES = MAX_UPLOAD_BYTES
 
 export interface PhotoBatchDeps {
   // Convert HEIC/HEIF to JPEG (never throws); returns the file unchanged otherwise.
@@ -56,7 +61,7 @@ export function summarizePhotoBatch(result: PhotoBatchResult, total: number): { 
   if (uploaded === 0) {
     return {
       kind: 'error',
-      message: `Upload failed for: ${failed.join(', ')}. Check each is a JPEG, PNG, WebP, or HEIC under 15 MB.`,
+      message: `Upload failed for: ${failed.join(', ')}. Check each is a JPEG, PNG, WebP, or HEIC under ${MAX_UPLOAD_LABEL}.`,
     }
   }
   return { kind: 'error', message: `${uploaded} of ${total} uploaded, ${failed.length} failed: ${failed.join(', ')}` }
