@@ -360,6 +360,7 @@ export default function RsvpForm({
                   value={val}
                   onChange={e => setVal(e.target.value)}
                   required={q.required}
+                  maxLength={2000}
                   className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-base sm:text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
                 />
               </div>
