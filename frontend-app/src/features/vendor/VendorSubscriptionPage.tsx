@@ -8,6 +8,18 @@ import {
 } from './useSubscription'
 import PromoCodeBox from './PromoCodeBox'
 
+// Shown when a Stripe price ID fails to load (config/deploy skew) so a vendor ready
+// to pay is not left at a silent dead-end with only a greyed-out button. See issue #154.
+export const BILLING_UNAVAILABLE_MESSAGE =
+  'Billing is temporarily unavailable, please try again shortly.'
+
+// A price row is only actionable once its Stripe price ID has loaded. A null/empty
+// price ID means we cannot start a checkout, so we surface the message above instead
+// of silently disabling the button.
+export function isBillingUnavailable(priceId: string | null | undefined): boolean {
+  return !priceId
+}
+
 export default function VendorSubscriptionPage() {
   const [searchParams] = useSearchParams()
   const { data: sub, isLoading } = useVendorSubscription()
@@ -223,13 +235,20 @@ function PricingRow({
         <p className="text-lg font-bold text-[#3b2f2f] mt-0.5">{price}</p>
         <p className="text-xs text-[#8a6a4a]">{description}</p>
       </div>
-      <button
-        onClick={() => priceId && onCheckout(priceId)}
-        disabled={loading || !priceId}
-        className="shrink-0 rounded-lg bg-[#3b2f2f] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5c4033] transition disabled:opacity-40"
-      >
-        {loading ? 'Loading...' : 'Subscribe'}
-      </button>
+      <div className="shrink-0 flex flex-col items-end gap-1.5">
+        <button
+          onClick={() => priceId && onCheckout(priceId)}
+          disabled={loading || isBillingUnavailable(priceId)}
+          className="rounded-lg bg-[#3b2f2f] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5c4033] transition disabled:opacity-40"
+        >
+          {loading ? 'Loading...' : 'Subscribe'}
+        </button>
+        {isBillingUnavailable(priceId) && (
+          <p role="alert" className="max-w-[11rem] text-right text-xs text-red-600">
+            {BILLING_UNAVAILABLE_MESSAGE}
+          </p>
+        )}
+      </div>
     </div>
   )
 }
