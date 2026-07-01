@@ -27,7 +27,7 @@ export interface CspOptions {
   appOrigin?: string
 }
 
-const DEFAULT_API_ORIGIN = 'https://altarwed-prod-api.azurewebsites.net'
+const DEFAULT_API_ORIGIN = 'https://api.altarwed.com'
 const DEFAULT_APP_ORIGIN = 'https://app.altarwed.com'
 
 // Meta Pixel: loader script comes from connect.facebook.net; beacons/img and the

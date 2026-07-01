@@ -30,6 +30,15 @@ describe('buildContentSecurityPolicy', () => {
     expect(buildContentSecurityPolicy({ isDev: false })).toContain('upgrade-insecure-requests')
   })
 
+  it("keeps 'unsafe-inline' on script-src in production (deliberate tradeoff)", () => {
+    // Load-bearing: the Next.js App Router emits per-build inline hydration/RSC
+    // scripts that cannot be hashed ahead of time, so dropping 'unsafe-inline'
+    // would break all page rendering. Pin it so any future removal is a
+    // conscious, test-visible decision, not an accidental refactor.
+    const d = parse(buildContentSecurityPolicy({ isDev: false }))
+    expect(d['script-src']).toContain("'unsafe-inline'")
+  })
+
   it('relaxes only what dev tooling needs (eval, ws, no upgrade)', () => {
     const csp = buildContentSecurityPolicy({ isDev: true })
     const d = parse(csp)
@@ -66,8 +75,8 @@ describe('buildContentSecurityPolicy', () => {
 
   it('falls back to the prod API origin when the env var is unset or invalid', () => {
     expect(parse(buildContentSecurityPolicy({ apiOrigin: undefined }))['connect-src'])
-      .toContain('https://altarwed-prod-api.azurewebsites.net')
+      .toContain('https://api.altarwed.com')
     expect(parse(buildContentSecurityPolicy({ apiOrigin: 'not-a-url' }))['connect-src'])
-      .toContain('https://altarwed-prod-api.azurewebsites.net')
+      .toContain('https://api.altarwed.com')
   })
 })
