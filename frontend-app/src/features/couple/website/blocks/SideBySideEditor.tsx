@@ -19,6 +19,7 @@ import SortableBlockList from './SortableBlockList'
 import WebsiteSectionDrawer from './WebsiteSectionDrawer'
 import { BlockEditContext, type WebsiteSection } from './blockEditContext'
 import { normalizeImageFile, isAllowedImageType, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, FILE_TOO_LARGE_MESSAGE, uploadErrorMessage } from '@/lib/upload'
 import {
   ALLOWED_TYPES_PER_TAB,
   BLOCK_TABS,
@@ -41,14 +42,6 @@ const PREVIEW_ORIGIN =
 // Each one renders its own preview route via the iframe.
 const previewUrl = (slug: string, tab: BlockTab) =>
   `${PREVIEW_ORIGIN}/preview/${slug}/${tab.toLowerCase()}`
-
-function heroUploadErrorMessage(err: unknown): string {
-  const status = (err as { response?: { status?: number } })?.response?.status
-  if (status === 413) return 'Photo too large (max 20 MB). Try compressing it or choosing a smaller file.'
-  if (status === 415) return 'Format not supported. Please upload a JPEG, PNG, or WebP photo.'
-  if (status === 401 || status === 403) return 'Session expired. Refresh the page and try again.'
-  return 'Upload failed. Check your connection and try again, or choose a different photo.'
-}
 
 export default function SideBySideEditor() {
   const { user } = useAuth()
@@ -370,8 +363,8 @@ export default function SideBySideEditor() {
       if (heroInputRef.current) heroInputRef.current.value = ''
       return
     }
-    if (file.size > 20 * 1024 * 1024) {
-      setHeroUploadError('Photo too large (max 20 MB). Try compressing it or choosing a smaller file.')
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setHeroUploadError(FILE_TOO_LARGE_MESSAGE)
       if (heroInputRef.current) heroInputRef.current.value = ''
       return
     }
@@ -384,7 +377,7 @@ export default function SideBySideEditor() {
       })
       bumpPreview()
     } catch (err: unknown) {
-      setHeroUploadError(heroUploadErrorMessage(err))
+      setHeroUploadError(uploadErrorMessage(err))
     } finally {
       setHeroUploading(false)
       // Reset so re-selecting the same file triggers onChange again
@@ -623,8 +616,8 @@ export default function SideBySideEditor() {
                 setHeroUploadError('Format not supported. Please upload a JPEG, PNG, or WebP photo.')
                 return
               }
-              if (file.size > 20 * 1024 * 1024) {
-                setHeroUploadError('Photo too large (max 20 MB). Try compressing it or choosing a smaller file.')
+              if (file.size > MAX_UPLOAD_BYTES) {
+                setHeroUploadError(FILE_TOO_LARGE_MESSAGE)
                 return
               }
               const form = new FormData()
@@ -638,7 +631,7 @@ export default function SideBySideEditor() {
                 if (res.data?.url) sendPreviewUpdate('heroPhotoUrl', res.data.url)
                 bumpPreview()
               } catch (err: unknown) {
-                setHeroUploadError(heroUploadErrorMessage(err))
+                setHeroUploadError(uploadErrorMessage(err))
               } finally {
                 setHeroUploading(false)
               }
@@ -1274,7 +1267,7 @@ function HeroSettings({
             )}
             </div>
             <p className="mt-1.5 text-[10px] text-stone-400 leading-snug">
-              JPEG, PNG, or WebP. Up to 15 MB.
+              JPEG, PNG, or WebP. Up to {MAX_UPLOAD_LABEL}.
             </p>
           </div>
 

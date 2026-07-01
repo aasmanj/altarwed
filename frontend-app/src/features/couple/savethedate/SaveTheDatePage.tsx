@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import ImageDropzone from '@/components/ImageDropzone'
 import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, uploadErrorMessage } from '@/lib/upload'
 import { Link } from 'react-router-dom'
 import confetti from 'canvas-confetti'
 import { useAuth } from '@/core/auth/AuthContext'
@@ -39,6 +40,9 @@ export default function SaveTheDatePage() {
   // Post-send breakdown (queued vs skipped) and the malformed addresses to surface.
   const [result, setResult] = useState<SaveTheDateSendResult | null>(null)
   const [showInvalidModal, setShowInvalidModal] = useState(false)
+  // Client-side rejection (over the shared size cap) shown before any request
+  // fires; kept separate from the mutation's own server error state.
+  const [stdImageError, setStdImageError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!sent) return
@@ -58,6 +62,19 @@ export default function SaveTheDatePage() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['wedding-website', coupleId] }),
   })
+
+  // Single gate both the dropzone and the "Replace" picker go through: reject
+  // anything over the shared cap client-side (saves a wasted upload), otherwise
+  // fire the mutation. The file is already HEIC-normalized by the time it lands
+  // here (ImageDropzone and the picker both normalize first).
+  const handleStdImagePick = (file: File) => {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setStdImageError(`That image is over ${MAX_UPLOAD_LABEL}. Please choose a smaller file.`)
+      return
+    }
+    setStdImageError(null)
+    uploadStdImage.mutate(file)
+  }
 
   const removeStdImage = useMutation({
     mutationFn: () =>
@@ -142,7 +159,7 @@ export default function SaveTheDatePage() {
         <div className="bg-white rounded-xl border border-stone-200 p-6">
           <h2 className="font-semibold text-stone-900 mb-1">Custom design image</h2>
           <p className="text-sm text-stone-500 mb-4">
-            Upload an image from Canva or any design tool (JPEG, PNG, or WebP, max 15 MB). It will appear at the top of every save-the-date email you send.
+            Upload an image from Canva or any design tool (JPEG, PNG, or WebP, max {MAX_UPLOAD_LABEL}). It will appear at the top of every save-the-date email you send.
           </p>
           {website?.stdImageUrl ? (
             <div className="space-y-3">
@@ -166,7 +183,7 @@ export default function SaveTheDatePage() {
                       // Convert HEIC/HEIF (the default iPhone format) to JPEG before
                       // upload, matching the empty-state ImageDropzone path. Without
                       // this the raw input silently rejected camera-roll photos.
-                      if (f) void normalizeImageFile(f).then(n => uploadStdImage.mutate(n))
+                      if (f) void normalizeImageFile(f).then(handleStdImagePick)
                     }}
                   />
                 </label>
@@ -181,7 +198,7 @@ export default function SaveTheDatePage() {
             </div>
           ) : (
             <ImageDropzone
-              onPick={file => uploadStdImage.mutate(file)}
+              onPick={handleStdImagePick}
               disabled={uploadStdImage.isPending || !website}
               ariaLabel="Upload save-the-date design image"
               className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-stone-300 px-6 py-8 hover:border-amber-400 hover:bg-amber-50 transition ${(uploadStdImage.isPending || !website) ? 'opacity-50' : ''}`}
@@ -194,13 +211,15 @@ export default function SaveTheDatePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                   </svg>
                   <p className="text-sm font-medium text-stone-700">Drag and drop or click to upload</p>
-                  <p className="text-xs text-stone-400 mt-1">JPEG, PNG, or WebP up to 15 MB</p>
+                  <p className="text-xs text-stone-400 mt-1">JPEG, PNG, or WebP up to {MAX_UPLOAD_LABEL}</p>
                 </>
               )}
             </ImageDropzone>
           )}
-          {uploadStdImage.isError && (
-            <p className="mt-2 text-xs text-red-600">Upload failed. Check the file type and size and try again.</p>
+          {(stdImageError || uploadStdImage.isError) && (
+            <p className="mt-2 text-xs text-red-600">
+              {stdImageError ?? uploadErrorMessage(uploadStdImage.error, 'Upload failed. Check the file type and size and try again.')}
+            </p>
           )}
         </div>
 
