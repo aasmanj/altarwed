@@ -17,7 +17,9 @@ public interface WeddingWebsiteJpaRepository extends JpaRepository<WeddingWebsit
 
     Optional<WeddingWebsiteEntity> findBySlug(String slug);
 
-    List<WeddingWebsiteEntity> findAllByIsPublishedTrueAndIsDeletedFalse();
+    // Closed interface projection: selects only slug + updated_at, never the full
+    // entity. Backs the /published sitemap endpoint, which discards every other column.
+    List<WeddingWebsiteSitemapProjection> findByIsPublishedTrueAndIsDeletedFalse();
 
     boolean existsBySlug(String slug);
 

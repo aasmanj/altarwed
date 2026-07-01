@@ -1,6 +1,7 @@
 package com.altarwed.domain.port;
 
 import com.altarwed.domain.model.WeddingWebsite;
+import com.altarwed.domain.model.WeddingWebsiteSummary;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,7 +22,9 @@ public interface WeddingWebsiteRepository {
 
     Optional<WeddingWebsite> findBySlug(String slug);
 
-    List<WeddingWebsite> findAllPublished();
+    // Slim projection for the sitemap: only slug + updatedAt per published, non-deleted
+    // site. Never hydrates the full WeddingWebsite (see WeddingWebsiteSummary).
+    List<WeddingWebsiteSummary> findPublishedSummaries();
 
     boolean existsBySlug(String slug);
 

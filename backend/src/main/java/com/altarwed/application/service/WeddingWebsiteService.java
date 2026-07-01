@@ -7,6 +7,7 @@ import com.altarwed.domain.exception.SlugAlreadyTakenException;
 import com.altarwed.domain.exception.WeddingWebsiteAlreadyExistsException;
 import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
 import com.altarwed.domain.model.WeddingWebsite;
+import com.altarwed.domain.model.WeddingWebsiteSummary;
 import com.altarwed.domain.port.ConversionEventPort;
 import com.altarwed.domain.port.CoupleRepository;
 import com.altarwed.domain.port.RevalidationPort;
@@ -127,8 +128,8 @@ public class WeddingWebsiteService {
     }
 
     @Transactional(readOnly = true)
-    public List<WeddingWebsite> getAllPublished() {
-        return websiteRepository.findAllPublished();
+    public List<WeddingWebsiteSummary> getAllPublished() {
+        return websiteRepository.findPublishedSummaries();
     }
 
     // Current hero / venue / save-the-date blob URLs for a website, so a replace or remove can delete
