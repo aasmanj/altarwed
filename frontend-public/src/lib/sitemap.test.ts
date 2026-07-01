@@ -13,6 +13,7 @@ import {
   type SitemapUrl,
   type SlugSummary,
 } from './sitemap'
+import { CEREMONY_GUIDES } from '@/app/ceremony-templates/data'
 
 // Issue #151: a single flat sitemap.xml breaks Google's 50,000-URL cap once the
 // platform approaches its 50k-100k+ published-site growth target. These tests
@@ -109,6 +110,33 @@ describe('renderUrlset', () => {
     const xml = renderUrlset([{ url: `${BASE_URL}/wedding/tom-and-jerry?a=1&b=2` }])
     expect(xml).toContain('&amp;')
     expect(xml).not.toMatch(/[^p];b=2/) // raw "&b=2" must not survive
+  })
+})
+
+describe('STATIC_PAGES ceremony-template guides', () => {
+  // Regression guard: the programmatic /ceremony-templates/[denomination] guides
+  // (catholic, baptist, non-denominational) are real statically-generated pages
+  // with Article JSON-LD. An earlier refactor dropped the CEREMONY_GUIDES mapping
+  // and silently pulled every individual guide out of the sitemap while leaving
+  // the /ceremony-templates index in place. Assert each authored guide slug is
+  // present so that regression cannot recur unnoticed.
+  it('lists every CEREMONY_GUIDES slug as a static page entry', () => {
+    for (const guide of CEREMONY_GUIDES) {
+      const expectedUrl = `${BASE_URL}/ceremony-templates/${guide.slug}`
+      const entry = STATIC_PAGES.find((page) => page.url === expectedUrl)
+      expect(entry, `missing sitemap entry for ${expectedUrl}`).toBeDefined()
+      expect(entry?.changeFrequency).toBe('monthly')
+      expect(entry?.priority).toBe(0.8)
+    }
+  })
+
+  it('renders every ceremony-guide URL into the serialized child sitemap', () => {
+    const xml = renderUrlset(STATIC_PAGES)
+    for (const guide of CEREMONY_GUIDES) {
+      expect(xml).toContain(
+        `<loc>${BASE_URL}/ceremony-templates/${guide.slug}</loc>`,
+      )
+    }
   })
 })
 

@@ -11,6 +11,8 @@
 // framework-free (no next imports) so the pagination and XML serialization can
 // be unit tested directly in CI without a Next runtime.
 
+import { CEREMONY_GUIDES } from '@/app/ceremony-templates/data'
+
 export const BASE_URL = 'https://www.altarwed.com'
 
 // Google's documented per-sitemap ceiling. A child sitemap may hold up to this
@@ -79,6 +81,15 @@ export const STATIC_PAGES: SitemapUrl[] = [
     changeFrequency: 'monthly',
     priority: 0.8,
   },
+  // Programmatic ceremony-template pages, one per authored denomination. Defined
+  // in code (data.ts), so they are known at build and listed statically here.
+  // Mirrors the shape the old metadata sitemap emitted; dropping these silently
+  // pulls every /ceremony-templates/[denomination] guide out of the sitemap.
+  ...CEREMONY_GUIDES.map((g) => ({
+    url: `${BASE_URL}/ceremony-templates/${g.slug}`,
+    changeFrequency: 'monthly' as const,
+    priority: 0.8,
+  })),
   {
     url: `${BASE_URL}/vendors`,
     changeFrequency: 'daily',
