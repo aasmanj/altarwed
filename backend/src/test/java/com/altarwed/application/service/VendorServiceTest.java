@@ -27,6 +27,7 @@ import java.util.stream.IntStream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -116,13 +117,23 @@ class VendorServiceTest {
     }
 
     // -------------------------------------------------------------------------
-    // getVendors: server-side pagination, price-tier forwarding, and sort (issue #108)
+    // getVendors: DB-side filter + sort + paging, cap, and total (issue #135)
+    //
+    // Sort and price-tier filtering now happen in the database, so these tests assert the
+    // service's plumbing: it reports the DB match count (capped), forwards the sort/filter/page
+    // to the repository unchanged, keeps the page cap, and never lets a caller page past the
+    // MAX_SEARCH_RESULTS window. The end-to-end proof that a most-viewed vendor sorting after
+    // position 100 actually surfaces (and that tier totals are correct past 100) lives in the
+    // SQL Server-backed VendorDirectoryQueryTest, which exercises the real ORDER BY / OFFSET.
     // -------------------------------------------------------------------------
 
     @Test
-    void getVendors_returnsRequestedPageAndTotalAcrossAllMatches() {
-        // 25 matches, page size 20: page 0 has 20, page 1 has the remaining 5; total is 25 on both.
-        when(vendorRepository.findByFilters(null, null, null)).thenReturn(namedVendors(25));
+    void getVendors_reportsDbCountAndReturnsRequestedPage() {
+        // 25 matches: page 0 (size 20) returns the DB's first 20 rows, page 1 the remaining 5;
+        // total is the DB COUNT (25) on both pages, not the size of any in-memory candidate set.
+        when(vendorRepository.countDirectory(null, null, null)).thenReturn(25L);
+        when(vendorRepository.findDirectoryPage(null, null, null, "name", 0, 20)).thenReturn(namedVendors(20));
+        when(vendorRepository.findDirectoryPage(null, null, null, "name", 1, 20)).thenReturn(namedVendors(5));
 
         VendorPageResult page0 = vendorService.getVendors(null, null, null, "name", 0, 20);
         assertThat(page0.vendors()).hasSize(20);
@@ -134,77 +145,86 @@ class VendorServiceTest {
     }
 
     @Test
-    void getVendors_clampsPageSizeToFifty() {
-        when(vendorRepository.findByFilters(null, null, null)).thenReturn(namedVendors(60));
+    void getVendors_clampsPageSizeToFiftyBeforeQuerying() {
+        when(vendorRepository.countDirectory(null, null, null)).thenReturn(60L);
+        // The stub only matches size=50; if the service forwarded the raw size=1000 the stub would
+        // not match and the page would come back empty, failing the assertion below.
+        when(vendorRepository.findDirectoryPage(null, null, null, null, 0, VendorService.MAX_PAGE_SIZE))
+                .thenReturn(namedVendors(VendorService.MAX_PAGE_SIZE));
 
-        // A caller asking for size=1000 must never receive more than the 50-row page cap.
         VendorPageResult result = vendorService.getVendors(null, null, null, null, 0, 1000);
 
         assertThat(result.vendors()).hasSize(VendorService.MAX_PAGE_SIZE);
         assertThat(result.total()).isEqualTo(60);
+        verify(vendorRepository).findDirectoryPage(null, null, null, null, 0, VendorService.MAX_PAGE_SIZE);
     }
 
     @Test
-    void getVendors_overpagedRequest_returnsEmptyPageButRealTotal() {
-        when(vendorRepository.findByFilters(null, null, null)).thenReturn(namedVendors(3));
+    void getVendors_overpagedRequest_returnsEmptyWithoutQueryingRows() {
+        when(vendorRepository.countDirectory(null, null, null)).thenReturn(3L);
 
-        // page 9 is past the end; the slice is empty but total still reflects every match.
+        // page 9 (offset 180) is past the end: empty slice, real total, and no row query is issued
+        // so a caller cannot page deep into the table to enumerate it.
         VendorPageResult result = vendorService.getVendors(null, null, null, "name", 9, 20);
 
         assertThat(result.vendors()).isEmpty();
         assertThat(result.total()).isEqualTo(3);
+        verify(vendorRepository, never()).findDirectoryPage(any(), any(), any(), any(), anyInt(), anyInt());
     }
 
     @Test
-    void getVendors_sortName_ordersAlphabeticallyCaseInsensitive() {
-        when(vendorRepository.findByFilters(null, null, null)).thenReturn(List.of(
-                vendorNamed("Zion Films"),
-                vendorNamed("aaron blooms"),
-                vendorNamed("Mercy Catering")));
+    void getVendors_negativePageClampedToZero() {
+        when(vendorRepository.countDirectory(null, null, null)).thenReturn(10L);
+        when(vendorRepository.findDirectoryPage(null, null, null, "name", 0, 20)).thenReturn(namedVendors(10));
 
-        VendorPageResult result = vendorService.getVendors(null, null, null, "name", 0, 20);
+        VendorPageResult result = vendorService.getVendors(null, null, null, "name", -3, 20);
 
-        assertThat(result.vendors())
-                .extracting(Vendor::businessName)
-                .containsExactly("aaron blooms", "Mercy Catering", "Zion Films");
+        assertThat(result.vendors()).hasSize(10);
+        verify(vendorRepository).findDirectoryPage(null, null, null, "name", 0, 20);
     }
 
     @Test
-    void getVendors_defaultSort_ordersByViewCountDescending() {
-        when(vendorRepository.findByFilters(null, null, null)).thenReturn(List.of(
-                vendorNamedWithViews("Low", 2),
-                vendorNamedWithViews("High", 40),
-                vendorNamedWithViews("Mid", 17)));
-
-        VendorPageResult result = vendorService.getVendors(null, null, null, null, 0, 20);
-
-        assertThat(result.vendors())
-                .extracting(Vendor::businessName)
-                .containsExactly("High", "Mid", "Low");
-    }
-
-    @Test
-    void getVendors_forwardsCategoryCityAndPriceTierToRepository() {
-        when(vendorRepository.findByFilters(VendorCategory.FLORIST, "Austin", "$$"))
+    void getVendors_forwardsCategoryCityPriceTierAndSortToRepository() {
+        when(vendorRepository.countDirectory(VendorCategory.FLORIST, "Austin", "$$")).thenReturn(2L);
+        when(vendorRepository.findDirectoryPage(VendorCategory.FLORIST, "Austin", "$$", "name", 0, 20))
                 .thenReturn(namedVendors(2));
 
         VendorPageResult result =
                 vendorService.getVendors(VendorCategory.FLORIST, "Austin", "$$", "name", 0, 20);
 
         assertThat(result.total()).isEqualTo(2);
-        // The tier filter is server-side: the service forwards it to the repository unchanged.
-        verify(vendorRepository).findByFilters(VendorCategory.FLORIST, "Austin", "$$");
+        // The tier filter AND the sort are server-side: the service forwards both to the DB query
+        // unchanged rather than post-processing a candidate set in memory.
+        verify(vendorRepository).countDirectory(VendorCategory.FLORIST, "Austin", "$$");
+        verify(vendorRepository).findDirectoryPage(VendorCategory.FLORIST, "Austin", "$$", "name", 0, 20);
     }
 
     @Test
-    void getVendors_cappsTotalAtMaxSearchResults() {
-        // Defensive second cap: even if a query path returns more than the directory cap,
-        // the reported total never exceeds it.
-        when(vendorRepository.findByFilters(null, null, null))
-                .thenReturn(namedVendors(VendorRepository.MAX_SEARCH_RESULTS + 30));
+    void getVendors_capsReportedTotalAtMaxSearchResults() {
+        // Even when the DB reports more matches than the directory cap, the reported total never
+        // exceeds it (egress / DoS bound). This is the correct-total path: the count is real,
+        // only clamped at the cap, never bounded by a 100-row name prefix.
+        when(vendorRepository.countDirectory(null, null, "$$"))
+                .thenReturn((long) VendorRepository.MAX_SEARCH_RESULTS + 30);
+        when(vendorRepository.findDirectoryPage(null, null, "$$", "name", 0, 20)).thenReturn(namedVendors(20));
 
-        VendorPageResult result = vendorService.getVendors(null, null, null, "name", 0, 20);
+        VendorPageResult result = vendorService.getVendors(null, null, "$$", "name", 0, 20);
 
+        assertThat(result.total()).isEqualTo(VendorRepository.MAX_SEARCH_RESULTS);
+    }
+
+    @Test
+    void getVendors_trimsBoundaryPageToStayWithinCap() {
+        // 130 real matches, so the reported total is capped at 100. A size-40 page 2 sits at
+        // offset 80: the DB legitimately returns 40 rows (80..119), but only 20 of them are inside
+        // the 100-row window, so the page is trimmed to 20. No row beyond position 100 is exposed.
+        when(vendorRepository.countDirectory(null, null, null))
+                .thenReturn((long) VendorRepository.MAX_SEARCH_RESULTS + 30);
+        when(vendorRepository.findDirectoryPage(null, null, null, null, 2, 40)).thenReturn(namedVendors(40));
+
+        VendorPageResult result = vendorService.getVendors(null, null, null, null, 2, 40);
+
+        assertThat(result.vendors()).hasSize(20);
         assertThat(result.total()).isEqualTo(VendorRepository.MAX_SEARCH_RESULTS);
     }
 

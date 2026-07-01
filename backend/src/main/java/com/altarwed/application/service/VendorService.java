@@ -22,7 +22,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -256,9 +255,13 @@ public class VendorService {
     public static final int MAX_PAGE_SIZE = 50;
 
     /**
-     * Paginated public directory query. Fetches the capped candidate set matching the
-     * category/city/priceTier filters, sorts it, and returns the requested page along with the
-     * total number of matches so the UI can render "Showing N of M" plus prev/next controls.
+     * Paginated public directory query. The price-tier filter, the sort, and the page slice all
+     * run in the database (issue #135): the service asks the repository for the total match count
+     * and just the requested page, rather than pulling a name-ordered 100-row prefix and then
+     * sorting/filtering/paging it in memory. That earlier approach silently corrupted the
+     * directory past 100 matches (a popular vendor sorting after position 100 never surfaced in
+     * the default sort, and tier totals were bounded by the 100-row prefix). Returns the page plus
+     * the total so the UI can render "Showing N of M" and prev/next controls.
      *
      * @param sort "name" for alphabetical A-Z; anything else (or null) uses the default
      *             popularity order (most-viewed first), a lightweight relevance proxy.
@@ -268,35 +271,35 @@ public class VendorService {
                                        String sort, int page, int size) {
         int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
         int safePage = Math.max(page, 0);
-        // Defensive second cap: the adapter already pages each query, but never let the
-        // reported total exceed MAX_SEARCH_RESULTS even if a future query path forgets to.
-        List<Vendor> matches = new ArrayList<>(
-                vendorRepository.findByFilters(category, city, priceTier).stream()
-                        .limit(VendorRepository.MAX_SEARCH_RESULTS)
-                        .toList());
-        sortInPlace(matches, sort);
-        int total = matches.size();
+
+        // Full match count from the database (a COUNT, no rows streamed), then capped at
+        // MAX_SEARCH_RESULTS: the public directory never advertises, or lets an unauthenticated
+        // caller page past, the first 100 matches (egress / DoS bound). Capping here (not by
+        // truncating a candidate list) is what keeps the tier total correct: it is the real count
+        // of all tier matches, only clamped at the cap, not bounded by a 100-row name prefix.
+        long matchCount = vendorRepository.countDirectory(category, city, priceTier);
+        int total = (int) Math.min(matchCount, VendorRepository.MAX_SEARCH_RESULTS);
+
         // Long arithmetic guards against int overflow on a hostile page value before clamping.
-        int from = (int) Math.min((long) safePage * safeSize, total);
-        int to = Math.min(from + safeSize, total);
-        List<Vendor> pageItems = List.copyOf(matches.subList(from, to));
+        long offset = (long) safePage * safeSize;
+        List<Vendor> pageItems;
+        if (offset >= total) {
+            // Past the last in-window row (or past the 100-row cap): empty slice, real total. No
+            // query is issued, so a caller cannot page deep into the table to enumerate it.
+            pageItems = List.of();
+        } else {
+            List<Vendor> fetched =
+                    vendorRepository.findDirectoryPage(category, city, priceTier, sort, safePage, safeSize);
+            // Trim the boundary page so no row beyond position MAX_SEARCH_RESULTS is ever returned:
+            // once the real match count exceeds the cap, the DB page may spill past the window, but
+            // the directory's hard upper bound stays 100 rows across all pages.
+            int windowRemaining = total - (int) offset;
+            pageItems = fetched.size() > windowRemaining
+                    ? List.copyOf(fetched.subList(0, windowRemaining))
+                    : List.copyOf(fetched);
+        }
         log.debug("vendor directory queried, total={}, page={}, size={}, returned={}",
                 total, safePage, safeSize, pageItems.size());
         return new VendorPageResult(pageItems, total);
-    }
-
-    // Default order is "most viewed first" (a lightweight popularity/relevance proxy); sort=name
-    // is alphabetical A-Z. Both fall back to business name as the deterministic tiebreak so a
-    // given filter+sort always renders the same order across requests.
-    private void sortInPlace(List<Vendor> vendors, String sort) {
-        Comparator<Vendor> byName = Comparator.comparing(
-                Vendor::businessName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
-        if ("name".equalsIgnoreCase(sort)) {
-            vendors.sort(byName);
-            return;
-        }
-        Comparator<Vendor> byViewsDesc = Comparator.comparingInt(
-                (Vendor v) -> v.viewCount() != null ? v.viewCount() : 0).reversed();
-        vendors.sort(byViewsDesc.thenComparing(byName));
     }
 }

@@ -22,21 +22,26 @@ public interface VendorRepository {
 
     boolean existsByEmail(String email);
 
-    List<Vendor> findByCity(String city);
+    // One page of the public directory (GET /api/v1/vendors). The category/city/priceTier
+    // filters, the sort, AND the page slice are ALL applied in the database, never on a
+    // pre-truncated in-memory candidate set (issue #135). Before this, the adapter kept only the
+    // alphabetically-first MAX_SEARCH_RESULTS rows, then the service sorted and the adapter
+    // tier-filtered that prefix in memory, so past 100 matches a popular vendor whose name sorts
+    // after position 100 never surfaced in the default sort, and a tier filter's total was
+    // bounded by that 100-row prefix rather than the real match count. A null or blank
+    // category/city/priceTier means "no filter on that field" (keeps the tier filter server-side,
+    // never in the browser). sort is "name" for alphabetical A-Z; anything else (or null) is the
+    // default most-viewed order. Ordering is deterministic, tie-broken on the id primary key. The
+    // service caps the returned window and the reported total at MAX_SEARCH_RESULTS.
+    List<Vendor> findDirectoryPage(VendorCategory category, String city, String priceTier,
+                                   String sort, int page, int size);
 
-    List<Vendor> findByCityAndCategory(String city, VendorCategory category);
-
-    List<Vendor> findByCategory(VendorCategory category);
-
-    List<Vendor> findAllActive();
-
-    // Public directory query with an optional server-side price-tier filter, used by the
-    // paginated GET /api/v1/vendors. Returns the active+verified candidate set matching the
-    // given category/city/priceTier, already capped at MAX_SEARCH_RESULTS in a deterministic
-    // order. Sorting, the page slice, and the total count are applied by the service on top of
-    // this capped set (cheap at current scale). A null or blank argument means "no filter on
-    // that field"; this keeps the tier filter on the backend instead of in the browser.
-    List<Vendor> findByFilters(VendorCategory category, String city, String priceTier);
+    // Total active+verified vendors matching the same category/city/priceTier filters, computed
+    // as a COUNT in the database (no rows streamed). Feeds the "Showing N of M" label and
+    // prev/next controls. The service caps it at MAX_SEARCH_RESULTS so the public directory never
+    // advertises, or lets an unauthenticated caller page past, the first 100 matches
+    // (egress / DoS bound).
+    long countDirectory(VendorCategory category, String city, String priceTier);
 
     void deleteById(UUID id);
 
