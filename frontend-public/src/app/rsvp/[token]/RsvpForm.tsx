@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { PartyPopper, Clock, Mail, Check, X } from 'lucide-react'
 
 // PENDING is the "remind me" path, status stays PENDING, remindInDays is sent.
 type Status = 'ATTENDING' | 'DECLINING' | 'PENDING'
@@ -151,7 +152,13 @@ export default function RsvpForm({
   if (done) {
     return (
       <div role="status" className="text-center space-y-4 py-4">
-        <p className="text-2xl" aria-hidden="true">{status === 'ATTENDING' ? '🎉' : status === 'PENDING' ? '⏰' : '💌'}</p>
+        <div className="flex justify-center" aria-hidden="true">
+          {status === 'ATTENDING'
+            ? <PartyPopper className="w-8 h-8 text-[#d4af6a]" />
+            : status === 'PENDING'
+            ? <Clock className="w-8 h-8 text-[#d4af6a]" />
+            : <Mail className="w-8 h-8 text-[#d4af6a]" />}
+        </div>
         <p className="font-serif text-xl font-semibold text-[#3b2f2f]">
           {status === 'ATTENDING' ? 'See you there!'
            : status === 'PENDING' ? "We'll remind you!"
@@ -194,8 +201,8 @@ export default function RsvpForm({
         <p className="text-sm font-medium text-[#3b2f2f] mb-3 text-center">Will you be attending?</p>
         <div className="grid grid-cols-2 gap-3">
           {([
-            { value: 'ATTENDING' as Status, label: 'Attending', icon: '✓' },
-            { value: 'DECLINING' as Status, label: 'Declining', icon: '✗' },
+            { value: 'ATTENDING' as Status, label: 'Attending', Icon: Check },
+            { value: 'DECLINING' as Status, label: 'Declining', Icon: X },
           ]).map(opt => (
             <button
               key={opt.value}
@@ -207,7 +214,7 @@ export default function RsvpForm({
                   : 'border-[#e8dcc8] text-[#3b2f2f] hover:border-[#d4af6a]'
               }`}
             >
-              <span className="block text-lg mb-0.5">{opt.icon}</span>
+              <opt.Icon className="w-5 h-5 mx-auto mb-0.5" aria-hidden="true" />
               {opt.label}
             </button>
           ))}

@@ -1291,7 +1291,7 @@ function HeroSettings({
                 className="relative aspect-video rounded overflow-hidden border border-stone-200 cursor-crosshair"
                 role="button"
                 tabIndex={0}
-                aria-label="Click to set focal point"
+                aria-label="Focal point picker. Click, or use the arrow keys, to set what part of the photo stays centered. Press Enter to recenter."
                 onClick={e => {
                   const rect = e.currentTarget.getBoundingClientRect()
                   const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
@@ -1301,11 +1301,30 @@ function HeroSettings({
                   onFocalPointSave(x, y)
                 }}
                 onKeyDown={e => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    setFocalPointX(0.5)
-                    setFocalPointY(0.5)
-                    onFocalPointSave(0.5, 0.5)
+                  // Keyboard users could not previously set a point: Enter/Space
+                  // only snapped back to center. Arrow keys now nudge the focal
+                  // point in 5% steps so it is fully operable without a mouse.
+                  const STEP = 0.05
+                  let x = focalPointX
+                  let y = focalPointY
+                  switch (e.key) {
+                    case 'ArrowLeft': x = Math.max(0, focalPointX - STEP); break
+                    case 'ArrowRight': x = Math.min(1, focalPointX + STEP); break
+                    case 'ArrowUp': y = Math.max(0, focalPointY - STEP); break
+                    case 'ArrowDown': y = Math.min(1, focalPointY + STEP); break
+                    case 'Enter':
+                    case ' ':
+                      x = 0.5
+                      y = 0.5
+                      break
+                    default:
+                      return
                   }
+                  // Prevent the page from scrolling on arrow/space while focused.
+                  e.preventDefault()
+                  setFocalPointX(x)
+                  setFocalPointY(y)
+                  onFocalPointSave(x, y)
                 }}
               >
                 <img
