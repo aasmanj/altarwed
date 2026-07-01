@@ -14,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
@@ -73,10 +74,17 @@ class PublishedWeddingWebsiteProjectionTest {
                     .as("only published, non-deleted sites are returned")
                     .extracting(WeddingWebsiteSummary::slug)
                     .containsExactlyInAnyOrder(MARKER + "published-a", MARKER + "published-b");
+            // Truncate both sides to microseconds before comparing: the in-memory LocalDateTime set
+            // by @PrePersist keeps full nanosecond precision on a Linux CI JVM, while the value read
+            // back through the projection is rounded by SQL Server's DATETIME2 (100ns) column. Exact
+            // equality can intermittently mismatch on those sub-microsecond digits; truncating to
+            // MICROS still proves the persisted timestamp round-trips without the flake.
             assertThat(seeded)
                     .as("each summary carries the persisted updatedAt")
-                    .extracting(WeddingWebsiteSummary::updatedAt)
-                    .containsExactlyInAnyOrder(publishedA.getUpdatedAt(), publishedB.getUpdatedAt());
+                    .extracting(s -> s.updatedAt().truncatedTo(ChronoUnit.MICROS))
+                    .containsExactlyInAnyOrder(
+                            publishedA.getUpdatedAt().truncatedTo(ChronoUnit.MICROS),
+                            publishedB.getUpdatedAt().truncatedTo(ChronoUnit.MICROS));
 
             // (2) No full entity was loaded: the projection selected only slug + updated_at. The old
             // findAll...() returning full entities would push this counter to the published-row count.
