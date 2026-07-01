@@ -123,6 +123,14 @@ altarwed:
       pro-monthly: ${STRIPE_PRICE_PRO_MONTHLY:}
       pro-annual: ${STRIPE_PRICE_PRO_ANNUAL:}
 
+  pricing:
+    # Monthly price (in cents) of a paid vendor plan, used only to compute the display-only
+    # MRR figure on the founder /admin/metrics dashboard. Static config, intentionally NOT an
+    # env var (no Bicep/Key Vault entry needed): it drives an internal estimate, not billing.
+    # The source of truth for what vendors are actually charged is the Stripe price. Update this
+    # literal if the real paid-plan monthly price changes.
+    paid-plan-monthly-cents: 2900
+
   lob:
     api-key: ${LOB_API_KEY:}
 

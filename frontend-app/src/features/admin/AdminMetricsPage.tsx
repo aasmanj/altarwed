@@ -44,6 +44,9 @@ interface MetricsSnapshot {
   totalVendors: number
   activeVendors: number
   verifiedVendors: number
+  activePaidSubscriptions: number
+  mrrCents: number
+  totalInquiries: number
   totalBlogPosts: number
   totalBudgetItems: number
   totalCeremonySections: number
@@ -106,6 +109,12 @@ export default function AdminMetricsPage() {
               <Stat label="Total couples" value={data.totalCouples} accent />
               <Stat label="New (last 7 days)" value={data.couplesLast7Days} />
               <Stat label="New (last 30 days)" value={data.couplesLast30Days} />
+            </Section>
+
+            <Section title="Revenue">
+              <Stat label="MRR (estimated)" display={formatMrr(data.mrrCents)} accent />
+              <Stat label="Paying subscribers" value={data.activePaidSubscriptions} />
+              <Stat label="Inquiries received" value={data.totalInquiries} />
             </Section>
 
             <Section title="Wedding websites">
@@ -257,13 +266,29 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function Stat({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
+// Renders either a numeric stat (comma-formatted) or a pre-formatted string (e.g. currency).
+// Exactly one of `value` / `display` is provided.
+function Stat({ label, value, display, accent }: { label: string; value?: number; display?: string; accent?: boolean }) {
   return (
     <div className={`rounded-xl border bg-white p-5 ${accent ? 'border-gold' : 'border-gold-light'}`}>
       <div className="text-xs font-medium uppercase tracking-wide text-brown-light">{label}</div>
-      <div className="mt-1 font-serif text-3xl font-bold text-brown">{value.toLocaleString()}</div>
+      <div className="mt-1 font-serif text-3xl font-bold text-brown">
+        {display ?? (value ?? 0).toLocaleString()}
+      </div>
     </div>
   )
+}
+
+// MRR is stored in cents to avoid floating-point drift; render whole dollars for a glanceable
+// figure. Labeled "estimated" because it multiplies paying subscribers by the configured monthly
+// price rather than reading exact per-subscription amounts from Stripe.
+function formatMrr(cents: number): string {
+  return (cents / 100).toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })
 }
 
 // Signup -> created -> published, with the conversion rate between each stage.
