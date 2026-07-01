@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { apiClient } from '@/core/api/client'
 
 export type TaskCategory =
@@ -64,6 +65,7 @@ export function useToggleTask(coupleId: string) {
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) qc.setQueryData(key(coupleId), ctx.previous)
+      toast.error('Could not save your task change. Please try again.')
     },
     onSuccess: (updated: PlanningTask) =>
       qc.setQueryData<PlanningTask[]>(key(coupleId), old =>

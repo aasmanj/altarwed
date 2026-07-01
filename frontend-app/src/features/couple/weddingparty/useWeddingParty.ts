@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { apiClient } from '@/core/api/client'
 
 export type PartySide = 'BRIDE' | 'GROOM' | 'NEUTRAL'
@@ -83,7 +84,10 @@ export function useReorderParty(websiteId: string) {
         old ? orderedIds.map((id, i) => ({ ...old.find(m => m.id === id)!, sortOrder: i })) : old)
       return { prev }
     },
-    onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(key(websiteId), ctx.prev) },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(key(websiteId), ctx.prev)
+      toast.error('Could not save the new wedding party order. Please try again.')
+    },
     onSettled: () => qc.invalidateQueries({ queryKey: key(websiteId) }),
   })
 }

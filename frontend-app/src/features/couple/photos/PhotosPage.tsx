@@ -74,7 +74,9 @@ function useUpdateCaption(websiteId: string) {
   })
 }
 
-function useReorderPhotos(websiteId: string) {
+// Exported so the reorder rollback/toast behavior can be unit-tested (issue #134);
+// the component still uses it internally.
+export function useReorderPhotos(websiteId: string) {
   const qc = useQueryClient()
   const key = ['wedding-photos', websiteId]
   return useMutation({
@@ -89,7 +91,10 @@ function useReorderPhotos(websiteId: string) {
         old ? orderedIds.map((id, i) => ({ ...old.find(p => p.id === id)!, sortOrder: i })) : old)
       return { prev }
     },
-    onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(key, ctx.prev) },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(key, ctx.prev)
+      toast.error('Could not save the new photo order. Please try again.')
+    },
     onSettled: () => qc.invalidateQueries({ queryKey: key }),
   })
 }

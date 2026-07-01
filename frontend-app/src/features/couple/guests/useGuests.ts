@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { apiClient } from '@/core/api/client'
 
 export type RsvpStatus = 'PENDING' | 'ATTENDING' | 'DECLINING'
@@ -136,6 +137,7 @@ export function useUpdateGuest(coupleId: string) {
       ),
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) qc.setQueryData(key(coupleId), ctx.previous)
+      toast.error('Could not save your guest change. Please try again.')
     },
   })
 }
@@ -165,6 +167,7 @@ export function useAssignGuestTable(coupleId: string) {
       ),
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) qc.setQueryData(key(coupleId), ctx.previous)
+      toast.error('Could not update the seating assignment. Please try again.')
     },
   })
 }
