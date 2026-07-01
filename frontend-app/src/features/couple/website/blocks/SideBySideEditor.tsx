@@ -7,6 +7,7 @@ import { captureEvent } from '@/core/analytics/analytics'
 import confetti from 'canvas-confetti'
 import { useWeddingWebsite, usePublishWeddingWebsite, useUpdateWeddingWebsite, type WeddingWebsite } from '../useWeddingWebsite'
 import ShareModal from '../ShareModal'
+import DraftBanner from '../DraftBanner'
 import {
   useBackfillBlocks,
   useCreateBlock,
@@ -454,6 +455,16 @@ export default function SideBySideEditor() {
           </div>
         </div>
       </header>
+
+      {/* Persistent draft reminder (#159): the header's Publish button is the
+          only signal today, and it is easy to miss after onboarding. This
+          banner reuses togglePublish, which publishes (with confetti + share
+          prompt) whenever the site is a draft. */}
+      <DraftBanner
+        isPublished={website.isPublished}
+        onPublish={togglePublish}
+        isPublishing={publish.isPending}
+      />
 
       {/* Notice from onboarding wizard when hero upload failed mid-flow */}
       {wizardNotice && (
