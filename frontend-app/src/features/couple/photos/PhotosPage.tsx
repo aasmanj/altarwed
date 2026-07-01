@@ -380,6 +380,7 @@ export default function PhotosPage() {
               value={editingCaption.value}
               onChange={e => setEditingCaption(c => c ? { ...c, value: e.target.value } : null)}
               rows={3}
+              aria-label="Photo caption"
               placeholder="Describe this moment…"
               className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none"
             />

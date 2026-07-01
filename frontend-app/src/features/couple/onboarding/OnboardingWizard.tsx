@@ -611,24 +611,33 @@ function Step5Hero({
       <div>
         <label className="block text-sm font-medium text-[#3b2f2f] mb-2">Pick a default</label>
         <div className="grid grid-cols-3 gap-2">
-          {DEFAULT_HERO_PHOTOS.map(url => (
+          {DEFAULT_HERO_PHOTOS.map(url => {
+            // Derive a readable name from the filename (e.g. "altar-couple.jpg"
+            // becomes "altar couple") so a screen reader announces distinct
+            // buttons instead of six identical empty ones.
+            const name = url.split('/').pop()?.replace(/\.[^.]+$/, '').replace(/-/g, ' ') ?? 'photo'
+            const selected = heroPhotoUrl === url
+            return (
             <button
               key={url}
               type="button"
               onClick={() => onPickDefault(url)}
+              aria-label={`Use default hero photo: ${name}`}
+              aria-pressed={selected}
               className={`relative aspect-[3/2] rounded-lg overflow-hidden border-2 transition ${
-                heroPhotoUrl === url ? 'border-[#d4af6a] ring-2 ring-[#d4af6a]' : 'border-transparent hover:border-[#e8dcc8]'
+                selected ? 'border-[#d4af6a] ring-2 ring-[#d4af6a]' : 'border-transparent hover:border-[#e8dcc8]'
               }`}
             >
               {/* eslint-disable-next-line jsx-a11y/alt-text */}
               <img src={url} alt="" className="w-full h-full object-cover" />
-              {heroPhotoUrl === url && (
+              {selected && (
                 <span className="absolute inset-0 bg-black/30 flex items-center justify-center">
                   <Check className="w-6 h-6 text-white" />
                 </span>
               )}
             </button>
-          ))}
+            )
+          })}
         </div>
       </div>
 
