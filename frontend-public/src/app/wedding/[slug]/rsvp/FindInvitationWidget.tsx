@@ -63,7 +63,7 @@ export default function FindInvitationWidget({ slug }: Props) {
         <button
           type="submit"
           disabled={loading || query.trim().length < 2}
-          className="w-full sm:w-auto rounded-xl bg-[#d4af6a] px-6 py-3 font-semibold text-white shadow transition hover:bg-[#b8963e] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full sm:w-auto rounded-xl bg-[#d4af6a] px-6 py-3 font-semibold text-[#3b2f2f] shadow transition hover:bg-[#b8963e] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? 'Searching...' : 'Find Me'}
         </button>
@@ -95,7 +95,7 @@ export default function FindInvitationWidget({ slug }: Props) {
               <span className="font-serif text-lg font-semibold text-[#3b2f2f]">{r.maskedName}</span>
               <a
                 href={`/rsvp/${r.token}`}
-                className="shrink-0 rounded-lg bg-[#d4af6a] px-5 py-3 text-sm font-semibold text-white shadow transition hover:bg-[#b8963e]"
+                className="shrink-0 rounded-lg bg-[#d4af6a] px-5 py-3 text-sm font-semibold text-[#3b2f2f] shadow transition hover:bg-[#b8963e]"
               >
                 RSVP Now
               </a>

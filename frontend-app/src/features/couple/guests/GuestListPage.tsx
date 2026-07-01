@@ -386,7 +386,7 @@ export default function GuestListPage() {
         action={
           <button
             onClick={() => setShowAddModal(true)}
-            className="rounded-lg bg-gold px-3 py-2 text-sm font-semibold text-white hover:bg-gold-dark transition min-h-[44px]"
+            className="rounded-lg bg-gold px-3 py-2 text-sm font-semibold text-brown hover:bg-gold-dark transition min-h-[44px]"
           >
             + Add Guest
           </button>
@@ -508,7 +508,7 @@ export default function GuestListPage() {
                 <button
                   onClick={handlePickSheet}
                   disabled={pickerBusy || setSheetSync.isPending}
-                  className="flex-1 rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-50 transition"
+                  className="flex-1 rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-brown hover:bg-gold-dark disabled:opacity-50 transition"
                 >
                   {pickerBusy || setSheetSync.isPending
                     ? 'Opening…'
@@ -537,7 +537,7 @@ export default function GuestListPage() {
                 <button
                   onClick={handleSaveSheetUrl}
                   disabled={setSheetSync.isPending || !sheetUrlInput.trim()}
-                  className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-50 transition"
+                  className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-brown hover:bg-gold-dark disabled:opacity-50 transition"
                 >
                   {setSheetSync.isPending ? 'Saving…' : 'Save'}
                 </button>
@@ -1150,7 +1150,7 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
       </label>
       <div className="flex gap-3 pt-1">
         <button type="submit" disabled={isPending}
-          className="rounded-lg bg-gold px-5 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-60 transition">
+          className="rounded-lg bg-gold px-5 py-2 text-sm font-semibold text-brown hover:bg-gold-dark disabled:opacity-60 transition">
           {isPending ? 'Adding…' : 'Add guest'}
         </button>
         <button type="button" onClick={onCancel}
@@ -1273,7 +1273,7 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
           </div>
           <div className="sm:col-span-3 flex gap-3 pt-1">
             <button type="submit" disabled={isPending}
-              className="rounded-lg bg-gold px-4 py-1.5 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-60 transition">
+              className="rounded-lg bg-gold px-4 py-1.5 text-sm font-semibold text-brown hover:bg-gold-dark disabled:opacity-60 transition">
               {isPending ? 'Saving…' : 'Save'}
             </button>
             <button type="button" onClick={onCancel}

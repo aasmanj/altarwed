@@ -170,7 +170,7 @@ export default function BudgetPage() {
         action={
           <button
             onClick={openAddForm}
-            className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark transition"
+            className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-brown hover:bg-gold-dark transition"
           >
             + Add item
           </button>

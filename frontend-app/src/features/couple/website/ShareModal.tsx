@@ -77,7 +77,7 @@ export default function ShareModal({ isOpen, onClose, slug, coupleNames }: Props
           <span className="flex-1 text-sm text-[#3b2f2f] truncate font-mono">{publicUrl}</span>
           <button
             onClick={copyLink}
-            className="shrink-0 rounded-md bg-[#d4af6a] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#c49d55] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af6a]"
+            className="shrink-0 rounded-md bg-[#d4af6a] px-3 py-1.5 text-xs font-semibold text-[#3b2f2f] hover:bg-[#c49d55] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af6a]"
           >
             {copied ? 'Copied!' : 'Copy'}
           </button>

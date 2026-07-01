@@ -26,7 +26,7 @@ export default function QueryErrorState({ what = 'this', onRetry }: Props) {
       {onRetry && (
         <button
           onClick={onRetry}
-          className="rounded-lg bg-gold px-5 py-2.5 text-sm font-semibold text-white hover:bg-gold-dark transition"
+          className="rounded-lg bg-gold px-5 py-2.5 text-sm font-semibold text-brown hover:bg-gold-dark transition"
         >
           Try again
         </button>
