@@ -102,15 +102,20 @@ export function parseTabCustomisation(wedding: Pick<WeddingWebsite, 'hiddenTabs'
 // showing stale isPublished for up to 60s.
 export async function getWedding(slug: string, fresh = false): Promise<WeddingWebsite | null> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
-  try {
-    const res = await fetch(`${apiUrl}/api/v1/wedding-websites/slug/${slug}`,
-      fresh ? { cache: 'no-store' } : { next: { revalidate: 60 } })
-    if (res.status === 404) return null
-    if (!res.ok) throw new Error(`API error ${res.status}`)
-    return res.json()
-  } catch {
-    return null
-  }
+  const res = await fetch(`${apiUrl}/api/v1/wedding-websites/slug/${slug}`,
+    fresh ? { cache: 'no-store' } : { next: { revalidate: 60 } })
+  // Only a genuine 404 means the site does not exist; the caller turns that into
+  // notFound(). Every other failure (5xx, network, timeout, malformed body) is
+  // transient and MUST throw rather than return null (issue #148). Returning null
+  // here previously conflated "backend is briefly down" with "this wedding does
+  // not exist", so a cold-cache render during an outage burned a false 404 onto
+  // the platform's core SEO/ad-landing surface. Letting it throw means Next serves
+  // the last good render from the 60s ISR cache (stale-while-revalidate) when one
+  // exists, and falls back to a generic error boundary when the cache is cold,
+  // instead of the terminal "this wedding doesn't exist" page.
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`API error ${res.status}`)
+  return res.json()
 }
 
 // Lightweight content-presence checks used to gate the Wedding Party and Photos
