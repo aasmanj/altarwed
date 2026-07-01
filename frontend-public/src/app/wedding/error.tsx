@@ -34,7 +34,7 @@ export default function WeddingError({
       <button
         type="button"
         onClick={reset}
-        className="inline-block rounded-lg bg-[#d4af6a] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#b8954f] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8a6a4a] focus-visible:ring-offset-2"
+        className="inline-block rounded-lg bg-[#d4af6a] px-6 py-2.5 text-sm font-semibold text-[#3b2f2f] hover:bg-[#b8954f] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8a6a4a] focus-visible:ring-offset-2"
       >
         Try again
       </button>
