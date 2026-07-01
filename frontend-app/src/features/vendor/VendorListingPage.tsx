@@ -10,6 +10,7 @@ import {
   type PortfolioPhoto,
 } from './useVendorPortfolio'
 import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
+import { MAX_UPLOAD_LABEL } from '@/lib/upload'
 
 const CATEGORIES = [
   { value: 'ALTERATIONS',     label: 'Alterations, Tailoring & Dry Cleaning' },
@@ -244,7 +245,7 @@ export default function VendorListingPage() {
                 >
                   {uploadLogo.isPending ? 'Uploading…' : vendor?.logoUrl ? 'Change logo' : 'Upload logo'}
                 </button>
-                <p className="text-xs text-[#8a6a4a] mt-0.5">JPEG, PNG, or WebP, max 15 MB</p>
+                <p className="text-xs text-[#8a6a4a] mt-0.5">JPEG, PNG, or WebP, max {MAX_UPLOAD_LABEL}</p>
                 {logoError && <p role="alert" className="text-xs text-red-600 mt-1">{logoError}</p>}
               </div>
             </div>

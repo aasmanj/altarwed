@@ -40,7 +40,7 @@ Authenticated SPA for couples and vendors. SEO does not matter here — everythi
 
 ### Vendor dashboard
 - Listing management: bio, description, phone, website URL, price tier, denomination tags
-- Logo upload (JPEG/PNG/WebP, 15 MB limit; stored in Azure Blob)
+- Logo upload (JPEG/PNG/WebP, 20 MB limit; stored in Azure Blob)
 - Inquiry inbox: list with unread badge, mark-read
 - Dashboard overview card with unread inquiry count
 
