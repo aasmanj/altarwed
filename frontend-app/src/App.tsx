@@ -5,6 +5,7 @@ import { AnimatePresence, motion, MotionConfig } from 'framer-motion'
 import { AuthProvider } from '@/core/auth/AuthContext'
 import { ConfirmProvider } from '@/components/ConfirmDialog'
 import { ProtectedRoute } from '@/core/auth/ProtectedRoute'
+import { AdminRoute } from '@/core/auth/AdminRoute'
 import LoginPage from '@/features/auth/LoginPage'
 import RegisterPage from '@/features/auth/RegisterPage'
 import ForgotPasswordPage from '@/features/auth/ForgotPasswordPage'
@@ -241,7 +242,9 @@ function AnimatedRoutes() {
             path="/admin/metrics"
             element={
               <ProtectedRoute>
-                <AdminMetricsPage />
+                <AdminRoute>
+                  <AdminMetricsPage />
+                </AdminRoute>
               </ProtectedRoute>
             }
           />
