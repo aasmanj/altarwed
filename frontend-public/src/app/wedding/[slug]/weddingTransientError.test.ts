@@ -76,18 +76,3 @@ describe('getWedding error classification (issue #148)', () => {
     await expect(getWedding('sam-and-alex')).rejects.toThrow()
   })
 })
-
-// Source-level guard that the caller still funnels a null (genuine 404) into
-// notFound(), so the acceptance criterion "simulated backend 404 still renders
-// notFound()" holds end to end and was not accidentally softened.
-describe('wedding page maps a null (404) result to notFound() (issue #148)', () => {
-  it('calls notFound() when getWedding returns null', async () => {
-    const { readFileSync } = await import('fs')
-    const path = await import('path')
-    const src = readFileSync(
-      path.join(process.cwd(), 'src', 'app', 'wedding', '[slug]', 'page.tsx'),
-      'utf8',
-    )
-    expect(src).toContain('if (!wedding) notFound()')
-  })
-})

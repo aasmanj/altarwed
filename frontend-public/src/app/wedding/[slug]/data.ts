@@ -109,10 +109,11 @@ export async function getWedding(slug: string, fresh = false): Promise<WeddingWe
   // transient and MUST throw rather than return null (issue #148). Returning null
   // here previously conflated "backend is briefly down" with "this wedding does
   // not exist", so a cold-cache render during an outage burned a false 404 onto
-  // the platform's core SEO/ad-landing surface. Letting it throw means Next serves
-  // the last good render from the 60s ISR cache (stale-while-revalidate) when one
-  // exists, and falls back to a generic error boundary when the cache is cold,
-  // instead of the terminal "this wedding doesn't exist" page.
+  // the platform's core SEO/ad-landing surface. Letting it throw means that on a
+  // warm ISR cache Next keeps serving the last good render (stale-while-revalidate,
+  // the common case once a slug has been hit), and on a cold cache the throw is
+  // caught by the wedding/error.tsx boundary (a "temporary trouble, try again"
+  // page), instead of the terminal "this wedding doesn't exist" page.
   if (res.status === 404) return null
   if (!res.ok) throw new Error(`API error ${res.status}`)
   return res.json()
