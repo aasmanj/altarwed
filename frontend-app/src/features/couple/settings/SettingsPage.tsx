@@ -108,7 +108,7 @@ export default function SettingsPage() {
           <button
             onClick={handleSendPasswordReset}
             disabled={sendingReset}
-            className="px-4 py-2 rounded-lg bg-gold text-white text-sm font-medium hover:bg-gold-dark disabled:opacity-50 disabled:cursor-not-allowed transition"
+            className="px-4 py-2 rounded-lg bg-gold text-brown text-sm font-medium hover:bg-gold-dark disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
             {sendingReset
               ? 'Sending...'
