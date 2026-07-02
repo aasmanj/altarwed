@@ -8,13 +8,30 @@ interface Props {
   defaultWeddingDate?: string
 }
 
+// Derive a URL slug from the two partner names. Exported so the auto-suggest
+// contract is unit-testable in frontend-app's node (no-jsdom) vitest env.
+export function suggestSlug(a: string, b: string): string {
+  return `${a}-and-${b}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
+// Decide the slug after a name-field edit. Once the couple has hand-edited the
+// slug (slugTouched), their custom value wins and we never overwrite it; until
+// then we keep auto-suggesting from the names (issue #188). Pure + exported so
+// this decision is verifiable without a DOM.
+export function slugAfterNameChange(
+  slugTouched: boolean,
+  currentSlug: string,
+  a: string,
+  b: string,
+): string {
+  return slugTouched ? currentSlug : suggestSlug(a, b)
+}
+
 export default function WeddingWebsiteSetup({ coupleId, defaultPartnerOne, defaultPartnerTwo, defaultWeddingDate }: Props) {
   const create = useCreateWeddingWebsite(coupleId)
 
-  const suggestSlug = (a: string, b: string) =>
-    `${a}-and-${b}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-
   const [slug, setSlug] = useState(suggestSlug(defaultPartnerOne, defaultPartnerTwo))
+  const [slugTouched, setSlugTouched] = useState(false)
   const [partnerOne, setPartnerOne] = useState(defaultPartnerOne)
   const [partnerTwo, setPartnerTwo] = useState(defaultPartnerTwo)
   const [weddingDate, setWeddingDate] = useState(defaultWeddingDate ?? '')
@@ -46,13 +63,13 @@ export default function WeddingWebsiteSetup({ coupleId, defaultPartnerOne, defau
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && (
-          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+          <div role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
         )}
 
         <Field label="Groom's name">
           <input
             value={partnerOne}
-            onChange={e => { setPartnerOne(e.target.value); setSlug(suggestSlug(e.target.value, partnerTwo)) }}
+            onChange={e => { setPartnerOne(e.target.value); setSlug(slugAfterNameChange(slugTouched, slug, e.target.value, partnerTwo)) }}
             className={inputCls}
             required
           />
@@ -61,7 +78,7 @@ export default function WeddingWebsiteSetup({ coupleId, defaultPartnerOne, defau
         <Field label="Bride's name">
           <input
             value={partnerTwo}
-            onChange={e => { setPartnerTwo(e.target.value); setSlug(suggestSlug(partnerOne, e.target.value)) }}
+            onChange={e => { setPartnerTwo(e.target.value); setSlug(slugAfterNameChange(slugTouched, slug, partnerOne, e.target.value)) }}
             className={inputCls}
             required
           />
@@ -74,7 +91,7 @@ export default function WeddingWebsiteSetup({ coupleId, defaultPartnerOne, defau
             </span>
             <input
               value={slug}
-              onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+              onChange={e => { setSlugTouched(true); setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')) }}
               className="flex-1 px-3 py-2.5 text-brown bg-white focus:outline-none text-sm"
               required
             />
