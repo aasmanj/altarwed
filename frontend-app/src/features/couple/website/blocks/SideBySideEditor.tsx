@@ -667,7 +667,12 @@ export default function SideBySideEditor() {
               updateWebsite.mutate({ scriptureText: null, scriptureReference: null, scriptureBackgroundColor: '' }, { onSuccess: bumpPreview })
             }}
             onFocalPointSave={(x, y) => {
-              updateWebsite.mutate({ heroFocalPointX: x, heroFocalPointY: y })
+              // bumpPreview is required here for the same reason as
+              // onDefaultPhotoSelect: HeroLive does not patch the hero image
+              // crop client-side, so the iframe reload is what actually shows
+              // the new focal point. Without it the live preview only updated
+              // after a manual refresh or tab switch (issue #182).
+              updateWebsite.mutate({ heroFocalPointX: x, heroFocalPointY: y }, { onSuccess: bumpPreview })
             }}
             onTaglineColorSave={(color) => {
               updateWebsite.mutate({ heroTaglineColor: color })
