@@ -100,9 +100,12 @@ export function parseTabCustomisation(wedding: Pick<WeddingWebsite, 'hiddenTabs'
 // cache (SEO/ISR per the SEO rules); the owner-only editor preview wants fresh
 // data so a just-published site immediately drops its "Draft" banner instead of
 // showing stale isPublished for up to 60s.
+// fresh=true also switches to the /preview endpoint, which (unlike /slug) does not 404 an
+// unpublished site: it is only ever called from the owner-only /preview/[slug]/[tab] route (#91).
 export async function getWedding(slug: string, fresh = false): Promise<WeddingWebsite | null> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
-  const res = await fetch(`${apiUrl}/api/v1/wedding-websites/slug/${slug}`,
+  const path = fresh ? `preview/${slug}` : `slug/${slug}`
+  const res = await fetch(`${apiUrl}/api/v1/wedding-websites/${path}`,
     fresh ? { cache: 'no-store' } : { next: { revalidate: 60 } })
   // Only a genuine 404 means the site does not exist; the caller turns that into
   // notFound(). Every other failure (5xx, network, timeout, malformed body) is
@@ -174,11 +177,13 @@ export interface WeddingPageBlock {
   contentJson: string
 }
 
+// fresh=true switches to the /preview endpoint (same rationale as getWedding above).
 export async function getBlocks(slug: string, tab: BlockTab, fresh = false): Promise<WeddingPageBlock[]> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
   try {
+    const path = fresh ? `preview/${slug}` : `slug/${slug}`
     const res = await fetch(
-      `${apiUrl}/api/v1/wedding-page-blocks/slug/${slug}?tab=${tab}`,
+      `${apiUrl}/api/v1/wedding-page-blocks/${path}?tab=${tab}`,
       fresh ? { cache: 'no-store' } : { next: { revalidate: 60 } },
     )
     if (!res.ok) return []

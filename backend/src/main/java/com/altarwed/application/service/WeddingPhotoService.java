@@ -36,13 +36,6 @@ public class WeddingPhotoService {
         return photoRepository.findAllByWeddingWebsiteId(websiteId);
     }
 
-    @Transactional(readOnly = true)
-    public List<WeddingPhoto> listPhotosBySlug(String slug) {
-        var website = websiteRepository.findBySlug(slug)
-                .orElseThrow(() -> new WeddingWebsiteNotFoundException(slug));
-        return photoRepository.findAllByWeddingWebsiteId(website.id());
-    }
-
     @Transactional
     public WeddingPhoto addPhoto(UUID websiteId, AddWeddingPhotoRequest req) {
         websiteRepository.findById(websiteId)

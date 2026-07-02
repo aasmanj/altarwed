@@ -31,10 +31,17 @@ public class WeddingWebsiteController {
         this.accessGuard = accessGuard;
     }
 
-    // Public, fetched by the Next.js SSR page at /wedding/[slug]
+    // Public, fetched by the Next.js SSR page at /wedding/[slug]. 404s for unpublished sites (#91).
     @GetMapping("/slug/{slug}")
     public ResponseEntity<WeddingWebsiteResponse> getBySlug(@PathVariable String slug) {
         return ResponseEntity.ok(mapper.toResponse(websiteService.getBySlug(slug)));
+    }
+
+    // Owner-only preview, fetched by the Next.js /preview/[slug]/[tab] iframe. Renders drafts;
+    // see WeddingWebsiteService.getBySlugForPreview for the trust model.
+    @GetMapping("/preview/{slug}")
+    public ResponseEntity<WeddingWebsiteResponse> getBySlugForPreview(@PathVariable String slug) {
+        return ResponseEntity.ok(mapper.toResponse(websiteService.getBySlugForPreview(slug)));
     }
 
     // Public, search published websites by partner name and/or wedding year

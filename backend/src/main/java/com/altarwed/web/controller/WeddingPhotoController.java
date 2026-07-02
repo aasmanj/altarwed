@@ -6,6 +6,7 @@ import com.altarwed.application.dto.UpdateWeddingPhotoRequest;
 import com.altarwed.application.dto.WeddingPhotoResponse;
 import com.altarwed.application.service.MediaUploadService;
 import com.altarwed.application.service.WeddingPhotoService;
+import com.altarwed.application.service.WeddingWebsiteService;
 import com.altarwed.web.mapper.WeddingPhotoMapper;
 import com.altarwed.web.security.CoupleAccessGuard;
 import jakarta.validation.Valid;
@@ -25,19 +26,32 @@ public class WeddingPhotoController {
     private final WeddingPhotoMapper mapper;
     private final CoupleAccessGuard accessGuard;
     private final MediaUploadService mediaUploadService;
+    private final WeddingWebsiteService websiteService;
 
     public WeddingPhotoController(WeddingPhotoService service, WeddingPhotoMapper mapper,
-                                  CoupleAccessGuard accessGuard, MediaUploadService mediaUploadService) {
+                                  CoupleAccessGuard accessGuard, MediaUploadService mediaUploadService,
+                                  WeddingWebsiteService websiteService) {
         this.service = service;
         this.mapper = mapper;
         this.accessGuard = accessGuard;
         this.mediaUploadService = mediaUploadService;
+        this.websiteService = websiteService;
     }
 
-    // Public, fetched by Next.js /wedding/[slug]/photos page
+    // Public, fetched by Next.js /wedding/[slug]/photos page. Resolves the slug through
+    // websiteService.getBySlug so a draft site's photos 404 the same as the site itself (#91);
+    // previously this bypassed both the published AND deleted checks.
     @GetMapping("/website/slug/{slug}")
     public ResponseEntity<List<WeddingPhotoResponse>> listBySlug(@PathVariable String slug) {
-        return ResponseEntity.ok(service.listPhotosBySlug(slug).stream().map(mapper::toResponse).toList());
+        var website = websiteService.getBySlug(slug);
+        return ResponseEntity.ok(service.listPhotos(website.id()).stream().map(mapper::toResponse).toList());
+    }
+
+    // Owner-only preview counterpart, see WeddingWebsiteService.getBySlugForPreview.
+    @GetMapping("/website/preview/{slug}")
+    public ResponseEntity<List<WeddingPhotoResponse>> listBySlugForPreview(@PathVariable String slug) {
+        var website = websiteService.getBySlugForPreview(slug);
+        return ResponseEntity.ok(service.listPhotos(website.id()).stream().map(mapper::toResponse).toList());
     }
 
     // Authenticated, couple dashboard manages photos

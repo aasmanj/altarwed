@@ -1,6 +1,7 @@
 package com.altarwed.application.service;
 
 import com.altarwed.application.dto.WeddingWebsiteSearchResultResponse;
+import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
 import com.altarwed.domain.model.WeddingWebsite;
 import com.altarwed.domain.port.ConversionEventPort;
 import com.altarwed.domain.port.CoupleRepository;
@@ -20,6 +21,7 @@ import java.util.UUID;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -97,6 +99,61 @@ class WeddingWebsiteServiceTest {
         when(websiteRepository.findById(websiteId)).thenReturn(Optional.empty());
 
         assertThat(weddingWebsiteService.currentHeroPhotoUrl(websiteId)).isNull();
+    }
+
+    @Test
+    void getBySlug_unpublishedSite_throwsNotFound() {
+        // #91: the public path (SSR /wedding/[slug]) must 404 a draft site the same as a
+        // deleted one, or a guessable low-entropy slug leaks a couple's unpublished content.
+        WeddingWebsite draft = websiteWithFlags(false, false);
+        when(websiteRepository.findBySlug("draft-couple")).thenReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> weddingWebsiteService.getBySlug("draft-couple"))
+                .isInstanceOf(WeddingWebsiteNotFoundException.class);
+    }
+
+    @Test
+    void getBySlug_publishedSite_returnsIt() {
+        WeddingWebsite published = websiteWithFlags(true, false);
+        when(websiteRepository.findBySlug("live-couple")).thenReturn(Optional.of(published));
+
+        assertThat(weddingWebsiteService.getBySlug("live-couple")).isEqualTo(published);
+    }
+
+    @Test
+    void getBySlugForPreview_unpublishedSite_stillReturnsIt() {
+        // The owner-only editor preview must keep rendering drafts; this is what the
+        // /preview/[slug]/[tab] route uses instead of the now-gated getBySlug.
+        WeddingWebsite draft = websiteWithFlags(false, false);
+        when(websiteRepository.findBySlug("draft-couple")).thenReturn(Optional.of(draft));
+
+        assertThat(weddingWebsiteService.getBySlugForPreview("draft-couple")).isEqualTo(draft);
+    }
+
+    @Test
+    void getBySlugForPreview_deletedSite_throwsNotFound() {
+        WeddingWebsite deleted = websiteWithFlags(false, true);
+        when(websiteRepository.findBySlug("deleted-couple")).thenReturn(Optional.of(deleted));
+
+        assertThatThrownBy(() -> weddingWebsiteService.getBySlugForPreview("deleted-couple"))
+                .isInstanceOf(WeddingWebsiteNotFoundException.class);
+    }
+
+    private WeddingWebsite websiteWithFlags(boolean published, boolean deleted) {
+        return new WeddingWebsite(
+                UUID.randomUUID(), UUID.randomUUID(), "some-slug", published,
+                "Partner One", "Partner Two", LocalDate.of(2026, 6, 20), null,
+                null, null, null, null, null,
+                null, null, null, null,
+                null, null, "Austin", "TX", null, null,
+                null, null,
+                null, null, null,
+                null, null, null, null, null, null,
+                null, null, null, null,
+                null, null, null, null,
+                null,
+                deleted, null, null, null
+        );
     }
 
     private List<WeddingWebsite> publishedSites(int count) {
