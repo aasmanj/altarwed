@@ -105,11 +105,15 @@ export default function WeddingWebsiteSetup({ coupleId, defaultPartnerOne, defau
 const inputCls = 'w-full rounded-lg border border-gold-light px-4 py-2.5 text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold text-sm'
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  // Nest the control inside the <label> so it has a programmatic accessible
+  // name (WCAG 1.3.1 / 4.1.2). Every Field on this screen wraps a single text
+  // input, so nesting (matching WebsiteSectionDrawer's LabeledField) is the
+  // least-churn correct fix.
   return (
-    <div>
-      <label className="block text-sm font-medium text-brown mb-1.5">{label}</label>
-      {hint && <p className="text-xs text-brown-light mb-1.5">{hint}</p>}
+    <label className="block">
+      <span className="block text-sm font-medium text-brown mb-1.5">{label}</span>
+      {hint && <span className="block text-xs text-brown-light mb-1.5">{hint}</span>}
       {children}
-    </div>
+    </label>
   )
 }
