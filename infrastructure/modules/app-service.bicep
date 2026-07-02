@@ -131,6 +131,25 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=GOOGLE-OAUTH-CLIENT-SECRET)'
         }
         {
+          // AES-256 key (base64, 32 bytes) for TokenEncryptionService, which encrypts stored
+          // Google OAuth access/refresh tokens at rest (issue #42). Unlike TURNSTILE_SECRET_KEY
+          // above, an unresolved KV reference is safe to READ here: TokenEncryptionService
+          // base64-decodes and length-checks the value before trusting it, so garbage/placeholder
+          // text is rejected with a startup WARN rather than treated as a valid key.
+          //
+          // RELEASE ORDERING (required, not optional): deploy-backend.yml ships only the JAR, not
+          // this Bicep (see reference_infra_deploy_gotcha memory). If the code deploy lands before
+          // GOOGLE-OAUTH-TOKEN-ENCRYPTION-KEY exists in Key Vault AND this app setting is applied
+          // (via `az deployment group create` or `az webapp config appsettings set`), the key is
+          // absent, every encrypt() fail-closes, and the 15-min Google Sheets poller
+          // (GoogleSheetPollingJob) starts failing sync for EVERY already-connected couple on
+          // their next token refresh -- a live feature going dark, not a new one failing to turn
+          // on. Create the Key Vault secret and apply this app setting BEFORE OR IN THE SAME
+          // DEPLOY WINDOW as the backend JAR that references it.
+          name: 'GOOGLE_OAUTH_TOKEN_ENCRYPTION_KEY'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=GOOGLE-OAUTH-TOKEN-ENCRYPTION-KEY)'
+        }
+        {
           name: 'LOB_API_KEY'
           value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=LOB-API-KEY)'
         }

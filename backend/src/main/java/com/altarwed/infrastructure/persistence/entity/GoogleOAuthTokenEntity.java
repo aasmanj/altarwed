@@ -16,10 +16,12 @@ public class GoogleOAuthTokenEntity {
     @Column(name = "couple_id", nullable = false, unique = true, columnDefinition = "UNIQUEIDENTIFIER")
     private UUID coupleId;
 
-    @Column(name = "access_token", nullable = false, length = 2000)
+    // 4000, not the token's natural length: stores TokenEncryptionService's AES-GCM ciphertext
+    // envelope (V81 migration), which is ~1.37x + ~24 chars larger than the plaintext token.
+    @Column(name = "access_token", nullable = false, length = 4000)
     private String accessToken;
 
-    @Column(name = "refresh_token", nullable = false, length = 2000)
+    @Column(name = "refresh_token", nullable = false, length = 4000)
     private String refreshToken;
 
     @Column(name = "token_type", nullable = false, length = 50)
