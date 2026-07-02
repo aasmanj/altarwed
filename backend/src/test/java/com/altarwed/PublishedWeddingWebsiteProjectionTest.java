@@ -53,16 +53,30 @@ class PublishedWeddingWebsiteProjectionTest {
 
     @Test
     void findPublishedSummaries_returnsSlimContract_andHydratesNoFullEntity() {
-        WeddingWebsiteEntity publishedA = jpaRepository.save(site(MARKER + "published-a", true, false));
-        WeddingWebsiteEntity publishedB = jpaRepository.save(site(MARKER + "published-b", true, false));
-        jpaRepository.save(site(MARKER + "unpublished", false, false));
-        jpaRepository.save(site(MARKER + "deleted", true, true));
-
-        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
-        statistics.setStatisticsEnabled(true);
-        statistics.clear();
-
+        // wedding_websites.couple_id has fk_wedding_websites_couple -> couples(id), and
+        // uq_wedding_websites_couple is UNIQUE on couple_id, so each of the four sites needs
+        // its own real couple row, not a bare UUID.randomUUID(). Declared before the try so
+        // finally can always reach them, but seeded inside it so a failure mid-seed still
+        // cleans up whatever was inserted rather than orphaning rows on repeated local runs.
+        UUID coupleA = null;
+        UUID coupleB = null;
+        UUID coupleUnpublished = null;
+        UUID coupleDeleted = null;
         try {
+            coupleA = seedCouple();
+            coupleB = seedCouple();
+            coupleUnpublished = seedCouple();
+            coupleDeleted = seedCouple();
+
+            WeddingWebsiteEntity publishedA = jpaRepository.save(site(coupleA, MARKER + "published-a", true, false));
+            WeddingWebsiteEntity publishedB = jpaRepository.save(site(coupleB, MARKER + "published-b", true, false));
+            jpaRepository.save(site(coupleUnpublished, MARKER + "unpublished", false, false));
+            jpaRepository.save(site(coupleDeleted, MARKER + "deleted", true, true));
+
+            Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+            statistics.setStatisticsEnabled(true);
+            statistics.clear();
+
             List<WeddingWebsiteSummary> summaries = websiteRepository.findPublishedSummaries();
 
             List<WeddingWebsiteSummary> seeded = summaries.stream()
@@ -92,13 +106,33 @@ class PublishedWeddingWebsiteProjectionTest {
                     .as("the sitemap projection must not hydrate any WeddingWebsiteEntity")
                     .isZero();
         } finally {
+            // wedding_websites first: fk_wedding_websites_couple has ON DELETE CASCADE, but
+            // deleting couples first would already cascade-remove the sites anyway. Being
+            // explicit keeps the cleanup order obvious regardless of the FK's cascade rule.
             jdbcTemplate.update("DELETE FROM wedding_websites WHERE slug LIKE ?", MARKER + "%");
+            // Arrays.asList, not List.of: List.of throws on a null element, and a failure
+            // mid-seed (e.g. the second seedCouple() throws) legitimately leaves some of these
+            // null. Cleaning up whatever couples DID get created must not NPE either way.
+            for (UUID coupleId : java.util.Arrays.asList(coupleA, coupleB, coupleUnpublished, coupleDeleted)) {
+                if (coupleId == null) continue;
+                jdbcTemplate.update("DELETE FROM couples WHERE id = ?", coupleId.toString());
+            }
         }
     }
 
-    private WeddingWebsiteEntity site(String slug, boolean published, boolean deleted) {
+    private UUID seedCouple() {
+        UUID coupleId = UUID.randomUUID();
+        jdbcTemplate.update(
+                "INSERT INTO couples (id, partner_one_name, partner_two_name, email, password_hash) "
+                        + "VALUES (?, ?, ?, ?, ?)",
+                coupleId.toString(), "Partner One", "Partner Two",
+                MARKER + coupleId + "@example.test", "hash");
+        return coupleId;
+    }
+
+    private WeddingWebsiteEntity site(UUID coupleId, String slug, boolean published, boolean deleted) {
         return WeddingWebsiteEntity.builder()
-                .coupleId(UUID.randomUUID())
+                .coupleId(coupleId)
                 .slug(slug)
                 .isPublished(published)
                 .partnerOneName("Partner One")

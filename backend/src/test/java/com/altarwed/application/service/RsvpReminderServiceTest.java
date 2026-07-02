@@ -4,6 +4,8 @@ import com.altarwed.domain.exception.GuestUnsubscribedException;
 import com.altarwed.domain.model.Guest;
 import com.altarwed.domain.model.GuestRsvpStatus;
 import com.altarwed.domain.port.GuestRepository;
+import net.javacrumbs.shedlock.core.LockAssert;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -31,6 +33,15 @@ import static org.mockito.Mockito.when;
  */
 @ExtendWith(MockitoExtension.class)
 class RsvpReminderServiceTest {
+
+    @BeforeAll
+    static void allowLockAssertOutsideRealSchedulerLock() {
+        // sendDueReminders() calls LockAssert.assertLocked() (issue #44); these tests build the
+        // service with plain `new` and no Spring AOP proxy, so there is never a real lock. This
+        // tells LockAssert to pass anyway on this thread, matching ShedLock's documented pattern
+        // for unit-testing @SchedulerLock-annotated code.
+        LockAssert.TestHelper.makeAllAssertsPass(true);
+    }
 
     @Mock private GuestRepository guestRepository;
     @Mock private GuestService guestService;
