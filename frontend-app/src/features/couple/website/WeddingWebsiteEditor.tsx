@@ -4,7 +4,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import confetti from 'canvas-confetti'
 import { useUpdateWeddingWebsite, usePublishWeddingWebsite, type WeddingWebsite } from './useWeddingWebsite'
 import { useHotels, useAddHotel, useUpdateHotel, useDeleteHotel, type WeddingHotelPayload, type WeddingHotel } from './useHotels'
-import { MapPin, DollarSign, X, Loader2 } from 'lucide-react'
+import { MapPin, DollarSign, X, Loader2, ExternalLink, Check } from 'lucide-react'
 import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { useModalA11y } from '@/lib/useModalA11y'
@@ -163,8 +163,9 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
               {website.isPublished ? 'Published' : 'Draft'}
             </span>
             <a href={viewUrl} target="_blank" rel="noopener noreferrer"
-              className="text-sm text-gold hover:underline hidden sm:inline">
-              {website.isPublished ? 'View ↗' : 'Preview ↗'}
+              className="text-sm text-gold hover:underline hidden sm:inline-flex items-center gap-1">
+              {website.isPublished ? 'View' : 'Preview'}
+              <ExternalLink size={14} aria-hidden="true" />
             </a>
             <button
               onClick={handlePublishToggle}
@@ -322,7 +323,7 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
       {/* Save bar */}
       <div className="mt-10 flex items-center justify-between gap-4 pt-6 border-t border-gold-light">
         {saved
-          ? <span className="text-sm text-green-600 font-medium">Saved ✓</span>
+          ? <span className="inline-flex items-center gap-1 text-sm text-green-600 font-medium"><Check size={14} aria-hidden="true" /> Saved</span>
           : <span className="text-sm text-brown-light">Unsaved changes</span>
         }
         <button

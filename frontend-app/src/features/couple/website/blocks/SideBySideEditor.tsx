@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
-import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2, AlertCircle, ImagePlus, Smartphone, Monitor, Settings2, Pencil } from 'lucide-react'
+import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2, AlertCircle, ImagePlus, Smartphone, Monitor, Settings2, Pencil, ChevronUp, ChevronDown, X } from 'lucide-react'
 import { apiClient } from '@/core/api/client'
 import { captureEvent } from '@/core/analytics/analytics'
 import confetti from 'canvas-confetti'
@@ -475,7 +475,7 @@ export default function SideBySideEditor() {
             aria-label="Dismiss"
             className="text-amber-600 hover:text-amber-900 flex-shrink-0 leading-none"
           >
-            ×
+            <X size={16} />
           </button>
         </div>
       )}
@@ -1088,7 +1088,7 @@ function HeroSettings({
           </span>
         </span>
         <span className="text-xs text-brown-light flex-shrink-0" aria-hidden="true">
-          {expanded ? '▲' : '▼'}
+          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </span>
       </button>
 
@@ -1256,7 +1256,7 @@ function HeroSettings({
             {heroUploadError && (
               <div role="alert" className="flex items-start gap-1.5 mt-1 mb-1 text-[10px] text-red-700 leading-snug bg-red-50 border border-red-200 rounded px-2 py-1.5">
                 <span className="flex-1">{heroUploadError}</span>
-                <button onClick={onHeroErrorDismiss} aria-label="Dismiss" className="text-red-400 hover:text-red-700 flex-shrink-0 leading-none">×</button>
+                <button onClick={onHeroErrorDismiss} aria-label="Dismiss" className="text-red-400 hover:text-red-700 flex-shrink-0 leading-none"><X size={12} /></button>
               </div>
             )}
             <p className="text-[10px] text-stone-400 leading-snug mb-2">
@@ -1514,7 +1514,7 @@ function TabSettingsPanel({
           className="text-stone-400 hover:text-stone-700 text-lg leading-none -mt-0.5"
           aria-label="Close tabs panel"
         >
-          ×
+          <X size={18} />
         </button>
       </div>
       <ul className="space-y-1.5">
