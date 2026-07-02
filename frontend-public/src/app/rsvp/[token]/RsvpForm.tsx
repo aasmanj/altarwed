@@ -265,6 +265,7 @@ export default function RsvpForm({
             type="text"
             value={plusOne}
             onChange={e => setPlusOne(e.target.value)}
+            maxLength={200}
             placeholder="Your +1's name"
             className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-base sm:text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
           />
@@ -282,6 +283,7 @@ export default function RsvpForm({
               type="text"
               value={dietary}
               onChange={e => setDietary(e.target.value)}
+              maxLength={500}
               placeholder="e.g. vegetarian, gluten-free, nut allergy"
               className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-base sm:text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
             />
@@ -294,6 +296,7 @@ export default function RsvpForm({
               type="text"
               value={song}
               onChange={e => setSong(e.target.value)}
+              maxLength={200}
               placeholder="e.g. How Great Thou Art"
               className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-base sm:text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
             />
@@ -357,6 +360,7 @@ export default function RsvpForm({
                   value={val}
                   onChange={e => setVal(e.target.value)}
                   required={q.required}
+                  maxLength={2000}
                   className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-base sm:text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
                 />
               </div>
@@ -415,6 +419,7 @@ export default function RsvpForm({
                     type="text"
                     value={partyDietary[m.guestId] ?? ''}
                     onChange={e => setPartyDietary(prev => ({ ...prev, [m.guestId]: e.target.value }))}
+                    maxLength={500}
                     placeholder="Dietary restrictions (optional)"
                     aria-label={`Dietary restrictions for ${m.name}`}
                     className="w-full rounded-lg border border-[#e8dcc8] px-3 py-2 text-[#3b2f2f] text-base sm:text-xs focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
@@ -423,6 +428,7 @@ export default function RsvpForm({
                     type="text"
                     value={partySong[m.guestId] ?? ''}
                     onChange={e => setPartySong(prev => ({ ...prev, [m.guestId]: e.target.value }))}
+                    maxLength={200}
                     placeholder="Song request (optional)"
                     aria-label={`Song request for ${m.name}`}
                     className="w-full rounded-lg border border-[#e8dcc8] px-3 py-2 text-[#3b2f2f] text-base sm:text-xs focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
