@@ -117,6 +117,63 @@ class VendorServiceTest {
     }
 
     // -------------------------------------------------------------------------
+    // updateLogoUrl: replace-cleanup of the prior logo blob (issue #149 / #101)
+    //
+    // Every "Change logo" persists a new blob under a fresh random name, so the old blob would
+    // leak in storage forever unless it is deleted. updateLogoUrl captures the prior URL before
+    // the save and drops that blob (best-effort) once the new URL is persisted. In these unit
+    // tests no transaction synchronization is active, so the cleanup runs inline rather than on
+    // afterCommit, letting us assert the delete directly.
+    // -------------------------------------------------------------------------
+
+    @Test
+    void updateLogoUrl_replacingLogoDeletesOnlyTheOldBlob() {
+        UUID vendorId = UUID.randomUUID();
+        when(vendorRepository.findById(vendorId))
+                .thenReturn(Optional.of(vendorWithLogo(vendorId, "https://cdn/old-logo.jpg")));
+        when(vendorRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Vendor saved = vendorService.updateLogoUrl(vendorId, "https://cdn/new-logo.jpg");
+
+        // The new URL is persisted and the old blob is deleted, so exactly one logo blob survives.
+        assertThat(saved.logoUrl()).isEqualTo("https://cdn/new-logo.jpg");
+        verify(blobStorage).delete("https://cdn/old-logo.jpg");
+        // The just-uploaded blob must never be deleted; the request still depends on it.
+        verify(blobStorage, never()).delete("https://cdn/new-logo.jpg");
+    }
+
+    @Test
+    void updateLogoUrl_firstLogoUploadDeletesNothing() {
+        UUID vendorId = UUID.randomUUID();
+        // Vendor has no prior logo (null): there is no old blob to clean up.
+        when(vendorRepository.findById(vendorId))
+                .thenReturn(Optional.of(vendorWithLogo(vendorId, null)));
+        when(vendorRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Vendor saved = vendorService.updateLogoUrl(vendorId, "https://cdn/first-logo.jpg");
+
+        assertThat(saved.logoUrl()).isEqualTo("https://cdn/first-logo.jpg");
+        verify(blobStorage, never()).delete(anyString());
+    }
+
+    @Test
+    void updateLogoUrl_isBestEffortWhenOldBlobDeleteFails() {
+        UUID vendorId = UUID.randomUUID();
+        when(vendorRepository.findById(vendorId))
+                .thenReturn(Optional.of(vendorWithLogo(vendorId, "https://cdn/old-logo.jpg")));
+        when(vendorRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        // A transient storage error deleting the old blob must not fail an upload whose new URL
+        // has already been persisted; the orphan is logged and tolerated instead.
+        doThrow(new RuntimeException("storage 500")).when(blobStorage).delete("https://cdn/old-logo.jpg");
+
+        Vendor saved = vendorService.updateLogoUrl(vendorId, "https://cdn/new-logo.jpg");
+
+        assertThat(saved.logoUrl()).isEqualTo("https://cdn/new-logo.jpg");
+        verify(vendorRepository).save(any());
+        verify(blobStorage).delete("https://cdn/old-logo.jpg");
+    }
+
+    // -------------------------------------------------------------------------
     // getVendors: DB-side filter + sort + paging, cap, and total (issue #135)
     //
     // Sort and price-tier filtering now happen in the database, so these tests assert the

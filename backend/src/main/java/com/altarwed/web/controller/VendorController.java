@@ -122,6 +122,11 @@ public class VendorController {
         var vendor = vendorService.getByEmail(auth.getName());
         log.info("vendor logo upload started, vendorId={}", vendor.id());
         String logoUrl = mediaUploadService.uploadVendorLogo(vendor.id(), file);
+        // The prior logo blob is captured and deleted inside updateLogoUrl, after that write commits
+        // (issue #149). Unlike the couple hero/venue/std paths, which clean up inline in the
+        // controller, the vendor path owns the replace-cleanup in the service so the old blob is
+        // dropped only once the new URL is durably persisted (and never for a write a commit-time
+        // failure rolls back). So there is deliberately no deleteBlobBestEffort call here.
         vendorService.updateLogoUrl(vendor.id(), logoUrl);
         log.info("vendor logo upload completed, vendorId={}", vendor.id());
         return ResponseEntity.ok(Map.of("logoUrl", logoUrl));
