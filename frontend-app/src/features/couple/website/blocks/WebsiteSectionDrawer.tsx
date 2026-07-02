@@ -405,7 +405,7 @@ function RegistrySection({ website, coupleId, onSaved }: { website: WeddingWebsi
 }
 
 function TravelSection({ websiteId }: { websiteId: string }) {
-  const { data: hotels = [] } = useHotels(websiteId)
+  const { data: hotels = [], isLoading: hotelsLoading } = useHotels(websiteId)
   const addHotel = useAddHotel(websiteId)
   const updateHotel = useUpdateHotel(websiteId)
   const deleteHotel = useDeleteHotel(websiteId)
@@ -415,6 +415,7 @@ function TravelSection({ websiteId }: { websiteId: string }) {
   return (
     <HotelTab
       hotels={hotels}
+      isLoading={hotelsLoading}
       onAdd={(p) => addHotel.mutate(p)}
       onUpdate={(id, p) => updateHotel.mutate({ hotelId: id, payload: p })}
       onDelete={(id) => deleteHotel.mutate(id)}
