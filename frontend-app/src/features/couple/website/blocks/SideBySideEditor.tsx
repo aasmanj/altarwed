@@ -937,7 +937,7 @@ const TAB_HINTS: Record<BlockTab, string> = {
   OUR_STORY: 'Tell your guests how you met, when you knew, and what God has done in your relationship.',
   DETAILS: 'Ceremony time, venue, dress code, what to expect: all the practical info your guests need.',
   WEDDING_PARTY: 'Add a grid for your bridesmaids and groomsmen. Pulls from the Wedding Party tab of the dashboard.',
-  REGISTRY: 'Link to your registries. Configure URLs in the classic Wedding Website editor, then show them here.',
+  REGISTRY: 'Link to your registries. Add a registry block, then manage links with its edit button.',
   TRAVEL: 'Hotels, airports, and travel guidance for out-of-town guests.',
   PHOTOS: 'Add a photo album. Upload from the Photos tab of the dashboard, then it appears here.',
   RSVP: 'Show a call-to-action so guests RSVP. Add a countdown and a few details about the day.',
