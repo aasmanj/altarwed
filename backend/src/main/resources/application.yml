@@ -123,6 +123,10 @@ altarwed:
     picker:
       api-key: ${GOOGLE_PICKER_API_KEY:}
       app-id: ${GOOGLE_PICKER_APP_ID:}
+    # AES-256 key (base64, 32 bytes) that TokenEncryptionService uses to encrypt stored Google
+    # OAuth access/refresh tokens at rest. No default: an empty value fails closed (encrypt/decrypt
+    # throw rather than silently storing plaintext), same posture as unsubscribe.secret below.
+    token-encryption-key: ${GOOGLE_OAUTH_TOKEN_ENCRYPTION_KEY:}
 
   stripe:
     secret-key: ${STRIPE_SECRET_KEY:}
