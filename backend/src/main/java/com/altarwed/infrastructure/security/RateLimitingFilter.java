@@ -1,5 +1,8 @@
 package com.altarwed.infrastructure.security;
 
+import com.altarwed.infrastructure.observability.LogSanitizer;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import jakarta.servlet.FilterChain;
@@ -15,19 +18,24 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 // Protects abuse-sensitive public endpoints (auth, RSVP find-by-name, vendor
 // inquiry) against brute force and spam. Token bucket per IP: 5 requests/minute
-// with a 10-request burst ceiling. ConcurrentHashMap is safe here because
-// Bucket4j's consume() is thread-safe.
+// with a 10-request burst ceiling.
 @Component
 public class RateLimitingFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(RateLimitingFilter.class);
 
-    private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
+    // Bounded + TTL-evicting (issue #41): an unbounded map keyed by client IP is
+    // an OOM/DoS vector on its own, independent of the XFF-spoofing fix below.
+    // 10 minutes is comfortably longer than the 1-minute refill window, so a
+    // bucket never evicts mid-throttle; maximumSize is a hard backstop against a
+    // single burst of unique IPs outrunning eviction.
+    private final Cache<String, Bucket> buckets = Caffeine.newBuilder()
+            .maximumSize(100_000)
+            .expireAfterAccess(Duration.ofMinutes(10))
+            .build();
 
     private Bucket newBucket() {
         // Refill 5 tokens per 60 seconds, steady rate, no burst beyond 10
@@ -62,8 +70,8 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
-        String ip = resolveClientIp(request);
-        Bucket bucket = buckets.computeIfAbsent(ip, k -> newBucket());
+        String ip = ClientIpResolver.resolve(request);
+        Bucket bucket = buckets.get(ip, k -> newBucket());
 
         if (bucket.tryConsume(1)) {
             chain.doFilter(request, response);
@@ -71,8 +79,10 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             // Security signal: spikes here mean brute-force attempts on auth endpoints.
             // IP is logged here (and only here) because it is required to actually
             // act on the alert. This is the "explicitly required for security audit"
-            // exception called out in CLAUDE.md observability rule 8.
-            log.warn("rate limit exceeded, path={}, clientIp={}", request.getRequestURI(), ip);
+            // exception called out in CLAUDE.md observability rule 8. Sanitized because
+            // resolveClientIp's fallback (getHeader) is still attacker-influenced text.
+            log.warn("rate limit exceeded, path={}, clientIp={}",
+                    request.getRequestURI(), LogSanitizer.stripControlChars(ip));
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.getWriter().write("""
@@ -83,13 +93,4 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         }
     }
 
-    // X-Forwarded-For is set by Azure's load balancer, use it so we rate-limit
-    // the real client IP, not the internal proxy IP. Fall back to remoteAddr if absent.
-    private String resolveClientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
-    }
 }

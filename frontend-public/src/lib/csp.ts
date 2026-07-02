@@ -35,6 +35,10 @@ const DEFAULT_APP_ORIGIN = 'https://app.altarwed.com'
 const FB_SCRIPT_ORIGIN = 'https://connect.facebook.net'
 const FB_TRACK_ORIGIN = 'https://www.facebook.com'
 
+// Cloudflare Turnstile (issue #89): the widget's loader script, its rendered
+// challenge iframe, and its verification XHR all come from this one origin.
+const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com'
+
 // Couple photos, vendor logos and og images are served from Azure Blob Storage.
 const BLOB_STORAGE = 'https://*.blob.core.windows.net'
 
@@ -57,11 +61,11 @@ export function buildContentSecurityPolicy(opts: CspOptions = {}): string {
   const apiOrigin = originOf(opts.apiOrigin, DEFAULT_API_ORIGIN)
   const appOrigin = opts.appOrigin ?? DEFAULT_APP_ORIGIN
 
-  const scriptSrc = ["'self'", "'unsafe-inline'", FB_SCRIPT_ORIGIN]
+  const scriptSrc = ["'self'", "'unsafe-inline'", FB_SCRIPT_ORIGIN, TURNSTILE_ORIGIN]
   // react-refresh uses eval in dev only; never allow eval in production.
   if (isDev) scriptSrc.push("'unsafe-eval'")
 
-  const connectSrc = ["'self'", apiOrigin, FB_TRACK_ORIGIN, FB_SCRIPT_ORIGIN]
+  const connectSrc = ["'self'", apiOrigin, FB_TRACK_ORIGIN, FB_SCRIPT_ORIGIN, TURNSTILE_ORIGIN]
   // Next.js dev server HMR talks over a websocket.
   if (isDev) connectSrc.push('ws:', 'wss:')
 
@@ -82,7 +86,7 @@ export function buildContentSecurityPolicy(opts: CspOptions = {}): string {
     'img-src': ["'self'", 'data:', 'https:'],
     'font-src': ["'self'", 'data:'],
     'connect-src': connectSrc,
-    'frame-src': ["'self'", FB_TRACK_ORIGIN],
+    'frame-src': ["'self'", FB_TRACK_ORIGIN, TURNSTILE_ORIGIN],
     'media-src': ["'self'", BLOB_STORAGE, 'data:'],
     'worker-src': ["'self'", 'blob:'],
     'manifest-src': ["'self'"],

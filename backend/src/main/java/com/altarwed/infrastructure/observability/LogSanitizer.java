@@ -32,4 +32,16 @@ public final class LogSanitizer {
         if (at <= 0 || at == email.length() - 1) return "(invalid)";
         return email.charAt(0) + "***" + email.substring(at);
     }
+
+    /**
+     * Strips CR/LF and other control characters from a value before it is logged.
+     * A client-supplied header (X-Forwarded-For, User-Agent, etc.) can embed
+     * {@code \r\n} to forge or split lines in the Application Insights audit trail;
+     * this collapses any control character to a single space so the value stays
+     * one log line no matter what a caller sends.
+     */
+    public static String stripControlChars(String value) {
+        if (value == null) return "(blank)";
+        return value.replaceAll("[\\p{Cntrl}]", " ").trim();
+    }
 }

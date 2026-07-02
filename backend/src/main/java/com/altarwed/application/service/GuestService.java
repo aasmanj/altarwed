@@ -1,6 +1,7 @@
 package com.altarwed.application.service;
 
 import com.altarwed.application.dto.*;
+import com.altarwed.domain.exception.CaptchaVerificationFailedException;
 import com.altarwed.domain.exception.GuestNotFoundException;
 import com.altarwed.domain.exception.GuestUnsubscribedException;
 import com.altarwed.domain.exception.InvalidRsvpTokenException;
@@ -31,10 +32,14 @@ public class GuestService {
     private static final int INVITE_EXPIRY_DAYS = 30;
     private static final int MAX_INVITE_SENDS = 3;
     private static final int SEARCH_TOKEN_EXPIRY_HOURS = 1;
-    // The public find-invitation search ignores queries shorter than this so a single
-    // character cannot enumerate masked initials or mint tokens by brute force. Public so the
-    // controller's pre-check shares one source of truth and cannot silently drift from the service.
-    public static final int MIN_SEARCH_QUERY_LENGTH = 2;
+    // The public find-invitation search ignores queries shorter than this so a short guess
+    // cannot enumerate masked names or mint tokens by brute force. Raised from 2 to 4 (issue
+    // #89): a 2-character "contains" match returns real guests for common prefixes ("Jo", "An"),
+    // enabling anonymous enumeration of a wedding's guest list. 4 characters still lets a real
+    // guest type a fragment of their own name (first name or last name) with zero friction,
+    // while ruling out the shortest, highest-yield scripted guesses. Public so the controller's
+    // pre-check shares one source of truth and cannot silently drift from the service.
+    public static final int MIN_SEARCH_QUERY_LENGTH = 4;
 
     private final GuestRepository guestRepository;
     private final RsvpInviteTokenRepository tokenRepository;
@@ -43,6 +48,7 @@ public class GuestService {
     private final AsyncEmailService asyncEmailService;
     private final EmailSuppressionService suppressionService;
     private final CustomRsvpQuestionService customRsvpQuestionService;
+    private final CaptchaVerificationPort captchaVerificationPort;
 
     public GuestService(
             GuestRepository guestRepository,
@@ -51,7 +57,8 @@ public class GuestService {
             CoupleRepository coupleRepository,
             AsyncEmailService asyncEmailService,
             EmailSuppressionService suppressionService,
-            CustomRsvpQuestionService customRsvpQuestionService
+            CustomRsvpQuestionService customRsvpQuestionService,
+            CaptchaVerificationPort captchaVerificationPort
     ) {
         this.guestRepository = guestRepository;
         this.tokenRepository = tokenRepository;
@@ -60,6 +67,7 @@ public class GuestService {
         this.asyncEmailService = asyncEmailService;
         this.suppressionService = suppressionService;
         this.customRsvpQuestionService = customRsvpQuestionService;
+        this.captchaVerificationPort = captchaVerificationPort;
     }
 
     @Transactional
@@ -360,17 +368,24 @@ public class GuestService {
      * Issues fresh tokens without revoking existing email-invite tokens so the emailed link
      * continues to work alongside the one returned here.
      *
-     * This endpoint is unauthenticated, so it is hardened against table-bloat abuse: a query
-     * shorter than {@code MIN_SEARCH_QUERY_LENGTH} is rejected without any DB work, and a
-     * matched guest who already holds a valid search token has that single row rotated in place
-     * (new hash, refreshed expiry) instead of having a brand-new row minted on every name guess.
+     * This endpoint is unauthenticated, so it is hardened against table-bloat abuse: a
+     * too-short query is rejected before any DB work OR captcha call, and once a query
+     * is long enough to matter a Turnstile captcha token must verify before any DB work
+     * runs (issue #89 -- the only endpoint that mints a live RSVP capability token from
+     * a bare name guess). A matched guest who already holds a valid search token has
+     * that single row rotated in place (new hash, refreshed expiry) instead of having a
+     * brand-new row minted on every name guess.
      */
     @Transactional
-    public List<com.altarwed.application.dto.RsvpFindResult> findGuestsByName(String slug, String name) {
-        // Reject too-short queries before touching the database so scripted single-character
-        // guesses cannot mint tokens or enumerate masked initials.
+    public List<com.altarwed.application.dto.RsvpFindResult> findGuestsByName(
+            String slug, String name, String captchaToken, String remoteIp) {
+        // Reject too-short queries before touching the database OR the captcha provider,
+        // so a trivially-rejectable guess cannot be used to spam Cloudflare's API either.
         if (name == null || name.trim().length() < MIN_SEARCH_QUERY_LENGTH) {
             return List.of();
+        }
+        if (!captchaVerificationPort.verify(captchaToken, remoteIp)) {
+            throw new CaptchaVerificationFailedException();
         }
 
         var website = websiteRepository.findBySlug(slug)

@@ -110,6 +110,19 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=REVALIDATION-SECRET)'
         }
         {
+          // Cloudflare Turnstile secret key for the RSVP find-invitation captcha (issue
+          // #89). Deliberately a literal empty string, NOT a Key Vault reference: a
+          // @Microsoft.KeyVault(...) pointer to a secret that doesn't exist yet does not
+          // resolve to an empty string, it passes the literal unresolved reference text
+          // through as the value, which CloudflareTurnstileAdapter would treat as a
+          // configured (but garbage) secret and fail every RSVP search closed. Once a real
+          // Cloudflare Turnstile site exists, create TURNSTILE-SECRET-KEY in Key Vault with
+          // its real value FIRST, then switch this line to the same KV-reference pattern as
+          // REVALIDATION_SECRET above.
+          name: 'TURNSTILE_SECRET_KEY'
+          value: ''
+        }
+        {
           name: 'GOOGLE_OAUTH_CLIENT_ID'
           value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=GOOGLE-OAUTH-CLIENT-ID)'
         }

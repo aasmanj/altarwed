@@ -79,4 +79,15 @@ describe('buildContentSecurityPolicy', () => {
     expect(parse(buildContentSecurityPolicy({ apiOrigin: 'not-a-url' }))['connect-src'])
       .toContain('https://api.altarwed.com')
   })
+
+  it('allows the Cloudflare Turnstile widget on the RSVP find-invitation page (issue #89)', () => {
+    // The widget's loader script, its rendered challenge iframe, and its
+    // verification XHR all come from this one origin; missing any of the three
+    // directives silently breaks the captcha (script fails to load, or loads
+    // but the challenge iframe/verification call is blocked).
+    const d = parse(buildContentSecurityPolicy())
+    expect(d['script-src']).toContain('https://challenges.cloudflare.com')
+    expect(d['connect-src']).toContain('https://challenges.cloudflare.com')
+    expect(d['frame-src']).toContain('https://challenges.cloudflare.com')
+  })
 })

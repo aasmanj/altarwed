@@ -4,8 +4,10 @@ import com.altarwed.application.dto.*;
 import com.altarwed.application.service.EmailDeliveryService;
 import com.altarwed.application.service.GuestService;
 import com.altarwed.domain.model.Guest;
+import com.altarwed.infrastructure.security.ClientIpResolver;
 import com.altarwed.web.mapper.GuestMapper;
 import com.altarwed.web.security.CoupleAccessGuard;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -149,18 +151,24 @@ public class GuestController {
      * Find-your-invitation search. Guests who don't have their email handy can type
      * their name to retrieve a short-lived RSVP token. Rate-limited by Bucket4j at the
      * filter level; results are capped at 5 and names are masked to limit enumeration risk.
+     * A Turnstile captchaToken must verify before the service does any DB work (issue #89);
+     * required=false because a missing token still fails verification cleanly (400) once
+     * Turnstile is configured, and no-ops (200) while it is not.
      */
     @GetMapping("/rsvp/find")
     public ResponseEntity<List<com.altarwed.application.dto.RsvpFindResult>> findRsvp(
             @RequestParam String slug,
-            @RequestParam String name
+            @RequestParam String name,
+            @RequestParam(required = false) String captchaToken,
+            HttpServletRequest request
     ) {
         // Shares GuestService.MIN_SEARCH_QUERY_LENGTH so this 400 pre-check stays in lockstep
         // with the service guard (the service also returns empty for a too-short query).
         if (name == null || name.trim().length() < GuestService.MIN_SEARCH_QUERY_LENGTH) {
             return ResponseEntity.badRequest().build();
         }
-        return ResponseEntity.ok(guestService.findGuestsByName(slug, name));
+        String remoteIp = ClientIpResolver.resolve(request);
+        return ResponseEntity.ok(guestService.findGuestsByName(slug, name, captchaToken, remoteIp));
     }
 
     @GetMapping("/rsvp/{token}")
