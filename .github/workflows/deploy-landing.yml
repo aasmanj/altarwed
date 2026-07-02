@@ -45,6 +45,10 @@ jobs:
           # NEXT_PUBLIC_ vars are baked into the JS bundle at build time
           NEXT_PUBLIC_FB_PIXEL_ID: ${{ secrets.NEXT_PUBLIC_FB_PIXEL_ID }}
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          # Cloudflare Turnstile site key (issue #89), public by design. Empty until
+          # the GitHub secret is set: the widget just doesn't render, and the backend
+          # (also unconfigured) verifies every request rather than breaking the feature.
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
 
   close_pull_request:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'

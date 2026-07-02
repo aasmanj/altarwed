@@ -10,6 +10,8 @@ import com.altarwed.domain.model.GuestRsvpStatus;
 import com.altarwed.domain.model.RsvpInviteToken;
 import com.altarwed.domain.model.WeddingWebsite;
 import com.altarwed.application.dto.RsvpFindResult;
+import com.altarwed.domain.exception.CaptchaVerificationFailedException;
+import com.altarwed.domain.port.CaptchaVerificationPort;
 import com.altarwed.domain.port.CoupleRepository;
 import com.altarwed.domain.port.GuestRepository;
 import com.altarwed.domain.port.RsvpInviteTokenRepository;
@@ -56,6 +58,7 @@ class GuestServiceTest {
     @Mock private AsyncEmailService asyncEmailService;
     @Mock private EmailSuppressionService suppressionService;
     @Mock private CustomRsvpQuestionService customRsvpQuestionService;
+    @Mock private CaptchaVerificationPort captchaVerificationPort;
 
     @BeforeEach
     void setUp() {
@@ -63,11 +66,16 @@ class GuestServiceTest {
         // suppressed" so the happy-path send tests queue every valid guest. Lenient
         // because the invite-rejection test throws before it reaches this call.
         lenient().when(suppressionService.reasonsByHash(any(), any())).thenReturn(Map.of());
+        // Default every test to a "human verified" captcha result; the one test that
+        // cares about captcha rejection overrides this explicitly. Lenient because most
+        // tests here (send paths) never call findGuestsByName at all.
+        lenient().when(captchaVerificationPort.verify(any(), any())).thenReturn(true);
     }
 
     private GuestService service() {
         return new GuestService(guestRepository, tokenRepository, websiteRepository,
-                coupleRepository, asyncEmailService, suppressionService, customRsvpQuestionService);
+                coupleRepository, asyncEmailService, suppressionService, customRsvpQuestionService,
+                captchaVerificationPort);
     }
 
     private Guest guest(UUID coupleId, String name, String email) {
@@ -276,8 +284,8 @@ class GuestServiceTest {
                 .thenReturn(Optional.of(existing));
         when(tokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        service().findGuestsByName(slug, "Jordan");
-        service().findGuestsByName(slug, "Jordan");
+        service().findGuestsByName(slug, "Jordan", "captcha-token", "203.0.113.1");
+        service().findGuestsByName(slug, "Jordan", "captcha-token", "203.0.113.1");
 
         ArgumentCaptor<RsvpInviteToken> saved = ArgumentCaptor.forClass(RsvpInviteToken.class);
         verify(tokenRepository, times(2)).save(saved.capture());
@@ -347,11 +355,28 @@ class GuestServiceTest {
 
     @Test
     void findGuestsByName_returnsEmptyAndWritesNothing_forSubMinimumQuery() {
-        List<RsvpFindResult> result = service().findGuestsByName("jordan-and-eden", "J");
+        // "Jor" (3 chars) is below MIN_SEARCH_QUERY_LENGTH (4, raised from 2 by issue #89
+        // to stop short, high-yield guesses like "Jo" from enumerating real guests).
+        List<RsvpFindResult> result = service().findGuestsByName(
+                "jordan-and-eden", "Jor", "captcha-token", "203.0.113.1");
 
         assertThat(result).isEmpty();
-        // Too-short query is rejected before any repository is touched: no token row, no lookup.
+        // Too-short query is rejected before any repository OR the captcha provider is
+        // touched: no token row, no lookup, no wasted call to Cloudflare.
         verify(tokenRepository, never()).save(any());
-        verifyNoInteractions(websiteRepository, guestRepository);
+        verifyNoInteractions(websiteRepository, guestRepository, captchaVerificationPort);
+    }
+
+    @Test
+    void findGuestsByName_rejectsAFailedCaptcha_beforeAnyDbWork() {
+        when(captchaVerificationPort.verify("bad-token", "203.0.113.1")).thenReturn(false);
+
+        // Issue #89: a captcha failure must reject the whole search, not just log it, so an
+        // automated caller supplying no/invalid token never reaches the guest repository.
+        assertThatThrownBy(() ->
+                service().findGuestsByName("jordan-and-eden", "Jordan", "bad-token", "203.0.113.1"))
+                .isInstanceOf(CaptchaVerificationFailedException.class);
+
+        verifyNoInteractions(websiteRepository, guestRepository, tokenRepository);
     }
 }

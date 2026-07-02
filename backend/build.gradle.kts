@@ -31,6 +31,7 @@ val azureStorageVersion = "12.29.0"
 val testcontainersVersion = "1.20.4"
 val stripeVersion = "25.12.0"
 val zxingVersion = "3.5.3"
+val caffeineVersion = "3.1.8"
 
 dependencies {
     // Web
@@ -67,6 +68,10 @@ dependencies {
 
     // Rate limiting, token bucket algorithm, no Redis required (in-memory per instance)
     implementation("com.bucket4j:bucket4j-core:$bucket4jVersion")
+
+    // Bounded, TTL-evicting cache for the rate-limit bucket map (issue #41): an
+    // unbounded ConcurrentHashMap keyed by client IP is an OOM/DoS vector.
+    implementation("com.github.ben-manes.caffeine:caffeine:$caffeineVersion")
 
     // Azure Blob Storage, media uploads (wedding photos, wedding party headshots)
     implementation("com.azure:azure-storage-blob:$azureStorageVersion")

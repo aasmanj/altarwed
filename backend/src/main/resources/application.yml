@@ -102,6 +102,14 @@ altarwed:
     base-url: ${NEXTJS_BASE_URL:https://www.altarwed.com}
     revalidation-secret: ${REVALIDATION_SECRET:}
 
+  turnstile:
+    # Cloudflare Turnstile secret key, guards the RSVP find-invitation endpoint against
+    # scripted enumeration (issue #89). Blank is a valid, intentional state: with no
+    # secret configured, CloudflareTurnstileAdapter verifies every request (captcha
+    # effectively disabled) so local dev and any environment without a Cloudflare site
+    # yet keep working. Set in Key Vault once the Turnstile site exists.
+    secret-key: ${TURNSTILE_SECRET_KEY:}
+
   google:
     # Empty defaults: a missing client id/secret disables Google Sheets sync (degrades at
     # runtime) instead of crashing startup. StartupConfigValidator WARNs at boot if blank.
