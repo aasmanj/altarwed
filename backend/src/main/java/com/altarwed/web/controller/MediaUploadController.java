@@ -6,6 +6,7 @@ import com.altarwed.application.service.MediaUploadService;
 import com.altarwed.application.service.WeddingPartyMemberService;
 import com.altarwed.application.service.WeddingPhotoService;
 import com.altarwed.application.service.WeddingWebsiteService;
+import com.altarwed.domain.model.WeddingPhoto;
 import com.altarwed.web.mapper.WeddingPhotoMapper;
 import com.altarwed.web.security.CoupleAccessGuard;
 import org.springframework.http.HttpStatus;
@@ -73,8 +74,20 @@ public class MediaUploadController {
         accessGuard.assertOwnsWebsite(websiteId, email);
         String url = mediaUploadService.uploadWeddingPhoto(websiteId, file);
         AddWeddingPhotoRequest req = new AddWeddingPhotoRequest(url, caption, sortOrder);
+        WeddingPhoto photo;
+        try {
+            photo = weddingPhotoService.addPhoto(websiteId, req);
+        } catch (RuntimeException ex) {
+            // The blob upload already succeeded, so a failed DB insert would strand the blob in
+            // storage forever with no row referencing it (issue #150). Best-effort delete the
+            // just-uploaded blob before rethrowing so a failed request leaves no orphan. This
+            // mirrors the compensating-cleanup pattern used on the replace paths above;
+            // deleteBlobBestEffort never throws, so it cannot mask the original failure.
+            mediaUploadService.deleteBlobBestEffort(url, "album-photo", websiteId);
+            throw ex;
+        }
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(weddingPhotoMapper.toResponse(weddingPhotoService.addPhoto(websiteId, req)));
+                .body(weddingPhotoMapper.toResponse(photo));
     }
 
     // Uploads an image for use in a page block (IMAGE or STORY_ENTRY).
