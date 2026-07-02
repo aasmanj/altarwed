@@ -10,6 +10,7 @@ import { useConfirm } from '@/components/ConfirmDialog'
 import { useModalA11y } from '@/lib/useModalA11y'
 import { apiClient } from '@/core/api/client'
 import ShareModal from './ShareModal'
+import DraftBanner from './DraftBanner'
 
 interface Props {
   website: WeddingWebsite
@@ -141,6 +142,16 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
         onClose={() => setShowShareModal(false)}
         slug={website.slug}
         coupleNames={coupleNames}
+      />
+      {/* Persistent draft reminder (#159): the classic editor's Publish is a
+          de-emphasized outline button next to the filled "Save changes", so
+          couples can finish onboarding without realizing guests can't see the
+          site. This banner reuses handlePublishToggle, which publishes (no
+          confirm) whenever the site is a draft. */}
+      <DraftBanner
+        isPublished={website.isPublished}
+        onPublish={handlePublishToggle}
+        isPublishing={publish.isPending}
       />
       <PageHeader
         title="Wedding Website"
