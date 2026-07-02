@@ -159,6 +159,7 @@ export default async function VendorsPage({
             className="flex-1 rounded-lg border border-[#e8dcc8] px-4 py-2 text-sm text-[#3b2f2f] focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
           />
           {category && <input type="hidden" name="category" value={category} />}
+          {tier && <input type="hidden" name="tier" value={tier} />}
           <button type="submit"
             className="rounded-lg bg-[#3b2f2f] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5c4033] transition">
             Search
