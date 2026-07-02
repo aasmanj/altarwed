@@ -1,62 +1,14 @@
 import type { Metadata } from 'next'
-import { notFound } from 'next/navigation'
 import RsvpForm from './RsvpForm'
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
-
-interface PartyMemberInfo {
-  guestId: string
-  name: string
-  currentRsvpStatus: string | null
-  currentDietary: string | null
-  currentSongRequest: string | null
-}
-
-interface CustomQuestion {
-  id: string
-  questionText: string
-  type: 'TEXT' | 'YES_NO' | 'CHOICE'
-  options: string[]
-  required: boolean
-}
-
-interface RsvpPageData {
-  guestName: string
-  coupleNames: string
-  weddingDate: string | null
-  venueName: string | null
-  venueCity: string | null
-  venueState: string | null
-  plusOneAllowed: boolean
-  weddingSlug: string | null
-  hasRegistry: boolean
-  partyMembers: PartyMemberInfo[] | null
-  partyName: string | null
-  currentRsvpStatus: string | null
-  currentPlusOneName: string | null
-  currentDietary: string | null
-  currentSongRequest: string | null
-  currentNoteForCouple: string | null
-  customQuestions: CustomQuestion[] | null
-}
-
-async function getRsvpData(token: string): Promise<RsvpPageData | null> {
-  try {
-    const res = await fetch(`${API}/api/v1/guests/rsvp/${token}`, { cache: 'no-store' })
-    if (res.status === 400 || res.status === 404) return null
-    if (!res.ok) throw new Error(`API error ${res.status}`)
-    return res.json()
-  } catch {
-    return null
-  }
-}
+import { API, getRsvpData } from './getRsvpData'
 
 export async function generateMetadata(
   { params }: { params: Promise<{ token: string }> }
 ): Promise<Metadata> {
   const { token } = await params
-  const data = await getRsvpData(token)
-  if (!data) return { title: 'RSVP | AltarWed', robots: { index: false } }
+  const result = await getRsvpData(token)
+  if (result.status !== 'ok') return { title: 'RSVP | AltarWed', robots: { index: false } }
+  const data = result.data
   return {
     title: `RSVP to ${data.coupleNames}'s Wedding | AltarWed`,
     description: `${data.guestName}, you're invited to celebrate ${data.coupleNames}${data.weddingDate ? ` on ${data.weddingDate}` : ''}.`,
@@ -70,9 +22,28 @@ export default async function RsvpPage(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params
-  const data = await getRsvpData(token)
+  const result = await getRsvpData(token)
 
-  if (!data) {
+  // Transient backend problem (5xx, timeout, network). Never tell a guest with a
+  // valid token that their invite is dead over a brief hiccup or cold start.
+  if (result.status === 'unavailable') {
+    return (
+      <div className="min-h-screen bg-[#fdfaf6] flex items-center justify-center px-4">
+        <div className="max-w-md w-full text-center space-y-4">
+          <h1 className="font-serif text-2xl font-bold text-[#3b2f2f]">
+            We&apos;re having trouble loading your invitation
+          </h1>
+          <p className="text-[#6b5344]">
+            This is a temporary problem on our end, not a problem with your invite. Please refresh
+            the page or try again in a few moments.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Genuinely invalid or expired token (400/404). This is terminal.
+  if (result.status === 'invalid') {
     return (
       <div className="min-h-screen bg-[#fdfaf6] flex items-center justify-center px-4">
         <div className="max-w-md w-full text-center space-y-4">
@@ -84,6 +55,8 @@ export default async function RsvpPage(
       </div>
     )
   }
+
+  const data = result.data
 
   const venue = [data.venueName, data.venueCity, data.venueState].filter(Boolean).join(', ')
 
