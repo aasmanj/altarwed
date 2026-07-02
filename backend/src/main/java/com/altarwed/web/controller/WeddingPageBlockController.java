@@ -59,6 +59,20 @@ public class WeddingPageBlockController {
         return ResponseEntity.ok(blocks.stream().map(mapper::toResponse).toList());
     }
 
+    // Owner-only preview counterpart, renders a draft's blocks. See
+    // WeddingWebsiteService.getBySlugForPreview for the trust model.
+    @GetMapping("/preview/{slug}")
+    public ResponseEntity<List<WeddingPageBlockResponse>> listBySlugForPreview(
+            @PathVariable String slug,
+            @RequestParam(required = false) BlockTab tab
+    ) {
+        var website = websiteService.getBySlugForPreview(slug);
+        var blocks = tab != null
+                ? blockService.listByWebsiteAndTab(website.id(), tab)
+                : blockService.listByWebsite(website.id());
+        return ResponseEntity.ok(blocks.stream().map(mapper::toResponse).toList());
+    }
+
     // ----- Authenticated (couple dashboard) -----
 
     @GetMapping("/website/{websiteId}")

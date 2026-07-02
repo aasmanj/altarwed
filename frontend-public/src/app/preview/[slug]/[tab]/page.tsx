@@ -52,7 +52,8 @@ async function getPartyMembers(websiteId: string): Promise<WeddingPartyMember[]>
 
 async function getPhotos(slug: string): Promise<WeddingPhoto[]> {
   try {
-    const res = await fetch(`${API}/api/v1/wedding-photos/website/slug/${slug}`, { cache: 'no-store' })
+    // /preview (not /slug) so a draft's photos still render for the owner (#91).
+    const res = await fetch(`${API}/api/v1/wedding-photos/website/preview/${slug}`, { cache: 'no-store' })
     if (!res.ok) return []
     return res.json()
   } catch {

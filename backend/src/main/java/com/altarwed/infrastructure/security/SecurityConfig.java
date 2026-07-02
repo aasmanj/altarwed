@@ -67,6 +67,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/denominations", "/api/v1/denominations/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/wedding-websites/slug/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/wedding-websites/published").permitAll()
+                        // Owner-only editor preview (renders drafts); slug is the capability, not a
+                        // session -- see WeddingWebsiteService.getBySlugForPreview (#91).
+                        .requestMatchers(HttpMethod.GET, "/api/v1/wedding-websites/preview/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/wedding-page-blocks/preview/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/wedding-photos/website/preview/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/guests/rsvp/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/guests/rsvp").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/wedding-party/website/**").permitAll()

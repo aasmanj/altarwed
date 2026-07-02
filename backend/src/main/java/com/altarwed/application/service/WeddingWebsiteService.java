@@ -119,8 +119,24 @@ public class WeddingWebsiteService {
                 .orElseThrow(() -> new WeddingWebsiteNotFoundException("couple:" + coupleId));
     }
 
+    // Public path (SEO surface, /wedding/[slug] and friends). Slugs are low-entropy and
+    // guessable, so an unpublished site must 404 here the same as a deleted one, or anyone
+    // can read a couple's draft (names, venue, vows, goalBudget) before they consent to
+    // publish (#91). Use getBySlugForPreview for the owner-only editor preview.
     @Transactional(readOnly = true)
     public WeddingWebsite getBySlug(String slug) {
+        WeddingWebsite website = websiteRepository.findBySlug(slug)
+                .orElseThrow(() -> new WeddingWebsiteNotFoundException(slug));
+        if (website.isDeleted() || !website.isPublished()) throw new WeddingWebsiteNotFoundException(slug);
+        return website;
+    }
+
+    // Owner-only preview path (SideBySideEditor iframe -> frontend-public /preview/[slug]/[tab]).
+    // The two Next.js/Spring origins don't share a session, so no JWT crosses into the iframe;
+    // the slug itself is the capability, same as before this method existed. Deliberately does
+    // NOT gate on isPublished -- previewing a draft before publish is the entire point.
+    @Transactional(readOnly = true)
+    public WeddingWebsite getBySlugForPreview(String slug) {
         WeddingWebsite website = websiteRepository.findBySlug(slug)
                 .orElseThrow(() -> new WeddingWebsiteNotFoundException(slug));
         if (website.isDeleted()) throw new WeddingWebsiteNotFoundException(slug);

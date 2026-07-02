@@ -152,6 +152,8 @@ GET  /api/v1/wedding-websites/search, GET /api/v1/wedding-websites/*/hotels,
 GET  /api/v1/guests/rsvp/**, POST /api/v1/guests/rsvp,
 GET  /api/v1/wedding-party/website/**, GET /api/v1/wedding-photos/website/slug/**,
 GET  /api/v1/wedding-page-blocks/slug/**, GET /api/v1/blog/**,
+GET  /api/v1/wedding-websites/preview/**, GET /api/v1/wedding-page-blocks/preview/**,
+GET  /api/v1/wedding-photos/website/preview/**,
 POST /api/v1/inquiries, GET /api/v1/scripture/**
 ```
 
