@@ -47,17 +47,33 @@ public class MetricsJpaAdapter implements MetricsRepository {
         long activeVendors = scalarLong("SELECT COUNT(v) FROM VendorEntity v WHERE v.isActive = true");
         long verifiedVendors = scalarLong("SELECT COUNT(v) FROM VendorEntity v WHERE v.isVerified = true");
 
+        // Paying subscribers only: ACTIVE status on a paid tier with a real Stripe
+        // subscription behind it. This excludes free BASIC listings, comped vendors
+        // (ACTIVE with no Stripe subscription id), and non-revenue states like
+        // TRIALING / PAST_DUE / CANCELLED, so the count reflects actual paid revenue.
+        long activePaidSubscriptions = scalarLong(
+                "SELECT COUNT(s) FROM VendorSubscriptionEntity s "
+                        + "WHERE s.status = com.altarwed.domain.model.SubscriptionStatus.ACTIVE "
+                        + "AND s.planTier <> com.altarwed.domain.model.PlanTier.BASIC "
+                        + "AND s.stripeSubscriptionId IS NOT NULL");
+
+        long inquiries = scalarLong("SELECT COUNT(i) FROM InquiryEntity i");
+
         long blogPosts = scalarLong("SELECT COUNT(b) FROM BlogPostEntity b");
         long budgetItems = scalarLong("SELECT COUNT(b) FROM BudgetItemEntity b");
         long ceremonySections = scalarLong("SELECT COUNT(c) FROM CeremonySectionEntity c");
         long planningTasks = scalarLong("SELECT COUNT(p) FROM PlanningTaskEntity p");
         long photos = scalarLong("SELECT COUNT(p) FROM WeddingPhotoEntity p");
 
+        // mrrCents is left at 0 here; AdminMetricsService derives it from
+        // activePaidSubscriptions and the configured plan price (pricing is a business
+        // rule and does not belong in the persistence adapter).
         return new MetricsSnapshot(
                 couples, couples7, couples30,
                 websites, published,
                 guests, attending, declining,
                 vendors, activeVendors, verifiedVendors,
+                activePaidSubscriptions, 0L, inquiries,
                 blogPosts, budgetItems, ceremonySections, planningTasks, photos,
                 signupsByDay(30),
                 topAcquisitionSources(8));
