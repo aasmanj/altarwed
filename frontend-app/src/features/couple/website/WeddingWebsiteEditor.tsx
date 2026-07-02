@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useId, createContext, useContext } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import confetti from 'canvas-confetti'
@@ -352,20 +352,31 @@ const TABS: { id: Tab; label: string }[] = [
 
 const inputCls = 'w-full rounded-lg border border-gold-light px-4 py-2.5 text-brown text-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold'
 
-function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={inputCls} />
+// Row generates a stable id and shares it through this context so the single
+// text control it wraps (Input/Textarea) can adopt it as its `id`, giving the
+// Row's <label htmlFor> a programmatic target (WCAG 1.3.1 / 4.1.2). Using a
+// context rather than nesting the input inside the <label> keeps the
+// non-labelable sibling controls (e.g. the scripture "Autofill" buttons) out
+// of the label's content model.
+const RowIdContext = createContext<string | undefined>(undefined)
+
+function Input({ id, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
+  const rowId = useContext(RowIdContext)
+  return <input id={id ?? rowId} {...props} className={inputCls} />
 }
 
-function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...props} className={`${inputCls} resize-none`} />
+function Textarea({ id, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const rowId = useContext(RowIdContext)
+  return <textarea id={id ?? rowId} {...props} className={`${inputCls} resize-none`} />
 }
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  const id = useId()
   return (
     <div>
-      <label className="block text-sm font-medium text-brown mb-1">{label}</label>
+      <label htmlFor={id} className="block text-sm font-medium text-brown mb-1">{label}</label>
       {hint && <p className="text-xs text-brown-light mb-1.5">{hint}</p>}
-      {children}
+      <RowIdContext.Provider value={id}>{children}</RowIdContext.Provider>
     </div>
   )
 }
