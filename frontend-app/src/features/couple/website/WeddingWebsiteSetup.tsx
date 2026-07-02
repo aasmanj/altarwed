@@ -27,6 +27,16 @@ export function slugAfterNameChange(
   return slugTouched ? currentSlug : suggestSlug(a, b)
 }
 
+// Decide the slug + touched-state after a manual edit to the slug field itself.
+// Clearing the field back to empty releases the "touched" lock so auto-suggest
+// can resume, instead of leaving a permanently blank required field once the
+// couple has hand-edited the slug once (issue #188 follow-up). Pure + exported
+// for the same reason as slugAfterNameChange.
+export function slugAfterManualEdit(rawInput: string): { slug: string; touched: boolean } {
+  const slug = rawInput.toLowerCase().replace(/[^a-z0-9-]/g, '')
+  return { slug, touched: slug.length > 0 }
+}
+
 export default function WeddingWebsiteSetup({ coupleId, defaultPartnerOne, defaultPartnerTwo, defaultWeddingDate }: Props) {
   const create = useCreateWeddingWebsite(coupleId)
 
@@ -91,7 +101,11 @@ export default function WeddingWebsiteSetup({ coupleId, defaultPartnerOne, defau
             </span>
             <input
               value={slug}
-              onChange={e => { setSlugTouched(true); setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')) }}
+              onChange={e => {
+                const next = slugAfterManualEdit(e.target.value)
+                setSlugTouched(next.touched)
+                setSlug(next.slug)
+              }}
               className="flex-1 px-3 py-2.5 text-brown bg-white focus:outline-none text-sm"
               required
             />

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import path from 'path'
-import { suggestSlug, slugAfterNameChange } from './WeddingWebsiteSetup'
+import { suggestSlug, slugAfterNameChange, slugAfterManualEdit } from './WeddingWebsiteSetup'
 
 // Issue #188: two bugs in the wedding-website setup wizard's first screen.
 //   1. Editing a name field after the couple hand-edited their slug silently
@@ -47,6 +47,23 @@ describe('slugAfterNameChange (issue #188)', () => {
   })
 })
 
+describe('slugAfterManualEdit (issue #188 follow-up: clear-to-resume)', () => {
+  it('marks the slug touched on a non-empty manual edit', () => {
+    expect(slugAfterManualEdit('Our-Big-Day')).toEqual({ slug: 'our-big-day', touched: true })
+  })
+
+  it('releases the touched lock when the field is cleared back to empty', () => {
+    // Without this, a couple who hand-edits the slug then deletes it is stuck
+    // with a permanently blank required field, since name edits would never
+    // auto-suggest again.
+    expect(slugAfterManualEdit('')).toEqual({ slug: '', touched: false })
+  })
+
+  it('strips characters outside the allowed slug charset', () => {
+    expect(slugAfterManualEdit('Our Big Day!!')).toEqual({ slug: 'ourbigday', touched: true })
+  })
+})
+
 describe('WeddingWebsiteSetup source (issue #188)', () => {
   const src = read('features/couple/website/WeddingWebsiteSetup.tsx')
 
@@ -55,9 +72,9 @@ describe('WeddingWebsiteSetup source (issue #188)', () => {
     expect(src).toMatch(/role="alert"[^>]*text-red-700|text-red-700[^>]*role="alert"/)
   })
 
-  it('tracks a slugTouched flag set on manual slug edits', () => {
+  it('tracks a slugTouched flag wired through the manual-edit decision', () => {
     expect(src).toContain('slugTouched')
-    expect(src).toContain('setSlugTouched(true)')
+    expect(src).toContain('slugAfterManualEdit(e.target.value)')
   })
 
   it('routes name-field edits through the touch-aware slug decision', () => {
