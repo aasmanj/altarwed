@@ -165,7 +165,7 @@ export default async function VendorsPage({
             Search
           </button>
           {city && (
-            <Link href={`/vendors${category ? `?category=${category}` : ''}`}
+            <Link href={buildHref({ city: '' })}
               className="rounded-lg border border-[#e8dcc8] px-4 py-2 text-sm text-[#8a6a4a] hover:text-[#3b2f2f] transition">
               Clear
             </Link>
