@@ -11,6 +11,7 @@ import {
 } from './useVendorPortfolio'
 import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 import { MAX_UPLOAD_LABEL } from '@/lib/upload'
+import { runLogoUpload } from './logoUpload'
 
 const CATEGORIES = [
   { value: 'ALTERATIONS',     label: 'Alterations, Tailoring & Dry Cleaning' },
@@ -121,14 +122,16 @@ export default function VendorListingPage() {
 
   const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = e.target.files?.[0]
+    // Reset the input so re-picking the same file after a fixable error (wrong
+    // size/type) still fires onChange; without this the vendor is stuck.
+    e.target.value = ''
     if (!picked) return
     setLogoError('')
-    try {
-      // Convert HEIC (iPhone / Google Photos) to JPEG before upload.
-      await uploadLogo.mutateAsync(await normalizeImageFile(picked))
-    } catch {
-      setLogoError('Logo upload failed. Please try again.')
-    }
+    const error = await runLogoUpload(picked, {
+      normalize: normalizeImageFile,
+      upload: file => uploadLogo.mutateAsync(file),
+    })
+    if (error) setLogoError(error)
   }
 
   const handleSave = async () => {
