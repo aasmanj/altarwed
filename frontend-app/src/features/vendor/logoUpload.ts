@@ -12,29 +12,19 @@
 //  2. Surface the backend ProblemDetail on failure via uploadErrorMessage so the
 //     real reason (size, type, dimensions) reaches the vendor.
 
-import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, uploadErrorMessage } from '@/lib/upload'
+import { MAX_UPLOAD_LABEL, runImageUpload, type ImageUploadDeps } from '@/lib/upload'
 
-export interface LogoUploadDeps {
-  // Convert HEIC/HEIF to JPEG (returns the file unchanged otherwise).
-  normalize: (file: File) => Promise<File>
-  // Actually upload one already-validated file. May reject (network/server error).
-  upload: (file: File) => Promise<unknown>
-}
+// The logo uploader's dependencies are just the shared image-upload deps; keep
+// the alias so existing call sites and tests import it from here.
+export type LogoUploadDeps = ImageUploadDeps
 
 // Run the full pick-to-upload flow for a single logo file. Returns null on
-// success, or a user-facing error message to display. Never throws: a rejected
-// normalize/upload is turned into an actionable message here.
+// success, or a user-facing error message to display. Never throws. This now
+// delegates to the shared runImageUpload orchestrator (single source of truth
+// for the pre-check + error-surfacing flow) and only supplies logo-specific copy.
 export async function runLogoUpload(picked: File, deps: LogoUploadDeps): Promise<string | null> {
-  try {
-    const normalized = await deps.normalize(picked)
-    // Client-side pre-check: bail before any network call so an oversize file
-    // gets an instant, specific reason instead of a doomed round trip.
-    if (normalized.size > MAX_UPLOAD_BYTES) {
-      return `Logo must be under ${MAX_UPLOAD_LABEL}.`
-    }
-    await deps.upload(normalized)
-    return null
-  } catch (err: unknown) {
-    return uploadErrorMessage(err, 'Logo upload failed. Please try again.')
-  }
+  return runImageUpload(picked, deps, {
+    tooLarge: `Logo must be under ${MAX_UPLOAD_LABEL}.`,
+    uploadFailed: 'Logo upload failed. Please try again.',
+  })
 }

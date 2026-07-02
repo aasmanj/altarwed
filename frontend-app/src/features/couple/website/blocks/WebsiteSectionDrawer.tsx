@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { X, ImagePlus, Loader2 } from 'lucide-react'
 import { useUpdateWeddingWebsite, type WeddingWebsite } from '../useWeddingWebsite'
 import { apiClient } from '@/core/api/client'
-import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
+import { normalizeImageFile, isAllowedImageType, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, uploadErrorMessage } from '@/lib/upload'
 import { useHotels, useAddHotel, useUpdateHotel, useDeleteHotel } from '../useHotels'
 import { HotelTab } from '../WeddingWebsiteEditor'
 import WeddingPartyManager from '@/features/couple/weddingparty/WeddingPartyManager'
@@ -147,6 +148,45 @@ function LabeledField({ label, hint, children }: { label: string; hint?: string;
   )
 }
 
+// Injectable dependencies for the venue-photo upload flow. Kept as an interface
+// so the flow can be unit-tested with no DOM (frontend-app's vitest runs in a
+// node environment), mirroring runLogoUpload on the vendor side.
+export interface VenuePhotoUploadDeps {
+  // Convert HEIC/HEIF to JPEG (returns the file unchanged otherwise).
+  normalize: (file: File) => Promise<File>
+  // Post-normalization type gate that matches the backend jpeg/png/webp whitelist.
+  isAllowedType: (file: File) => boolean
+  // Actually upload one already-validated file; resolves to the stored photo URL.
+  upload: (file: File) => Promise<string>
+}
+
+export type VenuePhotoUploadResult = { photoUrl: string } | { error: string }
+
+// Run the full pick-to-upload flow for a single venue photo. Returns the stored
+// URL on success or a user-facing error message. Never throws: a rejected file
+// (over the size cap, wrong type) or a failed request is turned into an
+// actionable message here instead of the pre-fix silent no-op (#184). Mirrors
+// BlockImageUpload's validate -> upload -> uploadErrorMessage chain.
+export async function runVenuePhotoUpload(
+  picked: File,
+  deps: VenuePhotoUploadDeps,
+): Promise<VenuePhotoUploadResult> {
+  try {
+    // Convert HEIC (iPhone / Google Photos) to JPEG before validating.
+    const file = await deps.normalize(picked)
+    if (!deps.isAllowedType(file)) {
+      return { error: 'Only JPEG, PNG, or WebP images are supported.' }
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return { error: `Image must be under ${MAX_UPLOAD_LABEL}.` }
+    }
+    const photoUrl = await deps.upload(file)
+    return { photoUrl }
+  } catch (err: unknown) {
+    return { error: uploadErrorMessage(err, 'Upload failed. Try again.') }
+  }
+}
+
 function DetailsSection({ website, coupleId, onSaved }: { website: WeddingWebsite; coupleId: string; onSaved: () => void }) {
   const update = useUpdateWeddingWebsite(coupleId)
   const [form, setForm] = useState({
@@ -166,25 +206,34 @@ function DetailsSection({ website, coupleId, onSaved }: { website: WeddingWebsit
 
   const [venuePhotoUrl, setVenuePhotoUrl] = useState<string | null>(website.venuePhotoUrl ?? null)
   const [venueUploading, setVenueUploading] = useState(false)
+  const [venueError, setVenueError] = useState<string | null>(null)
   const venuePhotoRef = useRef<HTMLInputElement>(null)
 
   const handleVenuePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = e.target.files?.[0]
     if (!picked) return
-    const file = await normalizeImageFile(picked)
-    const fd = new FormData()
-    fd.append('file', file)
+    setVenueError(null)
     setVenueUploading(true)
-    try {
-      const res = await apiClient.post<{ photoUrl: string }>(
-        `/api/v1/uploads/wedding-websites/${website.id}/venue-photo`, fd,
-        { headers: { 'Content-Type': 'multipart/form-data' } },
-      )
-      setVenuePhotoUrl(res.data.photoUrl)
-    } finally {
-      setVenueUploading(false)
-      if (venuePhotoRef.current) venuePhotoRef.current.value = ''
+    const result = await runVenuePhotoUpload(picked, {
+      normalize: normalizeImageFile,
+      isAllowedType: isAllowedImageType,
+      upload: async (file) => {
+        const fd = new FormData()
+        fd.append('file', file)
+        const res = await apiClient.post<{ photoUrl: string }>(
+          `/api/v1/uploads/wedding-websites/${website.id}/venue-photo`, fd,
+          { headers: { 'Content-Type': 'multipart/form-data' } },
+        )
+        return res.data.photoUrl
+      },
+    })
+    if ('photoUrl' in result) {
+      setVenuePhotoUrl(result.photoUrl)
+    } else {
+      setVenueError(result.error)
     }
+    setVenueUploading(false)
+    if (venuePhotoRef.current) venuePhotoRef.current.value = ''
   }
 
   const save = async () => {
@@ -278,6 +327,7 @@ function DetailsSection({ website, coupleId, onSaved }: { website: WeddingWebsit
             : <><ImagePlus size={14} /> {venuePhotoUrl ? 'Replace photo' : 'Upload venue photo'}</>
           }
         </button>
+        {venueError && <p className="mt-1.5 text-xs text-red-500" role="alert">{venueError}</p>}
       </LabeledField>
 
       <LabeledField label="Additional details" hint="Parking info, directions, accessibility notes, etc.">
@@ -355,7 +405,7 @@ function RegistrySection({ website, coupleId, onSaved }: { website: WeddingWebsi
 }
 
 function TravelSection({ websiteId }: { websiteId: string }) {
-  const { data: hotels = [] } = useHotels(websiteId)
+  const { data: hotels = [], isLoading: hotelsLoading } = useHotels(websiteId)
   const addHotel = useAddHotel(websiteId)
   const updateHotel = useUpdateHotel(websiteId)
   const deleteHotel = useDeleteHotel(websiteId)
@@ -365,6 +415,7 @@ function TravelSection({ websiteId }: { websiteId: string }) {
   return (
     <HotelTab
       hotels={hotels}
+      isLoading={hotelsLoading}
       onAdd={(p) => addHotel.mutate(p)}
       onUpdate={(id, p) => updateHotel.mutate({ hotelId: id, payload: p })}
       onDelete={(id) => deleteHotel.mutate(id)}

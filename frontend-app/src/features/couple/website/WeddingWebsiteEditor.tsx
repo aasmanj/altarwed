@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useId, createContext, useContext } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import confetti from 'canvas-confetti'
 import { useUpdateWeddingWebsite, usePublishWeddingWebsite, type WeddingWebsite } from './useWeddingWebsite'
 import { useHotels, useAddHotel, useUpdateHotel, useDeleteHotel, type WeddingHotelPayload, type WeddingHotel } from './useHotels'
-import { MapPin, DollarSign, X, ExternalLink, Check } from 'lucide-react'
+import { MapPin, DollarSign, X, Loader2, ExternalLink, Check } from 'lucide-react'
 import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { useModalA11y } from '@/lib/useModalA11y'
@@ -20,7 +20,7 @@ interface Props {
 export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
   const update = useUpdateWeddingWebsite(coupleId)
   const publish = usePublishWeddingWebsite(coupleId)
-  const { data: hotels = [] } = useHotels(website.id)
+  const { data: hotels = [], isLoading: hotelsLoading } = useHotels(website.id)
   const addHotel    = useAddHotel(website.id)
   const updateHotel = useUpdateHotel(website.id)
   const deleteHotel = useDeleteHotel(website.id)
@@ -257,6 +257,7 @@ export default function WeddingWebsiteEditor({ website, coupleId }: Props) {
         {activeTab === 'hotel' && (
           <HotelTab
             hotels={hotels}
+            isLoading={hotelsLoading}
             onAdd={(payload) => addHotel.mutate(payload)}
             onUpdate={(hotelId, payload) => updateHotel.mutate({ hotelId, payload })}
             onDelete={(hotelId) => deleteHotel.mutate(hotelId)}
@@ -353,20 +354,31 @@ const TABS: { id: Tab; label: string }[] = [
 
 const inputCls = 'w-full rounded-lg border border-gold-light px-4 py-2.5 text-brown text-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold'
 
-function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={inputCls} />
+// Row generates a stable id and shares it through this context so the single
+// text control it wraps (Input/Textarea) can adopt it as its `id`, giving the
+// Row's <label htmlFor> a programmatic target (WCAG 1.3.1 / 4.1.2). Using a
+// context rather than nesting the input inside the <label> keeps the
+// non-labelable sibling controls (e.g. the scripture "Autofill" buttons) out
+// of the label's content model.
+const RowIdContext = createContext<string | undefined>(undefined)
+
+function Input({ id, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
+  const rowId = useContext(RowIdContext)
+  return <input id={id ?? rowId} {...props} className={inputCls} />
 }
 
-function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...props} className={`${inputCls} resize-none`} />
+function Textarea({ id, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const rowId = useContext(RowIdContext)
+  return <textarea id={id ?? rowId} {...props} className={`${inputCls} resize-none`} />
 }
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  const id = useId()
   return (
     <div>
-      <label className="block text-sm font-medium text-brown mb-1">{label}</label>
+      <label htmlFor={id} className="block text-sm font-medium text-brown mb-1">{label}</label>
       {hint && <p className="text-xs text-brown-light mb-1.5">{hint}</p>}
-      {children}
+      <RowIdContext.Provider value={id}>{children}</RowIdContext.Provider>
     </div>
   )
 }
@@ -545,8 +557,22 @@ function ScriptureTab({
 // ---------------------------------------------------------------------------
 const hotelInputCls = 'w-full rounded-lg border border-gold-light px-3 py-2 text-brown text-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold'
 
-export function HotelTab({ hotels, onAdd, onUpdate, onDelete, isAddPending, isUpdatePending, isDeletePending }: {
+// Whether to render the "no hotels added yet" empty state. Kept as a pure,
+// exported predicate so it can be unit-tested without a DOM (#187): the message
+// must NOT show while the hotels query is still loading (the array defaults to
+// [] before it resolves, so an empty array alone is ambiguous), only once
+// loading has settled on a genuinely empty result and we're not mid-add.
+export function shouldShowNoHotelsEmptyState(
+  hotelCount: number,
+  isLoading: boolean,
+  isAddingNew: boolean,
+): boolean {
+  return !isLoading && hotelCount === 0 && !isAddingNew
+}
+
+export function HotelTab({ hotels, isLoading, onAdd, onUpdate, onDelete, isAddPending, isUpdatePending, isDeletePending }: {
   hotels: WeddingHotel[]
+  isLoading: boolean
   onAdd: (p: WeddingHotelPayload) => void
   onUpdate: (id: string, p: WeddingHotelPayload) => void
   onDelete: (id: string) => void
@@ -578,7 +604,13 @@ export function HotelTab({ hotels, onAdd, onUpdate, onDelete, isAddPending, isUp
         />
       )}
 
-      {hotels.length === 0 && editingId !== 'new' && (
+      {isLoading && hotels.length === 0 && editingId !== 'new' && (
+        <p className="flex items-center justify-center gap-2 text-sm text-brown-light py-8 border border-dashed border-gold-light rounded-xl">
+          <Loader2 size={14} className="animate-spin" aria-hidden="true" /> Loading hotels…
+        </p>
+      )}
+
+      {shouldShowNoHotelsEmptyState(hotels.length, isLoading, editingId === 'new') && (
         <p className="text-sm text-brown-light text-center py-8 border border-dashed border-gold-light rounded-xl">
           No hotels added yet. Add your first hotel block so guests know where to stay.
         </p>
