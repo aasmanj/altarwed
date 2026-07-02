@@ -16,7 +16,7 @@ function read(rel: string): string {
   return readFileSync(path.join(process.cwd(), 'src', rel), 'utf8')
 }
 
-describe('Vendor directory city search preserves the price-tier filter (#155)', () => {
+describe('Vendor directory city search and Clear link preserve the price-tier filter (#155, #168)', () => {
   const src = read('app/vendors/page.tsx')
 
   it('re-injects the active tier as a hidden input on the city search form', () => {
@@ -39,5 +39,13 @@ describe('Vendor directory city search preserves the price-tier filter (#155)', 
     // The tier hidden input exists and sits inside the form, before submit.
     expect(tierInput).toBeGreaterThan(formStart)
     expect(tierInput).toBeLessThan(submitIndex)
+  })
+
+  it('the Clear city link routes through buildHref so tier and category are preserved', () => {
+    // Before the fix the Clear link was a bare template that only threaded `category`,
+    // silently dropping `tier` whenever a visitor combined city search with a price-tier
+    // filter. buildHref({ city: '' }) passes empty string, which is not nullish so it
+    // bypasses the ?? fallback and lets `if (ci)` drop city while keeping category/tier.
+    expect(src).toContain("href={buildHref({ city: '' })}")
   })
 })
