@@ -160,7 +160,7 @@ export default function ScripturePage() {
             <button
               type="submit"
               disabled={!query.trim() || search.isPending}
-              className="rounded-lg bg-gold px-5 py-2.5 text-sm font-semibold text-white hover:bg-gold/90 disabled:opacity-50 transition"
+              className="rounded-lg bg-gold px-5 py-2.5 text-sm font-semibold text-brown hover:bg-gold/90 disabled:opacity-50 transition"
             >
               {search.isPending ? 'Looking up…' : 'Look up'}
             </button>
@@ -298,7 +298,7 @@ export default function ScripturePage() {
             <button
               type="submit"
               disabled={!customRef.trim() || !customText.trim() || saveCustom.isPending}
-              className="w-full rounded-lg bg-gold px-5 py-2.5 text-sm font-semibold text-white hover:bg-gold/90 disabled:opacity-50 transition"
+              className="w-full rounded-lg bg-gold px-5 py-2.5 text-sm font-semibold text-brown hover:bg-gold/90 disabled:opacity-50 transition"
             >
               {saveCustom.isPending ? 'Saving…' : 'Save to my website'}
             </button>

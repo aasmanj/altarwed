@@ -384,7 +384,7 @@ function RegistrySection({ website, coupleId, onSaved }: { website: WeddingWebsi
                   onClick={() => pick(labelKey, name)}
                   className={`rounded-full border px-2.5 py-1 text-xs transition ${
                     form[labelKey] === name
-                      ? 'border-gold bg-gold text-white'
+                      ? 'border-gold bg-gold text-brown'
                       : 'border-gold-light text-brown-light hover:border-gold hover:text-brown'
                   }`}
                 >
@@ -431,7 +431,7 @@ function SaveButton({ onClick, pending }: { onClick: () => void; pending: boolea
     <button
       onClick={onClick}
       disabled={pending}
-      className="w-full rounded-lg bg-gold px-6 py-2.5 font-semibold text-white hover:bg-gold-dark disabled:opacity-60 transition mt-2"
+      className="w-full rounded-lg bg-gold px-6 py-2.5 font-semibold text-brown hover:bg-gold-dark disabled:opacity-60 transition mt-2"
     >
       {pending ? 'Saving…' : 'Save and close'}
     </button>

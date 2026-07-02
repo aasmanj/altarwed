@@ -47,15 +47,21 @@ function read(rel: string): string {
   return readFileSync(path.join(process.cwd(), 'src', rel), 'utf8')
 }
 
-// Every gold CTA the issue lists across frontend-app.
+// Every gold CTA the issues list across frontend-app (issue #146 originals + issue #162 follow-up).
 const LISTED_FILES = [
   'features/auth/LoginPage.tsx',
   'features/auth/RegisterPage.tsx',
+  'features/auth/ForgotPasswordPage.tsx',
+  'features/auth/ResetPasswordPage.tsx',
   'features/couple/guests/GuestListPage.tsx',
   'features/couple/budget/BudgetPage.tsx',
   'features/couple/checklist/ChecklistPage.tsx',
   'features/couple/guests/CustomQuestionsManager.tsx',
   'features/couple/guests/ImportGuestsModal.tsx',
+  'features/couple/scripture/ScripturePage.tsx',
+  'features/couple/seating/SeatingPage.tsx',
+  'features/couple/settings/SettingsPage.tsx',
+  'features/couple/website/blocks/WebsiteSectionDrawer.tsx',
   'components/QueryErrorState.tsx',
   'features/couple/website/ShareModal.tsx',
 ]
@@ -103,6 +109,27 @@ describe('gold CTA contrast #146 (frontend-app)', () => {
     )
     expect(read('features/couple/checklist/ChecklistPage.tsx')).toContain(
       "'bg-gold text-brown'",
+    )
+  })
+
+  it('the auth and scripture CTAs from issue #162 now carry brown text on gold', () => {
+    expect(read('features/auth/ForgotPasswordPage.tsx')).toContain(
+      'bg-gold py-2.5 font-semibold text-brown',
+    )
+    expect(read('features/auth/ResetPasswordPage.tsx')).toContain(
+      'bg-gold py-2.5 font-semibold text-brown',
+    )
+    expect(read('features/couple/scripture/ScripturePage.tsx')).toContain(
+      'bg-gold px-5 py-2.5 text-sm font-semibold text-brown',
+    )
+    expect(read('features/couple/seating/SeatingPage.tsx')).toContain(
+      'bg-gold px-4 py-2 text-sm font-semibold text-brown',
+    )
+    expect(read('features/couple/settings/SettingsPage.tsx')).toContain(
+      'bg-gold text-brown',
+    )
+    expect(read('features/couple/website/blocks/WebsiteSectionDrawer.tsx')).toContain(
+      'border-gold bg-gold text-brown',
     )
   })
 })
