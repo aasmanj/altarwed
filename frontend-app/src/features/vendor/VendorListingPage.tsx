@@ -10,7 +10,7 @@ import {
   type PortfolioPhoto,
 } from './useVendorPortfolio'
 import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
-import { MAX_UPLOAD_LABEL } from '@/lib/upload'
+import { MAX_UPLOAD_LABEL, PHOTO_TOO_LARGE_MESSAGE, runImageUpload } from '@/lib/upload'
 import { runLogoUpload } from './logoUpload'
 
 const CATEGORIES = [
@@ -515,16 +515,23 @@ export default function VendorListingPage() {
             aria-label="Upload portfolio photo"
             onChange={async e => {
               const picked = e.target.files?.[0]
+              // Reset the input up front so re-picking the same file after a
+              // fixable error (wrong size/type) still fires onChange.
+              if (portfolioFileRef.current) portfolioFileRef.current.value = ''
               if (!picked) return
               setPortfolioError('')
-              try {
-                const normalized = await normalizeImageFile(picked)
-                await uploadPortfolioPhoto.mutateAsync({ file: normalized })
-              } catch (err: unknown) {
-                const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-                setPortfolioError(detail ?? 'Upload failed. Please try again.')
-              }
-              if (portfolioFileRef.current) portfolioFileRef.current.value = ''
+              // Route through the shared pre-check + error-surfacing flow so an
+              // oversize file is caught client-side with a specific message and a
+              // 413 (which carries no ProblemDetail detail) still shows the size cap.
+              const error = await runImageUpload(
+                picked,
+                {
+                  normalize: normalizeImageFile,
+                  upload: file => uploadPortfolioPhoto.mutateAsync({ file }),
+                },
+                { tooLarge: PHOTO_TOO_LARGE_MESSAGE, uploadFailed: 'Upload failed. Please try again.' },
+              )
+              if (error) setPortfolioError(error)
             }}
           />
 
