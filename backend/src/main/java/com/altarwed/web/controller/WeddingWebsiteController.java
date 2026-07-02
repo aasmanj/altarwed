@@ -51,7 +51,7 @@ public class WeddingWebsiteController {
     public ResponseEntity<List<WeddingWebsiteSitemapEntry>> getAllPublished() {
         List<WeddingWebsiteSitemapEntry> entries = websiteService.getAllPublished()
                 .stream()
-                .map(w -> new WeddingWebsiteSitemapEntry(w.slug(), w.updatedAt()))
+                .map(s -> new WeddingWebsiteSitemapEntry(s.slug(), s.updatedAt()))
                 .toList();
         return ResponseEntity.ok(entries);
     }

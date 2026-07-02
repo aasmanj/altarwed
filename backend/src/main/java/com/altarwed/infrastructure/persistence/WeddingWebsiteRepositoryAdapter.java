@@ -1,6 +1,7 @@
 package com.altarwed.infrastructure.persistence;
 
 import com.altarwed.domain.model.WeddingWebsite;
+import com.altarwed.domain.model.WeddingWebsiteSummary;
 import com.altarwed.domain.port.WeddingWebsiteRepository;
 import com.altarwed.infrastructure.persistence.entity.WeddingWebsiteEntity;
 import com.altarwed.infrastructure.persistence.repository.WeddingWebsiteJpaRepository;
@@ -45,9 +46,11 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
     }
 
     @Override
-    public List<WeddingWebsite> findAllPublished() {
-        return jpaRepository.findAllByIsPublishedTrueAndIsDeletedFalse()
-                .stream().map(this::toDomain).toList();
+    public List<WeddingWebsiteSummary> findPublishedSummaries() {
+        return jpaRepository.findByIsPublishedTrueAndIsDeletedFalse()
+                .stream()
+                .map(p -> new WeddingWebsiteSummary(p.getSlug(), p.getUpdatedAt()))
+                .toList();
     }
 
     @Override
