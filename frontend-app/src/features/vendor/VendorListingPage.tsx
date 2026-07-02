@@ -11,7 +11,9 @@ import {
 } from './useVendorPortfolio'
 import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 import { MAX_UPLOAD_LABEL, PHOTO_TOO_LARGE_MESSAGE, runImageUpload } from '@/lib/upload'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { runLogoUpload } from './logoUpload'
+import { runPortfolioPhotoDelete } from './portfolioPhotoDelete'
 
 const CATEGORIES = [
   { value: 'ALTERATIONS',     label: 'Alterations, Tailoring & Dry Cleaning' },
@@ -57,6 +59,7 @@ export default function VendorListingPage() {
   const deletePortfolioPhoto = useDeletePortfolioPhoto()
   const reorderPortfolioPhotos = useReorderPortfolioPhotos()
   const updatePortfolioCaption = useUpdatePortfolioPhotoCaption()
+  const confirm = useConfirm()
   const portfolioFileRef = useRef<HTMLInputElement>(null)
   const [portfolioError, setPortfolioError] = useState('')
   const logoInputRef = useRef<HTMLInputElement>(null)
@@ -446,11 +449,21 @@ export default function VendorListingPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => {
-                        setPortfolioError('')
-                        deletePortfolioPhoto.mutate(photo.id)
-                      }}
-                      className="absolute top-1 right-1 hidden group-hover:flex items-center justify-center w-6 h-6 rounded-full bg-white/90 text-red-500 hover:bg-white text-xs font-bold shadow transition"
+                      disabled={deletePortfolioPhoto.isPending}
+                      onClick={() =>
+                        runPortfolioPhotoDelete({
+                          confirm: () => confirm({
+                            title: 'Remove this photo?',
+                            message: 'It will be removed from your public listing.',
+                            tone: 'danger',
+                            confirmLabel: 'Remove',
+                          }),
+                          deletePhoto: () => deletePortfolioPhoto.mutateAsync(photo.id),
+                          onError: setPortfolioError,
+                          clearError: () => setPortfolioError(''),
+                        })
+                      }
+                      className="absolute top-1 right-1 hidden group-hover:flex items-center justify-center w-6 h-6 rounded-full bg-white/90 text-red-500 hover:bg-white text-xs font-bold shadow transition disabled:opacity-50"
                       aria-label="Delete photo"
                     >
                       x

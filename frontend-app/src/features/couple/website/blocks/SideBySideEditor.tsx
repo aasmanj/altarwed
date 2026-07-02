@@ -667,7 +667,12 @@ export default function SideBySideEditor() {
               updateWebsite.mutate({ scriptureText: null, scriptureReference: null, scriptureBackgroundColor: '' }, { onSuccess: bumpPreview })
             }}
             onFocalPointSave={(x, y) => {
-              updateWebsite.mutate({ heroFocalPointX: x, heroFocalPointY: y })
+              // bumpPreview is required here for the same reason as
+              // onDefaultPhotoSelect: HeroLive does not patch the hero image
+              // crop client-side, so the iframe reload is what actually shows
+              // the new focal point. Without it the live preview only updated
+              // after a manual refresh or tab switch (issue #182).
+              updateWebsite.mutate({ heroFocalPointX: x, heroFocalPointY: y }, { onSuccess: bumpPreview })
             }}
             onTaglineColorSave={(color) => {
               updateWebsite.mutate({ heroTaglineColor: color })
@@ -1092,10 +1097,11 @@ function HeroSettings({
         <div className="overflow-y-auto max-h-[400px] px-3 pb-3 space-y-3 border-t border-stone-100 pt-3">
           {/* Tagline */}
           <div>
-            <label className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-1">
+            <label htmlFor="hero-tagline" className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-1">
               Tagline (shown over the photo)
             </label>
             <input
+              id="hero-tagline"
               type="text"
               value={tagline}
               onChange={e => {
@@ -1161,10 +1167,11 @@ function HeroSettings({
           {/* Bride + Groom names: bride first per display convention */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-1">
+              <label htmlFor="hero-bride-name" className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-1">
                 Bride
               </label>
               <input
+                id="hero-bride-name"
                 type="text"
                 value={brideName}
                 onChange={e => {
@@ -1179,10 +1186,11 @@ function HeroSettings({
               />
             </div>
             <div>
-              <label className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-1">
+              <label htmlFor="hero-groom-name" className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-1">
                 Groom
               </label>
               <input
+                id="hero-groom-name"
                 type="text"
                 value={groomName}
                 onChange={e => {
