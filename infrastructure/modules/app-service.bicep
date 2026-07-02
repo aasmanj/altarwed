@@ -120,7 +120,7 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           // its real value FIRST, then switch this line to the same KV-reference pattern as
           // REVALIDATION_SECRET above.
           name: 'TURNSTILE_SECRET_KEY'
-          value: ''
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=TURNSTILE-SECRET-KEY)'
         }
         {
           name: 'GOOGLE_OAUTH_CLIENT_ID'
