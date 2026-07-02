@@ -247,7 +247,7 @@ export default function ImportGuestsModal({ onImport, onClose, isPending }: Prop
             type="button"
             onClick={handleImport}
             disabled={!rows || rows.length === 0 || isPending}
-            className="rounded-lg bg-gold px-5 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-50 transition"
+            className="rounded-lg bg-gold px-5 py-2 text-sm font-semibold text-brown hover:bg-gold-dark disabled:opacity-50 transition"
           >
             {isPending ? 'Importing...' : rows ? `Import ${rows.length} guest${rows.length === 1 ? '' : 's'}` : 'Import'}
           </button>

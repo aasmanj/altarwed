@@ -41,7 +41,7 @@ export default function CustomQuestionsManager({ coupleId }: { coupleId: string 
         {!adding && (
           <button
             onClick={() => { setAdding(true); setEditingId(null) }}
-            className="shrink-0 rounded-lg bg-gold px-3 py-2 text-sm font-semibold text-white hover:bg-gold-dark transition"
+            className="shrink-0 rounded-lg bg-gold px-3 py-2 text-sm font-semibold text-brown hover:bg-gold-dark transition"
           >
             + Add question
           </button>
@@ -238,7 +238,7 @@ function QuestionForm({ initial, onSubmit, onCancel, isPending }: {
         </div>
       )}
       <div className="flex gap-3 pt-1">
-        <button type="submit" disabled={isPending} className="rounded-lg bg-gold px-4 py-1.5 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-60 transition">
+        <button type="submit" disabled={isPending} className="rounded-lg bg-gold px-4 py-1.5 text-sm font-semibold text-brown hover:bg-gold-dark disabled:opacity-60 transition">
           {isPending ? 'Saving…' : initial ? 'Save' : 'Add question'}
         </button>
         <button type="button" onClick={onCancel} className="rounded-lg border border-gold-light px-4 py-1.5 text-sm font-medium text-brown hover:bg-ivory transition">

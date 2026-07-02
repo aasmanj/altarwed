@@ -414,7 +414,7 @@ export default async function HomePage() {
             </p>
             <a
               href="https://app.altarwed.com/register/vendor"
-              className="inline-flex items-center px-7 py-3.5 rounded-lg bg-[#d4af6a] text-white font-semibold hover:bg-[#b8943a] transition shadow-md text-sm"
+              className="inline-flex items-center px-7 py-3.5 rounded-lg bg-[#d4af6a] text-[#3b2f2f] font-semibold hover:bg-[#b8943a] transition shadow-md text-sm"
             >
               Claim your spot →
             </a>

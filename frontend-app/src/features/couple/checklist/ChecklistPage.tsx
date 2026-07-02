@@ -197,7 +197,7 @@ export default function ChecklistPage() {
         action={
           <button
             onClick={() => setShowAdd(v => !v)}
-            className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2"
+            className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-brown hover:bg-gold-dark transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2"
           >
             + Add task
           </button>
@@ -268,7 +268,7 @@ export default function ChecklistPage() {
                   onClick={() => setView(v)}
                   aria-pressed={view === v}
                   className={`rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${
-                    view === v ? 'bg-gold text-white' : 'text-brown-light hover:text-brown'
+                    view === v ? 'bg-gold text-brown' : 'text-brown-light hover:text-brown'
                   }`}
                 >
                   {v === 'timeline' ? 'By timeline' : 'By category'}
@@ -343,7 +343,7 @@ function EngagementDatePrompt({ onSave, pending }: { onSave: (date: string) => v
         <button
           onClick={() => date && onSave(date)}
           disabled={!date || pending}
-          className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-50 transition"
+          className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-brown hover:bg-gold-dark disabled:opacity-50 transition"
         >
           {pending ? 'Saving…' : 'Save'}
         </button>
@@ -456,7 +456,7 @@ function AddTaskModal({ onClose, onSubmit, isPending }: {
             <button
               type="submit"
               disabled={isPending}
-              className="rounded-lg bg-gold px-5 py-2 text-sm font-semibold text-white hover:bg-gold-dark disabled:opacity-60 transition"
+              className="rounded-lg bg-gold px-5 py-2 text-sm font-semibold text-brown hover:bg-gold-dark disabled:opacity-60 transition"
             >
               {isPending ? 'Adding…' : 'Add task'}
             </button>
@@ -722,7 +722,7 @@ function TaskRow({ dated, onToggle, onSaveDetails, onDelete }: { dated: DatedTas
                 setExpanded(false)
               }}
               disabled={!isDirty}
-              className="rounded-lg bg-gold px-4 py-1.5 text-xs font-semibold text-white hover:bg-gold-dark disabled:opacity-50 transition"
+              className="rounded-lg bg-gold px-4 py-1.5 text-xs font-semibold text-brown hover:bg-gold-dark disabled:opacity-50 transition"
             >
               Save details
             </button>
