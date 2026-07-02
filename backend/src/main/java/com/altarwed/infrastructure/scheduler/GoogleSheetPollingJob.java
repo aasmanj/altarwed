@@ -1,6 +1,8 @@
 package com.altarwed.infrastructure.scheduler;
 
 import com.altarwed.application.service.GoogleSheetSyncService;
+import net.javacrumbs.shedlock.core.LockAssert;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -30,8 +32,17 @@ public class GoogleSheetPollingJob {
         this.syncService = syncService;
     }
 
-    @Scheduled(fixedDelay = 900_000)   // 15 minutes in ms
+    // Issue #44: on the launch-time scale-out past one instance, every active sheet would
+    // otherwise be synced once per instance in the same 15-min window. lockAtMostFor is a
+    // crash safety net (shorter than the poll interval); lockAtLeastFor absorbs clock skew so
+    // a second instance can't slip in and re-sync right after the first releases the lock.
+    // initialDelay (matching RsvpReminderService's convention) keeps this from firing the
+    // instant the app boots, before the instance is warmed up and serving traffic.
+    @Scheduled(fixedDelay = 900_000, initialDelay = 60_000)   // 15 minutes; 1 min startup delay
+    @SchedulerLock(name = "GoogleSheetPollingJob_poll", lockAtMostFor = "14m", lockAtLeastFor = "1m")
     public void poll() {
+        // See RsvpReminderService.sendDueReminders() for why this assertion is here.
+        LockAssert.assertLocked();
         UUID runId = UUID.randomUUID();
         long startMs = System.currentTimeMillis();
         log.info("google sheet poll started, runId={}", runId);

@@ -32,6 +32,7 @@ val testcontainersVersion = "1.20.4"
 val stripeVersion = "25.12.0"
 val zxingVersion = "3.5.3"
 val caffeineVersion = "3.1.8"
+val shedlockVersion = "7.7.0"
 
 dependencies {
     // Web
@@ -82,6 +83,12 @@ dependencies {
     // ZXing, QR code generation for print postcards
     implementation("com.google.zxing:core:$zxingVersion")
     implementation("com.google.zxing:javase:$zxingVersion")
+
+    // ShedLock, distributed lock for @Scheduled pollers so they don't double-fire once
+    // App Service scales past one instance (issue #44). 7.x line targets Spring
+    // Framework 7 / Spring Boot 4.
+    implementation("net.javacrumbs.shedlock:shedlock-spring:$shedlockVersion")
+    implementation("net.javacrumbs.shedlock:shedlock-provider-jdbc-template:$shedlockVersion")
 
     // ---- Test dependencies ----
     testImplementation("org.springframework.boot:spring-boot-starter-test")

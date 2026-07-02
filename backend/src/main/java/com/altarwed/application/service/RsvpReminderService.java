@@ -2,6 +2,8 @@ package com.altarwed.application.service;
 
 import com.altarwed.domain.model.Guest;
 import com.altarwed.domain.port.GuestRepository;
+import net.javacrumbs.shedlock.core.LockAssert;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -44,8 +46,19 @@ public class RsvpReminderService {
     // undoing every other guest's token save and remindAt clear (and re-reminding them next run).
     // Without it, each guestService.sendInvite call is its own committed unit of work, so one
     // failed guest is skipped and counted, never fatal to the rest.
+    // Issue #44: on the launch-time scale-out past one instance, every due reminder would
+    // otherwise be emailed once per instance in the same hourly window. lockAtMostFor is a
+    // crash safety net (shorter than the 1h interval so a dead instance can't hold the lock
+    // into the next run); lockAtLeastFor absorbs clock skew between instances so a second
+    // instance starting moments later can't slip in right after the first releases the lock.
     @Scheduled(fixedRate = 3_600_000, initialDelay = 60_000)
+    @SchedulerLock(name = "RsvpReminderService_sendDueReminders", lockAtMostFor = "55m", lockAtLeastFor = "1m")
     public void sendDueReminders() {
+        // Catches AOP misconfiguration (missing proxy, self-invocation) that would silently
+        // disable the lock and reintroduce the double-fire this fix exists to prevent.
+        // RsvpReminderServiceTest calls LockAssert.TestHelper.makeAllAssertsPass(true) so plain
+        // `new RsvpReminderService(...)` unit tests (no Spring proxy) don't trip this.
+        LockAssert.assertLocked();
         UUID runId = UUID.randomUUID();
         long startMs = System.currentTimeMillis();
         List<Guest> due = guestRepository.findDueReminders(LocalDateTime.now());
