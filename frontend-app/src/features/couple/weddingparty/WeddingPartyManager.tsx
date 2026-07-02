@@ -6,7 +6,7 @@ import {
   type WeddingPartyMember, type PartySide,
 } from './useWeddingParty'
 import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
-import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from '@/lib/upload'
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, PHOTO_TOO_LARGE_MESSAGE, runImageUpload, uploadErrorMessage } from '@/lib/upload'
 import { cropToSquare } from '@/lib/imageCrop'
 import ImageRepositionModal from '@/components/ImageRepositionModal'
 import { framingStyle, apiFraming } from '@/lib/imageFraming'
@@ -36,9 +36,15 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
   const uploadPhoto  = useUploadMemberPhoto(websiteId)
   const reorderParty = useReorderParty(websiteId)
 
+  // Server-side upload failures (used by the add-member flow). Route through the
+  // shared uploadErrorMessage helper so a 413 (which carries no ProblemDetail
+  // detail) shows the size cap instead of falling through to a generic message.
   const uploadError  = uploadPhoto.error
-    ? ((uploadPhoto.error as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? 'Upload failed. Please try again.')
+    ? uploadErrorMessage(uploadPhoto.error, 'Upload failed. Please try again.')
     : null
+  // Client-side pre-check / hover-upload errors. Takes precedence over the
+  // mutation error so the specific size message wins when both are set.
+  const [photoError, setPhotoError] = useState<string | null>(null)
 
   const [showAdd, setShowAdd] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -79,7 +85,22 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
         confirmLabel: 'Remove',
       })) deleteMember.mutate(member.id)
     },
-    onPhotoUpload: (file: File) => uploadPhoto.mutate({ memberId: member.id, file }),
+    // Same pick-to-upload flow the vendor logo/portfolio uploaders use: a
+    // client-side size pre-check (so an oversize avatar is rejected with a
+    // specific message before any network call) plus uploadErrorMessage on the
+    // failure path. The add-member form validates identically in handlePhotoPick.
+    onPhotoUpload: async (file: File) => {
+      setPhotoError(null)
+      const error = await runImageUpload(
+        file,
+        {
+          normalize: normalizeImageFile,
+          upload: f => uploadPhoto.mutateAsync({ memberId: member.id, file: f }),
+        },
+        { tooLarge: PHOTO_TOO_LARGE_MESSAGE, uploadFailed: 'Upload failed. Please try again.' },
+      )
+      if (error) setPhotoError(error)
+    },
     onReposition: () => setRepositioning(member),
     isUploading: uploadPhoto.isPending,
   })
@@ -133,6 +154,7 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
       {showAdd && (
         <MemberForm
           onSubmit={async (data, file) => {
+            setPhotoError(null)
             // Append new members at the end of the current order.
             const created = await addMember.mutateAsync({ ...data, sortOrder: ordered.length })
             if (file && created?.id) {
@@ -174,9 +196,9 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
         </div>
       )}
 
-      {uploadError && (
+      {(photoError ?? uploadError) && (
         <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 mb-4 text-sm text-red-700">
-          {uploadError}
+          {photoError ?? uploadError}
         </div>
       )}
 
@@ -309,10 +331,12 @@ function MemberCard({ member, onEdit, onDelete, onPhotoUpload, onReposition, isU
           type="file"
           accept={IMAGE_ACCEPT}
           className="hidden"
-          onChange={async e => {
+          onChange={e => {
             const file = e.target.files?.[0]
             e.target.value = ''
-            if (file) onPhotoUpload(await normalizeImageFile(file))
+            // Normalize + size pre-check now live in the shared runImageUpload
+            // flow that onPhotoUpload runs, so hand it the raw picked file.
+            if (file) onPhotoUpload(file)
           }}
         />
       </div>

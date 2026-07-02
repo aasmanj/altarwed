@@ -21,6 +21,13 @@ export const MAX_UPLOAD_LABEL = '20 MB'
 export const FILE_TOO_LARGE_MESSAGE =
   `Photo too large (max ${MAX_UPLOAD_LABEL}). Try compressing it or choosing a smaller file.`
 
+// The short "your photo is over the cap" copy used by the client-side pre-check
+// (before any upload fires). Matches the wording the wedding-party add form and
+// the vendor logo uploader already show, so every photo picker in the app fails
+// with the same specific message instead of a generic "Upload failed". Reads the
+// shared label so it can never drift from the byte cap above.
+export const PHOTO_TOO_LARGE_MESSAGE = `Photo must be under ${MAX_UPLOAD_LABEL}.`
+
 // Shape of an Axios-style error we care about: a response with a status and,
 // for a Spring ProblemDetail body, a `detail` string explaining the rejection.
 interface UploadErrorLike {
@@ -67,4 +74,51 @@ export function uploadErrorMessage(
   if (status === 415) return 'Format not supported. Please upload a JPEG, PNG, or WebP photo.'
   if (status === 401 || status === 403) return 'Session expired. Refresh the page and try again.'
   return fallback
+}
+
+// Dependencies for a single pick-to-upload run, injected so the orchestration
+// below is pure and unit-testable with no DOM (mirrors the logo/photo-batch
+// helpers).
+export interface ImageUploadDeps {
+  // Convert HEIC/HEIF to JPEG (returns the file unchanged otherwise).
+  normalize: (file: File) => Promise<File>
+  // Upload one already-validated file. May reject (network / server error).
+  upload: (file: File) => Promise<unknown>
+}
+
+// Caller-supplied copy so each entry point keeps its own voice while sharing the
+// exact same control flow.
+export interface ImageUploadCopy {
+  // Shown when the file is over MAX_UPLOAD_BYTES (client-side pre-check).
+  tooLarge: string
+  // Fallback when the failure carries no actionable server reason.
+  uploadFailed: string
+}
+
+// Run the full pick-to-upload flow for one image. Returns null on success, or a
+// user-facing error string to display. Never throws: a rejected normalize/upload
+// is turned into an actionable message here. This is the single shared path so
+// every uploader (logo, portfolio, wedding-party avatar) gets the same two
+// guarantees the couple-side batch uploader already had:
+//  1. Size-check the file AFTER normalization (HEIC balloons once it becomes
+//     JPEG, so the post-transcode size is what we actually send), bailing before
+//     any network call so an oversize file gets an instant, specific reason.
+//  2. Surface the backend ProblemDetail / status via uploadErrorMessage so the
+//     real reason (size, type, dimensions) reaches the user instead of a generic
+//     "Upload failed".
+export async function runImageUpload(
+  picked: File,
+  deps: ImageUploadDeps,
+  copy: ImageUploadCopy,
+): Promise<string | null> {
+  try {
+    const normalized = await deps.normalize(picked)
+    if (normalized.size > MAX_UPLOAD_BYTES) {
+      return copy.tooLarge
+    }
+    await deps.upload(normalized)
+    return null
+  } catch (err: unknown) {
+    return uploadErrorMessage(err, copy.uploadFailed)
+  }
 }
