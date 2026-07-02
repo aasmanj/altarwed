@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { X, Link2, MessageCircle, Send, Share2 } from 'lucide-react'
+import { trackShareClicked } from './shareAnalytics'
 
 interface Props {
   isOpen: boolean
@@ -27,6 +28,7 @@ export default function ShareModal({ isOpen, onClose, slug, coupleNames }: Props
   if (!isOpen) return null
 
   const copyLink = async () => {
+    trackShareClicked('copy_link')
     await navigator.clipboard.writeText(publicUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2500)
@@ -34,6 +36,7 @@ export default function ShareModal({ isOpen, onClose, slug, coupleNames }: Props
 
   const nativeShare = async () => {
     if (!navigator.share) return
+    trackShareClicked('native')
     await navigator.share({ title: `${coupleNames}'s Wedding`, url: publicUrl }).catch(() => {})
   }
 
@@ -91,6 +94,7 @@ export default function ShareModal({ isOpen, onClose, slug, coupleNames }: Props
             href={fbUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => trackShareClicked('facebook')}
             className="flex items-center justify-center gap-2 rounded-xl border border-[#e8dcc8] bg-white px-4 py-3 text-sm font-medium text-[#3b2f2f] hover:border-[#d4af6a] hover:bg-[#fdfaf6] transition"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="#1877f2" aria-hidden="true"><path d="M24 12.073C24 5.404 18.627 0 12 0S0 5.404 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.883v2.261h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>
@@ -98,6 +102,7 @@ export default function ShareModal({ isOpen, onClose, slug, coupleNames }: Props
           </a>
           <a
             href={smsUrl}
+            onClick={() => trackShareClicked('sms')}
             className="flex items-center justify-center gap-2 rounded-xl border border-[#e8dcc8] bg-white px-4 py-3 text-sm font-medium text-[#3b2f2f] hover:border-[#d4af6a] hover:bg-[#fdfaf6] transition"
           >
             <MessageCircle className="w-4 h-4 text-[#22c55e]" />
