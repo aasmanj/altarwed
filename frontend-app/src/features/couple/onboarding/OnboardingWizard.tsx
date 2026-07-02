@@ -49,6 +49,52 @@ const REGISTRY_SUGGESTIONS = ['Amazon', 'Target', 'Zola', 'Crate & Barrel', 'Hon
 const ONBOARDING_KEY = 'altarwed.onboarding'
 const ONBOARDING_TTL_MS = 30 * 60 * 1000
 
+// Optional fields collected across steps 3-7. Kept as a plain string bag so the
+// payload builder below stays a pure function (no React state) and can be unit
+// tested: the "Skip the rest" shortcut must save exactly what clicking through
+// and skipping every step would save, and this is the one place that decides it.
+export interface OptionalWebsiteInput {
+  venueName: string; venueAddress: string; venueCity: string; venueState: string; ceremonyTime: string
+  hotelName: string; hotelUrl: string; hotelDetails: string
+  scriptureReference: string; scriptureText: string
+  registryUrl1: string; registryLabel1: string
+  heroPhotoUrl: string | null
+}
+
+// Build the PATCH payload for the optional steps. A field is only sent when the
+// couple actually entered it, so a skipped step contributes nothing. This is
+// what makes the finish shortcut behavior-neutral: whether you tap through the
+// per-step "Skip for now" buttons or jump straight to creation, the empty
+// fields produce the same (absent) defaults here.
+export function buildOptionalWebsiteFields(i: OptionalWebsiteInput): Record<string, string | null> {
+  const optional: Record<string, string | null> = {}
+  if (i.venueName.trim())         optional.venueName          = i.venueName.trim()
+  if (i.venueAddress.trim())      optional.venueAddress       = i.venueAddress.trim()
+  if (i.venueCity.trim())         optional.venueCity          = i.venueCity.trim()
+  if (i.venueState.trim())        optional.venueState         = i.venueState.trim()
+  if (i.ceremonyTime.trim())      optional.ceremonyTime       = i.ceremonyTime.trim()
+  if (i.hotelName.trim())         optional.hotelName          = i.hotelName.trim()
+  if (i.hotelUrl.trim())          optional.hotelUrl           = i.hotelUrl.trim()
+  if (i.hotelDetails.trim())      optional.hotelDetails       = i.hotelDetails.trim()
+  if (i.scriptureReference)       optional.scriptureReference = i.scriptureReference
+  if (i.scriptureText)            optional.scriptureText      = i.scriptureText
+  if (i.registryUrl1.trim())      optional.registryUrl1       = i.registryUrl1.trim()
+  if (i.registryLabel1.trim())    optional.registryLabel1     = i.registryLabel1.trim()
+  // Default-photo URL goes through PATCH; file uploads go through the dedicated
+  // /uploads endpoint after the site exists.
+  if (i.heroPhotoUrl)             optional.heroPhotoUrl       = i.heroPhotoUrl
+  return optional
+}
+
+// The "Skip the rest, create my site now" shortcut is offered once the required
+// slug step (2) is reached and up to, but not including, the final confirm step
+// (which already has its own "Create my site" button). Only steps 1-2 are
+// required, so from step 2 the remaining steps are all optional and skippable
+// in a single tap.
+export function shouldShowFinishShortcut(step: number): boolean {
+  return step >= 2 && step < TOTAL_STEPS
+}
+
 interface FeaturedRefs { references: string[] }
 interface VerseResult  { reference: string; text: string }
 
@@ -204,24 +250,17 @@ export default function OnboardingWizard() {
         weddingDate: weddingDate || undefined,
       })
 
-      // 2. PATCH the optional fields in one round-trip. Empty strings are sent
-      //    so the backend doesn't have to guess between "skip" and "clear".
-      const optional: Record<string, string | null> = {}
-      if (venueName.trim())       optional.venueName       = venueName.trim()
-      if (venueAddress.trim())    optional.venueAddress    = venueAddress.trim()
-      if (venueCity.trim())       optional.venueCity       = venueCity.trim()
-      if (venueState.trim())      optional.venueState      = venueState.trim()
-      if (ceremonyTime.trim())    optional.ceremonyTime    = ceremonyTime.trim()
-      if (hotelName.trim())       optional.hotelName       = hotelName.trim()
-      if (hotelUrl.trim())        optional.hotelUrl        = hotelUrl.trim()
-      if (hotelDetails.trim())    optional.hotelDetails    = hotelDetails.trim()
-      if (scriptureReference)     optional.scriptureReference = scriptureReference
-      if (scriptureText)          optional.scriptureText      = scriptureText
-      if (registryUrl1.trim())    optional.registryUrl1    = registryUrl1.trim()
-      if (registryLabel1.trim())  optional.registryLabel1  = registryLabel1.trim()
-      // Default-photo URL goes through PATCH; file uploads go through the
-      // dedicated /uploads endpoint below.
-      if (heroPhotoUrl)           optional.heroPhotoUrl    = heroPhotoUrl
+      // 2. PATCH the optional fields in one round-trip. Only entered fields are
+      //    sent, so a step the couple skipped (whether per-step or via the
+      //    finish shortcut) contributes nothing. Built by a shared pure helper
+      //    so both paths save identical data.
+      const optional = buildOptionalWebsiteFields({
+        venueName, venueAddress, venueCity, venueState, ceremonyTime,
+        hotelName, hotelUrl, hotelDetails,
+        scriptureReference, scriptureText,
+        registryUrl1, registryLabel1,
+        heroPhotoUrl,
+      })
 
       if (Object.keys(optional).length > 0) {
         await updateWebsite.mutateAsync(optional)
@@ -398,6 +437,25 @@ export default function OnboardingWizard() {
         <p className="text-center text-xs text-[#8a6a4a] mt-6">
           You can change everything later in the side-by-side editor.
         </p>
+
+        {/* Finish shortcut. Only steps 1-2 are required, so from step 2 onward a
+            couple (often a paid-ad arrival) can create the site in one tap
+            instead of skipping through five optional steps. Reuses handleFinish,
+            so it saves exactly what tapping "Skip for now" on each step would.
+            Disabled until a slug exists, since the URL is required. */}
+        {shouldShowFinishShortcut(step) && (
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={handleFinish}
+              disabled={submitting || !slug.trim()}
+              className="text-sm font-medium text-[#8a6a4a] underline underline-offset-2 hover:text-[#3b2f2f] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#d4af6a] rounded disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
+            >
+              {submitting ? 'Creating your site…' : 'Skip the rest, create my site now'}
+            </button>
+            {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+          </div>
+        )}
       </div>
     </div>
   )
