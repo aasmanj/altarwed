@@ -108,7 +108,7 @@ dependencies {
 // Default test task, unit and application-layer tests only.
 // Excludes the schema-validation integration test because that test
 // requires a live SQL Server instance (only available in CI).
-tasks.withType<Test> {
+tasks.named<Test>("test") {
     useJUnitPlatform {
         excludeTags("schema-validation")
     }
@@ -123,6 +123,14 @@ tasks.withType<Test> {
 tasks.register<Test>("schemaValidationTest") {
     description = "Boots the Spring context against a real SQL Server container to validate Flyway migrations and Hibernate entity mappings."
     group = "verification"
+    // A manually tasks.register<Test>(...) task does NOT inherit the "test" source set's
+    // classpath the way the built-in "test" task does -- without this, testClassesDirs is
+    // empty and Gradle marks the task NO-SOURCE and skips it before JUnit ever runs, which
+    // reports as a silent pass. This task has matched zero tests in every CI run and local
+    // invocation since it was introduced; discovered while verifying the ShedLock
+    // schema-validation test added for issue #44.
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
     useJUnitPlatform {
         includeTags("schema-validation")
     }
