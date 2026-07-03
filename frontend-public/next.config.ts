@@ -20,6 +20,11 @@ const nextConfig: NextConfig = {
     return [
       {
         // Apply the CSP to every route, including `/` (path* matches zero segments).
+        // Only the CSP lives here (it's origin-dependent, built from NEXT_PUBLIC_API_URL
+        // above); static, non-origin-dependent headers like HSTS belong in
+        // staticwebapp.config.json's globalHeaders instead, since that's applied by the
+        // Azure SWA platform to every response including CDN-served static assets that
+        // bypass this Next.js server entirely.
         source: '/:path*',
         headers: [
           { key: 'Content-Security-Policy', value: contentSecurityPolicy },
