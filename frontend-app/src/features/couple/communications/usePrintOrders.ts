@@ -2,13 +2,28 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 
 export type PrintOrderType = 'SAVE_THE_DATE' | 'INVITATION'
-export type PrintOrderStatus = 'DRAFT' | 'SUBMITTED' | 'PARTIAL_FAILURE' | 'FAILED' | 'MAILED'
+// PENDING_PAYMENT/PROCESSING are new (issue #59/#53): the order is created before the couple
+// pays, then the Lob batch runs asynchronously once Stripe confirms the charge. DRAFT is legacy
+// (pre-payment-gate orders only, kept so old rows still render).
+export type PrintOrderStatus =
+  | 'DRAFT'
+  | 'PENDING_PAYMENT'
+  | 'PROCESSING'
+  | 'SUBMITTED'
+  | 'PARTIAL_FAILURE'
+  | 'FAILED'
+  | 'MAILED'
 
 export interface PrintOrderRecipient {
   guestId: string
   lobPostcardId: string | null
   deliveryStatus: string | null
   errorMessage: string | null
+  // Real USPS tracking data (issue #59), best-effort: null until the provider has it, and
+  // always null for legacy orders. Not a delivery guarantee -- USPS First-Class Mail doesn't
+  // offer one -- just what Lob/USPS have reported so far.
+  trackingNumber: string | null
+  expectedDeliveryDate: string | null
 }
 
 export interface PrintOrder {
@@ -23,6 +38,8 @@ export interface PrintOrder {
   createdAt: string
   submittedAt: string | null
   recipients: PrintOrderRecipient[]
+  amountChargedCents: number | null
+  amountRefundedCents: number | null
 }
 
 export interface CreatePrintOrderPayload {
@@ -40,6 +57,22 @@ export interface CreatePrintOrderPayload {
   idempotencyKey: string
 }
 
+export interface ExcludedGuest {
+  guestId: string
+  guestName: string | null
+  reason: string
+}
+
+// Issue #59: creating an order no longer immediately mails anything. It returns a Stripe
+// Checkout URL the couple must complete first, plus non-blocking warnings (duplicate
+// addresses) and the guests excluded before any charge (bad address, ownership mismatch).
+export interface CreatePrintOrderResult {
+  order: PrintOrder
+  checkoutUrl: string | null
+  warnings: string[]
+  excludedGuests: ExcludedGuest[]
+}
+
 const key = (coupleId: string) => ['print-orders', coupleId]
 
 export function usePrintOrders(coupleId: string) {
@@ -54,9 +87,12 @@ export function useCreatePrintOrder(coupleId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (payload: CreatePrintOrderPayload) =>
-      apiClient.post(`/api/v1/print-orders/couple/${coupleId}`, payload).then(r => r.data as PrintOrder),
-    onSuccess: order => {
-      qc.setQueryData<PrintOrder[]>(key(coupleId), old => old ? [order, ...old] : [order])
+      apiClient
+        .post(`/api/v1/print-orders/couple/${coupleId}`, payload)
+        .then(r => r.data as CreatePrintOrderResult),
+    onSuccess: result => {
+      qc.setQueryData<PrintOrder[]>(key(coupleId), old =>
+        old ? [result.order, ...old] : [result.order])
     },
   })
 }
