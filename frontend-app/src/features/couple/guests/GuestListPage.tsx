@@ -12,6 +12,7 @@ import {
   type Guest, type RsvpStatus, type GuestSide,
 } from './useGuests'
 import ImportGuestsModal from './ImportGuestsModal'
+import { computeGuestStats } from '@/features/couple/guests/guestStats'
 import TipCallout from '@/components/TipCallout'
 import { useConfirm } from '@/components/ConfirmDialog'
 import QueryErrorState from '@/components/QueryErrorState'
@@ -295,31 +296,11 @@ export default function GuestListPage() {
       || (g.plusOneName ?? '').toLowerCase().includes(q))
     .sort(compareGuests)
 
-  // Headcount view (what caterers and the venue need): guest records plus confirmed
-  // plus-ones. "attending" here is a headcount, so it can exceed the attending record
-  // count by the number of named, attending plus-ones.
-  const confirmedPlusOnes = guests.filter(g => g.plusOneAllowed && g.plusOneName).length
-  const plusOneAttending  = guests.filter(g => g.rsvpStatus === 'ATTENDING' && g.plusOneAllowed && g.plusOneName).length
-  const total     = guests.length + confirmedPlusOnes
-  const attending = guests.filter(g => g.rsvpStatus === 'ATTENDING').length + plusOneAttending
-  const declining = guests.filter(g => g.rsvpStatus === 'DECLINING').length
-  const pending   = guests.filter(g => g.rsvpStatus === 'PENDING').length
-
-  // Response-funnel view, by guest record (NOT headcount). Every guest is in exactly
-  // one rsvpStatus, so these three sum to the guest count and the pie slices never
-  // overlap. The old chart mixed an invite-status slice ("Not invited") in with the
-  // RSVP-status slices, so a pending-but-uninvited guest was counted twice and the
-  // chart never summed to the total.
-  const attendingRecords = guests.filter(g => g.rsvpStatus === 'ATTENDING').length
-  const respondedRecords = attendingRecords + declining
-  const invitedCount     = guests.filter(g => g.inviteSentAt).length
-  const notYetInvited    = guests.length - invitedCount
-  // Denominator is "guests who could have replied": those we invited, OR who already
-  // replied (a guest can RSVP via find-by-name with no emailed invite). This keeps the
-  // rate in 0-100 and meaningful before everyone has been invited, unlike dividing by
-  // the full headcount.
-  const respondable      = guests.filter(g => g.inviteSentAt || g.rsvpStatus !== 'PENDING').length
-  const responseRate     = respondable > 0 ? Math.round((respondedRecords / respondable) * 100) : 0
+  const {
+    confirmedPlusOnes, attending, total,
+    attendingRecords, declining, pending, respondedRecords,
+    notYetInvited, respondable, responseRate,
+  } = computeGuestStats(guests)
 
   const [showAnalytics, setShowAnalytics] = useState(false)
   const [showCustomQuestions, setShowCustomQuestions] = useState(false)

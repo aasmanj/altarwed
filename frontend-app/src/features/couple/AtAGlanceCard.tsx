@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link2 } from 'lucide-react'
 import { useGuests } from '@/features/couple/guests/useGuests'
+import { computeGuestStats } from '@/features/couple/guests/guestStats'
 import { useBudget } from '@/features/couple/budget/useBudget'
 import { usePlanningTasks } from '@/features/couple/checklist/usePlanningTasks'
 import type { WeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
@@ -20,11 +21,10 @@ export default function AtAGlanceCard({ coupleId, website }: Props) {
   const days = website?.weddingDate ? daysUntilDate(website.weddingDate) : null
   const dateLabel = website?.weddingDate ? formatShortDate(website.weddingDate) : 'Date not set'
 
-  const attending = guests?.filter(g => g.rsvpStatus === 'ATTENDING').length ?? 0
-  const declining = guests?.filter(g => g.rsvpStatus === 'DECLINING').length ?? 0
-  const pending = guests?.filter(g => g.rsvpStatus === 'PENDING').length ?? 0
-  const totalGuests = guests?.length ?? 0
-  const respondedPct = totalGuests > 0 ? Math.round(((attending + declining) / totalGuests) * 100) : 0
+  // Shared with GuestListPage's stat tiles/analytics panel (guestStats.ts) so the two
+  // pages can't silently drift apart again the way the RSVP headcount and response-rate
+  // denominator both did.
+  const { attending, total: totalGuests, declining, pending, responseRate } = computeGuestStats(guests ?? [])
 
   const spent = budget?.totalActual ?? 0
   const goal = website?.goalBudget ?? 0
@@ -106,7 +106,7 @@ export default function AtAGlanceCard({ coupleId, website }: Props) {
           label="RSVPs"
           primary={`${attending}`}
           suffix={`of ${totalGuests} attending`}
-          sub={`${declining} declined · ${pending} pending · ${respondedPct}% responded`}
+          sub={`${declining} declined · ${pending} pending · ${responseRate}% responded`}
         />
         <Metric
           label="Budget"
