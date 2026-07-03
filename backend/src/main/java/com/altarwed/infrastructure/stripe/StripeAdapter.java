@@ -157,25 +157,28 @@ public class StripeAdapter implements StripePort {
 
         String eventType = event.getType();
         log.info("stripe webhook event received, eventType={}", eventType);
+        Instant eventCreatedAt = event.getCreated() != null
+                ? Instant.ofEpochSecond(event.getCreated()) : null;
 
         return switch (eventType) {
             case "customer.subscription.created", "customer.subscription.updated",
-                 "customer.subscription.deleted" -> extractSubscriptionEvent(event, eventType);
-            case "invoice.payment_failed" -> extractInvoiceEvent(event);
-            case "checkout.session.completed", "checkout.session.expired" -> extractCheckoutSessionEvent(event, eventType);
-            default -> emptyEvent(eventType);
+                 "customer.subscription.deleted" -> extractSubscriptionEvent(event, eventType, eventCreatedAt);
+            case "invoice.payment_failed" -> extractInvoiceEvent(event, eventCreatedAt);
+            case "checkout.session.completed", "checkout.session.expired" -> extractCheckoutSessionEvent(event, eventType, eventCreatedAt);
+            default -> emptyEvent(eventType, eventCreatedAt);
         };
     }
 
-    private static StripeEventData emptyEvent(String eventType) {
-        return new StripeEventData(eventType, null, null, null, null, null, null, null, null, null, null, null, null);
+    private static StripeEventData emptyEvent(String eventType, Instant eventCreatedAt) {
+        return new StripeEventData(eventType, null, null, null, null, null, null, null, null,
+                eventCreatedAt, null, null, null, null);
     }
 
-    private StripeEventData extractSubscriptionEvent(Event event, String eventType) {
+    private StripeEventData extractSubscriptionEvent(Event event, String eventType, Instant eventCreatedAt) {
         var deserializer = event.getDataObjectDeserializer();
         if (deserializer.getObject().isEmpty()) {
             log.warn("stripe subscription event had no deserializable object, eventType={}", eventType);
-            return emptyEvent(eventType);
+            return emptyEvent(eventType, eventCreatedAt);
         }
         Subscription sub = (Subscription) deserializer.getObject().get();
 
@@ -204,15 +207,16 @@ public class StripeAdapter implements StripePort {
                 periodStart,
                 periodEnd,
                 cancelledAt,
+                eventCreatedAt,
                 null, null, null, null
         );
     }
 
-    private StripeEventData extractInvoiceEvent(Event event) {
+    private StripeEventData extractInvoiceEvent(Event event, Instant eventCreatedAt) {
         var deserializer = event.getDataObjectDeserializer();
         if (deserializer.getObject().isEmpty()) {
             log.warn("stripe invoice event had no deserializable object");
-            return emptyEvent("invoice.payment_failed");
+            return emptyEvent("invoice.payment_failed", eventCreatedAt);
         }
         Invoice invoice = (Invoice) deserializer.getObject().get();
         return new StripeEventData(
@@ -220,6 +224,7 @@ public class StripeAdapter implements StripePort {
                 invoice.getSubscription(),
                 invoice.getCustomer(),
                 null, null, null, null, null, null,
+                eventCreatedAt,
                 null, null, null, null
         );
     }
@@ -228,16 +233,17 @@ public class StripeAdapter implements StripePort {
     // is only populated at that point); checkout.session.expired fires if they abandon the
     // hosted page (Stripe's 24h default), payment_intent stays null. printOrderId rides in
     // session metadata, set when the session was created (createOneTimeCheckoutSession below).
-    private StripeEventData extractCheckoutSessionEvent(Event event, String eventType) {
+    private StripeEventData extractCheckoutSessionEvent(Event event, String eventType, Instant eventCreatedAt) {
         var deserializer = event.getDataObjectDeserializer();
         if (deserializer.getObject().isEmpty()) {
             log.warn("stripe checkout session event had no deserializable object, eventType={}", eventType);
-            return emptyEvent(eventType);
+            return emptyEvent(eventType, eventCreatedAt);
         }
         com.stripe.model.checkout.Session session = (com.stripe.model.checkout.Session) deserializer.getObject().get();
         String printOrderId = session.getMetadata() != null ? session.getMetadata().get("printOrderId") : null;
         return new StripeEventData(
                 eventType, null, null, null, null, null, null, null, null,
+                eventCreatedAt,
                 session.getId(),
                 session.getPaymentIntent(),
                 printOrderId,

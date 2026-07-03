@@ -60,7 +60,7 @@ public class StripeService {
             LocalDateTime now = LocalDateTime.now();
             return subscriptionRepository.save(new VendorSubscription(
                     null, vendorId, PlanTier.BASIC, SubscriptionStatus.PENDING,
-                    null, null, null, null, null, now, now
+                    null, null, null, null, null, now, now, null
             ));
         });
         String successUrl = appBaseUrl + "/vendor/subscription?session=success";
@@ -137,23 +137,29 @@ public class StripeService {
         LocalDateTime periodStart = toLocal(event.currentPeriodStart());
         LocalDateTime periodEnd = toLocal(event.currentPeriodEnd());
         LocalDateTime cancelledAt = toLocal(event.cancelledAt());
+        LocalDateTime eventAt = toLocal(event.eventCreatedAt());
 
         LocalDateTime now = LocalDateTime.now();
         try {
             VendorSubscription existing = subscriptionRepository.findByVendorId(vendorId).orElse(null);
+            if (existing != null && isStale(existing.lastStripeEventAt(), eventAt)) {
+                log.warn("stale stripe subscription event ignored, vendorId={}, eventCreatedAt={}, lastAppliedAt={}",
+                          vendorId, eventAt, existing.lastStripeEventAt());
+                return;
+            }
             VendorSubscription updated;
             if (existing == null) {
                 updated = new VendorSubscription(
                         null, vendorId, planTier, status,
                         event.stripeCustomerId(), event.stripeSubscriptionId(),
-                        periodStart, periodEnd, cancelledAt, now, now
+                        periodStart, periodEnd, cancelledAt, now, now, eventAt
                 );
             } else {
                 updated = new VendorSubscription(
                         existing.id(), vendorId, planTier, status,
                         event.stripeCustomerId(), event.stripeSubscriptionId(),
                         periodStart, periodEnd, cancelledAt,
-                        existing.createdAt(), now
+                        existing.createdAt(), now, eventAt
                 );
             }
             subscriptionRepository.save(updated);
@@ -161,11 +167,16 @@ public class StripeService {
             // Concurrent webhook beat us to the INSERT -- fetch and overwrite with this event's data.
             VendorSubscription existing = subscriptionRepository.findByVendorId(vendorId)
                     .orElseThrow(() -> race);
+            if (isStale(existing.lastStripeEventAt(), eventAt)) {
+                log.warn("stale stripe subscription event ignored after concurrent insert, vendorId={}, eventCreatedAt={}, lastAppliedAt={}",
+                          vendorId, eventAt, existing.lastStripeEventAt());
+                return;
+            }
             subscriptionRepository.save(new VendorSubscription(
                     existing.id(), vendorId, planTier, status,
                     event.stripeCustomerId(), event.stripeSubscriptionId(),
                     periodStart, periodEnd, cancelledAt,
-                    existing.createdAt(), now
+                    existing.createdAt(), now, eventAt
             ));
             log.warn("vendor subscription concurrent insert resolved, vendorId={}", vendorId);
         }
@@ -186,15 +197,21 @@ public class StripeService {
             log.warn("stripe subscription.deleted event missing subscription id");
             return;
         }
+        LocalDateTime eventAt = toLocal(event.eventCreatedAt());
         subscriptionRepository.findByStripeSubscriptionId(event.stripeSubscriptionId()).ifPresentOrElse(
                 existing -> {
+                    if (isStale(existing.lastStripeEventAt(), eventAt)) {
+                        log.warn("stale stripe subscription.deleted event ignored, vendorId={}, eventCreatedAt={}, lastAppliedAt={}",
+                                  existing.vendorId(), eventAt, existing.lastStripeEventAt());
+                        return;
+                    }
                     LocalDateTime now = LocalDateTime.now();
                     subscriptionRepository.save(new VendorSubscription(
                             existing.id(), existing.vendorId(), existing.planTier(),
                             SubscriptionStatus.CANCELLED,
                             existing.stripeCustomerId(), existing.stripeSubscriptionId(),
                             existing.currentPeriodStart(), existing.currentPeriodEnd(),
-                            now, existing.createdAt(), now
+                            now, existing.createdAt(), now, eventAt
                     ));
                     log.info("vendor subscription cancelled, vendorId={}", existing.vendorId());
                     try {
@@ -214,15 +231,21 @@ public class StripeService {
             log.warn("stripe invoice.payment_failed event missing subscription id");
             return;
         }
+        LocalDateTime eventAt = toLocal(event.eventCreatedAt());
         subscriptionRepository.findByStripeSubscriptionId(event.stripeSubscriptionId()).ifPresentOrElse(
                 existing -> {
+                    if (isStale(existing.lastStripeEventAt(), eventAt)) {
+                        log.warn("stale stripe invoice.payment_failed event ignored, vendorId={}, eventCreatedAt={}, lastAppliedAt={}",
+                                  existing.vendorId(), eventAt, existing.lastStripeEventAt());
+                        return;
+                    }
                     LocalDateTime now = LocalDateTime.now();
                     subscriptionRepository.save(new VendorSubscription(
                             existing.id(), existing.vendorId(), existing.planTier(),
                             SubscriptionStatus.PAST_DUE,
                             existing.stripeCustomerId(), existing.stripeSubscriptionId(),
                             existing.currentPeriodStart(), existing.currentPeriodEnd(),
-                            existing.cancelledAt(), existing.createdAt(), now
+                            existing.cancelledAt(), existing.createdAt(), now, eventAt
                     ));
                     log.info("vendor subscription past_due, vendorId={}", existing.vendorId());
                 },
@@ -321,5 +344,16 @@ public class StripeService {
 
     private LocalDateTime toLocal(Instant instant) {
         return instant != null ? LocalDateTime.ofInstant(instant, ZoneOffset.UTC) : null;
+    }
+
+    // #115: an incoming event is stale only if we've already applied a strictly later event to
+    // this row. Ties are NOT stale (event.created is second-granularity, so two distinct events
+    // in the same wall-clock second are possible; treating a tie as stale could drop a genuine
+    // terminal subscription.deleted that lands in the same second as a prior update). A tied
+    // redelivery of the identical event is idempotent to reapply, so "apply" is safe either way.
+    // Comparable-but-missing timestamps (either side null -- a row never touched by a webhook, or
+    // a legacy/test event with no `created`) are never treated as stale.
+    private boolean isStale(LocalDateTime lastAppliedAt, LocalDateTime incomingEventAt) {
+        return lastAppliedAt != null && incomingEventAt != null && incomingEventAt.isBefore(lastAppliedAt);
     }
 }

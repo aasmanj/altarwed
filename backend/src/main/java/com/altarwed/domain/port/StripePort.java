@@ -45,6 +45,9 @@ public interface StripePort {
             Instant currentPeriodStart,
             Instant currentPeriodEnd,
             Instant cancelledAt,
+            // The Stripe event's own `created` timestamp (not the subscription's). Used to detect
+            // and drop stale, out-of-order webhook deliveries -- see StripeService's staleness guard.
+            Instant eventCreatedAt,
             // Issue #59: populated only for checkout.session.completed/expired (one-time print
             // order payments), null for subscription/invoice events.
             String stripeCheckoutSessionId,
