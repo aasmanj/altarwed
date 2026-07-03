@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2, AlertCircle, ImagePlus, Smartphone, Monitor, Settings2, Pencil, ChevronUp, ChevronDown, X } from 'lucide-react'
 import { apiClient } from '@/core/api/client'
@@ -8,6 +8,7 @@ import confetti from 'canvas-confetti'
 import { useWeddingWebsite, usePublishWeddingWebsite, useUpdateWeddingWebsite, type WeddingWebsite } from '../useWeddingWebsite'
 import ShareModal from '../ShareModal'
 import DraftBanner from '../DraftBanner'
+import WeddingWebsiteSetup from '../WeddingWebsiteSetup'
 import {
   useBackfillBlocks,
   useCreateBlock,
@@ -51,9 +52,15 @@ export default function SideBySideEditor() {
   const [wizardNotice, setWizardNotice] = useState<string | null>(
     (location.state as { notice?: string } | null)?.notice ?? null
   )
+  // Honour ?tab=registry (or any valid tab name, case-insensitive) so external
+  // links can deep-link to a specific section -- e.g. the dashboard's Registry
+  // card. Mirrors the classic editor's now-retired ?tab= convention. Unknown
+  // values fall back to 'HOME' so a typo in the URL doesn't break the editor.
+  const [searchParams] = useSearchParams()
 
-  const { data: website, isLoading: websiteLoading } = useWeddingWebsite(coupleId)
+  const { data: website, isLoading: websiteLoading, error: websiteError } = useWeddingWebsite(coupleId)
   const websiteId = website?.id
+  const websiteIsNotFound = (websiteError as { response?: { status?: number } } | null)?.response?.status === 404
 
   const updateWebsite = useUpdateWeddingWebsite(coupleId)
   const { data: blocks = [], isLoading: blocksLoading } = useWeddingPageBlocks(websiteId)
@@ -64,7 +71,10 @@ export default function SideBySideEditor() {
   const backfill = useBackfillBlocks(websiteId ?? '')
   const publish = usePublishWeddingWebsite(coupleId)
 
-  const [activeTab, setActiveTab] = useState<BlockTab>('HOME')
+  const [activeTab, setActiveTab] = useState<BlockTab>(() => {
+    const tabParam = searchParams.get('tab')?.toUpperCase()
+    return (BLOCK_TABS as readonly string[]).includes(tabParam ?? '') ? (tabParam as BlockTab) : 'HOME'
+  })
   const [picking, setPicking] = useState(false)
   // Which structured-data section the in-editor drawer is editing (venue,
   // hotels, registry), opened from a data-driven card block. Null = closed.
@@ -271,19 +281,29 @@ export default function SideBySideEditor() {
     )
   }
   if (!website) {
+    // A real (non-404) error -- e.g. a transient 5xx -- must NOT fall through to
+    // the creation form below: this couple likely already has a website, and
+    // showing "create yours" risks a duplicate-website conflict on submit.
+    if (websiteError && !websiteIsNotFound) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+          <p className="text-brown font-medium">Something went wrong loading your website.</p>
+          <p className="text-sm text-brown-light">Try refreshing, or <a href="/dashboard" className="text-gold hover:underline">go back to the dashboard</a>.</p>
+        </div>
+      )
+    }
+    // Issue #181: the page builder is the sole editor, so it also owns website
+    // creation now -- no more hand-off to a separate "classic editor" route.
+    // useCreateWeddingWebsite's success invalidates the useWeddingWebsite query
+    // above, which flips `website` from undefined to the new record and this
+    // component re-renders straight into the normal editor, no extra plumbing.
     return (
-      <div className="max-w-md mx-auto mt-20 text-center px-4">
-        <p className="font-serif text-xl text-brown mb-2">Set up your wedding website first</p>
-        <p className="text-sm text-brown-light mb-6">
-          The side-by-side editor needs a website to edit. Create yours in the classic editor.
-        </p>
-        <Link
-          to="/dashboard/website"
-          className="inline-flex items-center px-5 py-2.5 rounded-lg bg-brown text-white text-sm font-medium hover:bg-brown-dark transition"
-        >
-          Go to wedding website setup
-        </Link>
-      </div>
+      <WeddingWebsiteSetup
+        coupleId={coupleId}
+        defaultPartnerOne={user?.partnerOneName ?? ''}
+        defaultPartnerTwo=""
+        defaultWeddingDate=""
+      />
     )
   }
   if (!websiteId) return null

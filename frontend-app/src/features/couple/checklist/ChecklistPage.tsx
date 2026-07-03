@@ -277,7 +277,7 @@ export default function ChecklistPage() {
             </div>
           ) : (
             <p className="text-xs text-brown-light">
-              Add your wedding date in the Website tab to see tasks grouped by what is due next.
+              Add your wedding date in the wedding website editor to see tasks grouped by what is due next.
             </p>
           )}
 

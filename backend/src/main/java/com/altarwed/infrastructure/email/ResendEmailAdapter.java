@@ -886,9 +886,10 @@ public class ResendEmailAdapter implements EmailPort {
 
     @Override
     public void sendWelcomeEmail(String toEmail, String partnerOneName, String partnerTwoName) {
-        // app.altarwed.com is the SPA; land them straight on the website builder,
-        // the highest-value first action for a new couple.
-        String dashboardUrl = appBaseUrl + "/dashboard/website";
+        // app.altarwed.com is the SPA; land them straight on the website builder
+        // (the page builder, the sole editor since issue #181), the highest-value
+        // first action for a new couple.
+        String dashboardUrl = appBaseUrl + "/dashboard/website/editor";
         String coupleNames = escapeHtml(partnerOneName) + " &amp; " + escapeHtml(partnerTwoName);
 
         String html = """

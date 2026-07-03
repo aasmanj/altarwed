@@ -16,7 +16,6 @@ import RegisterVendorPage from '@/features/vendor/RegisterVendorPage'
 import VendorListingPage from '@/features/vendor/VendorListingPage'
 import InquiriesPage from '@/features/vendor/InquiriesPage'
 import VendorSubscriptionPage from '@/features/vendor/VendorSubscriptionPage'
-import WeddingWebsitePage from '@/features/couple/website/WeddingWebsitePage'
 import SideBySideEditor from '@/features/couple/website/blocks/SideBySideEditor'
 import GuestListPage from '@/features/couple/guests/GuestListPage'
 import ChecklistPage from '@/features/couple/checklist/ChecklistPage'
@@ -40,6 +39,14 @@ function ScrollToTop() {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
   }, [pathname])
   return null
+}
+
+// Issue #181: redirects the retired classic-editor route to the page builder,
+// preserving any query string (e.g. ?tab=registry from an old bookmark) so a
+// deep link still lands on the right section instead of silently dropping it.
+function RedirectPreservingSearch({ to }: { to: string }) {
+  const { search } = useLocation()
+  return <Navigate to={`${to}${search}`} replace />
 }
 
 function AnimatedRoutes() {
@@ -78,13 +85,13 @@ function AnimatedRoutes() {
               </ProtectedRoute>
             }
           />
+          {/* Issue #181: the classic editor is retired; the page builder is the
+              sole editor and now also owns website creation (its own empty
+              state). Kept as a redirect, not removed, so old bookmarks and the
+              hardcoded frontend-public ComingSoon.tsx CTA keep working. */}
           <Route
             path="/dashboard/website"
-            element={
-              <ProtectedRoute role="COUPLE">
-                <WeddingWebsitePage />
-              </ProtectedRoute>
-            }
+            element={<RedirectPreservingSearch to="/dashboard/website/editor" />}
           />
           <Route
             path="/dashboard/website/editor"
