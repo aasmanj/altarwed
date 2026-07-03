@@ -111,4 +111,36 @@ class EmailSuppressionServiceTest {
         String token = svc.generateToken(HASH, null);
         assertThat(svc.verifyToken(HASH, null, token)).isTrue();
     }
+
+    // Documents behavior, not a regression guard: a literal empty-string secret makes
+    // generateToken's SecretKeySpec throw ("Empty key" for a zero-length key array), which
+    // verifyToken's existing IllegalArgumentException catch already turned into `false` even
+    // before the #46 fix. This case would stay green even if the `configured` short-circuit
+    // below were deleted -- verifyToken_rejectsEveryToken_whenSecretIsBlankButNotEmpty is the
+    // test that actually regression-guards the fix.
+    @Test
+    void verifyToken_rejectsEveryToken_whenSecretIsEmpty() {
+        EmailSuppressionService unconfigured = new EmailSuppressionService(suppressionPort, optOutPort, "");
+        assertThat(unconfigured.verifyToken(HASH, COUPLE, "anything")).isFalse();
+        assertThat(unconfigured.verifyToken(HASH, null, "anything")).isFalse();
+    }
+
+    // #46: the real regression guard. A non-empty but blank/whitespace secret signs
+    // successfully (no crash), and pre-fix would have made every token forgeable by anyone who
+    // could guess or brute-force a short whitespace-only key. Mints a real, matching token with
+    // a second instance to prove the `configured` guard -- not a crash -- is what rejects it.
+    @Test
+    void verifyToken_rejectsEveryToken_whenSecretIsBlankButNotEmpty() {
+        EmailSuppressionService unconfigured = new EmailSuppressionService(suppressionPort, optOutPort, "   ");
+        String tokenSignedWithTheWeakKey = new EmailSuppressionService(suppressionPort, optOutPort, "   ")
+                .generateToken(HASH, COUPLE);
+
+        assertThat(unconfigured.verifyToken(HASH, COUPLE, tokenSignedWithTheWeakKey)).isFalse();
+    }
+
+    @Test
+    void verifyToken_rejectsEveryToken_whenSecretIsNull() {
+        EmailSuppressionService unconfigured = new EmailSuppressionService(suppressionPort, optOutPort, null);
+        assertThat(unconfigured.verifyToken(HASH, COUPLE, "anything")).isFalse();
+    }
 }
