@@ -1,6 +1,7 @@
 package com.altarwed.web.controller;
 
 import com.altarwed.application.dto.CreateWeddingWebsiteRequest;
+import com.altarwed.application.dto.PublicWeddingWebsiteResponse;
 import com.altarwed.application.dto.UpdateWeddingWebsiteRequest;
 import com.altarwed.application.dto.WeddingWebsiteResponse;
 import com.altarwed.application.dto.WeddingWebsiteSearchResultResponse;
@@ -32,16 +33,20 @@ public class WeddingWebsiteController {
     }
 
     // Public, fetched by the Next.js SSR page at /wedding/[slug]. 404s for unpublished sites (#91).
+    // Uses the public DTO (#97): omits coupleId and goalBudget, neither of which belongs in an
+    // anonymous-guest payload.
     @GetMapping("/slug/{slug}")
-    public ResponseEntity<WeddingWebsiteResponse> getBySlug(@PathVariable String slug) {
-        return ResponseEntity.ok(mapper.toResponse(websiteService.getBySlug(slug)));
+    public ResponseEntity<PublicWeddingWebsiteResponse> getBySlug(@PathVariable String slug) {
+        return ResponseEntity.ok(mapper.toPublicResponse(websiteService.getBySlug(slug)));
     }
 
-    // Owner-only preview, fetched by the Next.js /preview/[slug]/[tab] iframe. Renders drafts;
-    // see WeddingWebsiteService.getBySlugForPreview for the trust model.
+    // Preview, fetched by the Next.js /preview/[slug]/[tab] iframe. Renders drafts;
+    // see WeddingWebsiteService.getBySlugForPreview for the trust model. The slug is the only
+    // capability check (no JWT crosses the iframe boundary), so this is anonymously reachable
+    // the same as /slug/{slug} -- uses the same public DTO for the same reason (#97).
     @GetMapping("/preview/{slug}")
-    public ResponseEntity<WeddingWebsiteResponse> getBySlugForPreview(@PathVariable String slug) {
-        return ResponseEntity.ok(mapper.toResponse(websiteService.getBySlugForPreview(slug)));
+    public ResponseEntity<PublicWeddingWebsiteResponse> getBySlugForPreview(@PathVariable String slug) {
+        return ResponseEntity.ok(mapper.toPublicResponse(websiteService.getBySlugForPreview(slug)));
     }
 
     // Public, search published websites by partner name and/or wedding year

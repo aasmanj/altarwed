@@ -52,6 +52,36 @@ public class PrintOrderEntity {
     @Column(name = "submitted_at")
     private LocalDateTime submittedAt;
 
+    @Column(name = "stripe_checkout_session_id", length = 255)
+    private String stripeCheckoutSessionId;
+
+    @Column(name = "stripe_payment_intent_id", length = 255)
+    private String stripePaymentIntentId;
+
+    @Column(name = "amount_charged_cents")
+    private Integer amountChargedCents;
+
+    @Column(name = "amount_refunded_cents", nullable = false)
+    private Integer amountRefundedCents;
+
+    @Column(name = "return_name", length = 200)
+    private String returnName;
+
+    @Column(name = "return_address_line1", length = 200)
+    private String returnAddressLine1;
+
+    @Column(name = "return_address_line2", length = 200)
+    private String returnAddressLine2;
+
+    @Column(name = "return_city", length = 100)
+    private String returnCity;
+
+    @Column(name = "return_state", length = 50)
+    private String returnState;
+
+    @Column(name = "return_zip", length = 20)
+    private String returnZip;
+
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JoinColumn(name = "print_order_id", nullable = false)
     @Builder.Default

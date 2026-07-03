@@ -41,6 +41,8 @@ public class EmailSuppressionService {
     private final EmailSuppressionPort suppressionPort;
     private final CoupleEmailOptOutPort optOutPort;
     private final String secret;
+    // #46: true once a real secret is configured. See verifyToken's Javadoc for why this exists.
+    private final boolean configured;
 
     public EmailSuppressionService(
             EmailSuppressionPort suppressionPort,
@@ -50,6 +52,10 @@ public class EmailSuppressionService {
         this.suppressionPort = suppressionPort;
         this.optOutPort = optOutPort;
         this.secret = secret;
+        this.configured = secret != null && !secret.isBlank();
+        if (!configured) {
+            log.warn("unsubscribe secret not configured, all unsubscribe tokens will be rejected");
+        }
     }
 
     /**
@@ -96,9 +102,16 @@ public class EmailSuppressionService {
         return coupleId == null ? emailHash : emailHash + ":" + coupleId;
     }
 
-    /** Constant-time verification of an unsubscribe token. False for any malformed input. */
+    /**
+     * Constant-time verification of an unsubscribe token. False for any malformed input.
+     *
+     * Also false for every token when the secret is blank (#46): an unconfigured secret would
+     * otherwise sign/verify with a weak, guessable key (or, for a literal empty string, crash
+     * -- {@code SecretKeySpec} rejects a zero-length key), making tokens forgeable rather than
+     * simply broken. Fail closed instead of trusting a key an attacker could reproduce.
+     */
     public boolean verifyToken(String emailHash, UUID coupleId, String token) {
-        if (emailHash == null || token == null) return false;
+        if (!configured || emailHash == null || token == null) return false;
         try {
             String expected = generateToken(emailHash, coupleId);
             return MessageDigest.isEqual(

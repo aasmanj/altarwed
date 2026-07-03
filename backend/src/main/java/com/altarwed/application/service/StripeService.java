@@ -3,6 +3,7 @@ package com.altarwed.application.service;
 import com.altarwed.domain.model.PlanTier;
 import com.altarwed.domain.model.SubscriptionStatus;
 import com.altarwed.domain.model.VendorSubscription;
+import com.altarwed.domain.port.PrintOrderRepository;
 import com.altarwed.domain.port.StripePort;
 import com.altarwed.domain.port.StripePort.StripeEventData;
 import com.altarwed.domain.port.VendorSubscriptionRepository;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -26,6 +28,8 @@ public class StripeService {
     private final StripePort stripePort;
     private final VendorSubscriptionRepository subscriptionRepository;
     private final VendorService vendorService;
+    private final PrintOrderRepository printOrderRepository;
+    private final PrintOrderService printOrderService;
     private final String appBaseUrl;
     private final String priceProMonthly;
     private final String priceProAnnual;
@@ -34,6 +38,8 @@ public class StripeService {
             StripePort stripePort,
             VendorSubscriptionRepository subscriptionRepository,
             VendorService vendorService,
+            PrintOrderRepository printOrderRepository,
+            PrintOrderService printOrderService,
             @Value("${altarwed.app.base-url:https://app.altarwed.com}") String appBaseUrl,
             @Value("${altarwed.stripe.prices.pro-monthly:}") String priceProMonthly,
             @Value("${altarwed.stripe.prices.pro-annual:}") String priceProAnnual
@@ -41,6 +47,8 @@ public class StripeService {
         this.stripePort = stripePort;
         this.subscriptionRepository = subscriptionRepository;
         this.vendorService = vendorService;
+        this.printOrderRepository = printOrderRepository;
+        this.printOrderService = printOrderService;
         this.appBaseUrl = appBaseUrl;
         this.priceProMonthly = priceProMonthly;
         this.priceProAnnual = priceProAnnual;
@@ -73,7 +81,13 @@ public class StripeService {
         return stripePort.createPortalSession(sub.stripeCustomerId(), returnUrl);
     }
 
-    @Transactional
+    // NOT @Transactional (issue #59/#53): the print-order cases below must commit their own
+    // writes independently and immediately (see PrintOrderJpaAdapter's REQUIRES_NEW propagation)
+    // before triggering the async Lob batch, so this method must not wrap them in one ambient
+    // transaction that only commits at the very end. The subscription cases' own writes go
+    // through subscriptionRepository.save(), whose default REQUIRED propagation means each call
+    // still gets its own transaction here exactly as before (there is no longer an outer one to
+    // join), so their atomicity is unchanged.
     public void handleWebhook(byte[] payload, String sigHeader) {
         StripeEventData event = stripePort.constructEvent(payload, sigHeader);
         switch (event.eventType()) {
@@ -83,6 +97,10 @@ public class StripeService {
                     handleSubscriptionDeleted(event);
             case "invoice.payment_failed" ->
                     handleInvoicePaymentFailed(event);
+            case "checkout.session.completed" ->
+                    handlePrintOrderPaymentCompleted(event);
+            case "checkout.session.expired" ->
+                    handlePrintOrderPaymentExpired(event);
             default ->
                     log.debug("stripe webhook ignored, eventType={}", event.eventType());
         }
@@ -234,6 +252,72 @@ public class StripeService {
                 () -> log.warn("stripe invoice.payment_failed: no subscription found, stripeSubscriptionId={}",
                                event.stripeSubscriptionId())
         );
+    }
+
+    // Issue #59: fires once the couple actually completes payment on the hosted Checkout page.
+    // Confirms the order, then triggers the async Lob batch (issue #53) -- see PrintOrderService
+    // .submitBatchAsync and PrintOrderJpaAdapter's REQUIRES_NEW propagation for why
+    // markPaymentConfirmed must durably commit before that trigger, and this whole method must not
+    // run inside handleWebhook's (now removed) ambient transaction.
+    private void handlePrintOrderPaymentCompleted(StripeEventData event) {
+        if (event.printOrderId() == null) {
+            log.warn("stripe checkout.session.completed missing printOrderId metadata, sessionId={}",
+                     event.stripeCheckoutSessionId());
+            return;
+        }
+        UUID orderId;
+        try {
+            orderId = UUID.fromString(event.printOrderId());
+        } catch (IllegalArgumentException e) {
+            log.warn("stripe checkout.session.completed has invalid printOrderId metadata, raw={}", event.printOrderId());
+            return;
+        }
+        if (printOrderRepository.findById(orderId).isEmpty()) {
+            log.warn("stripe checkout.session.completed: no print order found, orderId={}", orderId);
+            return;
+        }
+        // Idempotency: Stripe redelivers webhooks at-least-once, and can deliver the same event
+        // concurrently. This is a compare-and-swap (only transitions a row currently
+        // PENDING_PAYMENT to PROCESSING) -- a plain "read status, then write" check-then-act would
+        // let two concurrent deliveries both read PENDING_PAYMENT before either commits, both
+        // transition, and both trigger the batch below (double-mail, double Lob charge). Only the
+        // delivery that actually wins the atomic transition (returns true) may trigger it.
+        boolean won = printOrderRepository.markPaymentConfirmed(orderId, event.stripePaymentIntentId());
+        if (!won) {
+            log.info("stripe checkout.session.completed ignored, order already confirmed, orderId={}", orderId);
+            return;
+        }
+        log.info("print order payment confirmed, orderId={}", orderId);
+        printOrderService.submitBatchAsync(orderId);
+    }
+
+    // Issue #59: fires if the couple abandons the hosted Checkout page (Stripe's 24h default
+    // expiry). No charge was ever captured, so no Lob call happens and no refund is needed.
+    private void handlePrintOrderPaymentExpired(StripeEventData event) {
+        if (event.printOrderId() == null) {
+            log.warn("stripe checkout.session.expired missing printOrderId metadata, sessionId={}",
+                     event.stripeCheckoutSessionId());
+            return;
+        }
+        UUID orderId;
+        try {
+            orderId = UUID.fromString(event.printOrderId());
+        } catch (IllegalArgumentException e) {
+            log.warn("stripe checkout.session.expired has invalid printOrderId metadata, raw={}", event.printOrderId());
+            return;
+        }
+        if (printOrderRepository.findById(orderId).isEmpty()) {
+            log.info("stripe checkout.session.expired ignored, order not found, orderId={}", orderId);
+            return;
+        }
+        // Same compare-and-swap reasoning as handlePrintOrderPaymentCompleted above.
+        boolean won = printOrderRepository.markPaymentFailed(orderId,
+                "Payment was not completed before the checkout link expired.");
+        if (!won) {
+            log.info("stripe checkout.session.expired ignored, order already resolved, orderId={}", orderId);
+            return;
+        }
+        log.info("print order payment expired, orderId={}", orderId);
     }
 
     // -------------------------------------------------------------------------

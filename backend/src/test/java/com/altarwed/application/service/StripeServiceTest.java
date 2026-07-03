@@ -1,8 +1,12 @@
 package com.altarwed.application.service;
 
 import com.altarwed.domain.model.PlanTier;
+import com.altarwed.domain.model.PrintOrder;
+import com.altarwed.domain.model.PrintOrderStatus;
+import com.altarwed.domain.model.PrintOrderType;
 import com.altarwed.domain.model.SubscriptionStatus;
 import com.altarwed.domain.model.VendorSubscription;
+import com.altarwed.domain.port.PrintOrderRepository;
 import com.altarwed.domain.port.StripePort;
 import com.altarwed.domain.port.StripePort.StripeEventData;
 import com.altarwed.domain.port.VendorSubscriptionRepository;
@@ -14,31 +18,50 @@ import org.springframework.dao.DataIntegrityViolationException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-// #115: a delayed/out-of-order Stripe webhook must never overwrite state that a later event
-// already applied. These tests exercise StripeService.handleWebhook end-to-end (via the public
-// entry point) against a stubbed StripePort/VendorSubscriptionRepository, no Spring context.
+/**
+ * Mockito, no Spring context, per backend/CLAUDE.md's application/service testing convention.
+ *
+ * Two independent concerns share this service, so this file has two independent test groups:
+ *   - #115: a delayed/out-of-order Stripe webhook must never overwrite state that a later event
+ *     already applied (subscription create/update/delete, invoice payment_failed).
+ *   - Issue #59/#53: checkout.session.completed/expired for a couple's print-order payment.
+ *     Focused on the compare-and-swap idempotency fix found in code review: Stripe redelivers
+ *     webhooks at-least-once (and can deliver the same event concurrently), so a naive "read
+ *     status, then write" guard lets two concurrent deliveries both pass the check and both
+ *     trigger the mail batch -- these tests prove that can no longer happen.
+ */
 class StripeServiceTest {
 
     private final StripePort stripePort = mock(StripePort.class);
     private final VendorSubscriptionRepository subscriptionRepository = mock(VendorSubscriptionRepository.class);
     private final VendorService vendorService = mock(VendorService.class);
+    private final PrintOrderRepository printOrderRepository = mock(PrintOrderRepository.class);
+    private final PrintOrderService printOrderService = mock(PrintOrderService.class);
     private StripeService service;
 
     private final UUID vendorId = UUID.randomUUID();
     private final Instant now = Instant.now();
+    private final UUID orderId = UUID.randomUUID();
 
     @BeforeEach
     void setUp() {
         service = new StripeService(stripePort, subscriptionRepository, vendorService,
+                printOrderRepository, printOrderService,
                 "https://app.altarwed.com", "price_monthly", "price_annual");
     }
+
+    // -------------------------------------------------------------------------
+    // #115: subscription webhook staleness guard
+    // -------------------------------------------------------------------------
 
     private VendorSubscription activeSubscription(LocalDateTime lastStripeEventAt) {
         LocalDateTime periodStart = LocalDateTime.ofInstant(now.minusSeconds(3600), ZoneOffset.UTC);
@@ -55,7 +78,8 @@ class StripeServiceTest {
     private StripeEventData subscriptionEvent(String eventType, String stripeStatus, Instant eventCreatedAt) {
         return new StripeEventData(
                 eventType, "sub_123", "cus_123", vendorId.toString(), "price_monthly", stripeStatus,
-                now, now.plusSeconds(3600 * 24 * 30), null, eventCreatedAt
+                now, now.plusSeconds(3600 * 24 * 30), null, eventCreatedAt,
+                null, null, null, null
         );
     }
 
@@ -128,7 +152,8 @@ class StripeServiceTest {
         Instant staleDeleteTime = now.minusSeconds(60);
         StripeEventData staleDelete = new StripeEventData(
                 "customer.subscription.deleted", "sub_123", "cus_123", vendorId.toString(),
-                null, "canceled", null, null, staleDeleteTime, staleDeleteTime
+                null, "canceled", null, null, staleDeleteTime, staleDeleteTime,
+                null, null, null, null
         );
         when(stripePort.constructEvent(any(), any())).thenReturn(staleDelete);
 
@@ -153,7 +178,8 @@ class StripeServiceTest {
 
         StripeEventData tiedDelete = new StripeEventData(
                 "customer.subscription.deleted", "sub_123", "cus_123", vendorId.toString(),
-                null, "canceled", null, null, now, now
+                null, "canceled", null, null, now, now,
+                null, null, null, null
         );
         when(stripePort.constructEvent(any(), any())).thenReturn(tiedDelete);
 
@@ -181,5 +207,95 @@ class StripeServiceTest {
         // Only the failed insert attempt; the race-recovery branch must not re-save stale data.
         verify(subscriptionRepository, times(1)).save(any());
         verify(vendorService, never()).verify(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // Issue #59/#53: print-order checkout webhook handling
+    // -------------------------------------------------------------------------
+
+    private PrintOrder pendingOrder() {
+        return new PrintOrder(orderId, UUID.randomUUID(), PrintOrderType.SAVE_THE_DATE, PrintOrderStatus.PENDING_PAYMENT,
+                "SAVE_THE_DATE_CLASSIC", 1, 0, null, LocalDateTime.now(), null, List.of(), "idem-1",
+                "cs_1", null, 200, 0, "Name", "1 Way", null, "City", "IL", "60601");
+    }
+
+    private StripeEventData completedEvent() {
+        return new StripeEventData("checkout.session.completed", null, null, null, null, null, null, null, null,
+                null, "cs_1", "pi_1", orderId.toString(), 200L);
+    }
+
+    private StripeEventData expiredEvent() {
+        return new StripeEventData("checkout.session.expired", null, null, null, null, null, null, null, null,
+                null, "cs_1", null, orderId.toString(), null);
+    }
+
+    @Test
+    void checkoutCompleted_triggersTheBatchWhenItWinsTheTransition() {
+        when(stripePort.constructEvent(any(), any())).thenReturn(completedEvent());
+        when(printOrderRepository.findById(orderId)).thenReturn(Optional.of(pendingOrder()));
+        when(printOrderRepository.markPaymentConfirmed(eq(orderId), eq("pi_1"))).thenReturn(true);
+
+        service.handleWebhook(new byte[0], "sig");
+
+        verify(printOrderService).submitBatchAsync(orderId);
+    }
+
+    @Test
+    void checkoutCompleted_doesNotTriggerTheBatchTwiceOnConcurrentRedelivery() {
+        // Simulates the exact race: markPaymentConfirmed's compare-and-swap only lets ONE caller
+        // win (return true); a second concurrent/redelivered webhook for the same order sees
+        // false and must not re-trigger the batch, or the order gets mailed and charged twice.
+        when(stripePort.constructEvent(any(), any())).thenReturn(completedEvent());
+        when(printOrderRepository.findById(orderId)).thenReturn(Optional.of(pendingOrder()));
+        when(printOrderRepository.markPaymentConfirmed(eq(orderId), eq("pi_1"))).thenReturn(false);
+
+        service.handleWebhook(new byte[0], "sig");
+
+        verify(printOrderService, never()).submitBatchAsync(any());
+    }
+
+    @Test
+    void checkoutCompleted_ignoredWhenOrderNotFound() {
+        when(stripePort.constructEvent(any(), any())).thenReturn(completedEvent());
+        when(printOrderRepository.findById(orderId)).thenReturn(Optional.empty());
+
+        service.handleWebhook(new byte[0], "sig");
+
+        verify(printOrderRepository, never()).markPaymentConfirmed(any(), any());
+        verify(printOrderService, never()).submitBatchAsync(any());
+    }
+
+    @Test
+    void checkoutCompleted_ignoredWhenPrintOrderIdMetadataMissing() {
+        StripeEventData noMetadata = new StripeEventData("checkout.session.completed", null, null, null, null, null,
+                null, null, null, null, "cs_1", "pi_1", null, 200L);
+        when(stripePort.constructEvent(any(), any())).thenReturn(noMetadata);
+
+        service.handleWebhook(new byte[0], "sig");
+
+        verifyNoInteractions(printOrderRepository, printOrderService);
+    }
+
+    @Test
+    void checkoutExpired_marksFailedOnlyWhenItWinsTheTransition() {
+        when(stripePort.constructEvent(any(), any())).thenReturn(expiredEvent());
+        when(printOrderRepository.findById(orderId)).thenReturn(Optional.of(pendingOrder()));
+        when(printOrderRepository.markPaymentFailed(eq(orderId), any())).thenReturn(true);
+
+        service.handleWebhook(new byte[0], "sig");
+
+        verify(printOrderRepository).markPaymentFailed(eq(orderId), any());
+        verifyNoInteractions(printOrderService);
+    }
+
+    @Test
+    void checkoutExpired_doesNothingMoreOnRedeliveryAfterAlreadyResolved() {
+        when(stripePort.constructEvent(any(), any())).thenReturn(expiredEvent());
+        when(printOrderRepository.findById(orderId)).thenReturn(Optional.of(pendingOrder()));
+        when(printOrderRepository.markPaymentFailed(eq(orderId), any())).thenReturn(false);
+
+        service.handleWebhook(new byte[0], "sig");
+
+        verifyNoInteractions(printOrderService);
     }
 }

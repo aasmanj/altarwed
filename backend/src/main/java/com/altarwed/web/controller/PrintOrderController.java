@@ -1,11 +1,13 @@
 package com.altarwed.web.controller;
 
 import com.altarwed.application.dto.CreatePrintOrderRequest;
+import com.altarwed.application.dto.PrintOrderCreateResponse;
 import com.altarwed.application.dto.PrintOrderResponse;
 import com.altarwed.application.service.PrintOrderService;
 import com.altarwed.web.mapper.PrintOrderMapper;
 import com.altarwed.web.security.CoupleAccessGuard;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -25,14 +27,17 @@ public class PrintOrderController {
         this.accessGuard = accessGuard;
     }
 
+    // Issue #59: 202, not 200 -- the order is created in PENDING_PAYMENT and nothing has been sent
+    // to Lob yet. The couple must complete the returned checkoutUrl before anything mails.
     @PostMapping("/couple/{coupleId}")
-    public ResponseEntity<PrintOrderResponse> create(
+    public ResponseEntity<PrintOrderCreateResponse> create(
             @PathVariable UUID coupleId,
             @Valid @RequestBody CreatePrintOrderRequest req,
             @AuthenticationPrincipal String email
     ) {
         accessGuard.assertOwns(coupleId, email);
-        return ResponseEntity.ok(PrintOrderMapper.toResponse(printOrderService.createOrder(coupleId, req)));
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(PrintOrderMapper.toCreateResponse(printOrderService.createOrder(coupleId, req)));
     }
 
     @GetMapping("/couple/{coupleId}")
