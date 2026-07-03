@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Mail, Send, AlertCircle, Loader2, RefreshCw } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Mail, Send, AlertCircle, Loader2, RefreshCw, ShieldCheck, ExternalLink } from 'lucide-react'
 import { QRCodeCanvas } from 'qrcode.react'
 import { useAuth } from '@/core/auth/AuthContext'
 import { useConfirm } from '@/components/ConfirmDialog'
@@ -11,6 +11,7 @@ import {
   useCreatePrintOrder,
   useRefreshPrintOrderStatus,
   type CreatePrintOrderPayload,
+  type CreatePrintOrderResult,
   type PrintOrder,
   type PrintOrderType,
 } from './usePrintOrders'
@@ -42,8 +43,8 @@ const TEMPLATE_LABELS: Record<TemplateKey, string> = {
   INVITATION_PHOTO: 'Invitation - Photo',
 }
 
-// Mirrors backend COST_PER_POSTCARD_CENTS = 150 in PrintOrderService.
-const COST_PER_POSTCARD_CENTS = 150
+// Mirrors backend COST_PER_POSTCARD_CENTS = 200 in PrintOrderService (issue #59).
+const COST_PER_POSTCARD_CENTS = 200
 
 export default function CommunicationsPage() {
   const { user } = useAuth()
@@ -53,6 +54,7 @@ export default function CommunicationsPage() {
   const { data: guests = [], isLoading: guestsLoading, isError: guestsError, refetch: refetchGuests } = useGuests(coupleId)
   const { data: orders = [], isLoading: ordersLoading, isError: ordersError, refetch: refetchOrders } = usePrintOrders(coupleId)
   const createOrder = useCreatePrintOrder(coupleId)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [orderType, setOrderType] = useState<PrintOrderType>('SAVE_THE_DATE')
   const [templateKey, setTemplateKey] = useState<TemplateKey>('SAVE_THE_DATE_CLASSIC')
@@ -68,6 +70,10 @@ export default function CommunicationsPage() {
   const [returnState, setReturnState] = useState('')
   const [returnZip, setReturnZip] = useState('')
   const [lastResult, setLastResult] = useState<string | null>(null)
+  // Issue #59: the order is created (and validated/priced) before any charge, but nothing is
+  // sent to Lob and no card is charged until the couple confirms on THIS panel and completes
+  // Stripe Checkout. Holds the just-created order's exact charge, warnings, and exclusions.
+  const [pendingCheckout, setPendingCheckout] = useState<CreatePrintOrderResult | null>(null)
   // Dedup token regenerated whenever the batch contents change (see effect below),
   // so each distinct batch is a new order server-side. A retry of the SAME batch
   // keeps the key and is deduped by the backend.
@@ -81,6 +87,27 @@ export default function CommunicationsPage() {
     setIdempotencyKey(crypto.randomUUID())
   }, [orderType, templateKey, selectedIds])
 
+  // Issue #59: the couple lands back here after Stripe Checkout via successUrl/cancelUrl. Show
+  // what happened, refetch orders (once immediately, once after a short delay to catch the async
+  // Lob batch finishing -- issue #53), then strip the query params so a page refresh doesn't
+  // re-trigger the banner.
+  useEffect(() => {
+    const printOrderParam = searchParams.get('printOrder')
+    if (!printOrderParam) return
+    if (printOrderParam === 'success') {
+      setLastResult('Payment received. Your postcards are being submitted now -- refresh Past orders below in a few seconds for the final status.')
+      refetchOrders()
+      const t = setTimeout(() => refetchOrders(), 3000)
+      setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('printOrder'); next.delete('orderId'); return next }, { replace: true })
+      return () => clearTimeout(t)
+    }
+    if (printOrderParam === 'cancelled') {
+      setLastResult('Checkout was cancelled. You were not charged, and nothing was mailed.')
+      setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('printOrder'); next.delete('orderId'); return next }, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
   const mailableGuests = useMemo(
     () => guests.filter(g => g.mailLine1 && g.mailLine1.trim().length > 0),
     [guests]
@@ -92,6 +119,7 @@ export default function CommunicationsPage() {
   )
 
   const eligibleSelected = selectedIds.filter(id => mailableGuests.some(g => g.id === id))
+  const internationalSelectedCount = eligibleSelected.filter(id => guestById.get(id)?.mailCountry).length
   const estimatedCostDollars = (eligibleSelected.length * COST_PER_POSTCARD_CENTS) / 100
 
   function toggleType(t: PrintOrderType) {
@@ -134,10 +162,10 @@ export default function CommunicationsPage() {
   async function handleSubmit() {
     if (createOrder.isPending) return
     const confirmed = await confirm({
-      title: 'Confirm print order',
-      message: `You are about to send ${eligibleSelected.length} ${orderType === 'SAVE_THE_DATE' ? 'save-the-date' : 'invitation'} postcards. Estimated cost: $${estimatedCostDollars.toFixed(2)}. This action cannot be undone once postcards are submitted to the printer.`,
-      confirmLabel: 'Submit order',
-      tone: 'danger',
+      title: 'Continue to secure payment?',
+      message: `You'll review the exact charge and then be sent to Stripe's secure checkout to pay. Nothing is mailed and no card is charged until payment completes. Estimated: $${estimatedCostDollars.toFixed(2)} for up to ${eligibleSelected.length} postcards (any address we can't verify is excluded before you pay).`,
+      confirmLabel: 'Continue',
+      tone: 'default',
     })
     if (!confirmed) return
 
@@ -154,29 +182,33 @@ export default function CommunicationsPage() {
       idempotencyKey,
     }
     try {
-      const order = await createOrder.mutateAsync(payload)
-      const failedCount = order.recipients.filter(r => r.deliveryStatus === 'FAILED').length
-      setLastResult(
-        order.status === 'SUBMITTED'
-          ? `Submitted ${order.recipientCount} postcards to print.`
-          : order.status === 'PARTIAL_FAILURE'
-            ? `Submitted ${order.recipientCount - failedCount} postcards. ${failedCount} failed. See order details below.`
-            // DRAFT here means this submit was deduped against an order still being
-            // processed (idempotent replay). It is NOT a failure, so don't alarm the
-            // couple; point them at Past orders, which refetches the real status.
-            : order.status === 'DRAFT'
-              ? 'This order is still being processed. Check Past orders below in a moment for the final status.'
-              : `Order failed: ${order.errorMessage ?? 'Unknown error'}`
-      )
-      // Clearing the selection rotates the key via the effect above, so the next
-      // deliberate batch is treated as a new order.
-      setSelectedIds([])
+      const result = await createOrder.mutateAsync(payload)
+      if (!result.checkoutUrl) {
+        // Idempotent replay: an order for this exact batch already exists (double submit).
+        setLastResult('This batch was already submitted. Check Past orders below for its status.')
+        return
+      }
+      // Always show the review panel before redirecting -- even with no warnings/exclusions,
+      // the couple should see the exact charge and postcard count before leaving for Stripe.
+      setPendingCheckout(result)
     } catch (err) {
       const msg = (err as { response?: { data?: { message?: string } }; message?: string })
       setLastResult(`Failed to submit: ${msg.response?.data?.message ?? msg.message ?? 'Unknown error'}`)
       // Keep the SAME key on failure: if the couple retries, the backend dedups
       // in case the batch actually went through before the error surfaced.
     }
+  }
+
+  function confirmPayment() {
+    if (!pendingCheckout?.checkoutUrl) return
+    window.location.href = pendingCheckout.checkoutUrl
+  }
+
+  function cancelPendingCheckout() {
+    // The order stays PENDING_PAYMENT server-side and expires on its own (Stripe's 24h
+    // Checkout Session window), no cleanup needed here.
+    setPendingCheckout(null)
+    setLastResult('Order not sent to payment. It will expire on its own -- nothing was charged.')
   }
 
   return (
@@ -209,8 +241,8 @@ export default function CommunicationsPage() {
             >
               <Send className="w-6 h-6 text-amber-600 mt-0.5 flex-shrink-0" aria-hidden="true" />
               <div>
-                <p className="font-semibold text-brown mb-0.5">Print &amp; Mail <span className="text-xs font-normal text-stone-500">$1.50/card</span></p>
-                <p className="text-sm text-stone-500">We print and mail physical postcards to guests who have a mailing address on file.</p>
+                <p className="font-semibold text-brown mb-0.5">Print &amp; Mail <span className="text-xs font-normal text-stone-500">$2.00/card</span></p>
+                <p className="text-sm text-stone-500">We print and mail physical postcards to guests who have a mailing address on file -- you never touch a stamp or envelope.</p>
               </div>
             </a>
           </div>
@@ -247,10 +279,16 @@ export default function CommunicationsPage() {
         <section id="print-section" className="rounded-xl border border-stone-200 bg-white p-6" aria-labelledby="print-heading">
           <span className="text-xs font-semibold uppercase tracking-wide text-amber-700">Print &amp; Mail</span>
           <h2 id="print-heading" className="font-serif text-xl font-bold text-brown mb-1 mt-1">Order physical postcards</h2>
-          <p className="text-sm text-stone-500 mb-6">
-            Postcards are printed and mailed via a third-party service with first-class postage included.
-            You are charged a flat $1.50 per postcard when you submit. No card is required until Stripe billing launches.
+          <p className="text-sm text-stone-500 mb-2">
+            Postcards are printed and mailed via a third-party service (Lob) with first-class USPS postage included --
+            you never touch a stamp, envelope, or trip to the post office.
           </p>
+          <ul className="text-sm text-stone-500 mb-6 space-y-1 list-disc list-inside">
+            <li>Flat <strong className="text-stone-700">$2.00 per postcard</strong>, charged securely via Stripe only after you review the exact amount below.</li>
+            <li>US addresses are checked for USPS deliverability before you pay -- an address we can&apos;t verify is excluded and you&apos;re never charged for it.</li>
+            <li>Once mailed, we show real USPS tracking (tracking number + expected delivery date) as it becomes available. USPS First-Class Mail does not offer a guaranteed delivery date, so this is our best real-time information, not a guarantee.</li>
+            <li>International addresses are mailed but can&apos;t be independently verified before sending (Lob&apos;s verification only covers US addresses).</li>
+          </ul>
 
           {/* 1. Order type */}
           <div className="mb-5" role="group" aria-labelledby="order-type-label">
@@ -299,6 +337,12 @@ export default function CommunicationsPage() {
               heroPhotoUrl={website?.heroPhotoUrl ?? null}
               websiteLoading={websiteLoading}
               weddingUrl={website ? `https://www.altarwed.com/wedding/${website.slug}` : null}
+              returnName={returnName}
+              returnAddressLine1={returnAddressLine1}
+              returnAddressLine2={returnAddressLine2}
+              returnCity={returnCity}
+              returnState={returnState}
+              returnZip={returnZip}
             />
           </div>
 
@@ -354,6 +398,7 @@ export default function CommunicationsPage() {
               >
                 {mailableGuests.map(g => {
                   const checked = selectedIds.includes(g.id)
+                  const isInternational = !!g.mailCountry
                   return (
                     <label key={g.id} className="flex items-start gap-3 p-3 cursor-pointer hover:bg-stone-50">
                       <input
@@ -364,7 +409,12 @@ export default function CommunicationsPage() {
                         aria-label={`Select ${g.name}`}
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-stone-800">{g.name}</p>
+                        <p className="text-sm font-medium text-stone-800">
+                          {g.name}
+                          {isInternational && (
+                            <span className="ml-2 text-xs font-normal text-stone-400">International -- not pre-verified</span>
+                          )}
+                        </p>
                         <p className="text-xs text-stone-500 truncate">
                           {[g.mailLine1, g.mailCity, g.mailState, g.mailZip].filter(Boolean).join(', ')}
                         </p>
@@ -459,7 +509,12 @@ export default function CommunicationsPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="text-sm text-stone-600">
                 {eligibleSelected.length > 0 ? (
-                  <>Estimated cost: <span className="font-semibold text-stone-900">${estimatedCostDollars.toFixed(2)}</span> ({eligibleSelected.length} postcards)</>
+                  <>
+                    Estimated: <span className="font-semibold text-stone-900">${estimatedCostDollars.toFixed(2)}</span> ({eligibleSelected.length} postcards)
+                    {internationalSelectedCount > 0 && (
+                      <span className="block text-xs text-stone-400 mt-0.5">{internationalSelectedCount} international, not pre-verified</span>
+                    )}
+                  </>
                 ) : (
                   <span className="text-stone-400">Pick at least one guest to see cost.</span>
                 )}
@@ -469,13 +524,21 @@ export default function CommunicationsPage() {
                 disabled={!canSubmit || createOrder.isPending}
                 className="w-full sm:w-auto px-5 py-2.5 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50 min-h-[44px]"
               >
-                {createOrder.isPending ? 'Submitting...' : 'Submit print order'}
+                {createOrder.isPending ? 'Preparing order...' : 'Review & pay'}
               </button>
             </div>
             {!canSubmit && blocker && (
               <p className="text-xs text-stone-500">{blocker}</p>
             )}
           </div>
+
+          {pendingCheckout && (
+            <PaymentReviewPanel
+              result={pendingCheckout}
+              onConfirm={confirmPayment}
+              onCancel={cancelPendingCheckout}
+            />
+          )}
 
           {/* Always in the DOM so screen readers catch content changes in the live region. */}
           <div role="status" aria-live="polite" className={lastResult ? 'mt-4 p-3 bg-stone-50 rounded-lg text-sm text-stone-700' : 'sr-only'}>
@@ -514,6 +577,77 @@ export default function CommunicationsPage() {
   )
 }
 
+// Issue #59: shown after the order is created (validated + priced) but before any charge or
+// mail send, so the couple sees exactly what they're paying for -- and any address that
+// couldn't be verified, or duplicate addresses, before committing to Stripe Checkout.
+function PaymentReviewPanel({
+  result,
+  onConfirm,
+  onCancel,
+}: {
+  result: CreatePrintOrderResult
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const chargeableCount = result.order.recipients.filter(r => r.deliveryStatus === 'PENDING').length
+  const chargeDollars = ((result.order.amountChargedCents ?? 0) / 100).toFixed(2)
+
+  return (
+    <div className="mt-4 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 sm:p-5">
+      <div className="flex items-start gap-3">
+        <ShieldCheck className="w-5 h-5 text-amber-700 mt-0.5 flex-shrink-0" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-brown">Review before you pay</p>
+          <p className="text-sm text-stone-700 mt-1">
+            You&apos;ll be charged <span className="font-semibold">${chargeDollars}</span> for{' '}
+            <span className="font-semibold">{chargeableCount}</span> postcard{chargeableCount === 1 ? '' : 's'} via Stripe&apos;s secure checkout.
+            Nothing is mailed and nothing is charged until you complete payment there.
+          </p>
+
+          {result.excludedGuests.length > 0 && (
+            <div className="mt-3 rounded-lg bg-white border border-amber-200 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1.5">
+                {result.excludedGuests.length} guest{result.excludedGuests.length === 1 ? '' : 's'} excluded (not charged)
+              </p>
+              <ul className="text-sm text-stone-600 space-y-1">
+                {result.excludedGuests.map(g => (
+                  <li key={g.guestId}>
+                    <span className="font-medium">{g.guestName ?? 'Guest'}</span>: {g.reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {result.warnings.length > 0 && (
+            <div className="mt-3 rounded-lg bg-white border border-amber-200 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1.5">Heads up</p>
+              <ul className="text-sm text-stone-600 space-y-1">
+                {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            </div>
+          )}
+
+          <div className="mt-4 flex flex-col sm:flex-row gap-2">
+            <button
+              onClick={onConfirm}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 min-h-[44px]"
+            >
+              Continue to secure payment <ExternalLink className="w-4 h-4" aria-hidden="true" />
+            </button>
+            <button
+              onClick={onCancel}
+              className="px-5 py-2.5 text-stone-600 text-sm font-medium hover:underline min-h-[44px]"
+            >
+              Not now
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function PastOrderCard({
   order,
   coupleId,
@@ -526,6 +660,7 @@ function PastOrderCard({
   const refresh = useRefreshPrintOrderStatus(coupleId)
   // Only postcards that were actually submitted have a provider id worth tracking.
   const trackable = order.recipients.some(r => r.lobPostcardId)
+  const refundedDollars = order.amountRefundedCents ? (order.amountRefundedCents / 100).toFixed(2) : null
 
   return (
     <div className="rounded-xl border border-stone-200 bg-white p-4">
@@ -538,7 +673,9 @@ function PastOrderCard({
             </span>
           </p>
           <p className="text-xs text-stone-500 mt-0.5">
-            {new Date(order.createdAt).toLocaleString()} &middot; {order.recipientCount} recipients &middot; ${(order.costCents / 100).toFixed(2)}
+            {new Date(order.createdAt).toLocaleString()} &middot; {order.recipientCount} recipients
+            {order.amountChargedCents != null && <> &middot; ${(order.amountChargedCents / 100).toFixed(2)} charged</>}
+            {refundedDollars && <> &middot; ${refundedDollars} refunded</>}
           </p>
         </div>
         <StatusBadge status={order.status} />
@@ -573,6 +710,21 @@ function PastOrderCard({
                     {r.deliveryStatus === 'FAILED' && r.errorMessage && (
                       <span className="text-xs text-rose-600">{r.errorMessage}</span>
                     )}
+                    {r.trackingNumber && (
+                      <a
+                        href={`https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(r.trackingNumber)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-amber-700 hover:underline block"
+                      >
+                        Track: {r.trackingNumber}
+                      </a>
+                    )}
+                    {r.expectedDeliveryDate && (
+                      <span className="text-xs text-stone-400 block">
+                        Expected by {new Date(r.expectedDeliveryDate).toLocaleDateString()}
+                      </span>
+                    )}
                   </div>
                   <DeliveryStatusBadge status={r.deliveryStatus} />
                 </li>
@@ -589,12 +741,14 @@ function PastOrderCard({
 }
 
 // Maps a recipient's delivery status to a friendly label + color. Values are either our own
-// submit state (SUBMITTED/FAILED) or Lob USPS tracking event names, which match Lob's dashboard
-// columns exactly: "Sent" (dispatched, no USPS scan yet), "In Transit", "Processed for Delivery",
-// "Delivered", "Re-Routed", "Returned to Sender".
-function deliveryStatusStyle(status: string | null): { label: string; cls: string } {
+// submit state (PENDING/SUBMITTED/FAILED) or Lob USPS tracking event names, which match Lob's
+// dashboard columns exactly: "Sent" (dispatched, no USPS scan yet), "In Transit",
+// "Processed for Delivery", "Delivered", "Re-Routed", "Returned to Sender".
+export function deliveryStatusStyle(status: string | null): { label: string; cls: string } {
   const s = (status ?? '').toLowerCase()
   if (s === '' || s === 'submitted') return { label: 'Submitted', cls: 'bg-stone-100 text-stone-600' }
+  // Awaiting payment confirmation or the async batch (issue #59/#53) -- not yet sent to Lob.
+  if (s === 'pending') return { label: 'Awaiting payment', cls: 'bg-stone-100 text-stone-500' }
   if (s === 'failed') return { label: 'Failed', cls: 'bg-rose-100 text-rose-700' }
   if (s.includes('returned')) return { label: status as string, cls: 'bg-rose-100 text-rose-700' }
   // Exact match only: "Processed for Delivery" / "Out for Delivery" are still in transit, not done.
@@ -612,12 +766,24 @@ function PostcardPreview({
   heroPhotoUrl,
   websiteLoading,
   weddingUrl,
+  returnName,
+  returnAddressLine1,
+  returnAddressLine2,
+  returnCity,
+  returnState,
+  returnZip,
 }: {
   templateKey: TemplateKey
   user: { partnerOneName: string | null; partnerTwoName: string | null; weddingDate: string | null }
   heroPhotoUrl: string | null
   websiteLoading: boolean
   weddingUrl: string | null
+  returnName: string
+  returnAddressLine1: string
+  returnAddressLine2: string
+  returnCity: string
+  returnState: string
+  returnZip: string
 }) {
   const [enlarged, setEnlarged] = useState(false)
   const modalRef = useRef<HTMLDivElement>(null)
@@ -691,6 +857,7 @@ function PostcardPreview({
     const pad = large ? '18px 18px 18px 20px' : '10px 10px 10px 12px'
     const stampW = large ? 30 : 18
     const stampH = large ? 36 : 22
+    const hasReturnAddress = !!(returnName.trim() && returnAddressLine1.trim() && returnCity.trim())
     return (
       <div style={{
         width: '100%', aspectRatio: '11 / 6', position: 'relative', borderRadius: '6px',
@@ -727,10 +894,20 @@ function PostcardPreview({
         {/* Mailing area */}
         <div style={{ flex: 1, padding: large ? '12px' : '8px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: large ? '8px' : '4px' }}>
-            <div style={{ fontSize: fs.meta, color: '#a08060', lineHeight: 1.6, fontFamily: 'system-ui' }}>
-              <div>{names.split(' & ')[0] || 'Your Name'}</div>
-              <div>Your Address</div>
-              <div>City, ST 00000</div>
+            <div style={{ fontSize: fs.meta, color: hasReturnAddress ? '#5a4a3a' : '#a08060', lineHeight: 1.6, fontFamily: 'system-ui', opacity: hasReturnAddress ? 1 : 0.6 }}>
+              {hasReturnAddress ? (
+                <>
+                  <div>{returnName.trim()}</div>
+                  <div>{returnAddressLine1.trim()}{returnAddressLine2.trim() ? `, ${returnAddressLine2.trim()}` : ''}</div>
+                  <div>{returnCity.trim()}, {returnState.trim() || 'ST'} {returnZip.trim() || '00000'}</div>
+                </>
+              ) : (
+                <>
+                  <div>Your Name</div>
+                  <div>Your Address</div>
+                  <div>City, ST 00000</div>
+                </>
+              )}
             </div>
             <div style={{ width: `${stampW}px`, height: `${stampH}px`, border: '1px solid #d0c8b8', borderRadius: '1px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ fontSize: large ? '5px' : '3px', color: '#d0c8b8', fontFamily: 'system-ui', textAlign: 'center' }}>STAMP</span>
@@ -828,14 +1005,21 @@ function DeliveryStatusBadge({ status }: { status: string | null }) {
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     DRAFT: 'bg-stone-100 text-stone-700',
+    PENDING_PAYMENT: 'bg-stone-100 text-stone-500',
+    PROCESSING: 'bg-sky-100 text-sky-700',
     SUBMITTED: 'bg-emerald-100 text-emerald-700',
     PARTIAL_FAILURE: 'bg-amber-100 text-amber-700',
     FAILED: 'bg-rose-100 text-rose-700',
     MAILED: 'bg-sky-100 text-sky-700',
   }
+  const labels: Record<string, string> = {
+    PENDING_PAYMENT: 'Awaiting payment',
+    PROCESSING: 'Submitting',
+    PARTIAL_FAILURE: 'Partial failure',
+  }
   return (
     <span className={`text-xs font-medium px-2 py-0.5 rounded ${styles[status] ?? 'bg-stone-100 text-stone-700'}`}>
-      {status.replace('_', ' ')}
+      {labels[status] ?? status.replace('_', ' ')}
     </span>
   )
 }

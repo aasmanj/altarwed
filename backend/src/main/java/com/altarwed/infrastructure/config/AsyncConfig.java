@@ -40,6 +40,25 @@ public class AsyncConfig {
         return executor;
     }
 
+    // Issues #59/#53: runs the Lob postcard batch off the HTTP/webhook thread once a print
+    // order's payment is confirmed. Smaller pool than emailExecutor: these are long-running
+    // per-order batches (potentially hundreds of sequential Lob calls), not many small
+    // fire-and-forget tasks, so a handful of concurrent batches is the realistic ceiling.
+    @Bean(name = "printOrderExecutor")
+    public Executor printOrderExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(5);
+        executor.setQueueCapacity(50);
+        executor.setThreadNamePrefix("print-order-");
+        // Never silently drop a paid-for order's batch; caller-runs at worst delays the Stripe
+        // webhook's HTTP response, it does not lose the batch.
+        executor.setRejectedExecutionHandler(new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setTaskDecorator(new MdcTaskDecorator());
+        executor.initialize();
+        return executor;
+    }
+
     // Backs the shedlock table (V82 migration) with the same DataSource as everything else,
     // so a lock row commits/rolls back in step with the app's normal SQL Server connection pool
     // rather than opening a second one. usingDbTime() reads "now" from SQL Server, not the app

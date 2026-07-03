@@ -9,7 +9,10 @@ import com.altarwed.infrastructure.persistence.entity.PrintOrderEntity;
 import com.altarwed.infrastructure.persistence.entity.PrintOrderRecipientEntity;
 import com.altarwed.infrastructure.persistence.repository.PrintOrderJpaRepository;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -50,6 +53,60 @@ public class PrintOrderJpaAdapter implements PrintOrderRepository {
         jpa.deleteAllByCoupleId(coupleId);
     }
 
+    // REQUIRES_NEW on every method below (not the default REQUIRED): each must be independently,
+    // immediately durable regardless of the caller's transactional context. This matters concretely
+    // for markPaymentConfirmed/markPaymentFailed, called from StripeService.handleWebhook (itself
+    // @Transactional) immediately before triggering the async Lob batch (issue #53/#59) -- with
+    // default propagation these writes would join the webhook's ambient transaction and might not
+    // be committed yet when the async thread's own findById reads the row, causing it to see the
+    // stale pre-webhook status and skip the batch entirely.
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void appendRecipient(UUID orderId, PrintOrderRecipient recipient) {
+        jpa.insertRecipient(
+                UUID.randomUUID(), orderId, recipient.guestId(), recipient.lobPostcardId(),
+                recipient.deliveryStatus(), recipient.errorMessage(),
+                recipient.trackingNumber(), recipient.expectedDeliveryDate());
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void updateRecipientOutcome(UUID recipientId, String lobPostcardId, String deliveryStatus, String errorMessage) {
+        jpa.updateRecipientOutcome(recipientId, lobPostcardId, deliveryStatus, errorMessage);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void attachCheckoutSession(UUID orderId, String stripeCheckoutSessionId) {
+        jpa.attachCheckoutSession(orderId, stripeCheckoutSessionId);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean markPaymentConfirmed(UUID orderId, String stripePaymentIntentId) {
+        return jpa.markPaymentConfirmed(orderId, stripePaymentIntentId) == 1;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean markPaymentFailed(UUID orderId, String errorMessage) {
+        return jpa.markPaymentFailed(orderId, errorMessage) == 1;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void finalizeOrder(UUID orderId, PrintOrderStatus status, String errorMessage,
+                               LocalDateTime submittedAt, Integer costCents) {
+        jpa.finalizeOrder(orderId, status.name(), errorMessage, submittedAt, costCents);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordRefund(UUID orderId, Integer amountRefundedCents) {
+        jpa.recordRefund(orderId, amountRefundedCents);
+    }
+
     private PrintOrderEntity toEntity(PrintOrder o) {
         PrintOrderEntity e = PrintOrderEntity.builder()
                 .id(o.id())
@@ -63,6 +120,16 @@ public class PrintOrderJpaAdapter implements PrintOrderRepository {
                 .errorMessage(o.errorMessage())
                 .createdAt(o.createdAt())
                 .submittedAt(o.submittedAt())
+                .stripeCheckoutSessionId(o.stripeCheckoutSessionId())
+                .stripePaymentIntentId(o.stripePaymentIntentId())
+                .amountChargedCents(o.amountChargedCents())
+                .amountRefundedCents(o.amountRefundedCents() != null ? o.amountRefundedCents() : 0)
+                .returnName(o.returnName())
+                .returnAddressLine1(o.returnAddressLine1())
+                .returnAddressLine2(o.returnAddressLine2())
+                .returnCity(o.returnCity())
+                .returnState(o.returnState())
+                .returnZip(o.returnZip())
                 .build();
         if (o.recipients() != null) {
             // Must be a MUTABLE list: Hibernate manages this @OneToMany collection
@@ -81,6 +148,8 @@ public class PrintOrderJpaAdapter implements PrintOrderRepository {
                 .lobPostcardId(r.lobPostcardId())
                 .deliveryStatus(r.deliveryStatus())
                 .errorMessage(r.errorMessage())
+                .trackingNumber(r.trackingNumber())
+                .expectedDeliveryDate(r.expectedDeliveryDate())
                 .build();
     }
 
@@ -97,7 +166,17 @@ public class PrintOrderJpaAdapter implements PrintOrderRepository {
                 e.getCreatedAt(),
                 e.getSubmittedAt(),
                 e.getRecipients().stream().map(this::toRecipientDomain).toList(),
-                e.getIdempotencyKey()
+                e.getIdempotencyKey(),
+                e.getStripeCheckoutSessionId(),
+                e.getStripePaymentIntentId(),
+                e.getAmountChargedCents(),
+                e.getAmountRefundedCents(),
+                e.getReturnName(),
+                e.getReturnAddressLine1(),
+                e.getReturnAddressLine2(),
+                e.getReturnCity(),
+                e.getReturnState(),
+                e.getReturnZip()
         );
     }
 
@@ -108,7 +187,9 @@ public class PrintOrderJpaAdapter implements PrintOrderRepository {
                 r.getGuestId(),
                 r.getLobPostcardId(),
                 r.getDeliveryStatus(),
-                r.getErrorMessage()
+                r.getErrorMessage(),
+                r.getTrackingNumber(),
+                r.getExpectedDeliveryDate()
         );
     }
 }

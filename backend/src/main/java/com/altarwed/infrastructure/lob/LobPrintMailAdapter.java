@@ -23,6 +23,8 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -150,7 +152,7 @@ public class LobPrintMailAdapter implements PrintMailPort {
     }
 
     @Override
-    public Optional<String> fetchPostcardStatus(String providerPostcardId) {
+    public Optional<PostcardStatusResult> fetchPostcardStatus(String providerPostcardId) {
         if (apiKey == null || apiKey.isBlank()
                 || providerPostcardId == null || providerPostcardId.isBlank()) {
             return Optional.empty();
@@ -165,7 +167,17 @@ public class LobPrintMailAdapter implements PrintMailPort {
             // DEBUG, not INFO: status refresh runs once per recipient inside PrintOrderService's
             // loop (rule 9), the aggregate is logged once there.
             log.debug("lob postcard status fetched, lobId={}", providerPostcardId);
-            return Optional.ofNullable(deriveDeliveryStatus(postcard));
+            String status = deriveDeliveryStatus(postcard);
+            if (status == null) return Optional.empty();
+            // Issue #59 UX: surface real tracking data instead of promising a delivery guarantee
+            // USPS First-Class doesn't actually offer. expected_delivery_date was already fetched
+            // (deriveDeliveryStatus reads its presence) but previously discarded rather than
+            // returned; tracking_number is Lob's carrier tracking number once USPS assigns one
+            // (absent before the first scan, and always absent in test mode) -- both best-effort,
+            // same as the status string itself.
+            String trackingNumber = asNonBlankString(postcard.get("tracking_number"));
+            LocalDate expectedDeliveryDate = parseLocalDate(postcard.get("expected_delivery_date"));
+            return Optional.of(new PostcardStatusResult(status, trackingNumber, expectedDeliveryDate));
         } catch (RestClientResponseException ex) {
             // A 404 (unknown id) or other 4xx/5xx. Best-effort: skip this recipient, keep prior
             // status. WARN with status only (never the body, it can echo address fields).
@@ -175,6 +187,83 @@ public class LobPrintMailAdapter implements PrintMailPort {
             log.warn("lob postcard status fetch failed (transport)", ex);
             return Optional.empty();
         }
+    }
+
+    private static String asNonBlankString(Object value) {
+        if (value == null) return null;
+        String s = value.toString().trim();
+        return s.isEmpty() ? null : s;
+    }
+
+    private static LocalDate parseLocalDate(Object value) {
+        String s = asNonBlankString(value);
+        if (s == null) return null;
+        try {
+            // Lob returns an ISO date (occasionally with a time component); take the date part.
+            return LocalDate.parse(s.length() > 10 ? s.substring(0, 10) : s);
+        } catch (DateTimeParseException ex) {
+            return null;
+        }
+    }
+
+    @Override
+    public AddressVerificationResult verifyAddress(ToAddress address) {
+        if (apiKey == null || apiKey.isBlank()) {
+            // Fail open: an unconfigured key must not block the whole pre-payment validation
+            // pass. sendPostcard already fails closed for the actual mail send, so an
+            // unconfigured key never results in an uncharged/unverified postcard actually mailing.
+            return new AddressVerificationResult(true, null);
+        }
+        log.debug("verifying address with lob");
+        Map<String, Object> body = buildVerificationRequestBody(address);
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restClient.post()
+                    .uri("/us_verifications")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(Map.class);
+            AddressVerificationResult result = classifyDeliverability(response);
+            log.debug("lob address verification result, deliverable={}", result.deliverable());
+            return result;
+        } catch (RestClientResponseException ex) {
+            log.warn("lob address verification rejected, status={}", ex.getStatusCode());
+            return new AddressVerificationResult(true, null);
+        } catch (org.springframework.web.client.RestClientException ex) {
+            log.warn("lob address verification failed (transport)", ex);
+            return new AddressVerificationResult(true, null);
+        }
+    }
+
+    // Package-private so the request contract is unit-testable without a live Lob call, same
+    // reasoning as buildRequestBody above.
+    Map<String, Object> buildVerificationRequestBody(ToAddress address) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("primary_line", address.addressLine1());
+        if (address.addressLine2() != null && !address.addressLine2().isBlank()) {
+            body.put("secondary_line", address.addressLine2());
+        }
+        body.put("city", address.city());
+        body.put("state", address.state());
+        body.put("zip_code", address.zip());
+        return body;
+    }
+
+    // Package-private so the deliverability classification is unit-testable against a plain
+    // response map, without a live Lob call. See AddressVerificationResult's javadoc for why
+    // only "undeliverable" is treated as non-deliverable.
+    AddressVerificationResult classifyDeliverability(Map<String, Object> response) {
+        String deliverability = response == null ? null : asNonBlankString(response.get("deliverability"));
+        if ("undeliverable".equals(deliverability)) {
+            return new AddressVerificationResult(false,
+                    "This address could not be verified as a valid USPS deliverable address.");
+        }
+        // deliverable, deliverable_unnecessary_unit, deliverable_incorrect_unit,
+        // deliverable_missing_unit, or an unrecognized/missing value -- treat the latter as
+        // fail-open (a verification-schema surprise must not block a couple's whole order; Lob's
+        // own postcard-creation rejection remains the fallback safety net).
+        return new AddressVerificationResult(true, null);
     }
 
     // Maps a Lob postcard object to a short, human-readable delivery status for the couple.

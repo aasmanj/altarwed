@@ -1,11 +1,13 @@
 package com.altarwed.infrastructure.lob;
 
+import com.altarwed.domain.port.PrintMailPort.AddressVerificationResult;
 import com.altarwed.domain.port.PrintMailPort.FromAddress;
 import com.altarwed.domain.port.PrintMailPort.PostcardRequest;
 import com.altarwed.domain.port.PrintMailPort.ToAddress;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -161,5 +163,50 @@ class LobPrintMailAdapterTest {
         Map<String, Object> postcard = Map.of("tracking_events", List.of(
                 Map.of("name", "x".repeat(50))));
         assertThat(adapter.deriveDeliveryStatus(postcard)).hasSize(32);
+    }
+
+    // Issue #59: pre-payment address verification (Lob's us_verifications product).
+
+    @Test
+    void buildVerificationRequestBody_mapsAddressFields() {
+        Map<String, Object> body = adapter.buildVerificationRequestBody(US_RECIPIENT);
+        assertThat(body).containsEntry("primary_line", "2 Oak Ave");
+        assertThat(body).containsEntry("city", "Dallas");
+        assertThat(body).containsEntry("state", "TX");
+        assertThat(body).containsEntry("zip_code", "75201");
+        assertThat(body).doesNotContainKey("secondary_line");
+    }
+
+    @Test
+    void buildVerificationRequestBody_includesSecondaryLineWhenPresent() {
+        ToAddress withUnit = new ToAddress("Jesse Aasman", "2 Oak Ave", "Apt 4", "Dallas", "TX", "75201", "US");
+        Map<String, Object> body = adapter.buildVerificationRequestBody(withUnit);
+        assertThat(body).containsEntry("secondary_line", "Apt 4");
+    }
+
+    @Test
+    void classifyDeliverability_rejectsOnlyUndeliverable() {
+        AddressVerificationResult result = adapter.classifyDeliverability(Map.of("deliverability", "undeliverable"));
+        assertThat(result.deliverable()).isFalse();
+        assertThat(result.reason()).isNotBlank();
+    }
+
+    @Test
+    void classifyDeliverability_acceptsDeliverableWithMinorUnitDiscrepancies() {
+        // These three are still genuinely USPS-deliverable per Lob's own docs, just with a unit
+        // mismatch/missing/incorrect -- must not block the couple's order or the charge.
+        assertThat(adapter.classifyDeliverability(Map.of("deliverability", "deliverable")).deliverable()).isTrue();
+        assertThat(adapter.classifyDeliverability(Map.of("deliverability", "deliverable_unnecessary_unit")).deliverable()).isTrue();
+        assertThat(adapter.classifyDeliverability(Map.of("deliverability", "deliverable_incorrect_unit")).deliverable()).isTrue();
+        assertThat(adapter.classifyDeliverability(Map.of("deliverability", "deliverable_missing_unit")).deliverable()).isTrue();
+    }
+
+    @Test
+    void classifyDeliverability_failsOpenOnMissingOrUnrecognizedValue() {
+        // A verification-schema surprise must not block the whole order; Lob's own
+        // postcard-creation rejection remains the fallback safety net.
+        assertThat(adapter.classifyDeliverability(new HashMap<>()).deliverable()).isTrue();
+        assertThat(adapter.classifyDeliverability(Map.of("deliverability", "something_new")).deliverable()).isTrue();
+        assertThat(adapter.classifyDeliverability(null).deliverable()).isTrue();
     }
 }

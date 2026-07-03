@@ -3,6 +3,7 @@ package com.altarwed.infrastructure.persistence.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
@@ -37,4 +38,10 @@ public class PrintOrderRecipientEntity {
 
     @Column(name = "error_message", length = 500)
     private String errorMessage;
+
+    @Column(name = "tracking_number", length = 64)
+    private String trackingNumber;
+
+    @Column(name = "expected_delivery_date")
+    private LocalDate expectedDeliveryDate;
 }
