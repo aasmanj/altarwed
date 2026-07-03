@@ -15,6 +15,7 @@ import com.altarwed.domain.exception.WeddingPageBlockNotFoundException;
 import com.altarwed.domain.exception.WeddingPartyMemberNotFoundException;
 import com.altarwed.domain.exception.WeddingPhotoNotFoundException;
 import com.altarwed.domain.exception.InvalidPasswordResetTokenException;
+import com.altarwed.domain.exception.InvalidPriceIdException;
 import com.altarwed.domain.exception.InvalidPromoCodeException;
 import com.altarwed.domain.exception.InvalidRefreshTokenException;
 import com.altarwed.domain.exception.InvalidRsvpTokenException;
@@ -237,6 +238,15 @@ public class GlobalExceptionHandler {
         var pd = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
         pd.setType(URI.create("https://altarwed.com/problems/invalid-promo-code"));
         pd.setTitle("Invalid Promo Code");
+        pd.setDetail(ex.getMessage());
+        return pd;
+    }
+
+    @ExceptionHandler(InvalidPriceIdException.class)
+    public ProblemDetail handleInvalidPriceId(InvalidPriceIdException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        pd.setType(URI.create("https://altarwed.com/problems/invalid-price-id"));
+        pd.setTitle("Invalid Price ID");
         pd.setDetail(ex.getMessage());
         return pd;
     }

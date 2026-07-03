@@ -1,5 +1,6 @@
 package com.altarwed.application.service;
 
+import com.altarwed.domain.exception.InvalidPriceIdException;
 import com.altarwed.domain.model.PlanTier;
 import com.altarwed.domain.model.PrintOrder;
 import com.altarwed.domain.model.PrintOrderStatus;
@@ -23,6 +24,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -57,6 +59,52 @@ class StripeServiceTest {
         service = new StripeService(stripePort, subscriptionRepository, vendorService,
                 printOrderRepository, printOrderService,
                 "https://app.altarwed.com", "price_monthly", "price_annual");
+    }
+
+    // -------------------------------------------------------------------------
+    // Issue #45: checkout priceId allow-list
+    // -------------------------------------------------------------------------
+
+    @Test
+    void createCheckoutSessionRejectsAPriceIdOutsideTheConfiguredAllowList() {
+        assertThatThrownBy(() -> service.createCheckoutSession(vendorId, "vendor@example.com", "price_evil"))
+                .isInstanceOf(InvalidPriceIdException.class);
+
+        verifyNoInteractions(stripePort);
+        verify(subscriptionRepository, never()).save(any());
+    }
+
+    @Test
+    void createCheckoutSessionRejectsANullOrBlankPriceId() {
+        assertThatThrownBy(() -> service.createCheckoutSession(vendorId, "vendor@example.com", null))
+                .isInstanceOf(InvalidPriceIdException.class);
+        assertThatThrownBy(() -> service.createCheckoutSession(vendorId, "vendor@example.com", ""))
+                .isInstanceOf(InvalidPriceIdException.class);
+
+        verifyNoInteractions(stripePort);
+        verify(subscriptionRepository, never()).save(any());
+    }
+
+    @Test
+    void createCheckoutSessionSucceedsForTheConfiguredMonthlyPrice() {
+        when(subscriptionRepository.findByVendorId(vendorId)).thenReturn(Optional.of(activeSubscription(null)));
+        when(stripePort.createCheckoutSession(eq(vendorId), eq("vendor@example.com"), eq("price_monthly"), any(), any()))
+                .thenReturn("https://checkout.stripe.com/session_1");
+
+        String url = service.createCheckoutSession(vendorId, "vendor@example.com", "price_monthly");
+
+        assertThat(url).isEqualTo("https://checkout.stripe.com/session_1");
+    }
+
+    @Test
+    void createCheckoutSessionSucceedsForTheConfiguredAnnualPrice() {
+        when(subscriptionRepository.findByVendorId(vendorId)).thenReturn(Optional.of(activeSubscription(null)));
+        when(stripePort.createCheckoutSession(eq(vendorId), eq("vendor@example.com"), eq("price_annual"), any(), any()))
+                .thenReturn("https://checkout.stripe.com/session_2");
+
+        String url = service.createCheckoutSession(vendorId, "vendor@example.com", "price_annual");
+
+        assertThat(url).isEqualTo("https://checkout.stripe.com/session_2");
     }
 
     // -------------------------------------------------------------------------
