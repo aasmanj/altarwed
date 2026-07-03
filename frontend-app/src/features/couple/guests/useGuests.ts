@@ -105,6 +105,13 @@ export function useGuests(coupleId: string) {
   return useQuery<Guest[]>({
     queryKey: key(coupleId),
     queryFn: () => apiClient.get(`/api/v1/guests/couple/${coupleId}`).then(r => r.data),
+    // Override the app-wide 5-minute staleTime default (main.tsx). Unlike budget/checklist/
+    // website data, guest RSVP status can change from outside this app entirely: a guest
+    // submits their RSVP on the public Next.js wedding site with no auth (GuestService.
+    // submitRsvp), which never touches this browser's cache. Treating this query as always
+    // stale means every remount/window-refocus refetches, so the RSVP tally on the dashboard
+    // (AtAGlanceCard) reflects guest activity that happened while the couple wasn't looking.
+    staleTime: 0,
   })
 }
 

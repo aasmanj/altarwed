@@ -1,18 +1,7 @@
 import { notFound } from 'next/navigation'
 import { Camera } from 'lucide-react'
 import { getWedding } from '@/app/wedding/[slug]/data'
-import { framingStyle } from '@/lib/imageFraming'
-
-interface WeddingPhoto {
-  id: string
-  url: string
-  caption: string | null
-  sortOrder: number
-  // Non-destructive framing (backend V70). null = centered / no zoom.
-  focalPointX: number | null
-  focalPointY: number | null
-  zoom: number | null
-}
+import PhotoGalleryClient, { type WeddingPhoto } from './PhotoGalleryClient'
 
 async function getPhotos(slug: string): Promise<WeddingPhoto[]> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
@@ -52,36 +41,10 @@ export default async function PhotosPage(
           </p>
         </div>
       ) : (
-        // Uniform square grid (not masonry) so each photo honors the framing the couple
-        // set in the dashboard. Center-crop is the default; the couple repositions any
-        // photo that crops awkwardly. The anchor opens the full, uncropped original.
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {photos.map(photo => (
-            <div key={photo.id} className="rounded-xl overflow-hidden shadow-sm border border-[#e8dcc8] bg-white">
-              <a
-                href={photo.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block aspect-square overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af6a]"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={photo.url}
-                  alt={photo.caption ?? `${wedding.partnerTwoName} and ${wedding.partnerOneName}`}
-                  loading="lazy"
-                  decoding="async"
-                  className="w-full h-full"
-                  style={framingStyle(photo)}
-                />
-              </a>
-              {photo.caption && (
-                <div className="px-3 py-2">
-                  <p className="text-xs text-[#8a6a4a] leading-relaxed">{photo.caption}</p>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+        <PhotoGalleryClient
+          photos={photos}
+          coupleNames={`${wedding.partnerTwoName} and ${wedding.partnerOneName}`}
+        />
       )}
     </div>
   )

@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import InquiryForm from './InquiryForm'
+import { useLightbox, LightboxFrame } from '@/components/Lightbox'
 
 export interface PortfolioPhoto {
   id: string
@@ -35,75 +35,14 @@ interface Props {
 }
 
 export default function VendorPageClient({ vendor, portfolioPhotos, category }: Props) {
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
-
-  const lightboxRef = useRef<HTMLDivElement>(null)
-  const closeButtonRef = useRef<HTMLButtonElement>(null)
-  const triggerRef = useRef<HTMLElement | null>(null)
-  const prevLightboxIndex = useRef<number | null>(null)
+  const { index: lightboxIndex, open: openLightbox, close: closeLightbox, goPrev, goNext, lightboxRef, closeButtonRef } =
+    useLightbox(portfolioPhotos.length)
 
   const bannerPhotos = portfolioPhotos.slice(0, 3)
   // Only render website link for http/https URLs to prevent javascript: injection.
   const safeWebsiteUrl = vendor.websiteUrl && /^https?:\/\//i.test(vendor.websiteUrl)
     ? vendor.websiteUrl
     : null
-
-  const openLightbox = useCallback((idx: number, trigger: HTMLElement) => {
-    triggerRef.current = trigger
-    setLightboxIndex(idx)
-  }, [])
-
-  const closeLightbox = useCallback(() => {
-    setLightboxIndex(null)
-    triggerRef.current?.focus()
-  }, [])
-
-  const goPrev = useCallback(() => {
-    setLightboxIndex(i => i !== null ? (i - 1 + portfolioPhotos.length) % portfolioPhotos.length : null)
-  }, [portfolioPhotos.length])
-
-  const goNext = useCallback(() => {
-    setLightboxIndex(i => i !== null ? (i + 1) % portfolioPhotos.length : null)
-  }, [portfolioPhotos.length])
-
-  useEffect(() => {
-    if (lightboxIndex === null) {
-      prevLightboxIndex.current = null
-      return
-    }
-    // Only move focus to the close button on initial open, not on every photo navigation.
-    // If focus moved to close button on every next/prev, a keyboard user pressing arrow → Enter
-    // would have focus yanked away from the nav button each time.
-    if (prevLightboxIndex.current === null) {
-      closeButtonRef.current?.focus()
-    }
-    prevLightboxIndex.current = lightboxIndex
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { closeLightbox(); return }
-      if (e.key === 'ArrowLeft') { goPrev(); return }
-      if (e.key === 'ArrowRight') { goNext(); return }
-      if (e.key !== 'Tab') return
-      const el = lightboxRef.current
-      if (!el) return
-      const focusable = el.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      )
-      if (focusable.length === 0) return
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault()
-        last.focus()
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault()
-        first.focus()
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [lightboxIndex, closeLightbox, goPrev, goNext])
 
   const bannerCols =
     bannerPhotos.length === 1 ? 'grid-cols-1' :
@@ -270,60 +209,25 @@ export default function VendorPageClient({ vendor, portfolioPhotos, category }: 
       </main>
 
       {currentPhoto !== null && lightboxIndex !== null && (
-        <div
-          ref={lightboxRef}
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Portfolio viewer: photo ${lightboxIndex + 1} of ${portfolioPhotos.length}`}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
-          onClick={closeLightbox}
+        <LightboxFrame
+          index={lightboxIndex}
+          count={portfolioPhotos.length}
+          ariaLabel={`Portfolio viewer: photo ${lightboxIndex + 1} of ${portfolioPhotos.length}`}
+          onClose={closeLightbox}
+          onPrev={goPrev}
+          onNext={goNext}
+          lightboxRef={lightboxRef}
+          closeButtonRef={closeButtonRef}
         >
-          <button
-            ref={closeButtonRef}
-            onClick={closeLightbox}
-            className="absolute top-4 right-5 text-white/70 hover:text-white text-4xl leading-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
-            aria-label="Close viewer"
-          >
-            &times;
-          </button>
-
-          {portfolioPhotos.length > 1 && (
-            <button
-              onClick={e => { e.stopPropagation(); goPrev() }}
-              className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-3xl p-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white rounded-full"
-              aria-label="Previous photo"
-            >
-              &#8592;
-            </button>
+          <img
+            src={currentPhoto.photoUrl}
+            alt={currentPhoto.caption ?? `${vendor.businessName} portfolio photo ${lightboxIndex + 1}`}
+            className="max-h-[80vh] max-w-full object-contain rounded-lg"
+          />
+          {currentPhoto.caption && (
+            <p className="text-white/80 text-sm text-center">{currentPhoto.caption}</p>
           )}
-
-          <div
-            className="px-16 sm:px-20 max-w-5xl w-full flex flex-col items-center gap-3"
-            onClick={e => e.stopPropagation()}
-          >
-            <img
-              src={currentPhoto.photoUrl}
-              alt={currentPhoto.caption ?? `${vendor.businessName} portfolio photo ${lightboxIndex + 1}`}
-              className="max-h-[80vh] max-w-full object-contain rounded-lg"
-            />
-            {currentPhoto.caption && (
-              <p className="text-white/80 text-sm text-center">{currentPhoto.caption}</p>
-            )}
-            <p className="text-white/40 text-xs" aria-live="polite">
-              {lightboxIndex + 1} / {portfolioPhotos.length}
-            </p>
-          </div>
-
-          {portfolioPhotos.length > 1 && (
-            <button
-              onClick={e => { e.stopPropagation(); goNext() }}
-              className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-3xl p-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white rounded-full"
-              aria-label="Next photo"
-            >
-              &#8594;
-            </button>
-          )}
-        </div>
+        </LightboxFrame>
       )}
     </>
   )
