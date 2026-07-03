@@ -5,8 +5,8 @@ import { shouldShowDraftBanner } from './DraftBanner'
 
 // Issue #159: an unpublished ("draft") wedding site generates zero SEO and zero
 // viral traffic, but couples can finish onboarding without realizing guests
-// can't see it. Both editors now render a persistent draft banner with an
-// inline Publish action.
+// can't see it. The editor renders a persistent draft banner with an inline
+// Publish action.
 //
 // frontend-app's vitest runs in a node environment (no jsdom / testing-library),
 // so the behavioral contract is verified two ways:
@@ -48,13 +48,8 @@ describe('draft banner wiring (issue #159)', () => {
     expect(src).not.toContain(EM_DASH)
   })
 
-  it('classic editor renders the banner and reuses its publish handler', () => {
-    const src = read('features/couple/website/WeddingWebsiteEditor.tsx')
-    expect(src).toContain('import DraftBanner')
-    expect(src).toContain('<DraftBanner')
-    expect(src).toContain('isPublished={website.isPublished}')
-    expect(src).toContain('onPublish={handlePublishToggle}')
-  })
+  // The classic editor's equivalent assertion here was removed along with the
+  // classic editor itself (issue #181) -- the page builder is the only editor now.
 
   it('side-by-side editor renders the banner and reuses its publish handler', () => {
     const src = read('features/couple/website/blocks/SideBySideEditor.tsx')

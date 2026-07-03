@@ -27,30 +27,8 @@ function funcSource(src: string, name: string): string {
   return match![0]
 }
 
-describe('WeddingWebsiteEditor Row helper label association (issue #185)', () => {
-  const src = read('features/couple/website/WeddingWebsiteEditor.tsx')
-
-  it('gives the Row label a programmatic target via a generated id', () => {
-    const row = funcSource(src, 'Row')
-    // The label now points at a stable useId() value...
-    expect(row).toContain('const id = useId()')
-    expect(row).toContain('<label htmlFor={id}')
-    // ...shared with the wrapped control through context (rather than nesting
-    // the input inside the label, which would pull the sibling buttons into the
-    // label content model).
-    expect(row).toContain('RowIdContext.Provider value={id}')
-  })
-
-  it('has the Input/Textarea helpers adopt the Row id', () => {
-    const input = funcSource(src, 'Input')
-    expect(input).toContain('useContext(RowIdContext)')
-    expect(input).toContain('id={id ?? rowId}')
-
-    const textarea = funcSource(src, 'Textarea')
-    expect(textarea).toContain('useContext(RowIdContext)')
-    expect(textarea).toContain('id={id ?? rowId}')
-  })
-})
+// The WeddingWebsiteEditor Row/Input/Textarea label-association suite that
+// used to live here was removed along with the classic editor (issue #181).
 
 describe('WeddingWebsiteSetup Field helper label association (issue #185)', () => {
   const src = read('features/couple/website/WeddingWebsiteSetup.tsx')

@@ -34,7 +34,7 @@ export default function WeddingPartyPage() {
           <div className="rounded-xl border border-gold-light bg-white p-8 text-center mb-8">
             <p className="text-brown font-medium mb-1">Set up your wedding website first</p>
             <p className="text-sm text-brown-light mb-4">Wedding party is tied to your public wedding page.</p>
-            <Link to="/dashboard/website" className="text-sm text-gold hover:underline">
+            <Link to="/dashboard/website/editor" className="text-sm text-gold hover:underline">
               Set up wedding website →
             </Link>
           </div>

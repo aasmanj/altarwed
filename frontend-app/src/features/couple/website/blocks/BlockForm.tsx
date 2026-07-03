@@ -532,20 +532,21 @@ function BlockImageUpload({
   )
 }
 
-// Link to a specific tab in the classic wedding website editor. The classic
-// editor (WeddingWebsiteEditor) reads ?tab=<id> on mount, so we MUST carry the
-// query string here, otherwise the link silently lands on the default "Our
-// Story" tab and the couple never finds the Event Details fields.
+// Link to a specific tab in the page builder (issue #181: the classic editor
+// is retired). SideBySideEditor reads ?tab=<BlockTab> on mount, so we MUST
+// carry the query string here, otherwise the link silently lands on the
+// default Home tab and the couple never finds the Event Details fields. Note
+// "hotel" maps to the TRAVEL block tab, not a literal "hotel" tab.
 const TAB_PATHS: Record<string, string> = {
-  details:      '/dashboard/website?tab=details',
-  hotel:        '/dashboard/website?tab=hotel',
+  details:      '/dashboard/website/editor?tab=details',
+  hotel:        '/dashboard/website/editor?tab=travel',
   photos:       '/dashboard/photos',
   vows:         '/dashboard/vows',
   weddingparty: '/dashboard/wedding-party',
 }
 
 function EditorLink({ tab, children }: { tab: string; children: React.ReactNode }) {
-  const path = TAB_PATHS[tab] ?? '/dashboard/website'
+  const path = TAB_PATHS[tab] ?? '/dashboard/website/editor'
   return (
     <Link to={path} className="text-amber-700 underline hover:text-amber-900">
       {children}

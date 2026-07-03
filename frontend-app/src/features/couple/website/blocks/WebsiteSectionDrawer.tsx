@@ -5,15 +5,13 @@ import { apiClient } from '@/core/api/client'
 import { normalizeImageFile, isAllowedImageType, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, uploadErrorMessage } from '@/lib/upload'
 import { useHotels, useAddHotel, useUpdateHotel, useDeleteHotel } from '../useHotels'
-import { HotelTab } from '../WeddingWebsiteEditor'
+import { HotelTab } from '../HotelTab'
 import WeddingPartyManager from '@/features/couple/weddingparty/WeddingPartyManager'
 import type { WebsiteSection } from './blockEditContext'
 
 // In-editor slide-over for editing the structured data behind a data-driven
-// card block (venue/hotel/registry). Replaces the old "navigate to the classic
-// editor" dead-end: the couple edits the underlying fields right here and the
-// live preview refreshes on close. Saves through the same proven mutations the
-// classic editor uses, so the data path is unchanged.
+// card block (venue/hotel/registry). The couple edits the underlying fields
+// right here and the live preview refreshes on close.
 interface Props {
   section: WebsiteSection
   website: WeddingWebsite

@@ -1,15 +1,15 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import path from 'path'
-import { shouldShowNoHotelsEmptyState } from './WeddingWebsiteEditor'
+import { shouldShowNoHotelsEmptyState } from './HotelTab'
 
-// Behavioral guard for issue #187: the Travel tab / travel drawer section must
-// not flash "No hotels added yet" while the hotels query is still loading (the
-// array defaults to [] before the request resolves, so an empty array on its own
-// is ambiguous). vitest runs in a node environment here (no jsdom /
+// Behavioral guard for issue #187: the Travel drawer section must not flash "No
+// hotels added yet" while the hotels query is still loading (the array defaults
+// to [] before the request resolves, so an empty array on its own is
+// ambiguous). vitest runs in a node environment here (no jsdom /
 // testing-library), so we assert on the pure decision predicate plus the
-// load-bearing JSX wiring at both call sites. Each assertion fails on the
-// pre-fix source and passes after, which is the contract for this fix.
+// load-bearing JSX wiring. Each assertion fails on the pre-fix source and
+// passes after, which is the contract for this fix.
 function read(rel: string): string {
   return readFileSync(path.join(process.cwd(), 'src', rel), 'utf8')
 }
@@ -35,7 +35,7 @@ describe('hotels loading empty-state gating (#187)', () => {
   })
 
   it('gates the empty state on the loading-aware predicate in HotelTab', () => {
-    const src = read('features/couple/website/WeddingWebsiteEditor.tsx')
+    const src = read('features/couple/website/HotelTab.tsx')
     // The empty-state copy is rendered only via the predicate, and a distinct
     // loading branch covers the pending state.
     expect(src).toContain('shouldShowNoHotelsEmptyState(hotels.length, isLoading, editingId === \'new\')')
@@ -43,13 +43,9 @@ describe('hotels loading empty-state gating (#187)', () => {
     expect(src).toContain('Loading hotels…')
   })
 
-  it('wires isLoading from useHotels into HotelTab at both call sites', () => {
-    const editor = read('features/couple/website/WeddingWebsiteEditor.tsx')
-    // Location 1: the classic editor's Travel tab.
-    expect(editor).toContain('isLoading: hotelsLoading } = useHotels(website.id)')
-    expect(editor).toContain('isLoading={hotelsLoading}')
-
-    // Location 2: the block-editor travel drawer section.
+  it('wires isLoading from useHotels into HotelTab in the travel drawer section', () => {
+    // Issue #181: the classic editor (a second call site here) was retired;
+    // the page-builder's travel drawer is now the only place HotelTab is used.
     const drawer = read('features/couple/website/blocks/WebsiteSectionDrawer.tsx')
     expect(drawer).toContain('isLoading: hotelsLoading } = useHotels(websiteId)')
     expect(drawer).toContain('isLoading={hotelsLoading}')
