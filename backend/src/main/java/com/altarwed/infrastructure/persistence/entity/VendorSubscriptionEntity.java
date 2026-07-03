@@ -48,6 +48,9 @@ public class VendorSubscriptionEntity {
     @Column(name = "cancelled_at")
     private LocalDateTime cancelledAt;
 
+    @Column(name = "last_stripe_event_at")
+    private LocalDateTime lastStripeEventAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

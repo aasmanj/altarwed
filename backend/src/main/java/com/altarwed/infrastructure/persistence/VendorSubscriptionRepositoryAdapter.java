@@ -48,7 +48,8 @@ public class VendorSubscriptionRepositoryAdapter implements VendorSubscriptionRe
                 e.getCurrentPeriodEnd(),
                 e.getCancelledAt(),
                 e.getCreatedAt(),
-                e.getUpdatedAt()
+                e.getUpdatedAt(),
+                e.getLastStripeEventAt()
         );
     }
 
@@ -65,6 +66,7 @@ public class VendorSubscriptionRepositoryAdapter implements VendorSubscriptionRe
                 .cancelledAt(sub.cancelledAt())
                 .createdAt(sub.createdAt())
                 .updatedAt(sub.updatedAt())
+                .lastStripeEventAt(sub.lastStripeEventAt())
                 .build();
     }
 }

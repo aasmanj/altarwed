@@ -103,20 +103,22 @@ public class StripeAdapter implements StripePort {
 
         String eventType = event.getType();
         log.info("stripe webhook event received, eventType={}", eventType);
+        Instant eventCreatedAt = event.getCreated() != null
+                ? Instant.ofEpochSecond(event.getCreated()) : null;
 
         return switch (eventType) {
             case "customer.subscription.created", "customer.subscription.updated",
-                 "customer.subscription.deleted" -> extractSubscriptionEvent(event, eventType);
-            case "invoice.payment_failed" -> extractInvoiceEvent(event);
-            default -> new StripeEventData(eventType, null, null, null, null, null, null, null, null);
+                 "customer.subscription.deleted" -> extractSubscriptionEvent(event, eventType, eventCreatedAt);
+            case "invoice.payment_failed" -> extractInvoiceEvent(event, eventCreatedAt);
+            default -> new StripeEventData(eventType, null, null, null, null, null, null, null, null, eventCreatedAt);
         };
     }
 
-    private StripeEventData extractSubscriptionEvent(Event event, String eventType) {
+    private StripeEventData extractSubscriptionEvent(Event event, String eventType, Instant eventCreatedAt) {
         var deserializer = event.getDataObjectDeserializer();
         if (deserializer.getObject().isEmpty()) {
             log.warn("stripe subscription event had no deserializable object, eventType={}", eventType);
-            return new StripeEventData(eventType, null, null, null, null, null, null, null, null);
+            return new StripeEventData(eventType, null, null, null, null, null, null, null, null, eventCreatedAt);
         }
         Subscription sub = (Subscription) deserializer.getObject().get();
 
@@ -144,22 +146,24 @@ public class StripeAdapter implements StripePort {
                 sub.getStatus(),
                 periodStart,
                 periodEnd,
-                cancelledAt
+                cancelledAt,
+                eventCreatedAt
         );
     }
 
-    private StripeEventData extractInvoiceEvent(Event event) {
+    private StripeEventData extractInvoiceEvent(Event event, Instant eventCreatedAt) {
         var deserializer = event.getDataObjectDeserializer();
         if (deserializer.getObject().isEmpty()) {
             log.warn("stripe invoice event had no deserializable object");
-            return new StripeEventData("invoice.payment_failed", null, null, null, null, null, null, null, null);
+            return new StripeEventData("invoice.payment_failed", null, null, null, null, null, null, null, null, eventCreatedAt);
         }
         Invoice invoice = (Invoice) deserializer.getObject().get();
         return new StripeEventData(
                 "invoice.payment_failed",
                 invoice.getSubscription(),
                 invoice.getCustomer(),
-                null, null, null, null, null, null
+                null, null, null, null, null, null,
+                eventCreatedAt
         );
     }
 

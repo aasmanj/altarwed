@@ -102,7 +102,8 @@ public class VendorPromoService {
                 null,                       // currentPeriodEnd null = perpetual comp (no renewal/billing)
                 null,                       // cancelledAt
                 existing != null ? existing.createdAt() : now,
-                now
+                now,
+                existing != null ? existing.lastStripeEventAt() : null
         );
         VendorSubscription saved = subscriptionRepository.save(comped);
 
@@ -146,7 +147,8 @@ public class VendorPromoService {
                 periodEnd,              // currentPeriodEnd: free through this date
                 null,                   // cancelledAt
                 now,
-                now
+                now,
+                null                    // no Stripe event has touched this row yet
         );
         subscriptionRepository.save(foundingSub);
         log.info("founding vendor access granted, vendorId={}, freeUntil={}", vendorId, periodEnd);

@@ -199,7 +199,7 @@ class VendorPromoServiceTest {
         // nulling them here would desync the Stripe webhooks, so the comp must leave them alone.
         VendorSubscription stripeBacked = new VendorSubscription(
                 UUID.randomUUID(), vendorId, PlanTier.FEATURED, SubscriptionStatus.PAST_DUE,
-                "cus_123", "sub_123", now, now.plusMonths(1), null, now, now
+                "cus_123", "sub_123", now, now.plusMonths(1), null, now, now, now
         );
         when(subscriptionRepository.findByVendorId(vendorId)).thenReturn(Optional.of(stripeBacked));
 
@@ -220,7 +220,7 @@ class VendorPromoServiceTest {
         // not fall through to the Upgrade panel.
         VendorSubscription cancelled = new VendorSubscription(
                 UUID.randomUUID(), vendorId, PlanTier.FEATURED, SubscriptionStatus.CANCELLED,
-                "cus_123", "sub_123", now, now.plusMonths(1), now, now, now
+                "cus_123", "sub_123", now, now.plusMonths(1), now, now, now, now
         );
         when(subscriptionRepository.findByVendorId(vendorId)).thenReturn(Optional.of(cancelled));
         when(subscriptionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));

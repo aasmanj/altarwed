@@ -21,7 +21,10 @@ public interface StripePort {
             String stripeStatus,
             Instant currentPeriodStart,
             Instant currentPeriodEnd,
-            Instant cancelledAt
+            Instant cancelledAt,
+            // The Stripe event's own `created` timestamp (not the subscription's). Used to detect
+            // and drop stale, out-of-order webhook deliveries -- see StripeService's staleness guard.
+            Instant eventCreatedAt
     ) {}
 
     class StripeCallException extends RuntimeException {
