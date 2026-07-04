@@ -58,10 +58,17 @@ public class WeddingWebsiteController {
         return ResponseEntity.ok(websiteService.search(name, year));
     }
 
-    // Public, fetched by sitemap.ts to build /sitemap.xml (slug + updatedAt only, no PII)
+    // Public, fetched by sitemapData.ts to build /sitemap.xml (slug + updatedAt only, no PII).
+    // Paged (issue #241): the feed is deterministic (ordered by id) and bounded per request, so it
+    // never streams the whole published-sites table as the catalog grows. The sitemap loader walks
+    // pages until one comes back short. page is zero-based; size defaults to the server-side ceiling
+    // and is clamped in the service. Boxed Integer request params carry the defaults.
     @GetMapping("/published")
-    public ResponseEntity<List<WeddingWebsiteSitemapEntry>> getAllPublished() {
-        List<WeddingWebsiteSitemapEntry> entries = websiteService.getAllPublished()
+    public ResponseEntity<List<WeddingWebsiteSitemapEntry>> getAllPublished(
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "1000") Integer size
+    ) {
+        List<WeddingWebsiteSitemapEntry> entries = websiteService.getPublishedPage(page, size)
                 .stream()
                 .map(s -> new WeddingWebsiteSitemapEntry(s.slug(), s.updatedAt()))
                 .toList();

@@ -31,8 +31,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * in CI) runs it after Flyway applies every migration.
  *
  * What it asserts (each maps to an acceptance criterion):
- *   1. Contract unchanged: findPublishedSummaries() returns one (slug, updatedAt) per published,
- *      non-deleted site, and excludes unpublished and soft-deleted sites.
+ *   1. Contract unchanged: findPublishedSummaries(page, size) returns one (slug, updatedAt) per
+ *      published, non-deleted site, and excludes unpublished and soft-deleted sites.
  *   2. No full-entity hydration: Hibernate's entity-load counter stays at zero across the query
  *      even though rows are returned. Before the fix (findAll...() returning full entities) this
  *      counter would equal the number of published rows.
@@ -77,7 +77,7 @@ class PublishedWeddingWebsiteProjectionTest {
             statistics.setStatisticsEnabled(true);
             statistics.clear();
 
-            List<WeddingWebsiteSummary> summaries = websiteRepository.findPublishedSummaries();
+            List<WeddingWebsiteSummary> summaries = websiteRepository.findPublishedSummaries(0, 1000);
 
             List<WeddingWebsiteSummary> seeded = summaries.stream()
                     .filter(s -> s.slug().startsWith(MARKER))
@@ -115,6 +115,72 @@ class PublishedWeddingWebsiteProjectionTest {
             // null. Cleaning up whatever couples DID get created must not NPE either way.
             for (UUID coupleId : java.util.Arrays.asList(coupleA, coupleB, coupleUnpublished, coupleDeleted)) {
                 if (coupleId == null) continue;
+                jdbcTemplate.update("DELETE FROM couples WHERE id = ?", coupleId.toString());
+            }
+        }
+    }
+
+    // Marker for the pagination test's rows, distinct from MARKER so the two tests never
+    // see each other's seed data when they share the schema-validation database.
+    private static final String PAGE_MARKER = "bug241-";
+
+    /**
+     * Behavioral proof of issue #241: the sitemap feed is paged and deterministically ordered.
+     * Walking size-2 pages until a short page (exactly what sitemapData.ts does) must:
+     *   1. return every published, non-deleted marker site and no unpublished/soft-deleted one,
+     *   2. never duplicate or skip a row across a page boundary, and
+     *   3. yield rows in ascending id order (stable paging), matching an independent id-ordered
+     *      SQL query over the same marker rows.
+     */
+    @Test
+    void findPublishedSummaries_walksPages_deterministicOrder_onlyPublished() {
+        java.util.List<UUID> couples = new java.util.ArrayList<>();
+        try {
+            // Five published, non-deleted sites plus one unpublished and one soft-deleted decoy.
+            for (int i = 0; i < 5; i++) {
+                UUID couple = seedCouple();
+                couples.add(couple);
+                jpaRepository.save(site(couple, PAGE_MARKER + "pub-" + i, true, false));
+            }
+            UUID unpublished = seedCouple();
+            couples.add(unpublished);
+            jpaRepository.save(site(unpublished, PAGE_MARKER + "unpublished", false, false));
+            UUID deleted = seedCouple();
+            couples.add(deleted);
+            jpaRepository.save(site(deleted, PAGE_MARKER + "deleted", true, true));
+
+            // Walk every page of size 2 until one comes back short, exactly like the sitemap loader.
+            int size = 2;
+            java.util.List<String> walkedMarkerSlugs = new java.util.ArrayList<>();
+            for (int page = 0; page < 1000; page++) {
+                List<WeddingWebsiteSummary> batch = websiteRepository.findPublishedSummaries(page, size);
+                batch.stream()
+                        .map(WeddingWebsiteSummary::slug)
+                        .filter(slug -> slug.startsWith(PAGE_MARKER))
+                        .forEach(walkedMarkerSlugs::add);
+                if (batch.size() < size) break;
+            }
+
+            // (1) + (2): exactly the five published marker sites, each once (no dupes, none skipped).
+            assertThat(walkedMarkerSlugs)
+                    .as("paging returns every published, non-deleted site once and excludes decoys")
+                    .containsExactlyInAnyOrder(
+                            PAGE_MARKER + "pub-0", PAGE_MARKER + "pub-1", PAGE_MARKER + "pub-2",
+                            PAGE_MARKER + "pub-3", PAGE_MARKER + "pub-4");
+
+            // (3): the walked marker rows appear in ascending id order (deterministic paging),
+            // matching an independent id-ordered query over the same rows.
+            List<String> idOrderedSlugs = jdbcTemplate.queryForList(
+                    "SELECT slug FROM wedding_websites "
+                            + "WHERE slug LIKE ? AND is_published = 1 AND is_deleted = 0 "
+                            + "ORDER BY id ASC",
+                    String.class, PAGE_MARKER + "%");
+            assertThat(walkedMarkerSlugs)
+                    .as("paging yields rows in the same ascending-id order as the database")
+                    .containsExactlyElementsOf(idOrderedSlugs);
+        } finally {
+            jdbcTemplate.update("DELETE FROM wedding_websites WHERE slug LIKE ?", PAGE_MARKER + "%");
+            for (UUID coupleId : couples) {
                 jdbcTemplate.update("DELETE FROM couples WHERE id = ?", coupleId.toString());
             }
         }

@@ -143,9 +143,21 @@ public class WeddingWebsiteService {
         return website;
     }
 
+    // Sitemap feed page-size ceiling. The public /published endpoint is unauthenticated, so a
+    // caller must never be able to request an arbitrarily large page and stream the whole
+    // published-sites table in one query (issue #241). 1000 keeps the number of sequential paged
+    // requests the sitemap loader makes small while bounding per-query memory.
+    static final int MAX_SITEMAP_PAGE_SIZE = 1000;
+
+    // Returns one id-ordered page of published, non-deleted site summaries for the sitemap. Page
+    // and size are clamped defensively so a hostile or buggy caller cannot request a negative page
+    // or a page larger than the server-side ceiling. The sitemap loader iterates pages until one
+    // returns fewer than `size` rows.
     @Transactional(readOnly = true)
-    public List<WeddingWebsiteSummary> getAllPublished() {
-        return websiteRepository.findPublishedSummaries();
+    public List<WeddingWebsiteSummary> getPublishedPage(int page, int size) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.min(Math.max(1, size), MAX_SITEMAP_PAGE_SIZE);
+        return websiteRepository.findPublishedSummaries(safePage, safeSize);
     }
 
     // Current hero / venue / save-the-date blob URLs for a website, so a replace or remove can delete
