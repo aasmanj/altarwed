@@ -50,41 +50,48 @@ describe('resolveDashboardView state matrix (#240)', () => {
     ).toBe('dashboard')
   })
 
-  it('shows the error state (NOT the wizard) on a transient 5xx / network error', () => {
-    // An established couple whose website exists must not be swept into
-    // onboarding because the API hiccuped. hasWebsite is false here only because
-    // the failed query has no data, which is precisely why we must not onboard.
+  it('shows the error state (NOT the wizard) on a transient 5xx / network error with no data', () => {
+    // A failure with nothing cached to fall back on: we cannot claim a website
+    // exists, so we show the error state rather than onboarding.
     expect(
       resolveDashboardView({ isLoading: false, isNotFound: false, hasError: true, hasWebsite: false }),
     ).toBe('error')
   })
 
-  it('never returns onboarding for a non-404 error regardless of the hasWebsite flag', () => {
+  it('is data-wins: a cached website plus a throwing background refetch stays on the dashboard', () => {
+    // The blocker this ordering fixes. hasWebsite must beat hasError so an
+    // established couple is never knocked into an error view (or, once an error
+    // screen exists, out of their dashboard) by a transient refetch over data we
+    // already hold.
+    expect(
+      resolveDashboardView({ isLoading: false, isNotFound: false, hasError: true, hasWebsite: true }),
+    ).toBe('dashboard')
+  })
+
+  it('never returns onboarding for a non-404 error', () => {
     const withData = resolveDashboardView({ isLoading: false, isNotFound: false, hasError: true, hasWebsite: true })
     const withoutData = resolveDashboardView({ isLoading: false, isNotFound: false, hasError: true, hasWebsite: false })
     expect(withData).not.toBe('onboarding')
     expect(withoutData).not.toBe('onboarding')
-    expect(withData).toBe('error')
+    expect(withData).toBe('dashboard')
     expect(withoutData).toBe('error')
   })
 })
 
 describe('CoupleDashboard wires the gate (#240)', () => {
-  const src = read('features/couple/CoupleDashboard.tsx')
+  // Whitespace is collapsed before matching so these checks assert wiring and
+  // intent, not exact formatting, and survive a prettier/eslint reflow.
+  const src = read('features/couple/CoupleDashboard.tsx').replace(/\s+/g, ' ')
 
-  it('routes onboarding through resolveDashboardView, not an inline 404-only check', () => {
-    expect(src).toContain("import { resolveDashboardView } from '@/features/couple/dashboardView'")
-    expect(src).toContain('const view = resolveDashboardView({')
-    expect(src).toContain("if (view === 'onboarding') {")
+  it('imports and calls the shared gate rather than deciding inline', () => {
+    expect(src).toMatch(/import\s*{\s*resolveDashboardView\s*}\s*from\s*['"]@\/features\/couple\/dashboardView['"]/)
+    expect(src).toMatch(/resolveDashboardView\(\s*{/)
   })
 
-  it('feeds a non-404 error into hasError so a transient error never onboards', () => {
-    expect(src).toContain('hasError: Boolean(siteError) && !isNotFound')
-  })
-
-  it('drives the wizard off the gate result, not the raw not-found flag', () => {
-    // The old code returned <OnboardingWizard /> guarded by `if (isNotFound)`.
-    // That inner 404-only return is what this fix removes.
-    expect(src).not.toContain('if (isNotFound) return <OnboardingWizard />')
+  it('renders the wizard off the gate result, not the raw 404 flag', () => {
+    // The wizard is driven by the resolved view...
+    expect(src).toMatch(/view\s*===\s*['"]onboarding['"]/)
+    // ...and not by the old inner 404-only guard that stranded null-but-not-404.
+    expect(src).not.toMatch(/if\s*\(\s*isNotFound\s*\)\s*return\s*<OnboardingWizard/)
   })
 })

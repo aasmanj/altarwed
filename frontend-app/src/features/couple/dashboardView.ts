@@ -26,10 +26,19 @@ export interface DashboardGateInput {
   hasWebsite: boolean
 }
 
-// Precedence matters: loading is checked first so nothing else can win while the
-// request is pending, then the two failure shapes are separated (404 onboards,
-// any other error shows the error state), and only a clean success decides
-// between onboarding (no record) and the dashboard (record present).
+// Precedence matters, and it is deliberately data-wins:
+//   1. isLoading  -> 'loading'   nothing else can win while the request is pending,
+//                                so the wizard can never flash mid-fetch.
+//   2. hasWebsite -> 'dashboard' if we hold a website record (e.g. cached data),
+//                                show the dashboard even if a background refetch is
+//                                currently throwing. An established couple must never
+//                                be knocked into an error/onboarding view by a
+//                                transient hiccup over data we already have.
+//   3. isNotFound -> 'onboarding' a genuine 404 with no data: never created a site.
+//   4. hasError   -> 'error'     any other failure with no data to fall back on.
+//   5. else       -> 'onboarding' clean load, no record: the null-but-not-404 case
+//                                (issue #240) that used to fall through to a
+//                                half-empty dashboard.
 export function resolveDashboardView({
   isLoading,
   isNotFound,
@@ -37,8 +46,8 @@ export function resolveDashboardView({
   hasWebsite,
 }: DashboardGateInput): DashboardView {
   if (isLoading) return 'loading'
+  if (hasWebsite) return 'dashboard'
   if (isNotFound) return 'onboarding'
   if (hasError) return 'error'
-  if (!hasWebsite) return 'onboarding'
-  return 'dashboard'
+  return 'onboarding'
 }
