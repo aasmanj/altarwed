@@ -12,19 +12,46 @@ import posthog from 'posthog-js'
 //   - session recording OFF. The authed dashboard renders guest names, emails,
 //     and addresses; recording it is a PII liability until masking + consent
 //     ship in Session 3. Do not flip this on without configuring input masking.
-const KEY = import.meta.env.VITE_POSTHOG_KEY as string | undefined
 const HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) || 'https://us.i.posthog.com'
 
 let enabled = false
 
+// Browser-level opt-out signals. Global Privacy Control (GPC) is a legally
+// recognized universal opt-out under CPRA; Do Not Track (DNT) is the older,
+// best-effort equivalent. When either is asserted we treat it as a rejection of
+// analytics: PostHog is never initialized and we log nothing (staying silent is
+// itself part of honoring the signal). Guarded for non-browser contexts (tests,
+// any future SSR) where navigator/window may be absent.
+function privacyOptOut(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const nav = navigator as Navigator & { globalPrivacyControl?: boolean }
+  if (nav.globalPrivacyControl) return true
+  const dnt =
+    nav.doNotTrack ??
+    (typeof window !== 'undefined'
+      ? (window as unknown as { doNotTrack?: string }).doNotTrack
+      : undefined)
+  return dnt === '1' || dnt === 'yes'
+}
+
+// Boots PostHog. Only ever called from the AuthContext consent gate, after a
+// couple's persisted marketing-consent flag is confirmed true. It is NOT called
+// at module load, so no analytics network activity happens before consent.
 export function initAnalytics(): void {
+  if (privacyOptOut()) return
+  const KEY = import.meta.env.VITE_POSTHOG_KEY as string | undefined
   if (enabled || !KEY) return
   posthog.init(KEY, {
     api_host: HOST,
     persistence: 'localStorage',
     person_profiles: 'identified_only',
+    // Safe to capture the initial pageview here: init only runs post-consent, so
+    // this never fires before the gate passes.
     capture_pageview: true,
-    autocapture: true,
+    // Autocapture is OFF by design. The authed dashboard renders guest names,
+    // emails, and addresses; autocapture would ship clicked-element text (guest
+    // PII) to PostHog. Only the explicit captureEvent funnel events are sent.
+    autocapture: false,
     disable_session_recording: true,
   })
   enabled = true
