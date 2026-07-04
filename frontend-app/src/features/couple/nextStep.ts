@@ -84,3 +84,22 @@ export function computeNextStep(guests: Guest[], stats: GuestStats): NextStepNud
 export function dismissalStorageKey(coupleId: string, stage: NextStepStage): string {
   return `altarwed:nextstep-dismissed:${coupleId}:${stage}`
 }
+
+// Whether the given stage's nudge was previously dismissed for this couple. Kept as a pure
+// function taking the storage so it is unit-testable without a DOM, and so the component can
+// re-read it whenever the stage changes (React Query can advance the stage in place on window
+// refocus without remounting the card; re-reading here keeps a stale "dismissed" from the old
+// stage from suppressing the new stage's nudge). A null storage or a throwing getItem (private
+// mode / disabled storage) reads as "not dismissed" rather than crashing the card.
+export function readDismissed(
+  coupleId: string,
+  stage: NextStepStage,
+  storage: Pick<Storage, 'getItem'> | null | undefined,
+): boolean {
+  if (!storage) return false
+  try {
+    return storage.getItem(dismissalStorageKey(coupleId, stage)) === '1'
+  } catch {
+    return false
+  }
+}

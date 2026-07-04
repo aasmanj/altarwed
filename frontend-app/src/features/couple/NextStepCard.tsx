@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { X } from 'lucide-react'
 import type { Guest } from '@/features/couple/guests/useGuests'
 import type { GuestStats } from '@/features/couple/guests/guestStats'
-import { computeNextStep, dismissalStorageKey } from '@/features/couple/nextStep'
+import { computeNextStep, dismissalStorageKey, readDismissed } from '@/features/couple/nextStep'
 
 interface Props {
   coupleId: string
@@ -19,24 +19,29 @@ interface Props {
 // hiding one nudge only hides that stage; the card returns as soon as the couple advances.
 export default function NextStepCard({ coupleId, guests, stats }: Props) {
   const nudge = computeNextStep(guests, stats)
+  const stage = nudge?.stage
 
-  // Read once on mount whether the current stage was already dismissed. Keyed off the stage so
-  // a stage change re-evaluates to "not dismissed" naturally. localStorage can throw (private
-  // mode / disabled storage); treat any failure as "not dismissed" rather than crashing the card.
-  const [dismissed, setDismissed] = useState(() => {
-    if (!nudge) return false
-    try {
-      return localStorage.getItem(dismissalStorageKey(coupleId, nudge.stage)) === '1'
-    } catch {
-      return false
-    }
-  })
+  // Seed from storage on first paint so a previously dismissed nudge does not flash before an
+  // effect can hide it.
+  const [dismissed, setDismissed] = useState(() =>
+    stage ? readDismissed(coupleId, stage, browserStorage()) : false,
+  )
+
+  // Re-sync whenever the couple advances to a new stage in place. React Query can update the
+  // shared guests cache on window refocus without remounting this card, so the lazy initializer
+  // above would otherwise keep the previous stage's "dismissed" value and wrongly suppress the
+  // new stage's nudge. Re-reading per stage fixes that. Dismissing within a stage does not change
+  // these deps, so this effect never re-shows a nudge the couple just dismissed.
+  useEffect(() => {
+    setDismissed(stage ? readDismissed(coupleId, stage, browserStorage()) : false)
+  }, [coupleId, stage])
 
   if (!nudge || dismissed) return null
 
   const dismiss = () => {
+    const storage = browserStorage()
     try {
-      localStorage.setItem(dismissalStorageKey(coupleId, nudge.stage), '1')
+      storage?.setItem(dismissalStorageKey(coupleId, nudge.stage), '1')
     } catch {
       // Non-fatal: if we cannot persist, still hide it for this session.
     }
@@ -54,7 +59,7 @@ export default function NextStepCard({ coupleId, guests, stats }: Props) {
         to={nudge.href}
         className="shrink-0 rounded-lg bg-[#d4af6a] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#c49d55] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
       >
-        {nudge.ctaLabel} &rarr;
+        {nudge.ctaLabel} →
       </Link>
       <button
         onClick={dismiss}
@@ -65,4 +70,14 @@ export default function NextStepCard({ coupleId, guests, stats }: Props) {
       </button>
     </div>
   )
+}
+
+// localStorage, or null when it is unavailable (SSR, private mode, or a security policy that
+// throws on access). Callers treat null as "nothing persisted".
+function browserStorage(): Storage | null {
+  try {
+    return typeof window !== 'undefined' ? window.localStorage : null
+  } catch {
+    return null
+  }
 }

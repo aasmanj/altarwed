@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeNextStep, dismissalStorageKey } from './nextStep'
+import { computeNextStep, dismissalStorageKey, readDismissed } from './nextStep'
 import { computeGuestStats } from './guests/guestStats'
 import type { Guest } from './guests/useGuests'
 
@@ -128,5 +128,43 @@ describe('dismissalStorageKey (per couple, per stage)', () => {
   it('different stages for one couple get different keys, so dismissal is per stage', () => {
     expect(dismissalStorageKey('couple-1', 'ADD_GUESTS'))
       .not.toBe(dismissalStorageKey('couple-1', 'SEND_SAVE_THE_DATES'))
+  })
+})
+
+// Fake Storage backed by a plain map, so these stay pure (no DOM / jsdom needed).
+function fakeStorage(initial: Record<string, string> = {}): Pick<Storage, 'getItem'> {
+  return { getItem: (k: string) => (k in initial ? initial[k] : null) }
+}
+
+describe('readDismissed', () => {
+  it('is false when nothing is stored for the stage', () => {
+    expect(readDismissed('couple-1', 'ADD_GUESTS', fakeStorage())).toBe(false)
+  })
+
+  it('is true only when the exact per-couple, per-stage key holds "1"', () => {
+    const storage = fakeStorage({ [dismissalStorageKey('couple-1', 'ADD_GUESTS')]: '1' })
+    expect(readDismissed('couple-1', 'ADD_GUESTS', storage)).toBe(true)
+  })
+
+  it('advancing to a new stage is NOT suppressed by the previous stage being dismissed', () => {
+    // Regression for the in-place stage advance bug: dismissing ADD_GUESTS must not hide the
+    // next stage's nudge once the couple progresses (React Query can advance the stage without
+    // remounting the card, so the component re-reads dismissal per stage via this function).
+    const storage = fakeStorage({ [dismissalStorageKey('couple-1', 'ADD_GUESTS')]: '1' })
+    expect(readDismissed('couple-1', 'ADD_GUESTS', storage)).toBe(true)
+    expect(readDismissed('couple-1', 'SEND_SAVE_THE_DATES', storage)).toBe(false)
+  })
+
+  it('another couple on the same browser does not inherit a dismissal', () => {
+    const storage = fakeStorage({ [dismissalStorageKey('couple-1', 'ADD_GUESTS')]: '1' })
+    expect(readDismissed('couple-2', 'ADD_GUESTS', storage)).toBe(false)
+  })
+
+  it('treats a missing or throwing storage as not dismissed rather than crashing', () => {
+    expect(readDismissed('couple-1', 'ADD_GUESTS', null)).toBe(false)
+    const throwing: Pick<Storage, 'getItem'> = {
+      getItem: () => { throw new Error('storage disabled') },
+    }
+    expect(readDismissed('couple-1', 'ADD_GUESTS', throwing)).toBe(false)
   })
 })
