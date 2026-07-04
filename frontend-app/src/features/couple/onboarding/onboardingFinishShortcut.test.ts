@@ -89,8 +89,12 @@ describe('finish shortcut wiring (issue #160)', () => {
 
   it('wires the shortcut to the same handleFinish the confirm step uses', () => {
     // Reusing handleFinish (not a new save path) is what guarantees the
-    // shortcut and the tap-through flow save identical data.
-    expect(src).toContain('onClick={handleFinish}')
+    // shortcut and the tap-through flow save identical data. Since issue #239
+    // the shortcut goes through the thin handleSkipFinish wrapper, which fires
+    // the skip analytics event and then delegates to that same handleFinish.
+    expect(src).toContain('onClick={handleSkipFinish}')
+    expect(src).toMatch(/const handleSkipFinish = \(\) => \{[\s\S]*?void handleFinish\(\)/)
+    expect(src).toContain('onFinish={handleFinish}')
   })
 
   it('disables the shortcut until the required slug exists', () => {
