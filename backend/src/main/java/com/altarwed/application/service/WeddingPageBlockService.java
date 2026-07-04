@@ -121,11 +121,11 @@ public class WeddingPageBlockService {
 
     // Trigger ISR revalidation for the owning wedding page after a block mutation, but only
     // when the site is published. An unpublished (draft) site has no live public page in the
-    // Next.js ISR cache, so the public path 404s until the couple hits publish; firing a
-    // revalidation request for a draft slug is a pointless HTTP round-trip plus log noise on
-    // every keystroke-level edit during the pre-launch build phase. Gating on isPublished
-    // matches the intent of the scalar update path (WeddingWebsiteService), where a draft's
-    // slug is not a live cached route.
+    // Next.js ISR cache: the public path 404s until the couple hits publish, so firing a
+    // revalidation request for a draft slug is wasted work (a pointless HTTP round-trip plus
+    // log noise on every keystroke-level edit during the pre-launch build phase). Freshness on
+    // the first publish is guaranteed separately by WeddingWebsiteService.publish, which
+    // revalidates unconditionally so a newly published site is never served stale.
     private void revalidateOwningPage(UUID websiteId) {
         websiteRepository.findById(websiteId)
                 .filter(WeddingWebsite::isPublished)
