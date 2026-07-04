@@ -1,5 +1,6 @@
 package com.altarwed.application.service;
 
+import com.altarwed.domain.exception.InvalidPriceIdException;
 import com.altarwed.domain.model.PlanTier;
 import com.altarwed.domain.model.SubscriptionStatus;
 import com.altarwed.domain.model.VendorSubscription;
@@ -56,6 +57,16 @@ public class StripeService {
 
     @Transactional
     public String createCheckoutSession(UUID vendorId, String vendorEmail, String priceId) {
+        // Issue #45: the client supplies priceId, so reject anything outside our two
+        // configured plans before it ever reaches Stripe. The tier is re-derived
+        // server-side from the webhook regardless (planTierFromPriceId), so this was not
+        // an escalation today, but an unvalidated priceId is unvalidated financial input
+        // one refactor away from opening a checkout session against the wrong product, a
+        // test price, or a $0 price in the account.
+        if (!isAllowedPriceId(priceId)) {
+            log.warn("stripe checkout session rejected, priceId not in allow-list, vendorId={}, priceId={}", vendorId, priceId);
+            throw new InvalidPriceIdException("That subscription plan is not available.");
+        }
         subscriptionRepository.findByVendorId(vendorId).orElseGet(() -> {
             LocalDateTime now = LocalDateTime.now();
             return subscriptionRepository.save(new VendorSubscription(
@@ -323,6 +334,12 @@ public class StripeService {
     // -------------------------------------------------------------------------
     // Mapping helpers
     // -------------------------------------------------------------------------
+
+    private boolean isAllowedPriceId(String priceId) {
+        if (priceId == null || priceId.isBlank()) return false;
+        return (!priceProMonthly.isBlank() && priceId.equals(priceProMonthly))
+                || (!priceProAnnual.isBlank() && priceId.equals(priceProAnnual));
+    }
 
     private PlanTier planTierFromPriceId(String priceId) {
         if (priceId == null || priceId.isBlank()) return PlanTier.BASIC;
