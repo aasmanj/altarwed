@@ -4,6 +4,7 @@ import { authApi } from '@/core/api/authApi'
 import type { RegisterCouplePayload, RegisterVendorPayload } from '@/core/api/authApi'
 import { setupAuthInterceptor } from '@/core/api/client'
 import { identifyUser, initAnalytics, disableAnalytics } from '@/core/analytics/analytics'
+import { disablePixel } from '@/core/analytics/metaPixel'
 
 export type UserRole = 'COUPLE' | 'VENDOR'
 
@@ -88,6 +89,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // nothing until they themselves consent, and starts as a fresh, unlinked
     // anonymous visitor rather than a continuation of this couple's session.
     disableAnalytics()
+    // Same teardown for the Meta Pixel: flip it off so no CompleteRegistration
+    // (or any future pixel call) can fire for the next person until they sign up
+    // and consent themselves.
+    disablePixel()
   }, [])
 
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
