@@ -410,6 +410,31 @@ function AccountStep({
         {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       </div>
 
+      {/* Sign-in-wrap acceptance directly above the action button (issue #219).
+          Vendors upload no guest data, so the couple guest clause is dropped.
+          text-[#6b5344] on the #fdfaf6 page is above WCAG AA 4.5:1. */}
+      <p className="text-xs text-[#6b5344] leading-snug">
+        By creating an account you agree to our{' '}
+        <a
+          href="https://www.altarwed.com/terms"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[#3b2f2f] font-medium underline hover:text-[#5c4033]"
+        >
+          Terms of Service
+        </a>{' '}
+        and{' '}
+        <a
+          href="https://www.altarwed.com/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[#3b2f2f] font-medium underline hover:text-[#5c4033]"
+        >
+          Privacy Policy
+        </a>
+        .
+      </p>
+
       <div className="flex gap-3">
         <button
           type="button"

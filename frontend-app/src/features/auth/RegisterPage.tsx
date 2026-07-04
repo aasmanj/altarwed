@@ -238,6 +238,31 @@ export default function RegisterPage() {
             </label>
           </div>
 
+          {/* Sign-in-wrap acceptance directly above the action button (issue #219).
+              Adjacent to the submit control is the enforceable clickwrap pattern, no
+              extra checkbox needed. text-brown-light is ~7.7:1 on white (WCAG AA). */}
+          <p className="mb-4 text-xs text-brown-light leading-snug">
+            By creating an account you agree to our{' '}
+            <a
+              href="https://www.altarwed.com/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-brown font-medium underline hover:text-gold-dark"
+            >
+              Terms of Service
+            </a>{' '}
+            and{' '}
+            <a
+              href="https://www.altarwed.com/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-brown font-medium underline hover:text-gold-dark"
+            >
+              Privacy Policy
+            </a>
+            , and you confirm you have the authority to add the guests you invite through AltarWed.
+          </p>
+
           <button
             type="submit"
             disabled={loading}
