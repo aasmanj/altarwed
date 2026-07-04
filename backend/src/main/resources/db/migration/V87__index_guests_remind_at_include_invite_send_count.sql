@@ -1,4 +1,4 @@
--- V86: Extend ix_guests_remind_at to also cover invite_send_count (issue #233).
+-- V87: Extend ix_guests_remind_at to also cover invite_send_count (issue #233).
 --
 -- RsvpReminderService.findDueReminders now filters out guests already at the invite-send cap:
 --   WHERE remind_at IS NOT NULL AND remind_at <= :asOf
