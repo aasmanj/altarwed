@@ -539,4 +539,67 @@ class GuestServiceTest {
 
         verifyNoInteractions(websiteRepository, guestRepository, tokenRepository);
     }
+
+    // ---------------------------------------------------------------------------
+    // Reminder-path cap handling (issue #233). The couple-initiated sendInvite throws at the
+    // cap so the couple sees the rejection and remind_at is left untouched; the reminder-driven
+    // sendReminderInvite instead clears remind_at (no send, no throw) so an at-cap guest drops
+    // out of findDueReminders for good rather than being retried and WARN-logged every hour.
+    // ---------------------------------------------------------------------------
+
+    private Guest guestWithReminder(UUID coupleId, int inviteSendCount, LocalDateTime remindAt) {
+        return new Guest(
+                UUID.randomUUID(), coupleId, "Guest", "guest@example.com", null,
+                GuestRsvpStatus.PENDING, false, null, null, null,
+                null, null, null,
+                null, null, null, null, null,
+                null, inviteSendCount,
+                null, null, null, remindAt,
+                null, null,
+                null, null, null,
+                null, false);
+    }
+
+    @Test
+    void sendReminderInvite_clearsRemindAt_andNeitherSendsNorThrows_whenGuestAtCap() {
+        UUID coupleId = UUID.randomUUID();
+        LocalDateTime remindAt = LocalDateTime.now().minusMinutes(5);
+        Guest atCap = guestWithReminder(coupleId, 3, remindAt); // at MAX_INVITE_SENDS = 3
+        when(guestRepository.findById(atCap.id())).thenReturn(Optional.of(atCap));
+        when(guestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThatCode(() -> service().sendReminderInvite(coupleId, atCap.id()))
+                .doesNotThrowAnyException();
+
+        // remind_at is cleared so the guest can never re-qualify for a reminder, while
+        // invite_send_count is left untouched (no phantom send).
+        ArgumentCaptor<Guest> saved = ArgumentCaptor.forClass(Guest.class);
+        verify(guestRepository).save(saved.capture());
+        assertThat(saved.getValue().remindAt()).isNull();
+        assertThat(saved.getValue().inviteSendCount()).isEqualTo(3);
+
+        // No new token, no invite email: the cap means nothing is actually sent.
+        verify(tokenRepository, never()).save(any());
+        verify(asyncEmailService, never()).sendRsvpInviteEmail(
+                any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void sendInvite_throwsAtCap_andDoesNotClearRemindAtOrPersistAnything() {
+        UUID coupleId = UUID.randomUUID();
+        LocalDateTime remindAt = LocalDateTime.now().minusMinutes(5);
+        Guest atCap = guestWithReminder(coupleId, 3, remindAt); // at MAX_INVITE_SENDS = 3
+        when(guestRepository.findById(atCap.id())).thenReturn(Optional.of(atCap));
+
+        // The couple-initiated path must still reject an over-cap send with an error, so the
+        // dashboard surfaces it. Crucially it must NOT clear remind_at (that reminder-path
+        // behaviour must not leak into the couple path).
+        assertThatThrownBy(() -> service().sendInvite(coupleId, atCap.id()))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(guestRepository, never()).save(any());
+        verify(tokenRepository, never()).save(any());
+        verify(asyncEmailService, never()).sendRsvpInviteEmail(
+                any(), any(), any(), any(), any(), any(), any(), any());
+    }
 }

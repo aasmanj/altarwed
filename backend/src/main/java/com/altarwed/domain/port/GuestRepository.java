@@ -14,8 +14,11 @@ public interface GuestRepository {
     Optional<Guest> findById(UUID id);
     void deleteById(UUID id);
     boolean existsByIdAndCoupleId(UUID id, UUID coupleId);
-    // Returns PENDING guests whose remind_at is on or before asOf. Used by RsvpReminderService.
-    List<Guest> findDueReminders(LocalDateTime asOf);
+    // Returns PENDING guests whose remind_at is on or before asOf and who are still below the
+    // invite-send cap (invite_send_count < maxInviteSends). Used by RsvpReminderService. The cap
+    // filter keeps a guest who deferred until they hit the cap from being retried (and failing
+    // at the cap check) on every hourly run, forever (issue #233).
+    List<Guest> findDueReminders(LocalDateTime asOf, int maxInviteSends);
     // Returns all guests in a party (same party_id), sorted by createdAt.
     List<Guest> findAllByPartyId(UUID partyId);
     // Saves a list of guests atomically (used when creating a new party).
