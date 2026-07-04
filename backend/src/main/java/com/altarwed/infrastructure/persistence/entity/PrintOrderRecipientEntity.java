@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -44,4 +45,21 @@ public class PrintOrderRecipientEntity {
 
     @Column(name = "expected_delivery_date")
     private LocalDate expectedDeliveryDate;
+
+    // Issue #52: timestamp of the last-applied Lob webhook event, mirroring vendor_subscriptions
+    // .last_stripe_event_at (V84). Entity-only (not on the PrintOrderRecipient domain record):
+    // it exists solely for the webhook idempotency decision in LobWebhookService, which reads
+    // and writes it directly through PrintOrderRepository's native queries without round-tripping
+    // through the couple-facing PrintOrderService (out of scope for issue #52 to touch).
+    //
+    // insertable/updatable = false for the same reason as printOrderId above, but a different
+    // failure mode: PrintOrderService.refreshDeliveryStatuses (issue #59 polling) calls the
+    // aggregate save() path (toEntity -> toRecipientEntity), which rebuilds this entity from the
+    // PrintOrderRecipient domain record. Since that record has no lastLobEventAt field, an ORM-
+    // writable column here would get silently nulled by every poll, destroying the same-rank
+    // duplicate-event timestamp tiebreak in LobWebhookService the very next time a webhook (even
+    // a harmless redelivery) arrived. Marking it non-writable means only the native
+    // applyLobDeliveryEvent UPDATE (which bypasses ORM column mapping) ever touches this column.
+    @Column(name = "last_lob_event_at", insertable = false, updatable = false)
+    private LocalDateTime lastLobEventAt;
 }

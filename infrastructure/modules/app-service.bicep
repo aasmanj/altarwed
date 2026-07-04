@@ -154,6 +154,15 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=LOB-API-KEY)'
         }
         {
+          // Issue #52: signs Lob's mail-piece lifecycle webhooks (LobWebhookVerifier). Until set,
+          // the webhook fails closed (rejects all events) rather than trusting an unsigned
+          // delivery-status update, same reasoning as RESEND_WEBHOOK_SECRET above. Jordan must
+          // configure the webhook URL in Lob's dashboard and set this Key Vault secret before
+          // delivery status will populate.
+          name: 'LOB_WEBHOOK_SECRET'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=LOB-WEBHOOK-SECRET)'
+        }
+        {
           name: 'STRIPE_SECRET_KEY'
           value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=STRIPE-SECRET-KEY)'
         }
