@@ -145,6 +145,9 @@ altarwed:
 
   lob:
     api-key: ${LOB_API_KEY:}
+    # Empty default: a missing secret disables webhook verification (fails closed, rejects every
+    # event) instead of crashing the JVM at startup. Same reasoning as resend.webhook-secret.
+    webhook-secret: ${LOB_WEBHOOK_SECRET:}
 
   vendor:
     # Comp promo code: a matching code grants a free, non-Stripe vendor listing (founder's friends

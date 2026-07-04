@@ -88,6 +88,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/stripe/webhook").permitAll()
                         // Resend delivery webhook: Svix-signed, no JWT (verified in ResendWebhookVerifier)
                         .requestMatchers(HttpMethod.POST, "/api/v1/webhooks/resend").permitAll()
+                        // Lob delivery webhook: Lob-signed, no JWT (verified in LobWebhookVerifier)
+                        .requestMatchers(HttpMethod.POST, "/api/v1/webhooks/lob").permitAll()
                         // OpenAPI / Swagger, dev convenience
                         .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         // Actuator health

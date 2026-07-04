@@ -5,6 +5,7 @@ import com.altarwed.domain.model.PrintOrderRecipient;
 import com.altarwed.domain.model.PrintOrderStatus;
 import com.altarwed.domain.model.PrintOrderType;
 import com.altarwed.domain.port.PrintOrderRepository;
+import com.altarwed.domain.port.PrintOrderRepository.RecipientLobStatus;
 import com.altarwed.infrastructure.persistence.entity.PrintOrderEntity;
 import com.altarwed.infrastructure.persistence.entity.PrintOrderRecipientEntity;
 import com.altarwed.infrastructure.persistence.repository.PrintOrderJpaRepository;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -105,6 +107,30 @@ public class PrintOrderJpaAdapter implements PrintOrderRepository {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordRefund(UUID orderId, Integer amountRefundedCents) {
         jpa.recordRefund(orderId, amountRefundedCents);
+    }
+
+    // Issue #52: unlike the block above, REQUIRES_NEW here is not escaping a Stripe-webhook
+    // ambient transaction (LobWebhookService.process() is not itself @Transactional, so there is
+    // no ambient transaction to suspend) -- it is just each call getting its own independently
+    // durable transaction, consistent with the rest of this adapter's targeted single-row writes.
+    // The read (below) and the write are two separate transactions; this is a deliberately looser
+    // read-then-decide-then-write (not a SQL-level compare-and-swap) matching EmailDeliveryService's
+    // approach for the analogous Resend webhook case -- acceptable for a display-only delivery
+    // status where the worst case is a transiently wrong value a later event corrects, given Lob's
+    // webhook redelivery/concurrency profile is no higher-throughput than Resend's.
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<RecipientLobStatus> findRecipientLobStatus(String lobPostcardId) {
+        return jpa.findRecipientLobStatus(lobPostcardId)
+                .map(row -> new RecipientLobStatus(row.getRecipientId(), row.getDeliveryStatus(), row.getLastLobEventAt()));
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void applyLobDeliveryEvent(UUID recipientId, String deliveryStatus, LocalDateTime eventAt,
+                                       String trackingNumber, LocalDate expectedDeliveryDate) {
+        jpa.applyLobDeliveryEvent(recipientId, deliveryStatus, eventAt, trackingNumber, expectedDeliveryDate);
     }
 
     private PrintOrderEntity toEntity(PrintOrder o) {

@@ -4,6 +4,7 @@ import com.altarwed.domain.model.PrintOrder;
 import com.altarwed.domain.model.PrintOrderRecipient;
 import com.altarwed.domain.model.PrintOrderStatus;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -65,4 +66,29 @@ public interface PrintOrderRepository {
 
     /** Issue #59: records a partial refund after some recipients failed post-charge. */
     void recordRefund(UUID orderId, Integer amountRefundedCents);
+
+    /**
+     * Issue #52: looks up a recipient by Lob's postcard id for webhook correlation, returning
+     * just the fields the idempotency decision needs (not the full {@link PrintOrderRecipient}
+     * aggregate), so the Lob webhook consumer never round-trips through the couple-facing
+     * PrintOrderService (out of scope for issue #52 to touch). Empty when the id is unknown to
+     * us, which the caller treats as a no-op, not an error (Lob may deliver events for postcards
+     * outside our own account, or for a recipient row that predates this feature).
+     */
+    Optional<RecipientLobStatus> findRecipientLobStatus(String lobPostcardId);
+
+    /**
+     * Issue #52: unconditionally applies one Lob delivery-lifecycle webhook event. The caller
+     * (LobWebhookService) has already decided this event should win, via the same rank +
+     * timestamp comparison EmailDeliveryService uses for Resend webhooks (see
+     * LobDeliveryStatus#rank); this is just the write. trackingNumber/expectedDeliveryDate are
+     * only overwritten when the incoming value is non-null, so an event that doesn't carry them
+     * (e.g. an early "in_transit" before USPS assigns a tracking number) never blanks out a value
+     * a later/earlier event already established.
+     */
+    void applyLobDeliveryEvent(UUID recipientId, String deliveryStatus, LocalDateTime eventAt,
+                               String trackingNumber, LocalDate expectedDeliveryDate);
+
+    /** Issue #52: the subset of a recipient row the webhook idempotency decision needs. */
+    record RecipientLobStatus(UUID recipientId, String deliveryStatus, LocalDateTime lastLobEventAt) {}
 }

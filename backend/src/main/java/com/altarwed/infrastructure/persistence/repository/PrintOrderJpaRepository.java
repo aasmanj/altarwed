@@ -92,4 +92,33 @@ public interface PrintOrderJpaRepository extends JpaRepository<PrintOrderEntity,
             """, nativeQuery = true)
     void updateRecipientOutcome(@Param("recipientId") UUID recipientId, @Param("lobPostcardId") String lobPostcardId,
                                 @Param("deliveryStatus") String deliveryStatus, @Param("errorMessage") String errorMessage);
+
+    // Issue #52: Lob webhook correlation + idempotent apply. Native/projection, same reasoning as
+    // the four queries above -- a targeted read/write on this one child row, never touching the
+    // @OneToMany aggregate.
+
+    @Query(value = """
+            SELECT id AS recipientId, delivery_status AS deliveryStatus, last_lob_event_at AS lastLobEventAt
+            FROM print_order_recipients WHERE lob_postcard_id = :lobPostcardId
+            """, nativeQuery = true)
+    Optional<RecipientLobStatusRow> findRecipientLobStatus(@Param("lobPostcardId") String lobPostcardId);
+
+    interface RecipientLobStatusRow {
+        UUID getRecipientId();
+        String getDeliveryStatus();
+        LocalDateTime getLastLobEventAt();
+    }
+
+    @Modifying
+    @Query(value = """
+            UPDATE print_order_recipients
+            SET delivery_status = :deliveryStatus,
+                last_lob_event_at = :eventAt,
+                tracking_number = COALESCE(:trackingNumber, tracking_number),
+                expected_delivery_date = COALESCE(:expectedDeliveryDate, expected_delivery_date)
+            WHERE id = :recipientId
+            """, nativeQuery = true)
+    void applyLobDeliveryEvent(@Param("recipientId") UUID recipientId, @Param("deliveryStatus") String deliveryStatus,
+                               @Param("eventAt") LocalDateTime eventAt, @Param("trackingNumber") String trackingNumber,
+                               @Param("expectedDeliveryDate") LocalDate expectedDeliveryDate);
 }
