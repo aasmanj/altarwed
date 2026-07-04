@@ -9,6 +9,7 @@ import com.altarwed.domain.model.*;
 import com.altarwed.domain.port.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,7 @@ import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -49,6 +51,7 @@ public class GuestService {
     private final EmailSuppressionService suppressionService;
     private final CustomRsvpQuestionService customRsvpQuestionService;
     private final CaptchaVerificationPort captchaVerificationPort;
+    private final SaveTheDateSendRepository saveTheDateSendRepository;
 
     public GuestService(
             GuestRepository guestRepository,
@@ -58,7 +61,8 @@ public class GuestService {
             AsyncEmailService asyncEmailService,
             EmailSuppressionService suppressionService,
             CustomRsvpQuestionService customRsvpQuestionService,
-            CaptchaVerificationPort captchaVerificationPort
+            CaptchaVerificationPort captchaVerificationPort,
+            SaveTheDateSendRepository saveTheDateSendRepository
     ) {
         this.guestRepository = guestRepository;
         this.tokenRepository = tokenRepository;
@@ -68,6 +72,7 @@ public class GuestService {
         this.suppressionService = suppressionService;
         this.customRsvpQuestionService = customRsvpQuestionService;
         this.captchaVerificationPort = captchaVerificationPort;
+        this.saveTheDateSendRepository = saveTheDateSendRepository;
     }
 
     @Transactional
@@ -226,9 +231,25 @@ public class GuestService {
     }
 
     @Transactional
-    public SaveTheDateSendResult sendSaveDates(UUID coupleId, List<UUID> guestIds) {
+    public SaveTheDateSendResult sendSaveDates(UUID coupleId, List<UUID> guestIds, String idempotencyKey) {
         log.info("save-the-date send batch started, coupleId={}, targetCount={}", coupleId,
                 guestIds == null ? "all" : guestIds.size());
+
+        // Idempotency guard (issue #232): a send whose HTTP response was lost gets retried by the
+        // couple carrying the same client-generated key. If a receipt already exists for this key,
+        // return its stored summary instead of emailing and re-stamping the batch a second time.
+        // Mirrors PrintOrderService.createOrder's replay check.
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<SaveTheDateSend> replay =
+                    saveTheDateSendRepository.findByCoupleIdAndIdempotencyKey(coupleId, idempotencyKey);
+            if (replay.isPresent()) {
+                SaveTheDateSend r = replay.get();
+                log.info("save-the-date send idempotent replay, returning existing, coupleId={}, sendId={}",
+                        coupleId, r.id());
+                return new SaveTheDateSendResult(
+                        r.queuedCount(), r.invalidCount(), r.suppressedCount(), List.of(), true);
+            }
+        }
 
         Set<UUID> guestIdSet = guestIds != null ? new HashSet<>(guestIds) : null;
         List<Guest> withEmail = guestRepository.findAllByCoupleId(coupleId).stream()
@@ -257,6 +278,28 @@ public class GuestService {
                 .toList();
         int validCount = valid.size();
         int suppressedCount = validCount - queueable.size();
+
+        // Claim the idempotency key BEFORE the email fan-out and the stamp, mirroring
+        // PrintOrderService: two concurrent submits with the same key both reach here having each
+        // seen no receipt above, but the unique index lets exactly one insert win. The loser's
+        // saveAndFlush throws DataIntegrityViolationException (isolated in its own REQUIRES_NEW
+        // transaction), and we replay the winner's summary rather than mailing the batch twice.
+        // The receipt commits ahead of the async send; a retry that lands after the send was
+        // enqueued but before its stamp committed correctly replays instead of re-sending.
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            try {
+                saveTheDateSendRepository.save(new SaveTheDateSend(
+                        null, coupleId, idempotencyKey,
+                        queueable.size(), invalid.size(), suppressedCount, LocalDateTime.now()));
+            } catch (DataIntegrityViolationException race) {
+                log.warn("save-the-date send idempotency race, returning concurrent summary, coupleId={}", coupleId);
+                SaveTheDateSend r = saveTheDateSendRepository
+                        .findByCoupleIdAndIdempotencyKey(coupleId, idempotencyKey)
+                        .orElseThrow(() -> race);
+                return new SaveTheDateSendResult(
+                        r.queuedCount(), r.invalidCount(), r.suppressedCount(), List.of(), true);
+            }
+        }
 
         if (!queueable.isEmpty()) {
             var website = websiteRepository.findByCoupleId(coupleId).orElse(null);
@@ -288,7 +331,7 @@ public class GuestService {
 
         log.info("save-the-date send batch queued, coupleId={}, queued={}, invalid={}, suppressed={}",
                 coupleId, queueable.size(), invalid.size(), suppressedCount);
-        return new SaveTheDateSendResult(queueable.size(), invalid.size(), suppressedCount, invalid);
+        return new SaveTheDateSendResult(queueable.size(), invalid.size(), suppressedCount, invalid, false);
     }
 
     /**

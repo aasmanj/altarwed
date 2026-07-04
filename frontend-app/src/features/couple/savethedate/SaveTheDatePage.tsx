@@ -43,12 +43,24 @@ export default function SaveTheDatePage() {
   // Client-side rejection (over the shared size cap) shown before any request
   // fires; kept separate from the mutation's own server error state.
   const [stdImageError, setStdImageError] = useState<string | null>(null)
+  // Per-attempt dedup token (issue #232), mirroring the print-order flow. A retry of the
+  // SAME attempt (e.g. after a lost response) keeps the key and is deduped server-side, so
+  // the batch is never re-emailed. A new selection (below) or a completed send rotates it.
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() => crypto.randomUUID())
 
   useEffect(() => {
     if (!sent) return
     const timer = setTimeout(() => setSent(false), 5000)
     return () => clearTimeout(timer)
   }, [sent])
+
+  // Rotate the dedup key whenever the recipient selection changes, so each distinct batch is a
+  // fresh attempt server-side. Retries of the SAME selection keep the key (deduped). onSuccess
+  // also rotates it explicitly, since resetting to the default (null) selection after a send
+  // may not change this dependency.
+  useEffect(() => {
+    setIdempotencyKey(crypto.randomUUID())
+  }, [selectedIds])
   const qrRef = useRef<HTMLCanvasElement>(null)
   const confirm = useConfirm()
 
@@ -118,13 +130,17 @@ export default function SaveTheDatePage() {
   const sendMutation = useMutation({
     mutationFn: () =>
       apiClient.post(`/api/v1/save-the-dates/couple/${coupleId}/send`,
-        selectedIds !== null ? { guestIds: selectedIds } : {}
+        selectedIds !== null ? { guestIds: selectedIds, idempotencyKey } : { idempotencyKey }
       ).then(r => r.data as SaveTheDateSendResult),
     onSuccess: (data) => {
       setResult(data)
       // Reset to the default (unsent) selection and refetch so the just-sent guests
       // pick up their "Sent" badge and drop out of the default recipient set.
       setSelectedIds(null)
+      // Rotate the dedup key so the NEXT send is a new attempt. Resetting selection to null
+      // above may leave the selectedIds effect a no-op (it was already null), so rotate here
+      // too, otherwise a later default send would reuse this key and be replayed as a no-op.
+      setIdempotencyKey(crypto.randomUUID())
       qc.invalidateQueries({ queryKey: ['guests', coupleId] })
       // Malformed addresses are the couple's to fix, so pop them up immediately.
       if (data.invalidEmails.length > 0) setShowInvalidModal(true)
