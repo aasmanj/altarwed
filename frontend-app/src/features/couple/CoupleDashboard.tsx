@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import { useWeddingWebsite, type WeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
+import { resolveDashboardView } from '@/features/couple/dashboardView'
 import OnboardingWizard from '@/features/couple/onboarding/OnboardingWizard'
 import TipCallout from '@/components/TipCallout'
 import { TIPS } from '@/lib/tips'
@@ -13,11 +14,28 @@ export default function CoupleDashboard() {
   const { data: website, isLoading: siteLoading, error: siteError } = useWeddingWebsite(coupleId)
   const isNotFound = (siteError as { response?: { status?: number } } | null)?.response?.status === 404
 
-  // New user, no website yet. Show the onboarding wizard instead of the dashboard.
-  if (!siteLoading && (isNotFound || (!siteError && !website && !siteLoading))) {
-    if (isNotFound) return <OnboardingWizard />
+  // Decide what to render from the query state. resolveDashboardView is the pure,
+  // unit-tested gate: it onboards a brand-new couple on both a 404 AND a clean
+  // load that returned no website record (issue #240), never flashes the wizard
+  // while the request is still pending, and never routes a transient 5xx/network
+  // error into onboarding.
+  const view = resolveDashboardView({
+    isLoading: siteLoading,
+    isNotFound,
+    hasError: Boolean(siteError) && !isNotFound,
+    hasWebsite: Boolean(website),
+  })
+
+  if (view === 'onboarding') {
+    return <OnboardingWizard />
   }
 
+  // Loading, a transient error, and a successful load with a website all render
+  // the dashboard shell, which is the component's existing behavior for those
+  // states (the cards read `website` and handle its absence). Keeping them in the
+  // gate as distinct outcomes means the wizard can never win any of them, and a
+  // dedicated loading/error surface can be slotted in later without reworking the
+  // routing decision.
   return (
     <div className="min-h-screen bg-ivory">
       <header className="border-b border-gold-light bg-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
