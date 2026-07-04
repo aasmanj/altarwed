@@ -182,13 +182,36 @@ export default async function VendorsPage({
         {/* Grid */}
         {total === 0 ? (
           <div className="text-center py-20">
-            <p className="text-[#8a6a4a] text-lg mb-2">No vendors listed yet in this area</p>
-            <p className="text-sm text-[#8a6a4a]">
-              Are you a vendor?{' '}
-              <a href="https://app.altarwed.com/register/vendor" className="text-[#d4af6a] hover:underline">
-                List your business →
-              </a>
-            </p>
+            {(category || city || tier) ? (
+              <>
+                <p className="text-[#8a6a4a] text-lg mb-3">No vendors match these filters yet.</p>
+                <p className="text-xs text-[#8a6a4a] mb-6">
+                  {[category && CATEGORY_LABELS[category], city, tier].filter(Boolean).join(' · ')}
+                </p>
+                <Link
+                  href="/vendors"
+                  className="inline-block rounded-lg bg-[#3b2f2f] px-5 py-2 text-sm font-semibold text-white hover:bg-[#5c4033] transition"
+                >
+                  Clear all filters
+                </Link>
+                <p className="text-sm text-[#8a6a4a] mt-6">
+                  Are you a vendor?{' '}
+                  <a href="https://app.altarwed.com/register/vendor" className="text-[#d4af6a] hover:underline">
+                    List your business →
+                  </a>
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-[#8a6a4a] text-lg mb-2">No vendors listed yet in this area.</p>
+                <p className="text-sm text-[#8a6a4a]">
+                  Are you a vendor?{' '}
+                  <a href="https://app.altarwed.com/register/vendor" className="text-[#d4af6a] hover:underline">
+                    List your business →
+                  </a>
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
