@@ -14,6 +14,13 @@ import posthog from 'posthog-js'
 //     ship in Session 3. Do not flip this on without configuring input masking.
 const HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) || 'https://us.i.posthog.com'
 
+// Two separate flags on purpose:
+//   - initialized: has posthog.init run in this browser session (it may run only
+//     once per page load; re-calling init is a no-op that PostHog warns about).
+//   - enabled: is capturing currently allowed. This flips off on logout so a
+//     second, non-consenting person on a shared browser sends nothing, and flips
+//     back on for the next consenting login without re-initializing.
+let initialized = false
 let enabled = false
 
 // Browser-level opt-out signals. Global Privacy Control (GPC) is a legally
@@ -34,26 +41,35 @@ function privacyOptOut(): boolean {
   return dnt === '1' || dnt === 'yes'
 }
 
-// Boots PostHog. Only ever called from the AuthContext consent gate, after a
-// couple's persisted marketing-consent flag is confirmed true. It is NOT called
-// at module load, so no analytics network activity happens before consent.
+// Boots PostHog. Called from the AuthContext consent gate (after a couple's
+// persisted marketing-consent flag is confirmed true) and directly from the
+// register success path so the signed_up funnel event isn't dropped before the
+// gate effect runs. It is NOT called at module load, so no analytics network
+// activity happens before consent. Idempotent: safe to call repeatedly.
 export function initAnalytics(): void {
   if (privacyOptOut()) return
   const KEY = import.meta.env.VITE_POSTHOG_KEY as string | undefined
-  if (enabled || !KEY) return
-  posthog.init(KEY, {
-    api_host: HOST,
-    persistence: 'localStorage',
-    person_profiles: 'identified_only',
-    // Safe to capture the initial pageview here: init only runs post-consent, so
-    // this never fires before the gate passes.
-    capture_pageview: true,
-    // Autocapture is OFF by design. The authed dashboard renders guest names,
-    // emails, and addresses; autocapture would ship clicked-element text (guest
-    // PII) to PostHog. Only the explicit captureEvent funnel events are sent.
-    autocapture: false,
-    disable_session_recording: true,
-  })
+  if (!KEY) return
+  if (!initialized) {
+    posthog.init(KEY, {
+      api_host: HOST,
+      persistence: 'localStorage',
+      person_profiles: 'identified_only',
+      // Safe to capture the initial pageview here: init only runs post-consent,
+      // so this never fires before the gate passes.
+      capture_pageview: true,
+      // Autocapture is OFF by design. The authed dashboard renders guest names,
+      // emails, and addresses; autocapture would ship clicked-element text (guest
+      // PII) to PostHog. Only the explicit captureEvent funnel events are sent.
+      autocapture: false,
+      disable_session_recording: true,
+    })
+    initialized = true
+  } else if (!enabled) {
+    // Re-enable capturing after a prior logout opted us out, without a second
+    // (warned, no-op) init call.
+    posthog.opt_in_capturing()
+  }
   enabled = true
 }
 
@@ -71,9 +87,14 @@ export function captureEvent(event: string, props?: Record<string, unknown>): vo
   posthog.capture(event, props)
 }
 
-// Called on logout so the next person on a shared browser starts a fresh,
-// unlinked anonymous identity instead of inheriting the previous couple's.
-export function resetAnalytics(): void {
+// Called on logout. Stops capturing entirely (opt_out_capturing) and rotates the
+// distinct id (reset), so the next person on a shared browser both sends nothing
+// until they consent and starts a fresh, unlinked anonymous identity rather than
+// inheriting the previous couple's. Flipping `enabled` off is what makes every
+// subsequent captureEvent a no-op until a consenting login re-enables it.
+export function disableAnalytics(): void {
   if (!enabled) return
+  posthog.opt_out_capturing()
   posthog.reset()
+  enabled = false
 }
