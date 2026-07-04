@@ -52,6 +52,15 @@ export default function ImportGuestsModal({ onImport, onClose, isPending }: Prop
 
   const preview = rows?.slice(0, 10) ?? []
 
+  // Compact address for the preview so a couple can confirm mailing details survived
+  // the import before committing (postcards filter on mailLine1, so this is the
+  // load-bearing outcome of the column-parity fix). Falls back to city/state when
+  // only a partial address was provided.
+  const previewAddress = (row: ParsedRow): string => {
+    const cityState = [row.mailCity, row.mailState].filter(Boolean).join(', ')
+    return row.mailLine1 || cityState || '-'
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
@@ -102,9 +111,10 @@ export default function ImportGuestsModal({ onImport, onClose, isPending }: Prop
           {!rows && !parseError && (
             <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800">
               <span className="font-semibold">Works with the guest list template.</span>{' '}
-              Every column from the "Copy headers" template imports, including party, mailing
-              address, and plus-one. Headers are matched case-insensitively, only Name is
-              required, and extra columns are ignored.
+              Most columns from the "Copy headers" template import, including party, mailing
+              address, plus-one allowed, side, dietary, and the basics. Headers are matched
+              case-insensitively and only Name is required. A few columns you manage inside
+              AltarWed are skipped: Plus One Name, RSVP Status, and Table #.
             </div>
           )}
 
@@ -133,6 +143,7 @@ export default function ImportGuestsModal({ onImport, onClose, isPending }: Prop
                       <th className="px-3 py-2 text-left text-brown-light font-semibold">Name</th>
                       <th className="px-3 py-2 text-left text-brown-light font-semibold hidden sm:table-cell">Email</th>
                       <th className="px-3 py-2 text-left text-brown-light font-semibold">Side</th>
+                      <th className="px-3 py-2 text-left text-brown-light font-semibold">Address</th>
                       <th className="px-3 py-2 text-left text-brown-light font-semibold hidden md:table-cell">Dietary</th>
                     </tr>
                   </thead>
@@ -142,6 +153,7 @@ export default function ImportGuestsModal({ onImport, onClose, isPending }: Prop
                         <td className="px-3 py-2 text-brown font-medium">{row.name}</td>
                         <td className="px-3 py-2 text-brown-light hidden sm:table-cell">{row.email ?? '-'}</td>
                         <td className="px-3 py-2 text-brown-light capitalize">{row.side?.toLowerCase() ?? '-'}</td>
+                        <td className="px-3 py-2 text-brown-light max-w-[12rem] truncate" title={previewAddress(row)}>{previewAddress(row)}</td>
                         <td className="px-3 py-2 text-brown-light hidden md:table-cell">{row.dietaryRestrictions ?? '-'}</td>
                       </tr>
                     ))}
