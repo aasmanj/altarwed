@@ -435,8 +435,22 @@ public class GuestService {
             }
         }
 
-        for (Guest g : toInvite) {
-            issueInvite(g, coupleId);
+        // Preload the couple + website once (identical for every guest) and pass them into
+        // issueInvite so a large batch is two extra queries, not two per guest (N+1). Guarded
+        // on a non-empty list so a send with nothing to invite issues no queries at all.
+        //
+        // Rollback window: the invites are queued on the emailExecutor (@Async) and are NOT
+        // enrolled in this @Transactional method. If the transaction aborts partway through the
+        // loop, the token/cap writes for earlier guests roll back but their already-queued
+        // emails still go out. We accept that here for the same reason invite-all does (see the
+        // over-cap note above): the cap check makes a re-run safe, so a partial send beats a
+        // hard failure.
+        if (!toInvite.isEmpty()) {
+            WeddingWebsite website = websiteRepository.findByCoupleId(coupleId).orElse(null);
+            Couple couple = coupleRepository.findById(coupleId).orElse(null);
+            for (Guest g : toInvite) {
+                issueInvite(g, coupleId, website, couple);
+            }
         }
 
         log.info("bulk invite send batch queued, coupleId={}, sent={}, skipped={}",
@@ -741,6 +755,18 @@ public class GuestService {
     }
 
     private Guest issueInvite(Guest guest, UUID coupleId) {
+        // Single-invite entry point: load the couple + website for this one send, then
+        // delegate. The bulk path preloads these once and calls the overload directly to
+        // avoid re-querying them per guest (N+1).
+        return issueInvite(guest, coupleId,
+                websiteRepository.findByCoupleId(coupleId).orElse(null),
+                coupleRepository.findById(coupleId).orElse(null));
+    }
+
+    // Package-private overload taking a preloaded website/couple so a batch caller can look
+    // them up once and reuse them across the loop. The token/expiry logic below is unchanged
+    // (kept intact so PR #254's expiry edits still merge cleanly).
+    Guest issueInvite(Guest guest, UUID coupleId, WeddingWebsite website, Couple couple) {
         if (guest.email() == null || guest.email().isBlank()) {
             log.warn("invite rejected, guest has no email, guestId={}, coupleId={}", guest.id(), coupleId);
             throw new IllegalArgumentException("Guest has no email address");
@@ -764,9 +790,6 @@ public class GuestService {
         );
         tokenRepository.save(token);
 
-        var website = websiteRepository.findByCoupleId(coupleId).orElse(null);
-        var couple  = coupleRepository.findById(coupleId).orElse(null);
-
         String coupleNames = couple != null
                 ? couple.partnerTwoName() + " & " + couple.partnerOneName()
                 : "The Couple";
@@ -779,7 +802,10 @@ public class GuestService {
         String coupleReplyTo = couple != null ? couple.email() : null;
         asyncEmailService.sendRsvpInviteEmail(guest.email(), guest.name(), coupleNames, weddingDate, rawToken,
                 guest.id(), coupleId, coupleReplyTo);
-        log.info("rsvp invite queued, guestId={}, coupleId={}, sendNumber={}",
+        // DEBUG, not INFO: this runs once per guest inside both bulk send loops, which each
+        // already emit an aggregate INFO. Per-guest INFO here would break the no-INFO-in-loops
+        // rule and inflate App Insights cost (observability rule 9).
+        log.debug("rsvp invite queued, guestId={}, coupleId={}, sendNumber={}",
                  guest.id(), coupleId, currentSends + 1);
 
         Guest updated = new Guest(
