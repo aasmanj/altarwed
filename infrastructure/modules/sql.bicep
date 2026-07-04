@@ -30,18 +30,31 @@ resource database 'Microsoft.Sql/servers/databases@2023-08-01-preview' = {
   parent: sqlServer
   name: databaseName
   location: location
-  // Standard S2 (50 DTU). Basic (5 DTU / 2 GB) was a hard launch ceiling. S2 is the
-  // disciplined pre-revenue choice: ~10x Basic at ~$75/mo, and with ISR caching
-  // absorbing public reads (only revalidation queries hit SQL) it carries a quiet
-  // launch comfortably. Always-on App Service means serverless auto-pause never
-  // fires, so the DTU model is cheaper here than GP_Serverless.
+  // Standard S3 (100 DTU). Basic (5 DTU / 2 GB) was a hard launch ceiling. S2 (50
+  // DTU) carried the single-instance launch, but scaling the App Service plan past
+  // one instance changes the math on the database side and forces this bump.
+  //
+  // HIKARI SESSION MATH (why S3 pairs with scale-out): each backend instance opens
+  // its own HikariCP pool of 20 connections (application.yml maximum-pool-size: 20),
+  // and every pooled connection is a live SQL session. Connections are PER INSTANCE
+  // and do not coordinate, so total held sessions = 20 x instanceCount. At the
+  // autoscale ceiling of 3 instances that is 60 sessions, all of which can be
+  // executing at once. The DTU tier caps concurrent workers (in-flight requests),
+  // not just sessions: S2 allows ~120 concurrent workers / 240 sessions, S3 lifts
+  // that to ~200 workers / 400 sessions AND doubles the DTU budget (50 -> 100). The
+  // binding constraint under scale-out is DTU throughput, not the session count:
+  // 2-3 instances writing concurrently would queue on S2's 50-DTU budget long
+  // before they exhaust sessions, so S3 buys the DTU headroom that keeps those
+  // pooled connections from starving each other. Keep this in lockstep with the
+  // plan capacity: raising instances without raising the DTU tier just moves the
+  // bottleneck from CPU to the database.
   // Scaling up is an ONLINE operation (brief failover): when the DTU-utilization
   // metric sits above ~75-80%, bump S3 (100) -> S4 (200); past that, migrate to the
   // vCore General Purpose model -> Hyperscale for the millions endgame.
   sku: {
-    name: 'S2'
+    name: 'S3'
     tier: 'Standard'
-    capacity: 50  // DTU
+    capacity: 100  // DTU
   }
   properties: {
     collation: 'SQL_Latin1_General_CP1_CI_AS'
