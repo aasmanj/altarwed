@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link2 } from 'lucide-react'
 import { useGuests } from '@/features/couple/guests/useGuests'
 import { computeGuestStats } from '@/features/couple/guests/guestStats'
+import NextStepCard from '@/features/couple/NextStepCard'
 import { useBudget } from '@/features/couple/budget/useBudget'
 import { usePlanningTasks } from '@/features/couple/checklist/usePlanningTasks'
 import type { WeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
@@ -24,7 +25,8 @@ export default function AtAGlanceCard({ coupleId, website }: Props) {
   // Shared with GuestListPage's stat tiles/analytics panel (guestStats.ts) so the two
   // pages can't silently drift apart again the way the RSVP headcount and response-rate
   // denominator both did.
-  const { attending, total: totalGuests, declining, pending, responseRate } = computeGuestStats(guests ?? [])
+  const guestStats = computeGuestStats(guests ?? [])
+  const { attending, total: totalGuests, declining, pending, responseRate } = guestStats
 
   const spent = budget?.totalActual ?? 0
   const goal = website?.goalBudget ?? 0
@@ -94,6 +96,12 @@ export default function AtAGlanceCard({ coupleId, website }: Props) {
             Publish →
           </a>
         </div>
+      )}
+      {/* Post-publish "what's next" nudge. Only after publishing, since the draft banner
+          above already guides couples to publish; the pre-website wizard covers earlier
+          stages. Driven by the guests/stats already loaded here, so it adds no API calls. */}
+      {website?.isPublished && guests !== undefined && (
+        <NextStepCard coupleId={coupleId} guests={guests} stats={guestStats} />
       )}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <Metric
