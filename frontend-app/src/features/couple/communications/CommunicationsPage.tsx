@@ -415,7 +415,7 @@ export default function CommunicationsPage() {
                         <p className="text-sm font-medium text-stone-800">
                           {g.name}
                           {isInternational && (
-                            <span className="ml-2 text-xs font-normal text-stone-400">International -- not pre-verified</span>
+                            <span className="ml-2 text-xs font-normal text-stone-500">International -- not pre-verified</span>
                           )}
                         </p>
                         <p className="text-xs text-stone-500 truncate">
@@ -432,7 +432,7 @@ export default function CommunicationsPage() {
           {/* 4. Return address */}
           <div className="mb-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-2" id="return-address-label">
-              4. Return address <span className="font-normal normal-case text-stone-400">(required)</span>
+              4. Return address <span className="font-normal normal-case text-stone-500">(required)</span>
             </p>
             <div className="grid gap-3 sm:grid-cols-2" role="group" aria-labelledby="return-address-label">
               <div className="sm:col-span-2">
@@ -515,11 +515,11 @@ export default function CommunicationsPage() {
                   <>
                     Estimated: <span className="font-semibold text-stone-900">${estimatedCostDollars.toFixed(2)}</span> ({eligibleSelected.length} postcards)
                     {internationalSelectedCount > 0 && (
-                      <span className="block text-xs text-stone-400 mt-0.5">{internationalSelectedCount} international, not pre-verified</span>
+                      <span className="block text-xs text-stone-500 mt-0.5">{internationalSelectedCount} international, not pre-verified</span>
                     )}
                   </>
                 ) : (
-                  <span className="text-stone-400">Pick at least one guest to see cost.</span>
+                  <span className="text-stone-500">Pick at least one guest to see cost.</span>
                 )}
               </div>
               <button
@@ -724,7 +724,7 @@ function PastOrderCard({
                       </a>
                     )}
                     {r.expectedDeliveryDate && (
-                      <span className="text-xs text-stone-400 block">
+                      <span className="text-xs text-stone-500 block">
                         Expected by {new Date(r.expectedDeliveryDate).toLocaleDateString()}
                       </span>
                     )}
@@ -927,7 +927,7 @@ function PostcardPreview({
   return (
     <>
       <div className="mt-4">
-        <p className="text-xs text-stone-400 mb-2 uppercase tracking-wide font-medium">
+        <p className="text-xs text-stone-500 mb-2 uppercase tracking-wide font-medium">
           Preview <span className="normal-case font-normal">(click to enlarge)</span>
         </p>
         <button
@@ -937,17 +937,17 @@ function PostcardPreview({
         >
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <p className="text-xs text-stone-400 mb-1.5 font-medium">Front</p>
+              <p className="text-xs text-stone-500 mb-1.5 font-medium">Front</p>
               <FrontCard large={false} />
             </div>
             <div>
-              <p className="text-xs text-stone-400 mb-1.5 font-medium">Back</p>
+              <p className="text-xs text-stone-500 mb-1.5 font-medium">Back</p>
               <BackCard large={false} />
             </div>
           </div>
         </button>
         {isPhoto && !websiteLoading && !heroPhotoUrl && (
-          <p className="text-xs text-stone-400 mt-1.5">
+          <p className="text-xs text-stone-500 mt-1.5">
             Upload a couple photo on your wedding website to see it here.
           </p>
         )}
