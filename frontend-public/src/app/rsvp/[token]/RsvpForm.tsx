@@ -185,6 +185,19 @@ export default function RsvpForm({
             </p>
           )
         )}
+        {/* Recovery path: the emailed RSVP link is single-use, so once a guest has
+            responded, point them at the find-your-invitation finder (which mints a
+            fresh link) rather than the dead emailed one. Uses the wedding-scoped
+            finder when we know the slug, otherwise the name-search entry point. */}
+        <p className="mt-4 text-sm text-[#6b5344]">
+          Need to change your response?{' '}
+          <a
+            href={weddingSlug ? `/wedding/${weddingSlug}/rsvp` : '/find-wedding'}
+            className="font-medium text-[#4a1942] underline hover:text-[#3b1235]"
+          >
+            Find your invitation
+          </a>
+        </p>
       </div>
     )
   }
