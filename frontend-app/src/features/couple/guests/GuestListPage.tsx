@@ -726,6 +726,7 @@ export default function GuestListPage() {
         {showImport && (
           <ImportGuestsModal
             coupleId={coupleId}
+            existingGuests={guests}
             onClose={() => setShowImport(false)}
             isPending={bulkAdd.isPending}
             onImport={async (guests) => {

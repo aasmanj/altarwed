@@ -1,7 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import path from 'path'
-import { detectField, parsePlusOne, parseRows, toCreatePayload } from './guestImport'
+import {
+  detectField,
+  parsePlusOne,
+  parseRows,
+  toCreatePayload,
+  findDuplicates,
+  normalizeName,
+  MAX_IMPORT_ROWS,
+  type ParsedRow,
+  type ExistingGuestKey,
+} from './guestImport'
 
 // Behavioral contract for issue #223 (CSV/Excel column parity). Before the fix the
 // HEADER_MAP covered only 6 columns and hardcoded plusOneAllowed to false, so a CSV
@@ -130,6 +140,98 @@ describe('guest import header mapping (#223)', () => {
     expect(payload.name).toBe('Mara')
     expect(Object.keys(payload)).not.toContain('Favourite Hymn')
     expect(Object.keys(payload)).not.toContain('tableNumber')
+  })
+})
+
+// Duplicate detection (#226). Before the fix, import mapped rows straight to bulk
+// add with no matching, so a couple who re-imported a tweaked sheet duplicated the
+// entire guest list. These exercise the pure matcher directly.
+const row = (name: string, email?: string): ParsedRow => ({ name, email, plusOneAllowed: false })
+
+describe('guest import duplicate detection (#226)', () => {
+  it('normalizes names by trimming, collapsing internal whitespace, and lowercasing', () => {
+    expect(normalizeName('  Mary   Jane ')).toBe('mary jane')
+    expect(normalizeName('MARY JANE')).toBe('mary jane')
+    expect(normalizeName('Mary\tJane')).toBe('mary jane')
+  })
+
+  it('flags a row whose email matches an existing guest (case-insensitively)', () => {
+    const existing: ExistingGuestKey[] = [{ name: 'Someone Else', email: 'Andrew@Example.com' }]
+    const report = findDuplicates([row('Different Name', 'andrew@example.com')], existing)
+    expect(report.reasons).toEqual(['existing'])
+    expect(report.existingCount).toBe(1)
+    expect(report.inFileCount).toBe(0)
+  })
+
+  it('flags a row whose normalized name matches an existing guest even with different spacing/case', () => {
+    const existing: ExistingGuestKey[] = [{ name: 'Mary Jane', email: null }]
+    const report = findDuplicates([row('  mary   JANE ', 'new@example.com')], existing)
+    expect(report.reasons).toEqual(['existing'])
+    expect(report.existingCount).toBe(1)
+  })
+
+  it('leaves genuinely new rows unflagged', () => {
+    const existing: ExistingGuestKey[] = [{ name: 'Andrew Smith', email: 'andrew@example.com' }]
+    const report = findDuplicates([row('Brand New', 'brand@example.com')], existing)
+    expect(report.reasons).toEqual([null])
+    expect(report.existingCount).toBe(0)
+    expect(report.inFileCount).toBe(0)
+  })
+
+  it('detects duplicates WITHIN the file itself (by email or name)', () => {
+    const report = findDuplicates(
+      [
+        row('Andrew Smith', 'andrew@example.com'),
+        row('Andrew Smith', 'andrew@example.com'), // same email + name
+        row('Different Label', 'andrew@example.com'), // same email, new name
+        row('andrew smith', 'other@example.com'), // same name, new email
+      ],
+      []
+    )
+    expect(report.reasons).toEqual([null, 'in-file', 'in-file', 'in-file'])
+    expect(report.inFileCount).toBe(3)
+    expect(report.existingCount).toBe(0)
+  })
+
+  it('classifies an existing-list match ahead of an in-file match', () => {
+    const existing: ExistingGuestKey[] = [{ name: 'Andrew Smith', email: 'andrew@example.com' }]
+    const report = findDuplicates(
+      [row('Andrew Smith', 'andrew@example.com'), row('Andrew Smith', 'andrew@example.com')],
+      existing
+    )
+    expect(report.reasons).toEqual(['existing', 'existing'])
+    expect(report.existingCount).toBe(2)
+    expect(report.inFileCount).toBe(0)
+  })
+
+  it('never matches empty-email rows to each other on email (only names can match)', () => {
+    const report = findDuplicates(
+      [row('Aunt Ruth', ''), row('Uncle Ray', ''), row('Cousin Bea')],
+      [{ name: 'Grandma Joy', email: '' }]
+    )
+    // Three distinct names, all blank email: nothing collapses.
+    expect(report.reasons).toEqual([null, null, null])
+    expect(report.existingCount).toBe(0)
+    expect(report.inFileCount).toBe(0)
+  })
+
+  it('still matches blank-email rows when the NAME repeats', () => {
+    const report = findDuplicates([row('Aunt Ruth', ''), row('aunt ruth', '')], [])
+    expect(report.reasons).toEqual([null, 'in-file'])
+    expect(report.inFileCount).toBe(1)
+  })
+})
+
+describe('guest import row-count guard (#226)', () => {
+  it('exposes the 500 per-import cap so the modal can guard before any network call', () => {
+    expect(MAX_IMPORT_ROWS).toBe(500)
+  })
+
+  it('a 600-row sheet parses to more rows than the cap (the over-limit trigger)', () => {
+    const rawRows = Array.from({ length: 600 }, (_, i) => ({ 'Guest Name(s)': `Guest ${i}` }))
+    const rows = parseRows(rawRows)
+    expect(rows).toHaveLength(600)
+    expect(rows.length > MAX_IMPORT_ROWS).toBe(true)
   })
 })
 
