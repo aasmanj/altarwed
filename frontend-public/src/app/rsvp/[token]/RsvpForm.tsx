@@ -205,7 +205,7 @@ export default function RsvpForm({
             focus; the page footer carries the fuller button block. Same
             utm_campaign=rsvp-thankyou tag as the footer so both surfaces roll up to
             one measurable campaign, distinct from the wedding-footer viral-footer. */}
-        <div className="mt-6 border-t border-[#f0e8da] pt-4 text-sm text-[#8a6a4a]">
+        <div className="mt-6 border-t border-[#f0e8da] pt-4 text-sm text-[#6b5344]">
           Getting married too?{' '}
           <a
             href="https://app.altarwed.com/register?utm_source=wedding-site&utm_medium=referral&utm_campaign=rsvp-thankyou"
