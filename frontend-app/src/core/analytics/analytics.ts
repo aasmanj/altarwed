@@ -65,9 +65,16 @@ export function initAnalytics(): void {
       disable_session_recording: true,
     })
     initialized = true
+    // disableAnalytics() persists opt_out_capturing() in localStorage, so a
+    // returning couple who logged out on a previous visit would have PostHog
+    // silently drop every event at the library level even though our own guard
+    // thinks capturing is on. Opting in right after init clears that persisted
+    // opt-out. init only ever runs post-consent and post-GPC-check, so opting in
+    // here is always correct.
+    posthog.opt_in_capturing()
   } else if (!enabled) {
-    // Re-enable capturing after a prior logout opted us out, without a second
-    // (warned, no-op) init call.
+    // Re-enable capturing after a prior logout opted us out within this same page
+    // load, without a second (warned, no-op) init call.
     posthog.opt_in_capturing()
   }
   enabled = true

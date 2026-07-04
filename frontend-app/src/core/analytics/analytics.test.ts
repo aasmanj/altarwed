@@ -140,11 +140,41 @@ describe('logout disables capturing until re-consent (issue #218 review, SHOULD-
     captureEvent('share_clicked')
     expect(capture).not.toHaveBeenCalled()
 
-    // Next consenting login re-enables without a second (warned) init call.
+    // Next consenting login (same page load) re-enables without a second
+    // (warned) init call, going through the opt-in-only branch.
+    optIn.mockClear()
     initAnalytics()
     expect(init).toHaveBeenCalledTimes(1)
     expect(optIn).toHaveBeenCalledTimes(1)
     captureEvent('share_clicked')
+    expect(capture).toHaveBeenCalledTimes(1)
+  })
+
+  it('opts back in on a fresh init after a reload so a persisted opt-out never mutes a returning couple', async () => {
+    vi.stubGlobal('navigator', {})
+
+    // Visit 1: consenting couple logs in, then logs out. opt_out_capturing()
+    // persists to localStorage in the real client, surviving the reload below.
+    const first = await loadAnalytics()
+    first.initAnalytics()
+    first.disableAnalytics()
+    expect(optOut).toHaveBeenCalledTimes(1)
+
+    // Reload: module flags reset (initialized/enabled back to false), but the
+    // library-level opt-out would still be persisted. resetModules simulates the
+    // fresh page load; the posthog mock (and its persisted opt-out) is conceptual.
+    optIn.mockClear()
+    init.mockClear()
+    const second = await loadAnalytics()
+
+    // Visit 2: same couple logs in again. This takes the fresh posthog.init(...)
+    // branch, which must clear the persisted opt-out via opt_in_capturing(),
+    // otherwise PostHog drops every event even though our guard thinks it is on.
+    second.initAnalytics()
+    expect(init).toHaveBeenCalledTimes(1)
+    expect(optIn).toHaveBeenCalledTimes(1)
+
+    second.captureEvent('website_published')
     expect(capture).toHaveBeenCalledTimes(1)
   })
 })
