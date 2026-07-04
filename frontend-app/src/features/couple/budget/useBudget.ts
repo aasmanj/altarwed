@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { apiClient } from '@/core/api/client'
+import { errorDetail } from '@/lib/apiError'
 
 export type BudgetCategory =
   | 'VENUE' | 'CATERING' | 'PHOTOGRAPHY' | 'VIDEOGRAPHY' | 'FLOWERS'
@@ -80,6 +82,8 @@ export function useCreateBudgetItem(coupleId: string) {
     mutationFn: (payload: CreateBudgetItemPayload) =>
       apiClient.post(`/api/v1/budget/couple/${coupleId}`, payload).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['budget', coupleId] }),
+    // Surface the backend reason so a rejected budget save is not silent (#222).
+    onError: (err: unknown) => toast.error(errorDetail(err)),
   })
 }
 
@@ -89,6 +93,7 @@ export function useUpdateBudgetItem(coupleId: string) {
     mutationFn: ({ itemId, ...payload }: UpdateBudgetItemPayload & { itemId: string }) =>
       apiClient.patch(`/api/v1/budget/couple/${coupleId}/${itemId}`, payload).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['budget', coupleId] }),
+    onError: (err: unknown) => toast.error(errorDetail(err)),
   })
 }
 
@@ -98,5 +103,6 @@ export function useDeleteBudgetItem(coupleId: string) {
     mutationFn: (itemId: string) =>
       apiClient.delete(`/api/v1/budget/couple/${coupleId}/${itemId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['budget', coupleId] }),
+    onError: (err: unknown) => toast.error(errorDetail(err)),
   })
 }

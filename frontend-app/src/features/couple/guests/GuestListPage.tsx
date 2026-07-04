@@ -753,7 +753,14 @@ export default function GuestListPage() {
           <AddGuestForm
             onSubmit={async (data) => {
               const wasFirstGuest = guests.length === 0
-              await addGuest.mutateAsync(data)
+              try {
+                await addGuest.mutateAsync(data)
+              } catch {
+                // useAddGuest.onError surfaces the backend reason as a toast.
+                // Keep the modal open (do not clear the form) so the couple can
+                // fix the input and retry instead of losing what they typed.
+                return
+              }
               setShowAdd(false)
               if (wasFirstGuest) {
                 // First guest added, celebrate the milestone.

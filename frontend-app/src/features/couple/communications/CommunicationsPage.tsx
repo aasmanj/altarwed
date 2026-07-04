@@ -17,6 +17,7 @@ import {
 } from './usePrintOrders'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { coupleDisplayName } from '@/lib/coupleName'
+import { errorDetail } from '@/lib/apiError'
 import { formatShortDate } from '@/lib/date'
 
 type TemplateKey =
@@ -192,8 +193,10 @@ export default function CommunicationsPage() {
       // the couple should see the exact charge and postcard count before leaving for Stripe.
       setPendingCheckout(result)
     } catch (err) {
-      const msg = (err as { response?: { data?: { message?: string } }; message?: string })
-      setLastResult(`Failed to submit: ${msg.response?.data?.message ?? msg.message ?? 'Unknown error'}`)
+      // Spring ProblemDetail puts the reason in `detail`, not `message`; reading
+      // `.message` (the old code) always missed it and showed "Unknown error".
+      const fallback = (err as { message?: string })?.message ?? 'Unknown error'
+      setLastResult(`Failed to submit: ${errorDetail(err, fallback)}`)
       // Keep the SAME key on failure: if the couple retries, the backend dedups
       // in case the batch actually went through before the error surfaced.
     }

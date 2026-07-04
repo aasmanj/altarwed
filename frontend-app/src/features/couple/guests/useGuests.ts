@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { apiClient } from '@/core/api/client'
+import { errorDetail } from '@/lib/apiError'
 
 export type RsvpStatus = 'PENDING' | 'ATTENDING' | 'DECLINING'
 export type GuestSide = 'BRIDE' | 'GROOM' | 'BOTH'
@@ -138,6 +139,10 @@ export function useAddGuest(coupleId: string) {
       apiClient.post(`/api/v1/guests/couple/${coupleId}`, payload).then(r => r.data),
     onSuccess: (newGuest: Guest) =>
       qc.setQueryData<Guest[]>(key(coupleId), old => old ? [...old, newGuest] : [newGuest]),
+    // No optimistic update here, so nothing to roll back; surface the backend
+    // reason (a @Size(max=200) name rejection returns 400 with a ProblemDetail)
+    // so the add-guest modal does not fail silently (issue #222).
+    onError: (err: unknown) => toast.error(errorDetail(err)),
   })
 }
 
