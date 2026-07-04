@@ -15,7 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,7 +31,16 @@ import java.util.UUID;
 public class GuestService {
 
     private static final Logger log = LoggerFactory.getLogger(GuestService.class);
-    private static final int INVITE_EXPIRY_DAYS = 30;
+    // RSVP invite tokens expire relative to the couple's wedding date, not a fixed window after
+    // send (issue #216). Invites go out 6 to 8 weeks ahead and most guests respond in the final
+    // weeks, so a fixed 30-day expiry killed the emailed link for late responders. Expiry =
+    // wedding date + this grace (end of that day) so the link stays valid through the weekend.
+    private static final int INVITE_EXPIRY_GRACE_DAYS_AFTER_WEDDING = 3;
+    // Couple has not set a wedding date yet: fall back to a long window so the link does not die.
+    private static final int INVITE_EXPIRY_NO_DATE_DAYS = 365;
+    // Floor: never issue a token that expires sooner than this, even when the wedding is tomorrow
+    // (or already past), so a couple sending invites late still gets a usable link.
+    private static final int INVITE_EXPIRY_FLOOR_DAYS = 30;
     private static final int MAX_INVITE_SENDS = 3;
     private static final int SEARCH_TOKEN_EXPIRY_HOURS = 1;
     // The public find-invitation search ignores queries shorter than this so a short guess
@@ -674,16 +685,17 @@ public class GuestService {
         // Invalidate any outstanding invite tokens before issuing a new one
         tokenRepository.deleteAllByGuestId(guest.id());
 
+        var website = websiteRepository.findByCoupleId(coupleId).orElse(null);
+        var couple  = coupleRepository.findById(coupleId).orElse(null);
+
+        LocalDate coupleWeddingDate = website != null ? website.weddingDate() : null;
         String rawToken = UUID.randomUUID().toString();
         RsvpInviteToken token = new RsvpInviteToken(
                 null, hash(rawToken), guest.id(),
-                LocalDateTime.now().plusDays(INVITE_EXPIRY_DAYS),
+                computeInviteExpiry(coupleWeddingDate, LocalDateTime.now()),
                 false, null, RsvpInviteToken.SOURCE_INVITE
         );
         tokenRepository.save(token);
-
-        var website = websiteRepository.findByCoupleId(coupleId).orElse(null);
-        var couple  = coupleRepository.findById(coupleId).orElse(null);
 
         String coupleNames = couple != null
                 ? couple.partnerTwoName() + " & " + couple.partnerOneName()
@@ -714,6 +726,22 @@ public class GuestService {
                 guest.sheetSyncId(), guest.syncedFromSheet()
         );
         return guestRepository.save(updated);
+    }
+
+    // Derive an RSVP invite token's expiry from the wedding date so the emailed link stays valid
+    // through the wedding weekend, instead of a fixed 30 days after send (issue #216). Package
+    // private and static (pure function of its inputs) so it is unit-testable without a Spring
+    // context. Rules:
+    //   - wedding date set: expires at end of (weddingDate + grace days);
+    //   - no wedding date:  expires now + INVITE_EXPIRY_NO_DATE_DAYS;
+    //   - floor: never before now + INVITE_EXPIRY_FLOOR_DAYS, covering a wedding that is tomorrow
+    //     (or already past) so a late send still yields a usable link.
+    static LocalDateTime computeInviteExpiry(LocalDate weddingDate, LocalDateTime now) {
+        LocalDateTime floor = now.plusDays(INVITE_EXPIRY_FLOOR_DAYS);
+        LocalDateTime candidate = weddingDate != null
+                ? weddingDate.plusDays(INVITE_EXPIRY_GRACE_DAYS_AFTER_WEDDING).atTime(LocalTime.MAX)
+                : now.plusDays(INVITE_EXPIRY_NO_DATE_DAYS);
+        return candidate.isAfter(floor) ? candidate : floor;
     }
 
     // token.source() (SEARCH vs INVITE) is intentionally NOT checked here. The discriminator
