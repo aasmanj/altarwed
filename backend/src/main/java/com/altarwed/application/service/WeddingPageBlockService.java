@@ -6,6 +6,7 @@ import com.altarwed.application.dto.UpdateWeddingPageBlockRequest;
 import com.altarwed.domain.exception.WeddingPageBlockNotFoundException;
 import com.altarwed.domain.model.BlockTab;
 import com.altarwed.domain.model.WeddingPageBlock;
+import com.altarwed.domain.model.WeddingWebsite;
 import com.altarwed.domain.port.RevalidationPort;
 import com.altarwed.domain.port.WeddingPageBlockRepository;
 import com.altarwed.domain.port.WeddingWebsiteRepository;
@@ -118,7 +119,16 @@ public class WeddingPageBlockService {
         return block;
     }
 
+    // Trigger ISR revalidation for the owning wedding page after a block mutation, but only
+    // when the site is published. An unpublished (draft) site has no live public page in the
+    // Next.js ISR cache, so the public path 404s until the couple hits publish; firing a
+    // revalidation request for a draft slug is a pointless HTTP round-trip plus log noise on
+    // every keystroke-level edit during the pre-launch build phase. Gating on isPublished
+    // matches the intent of the scalar update path (WeddingWebsiteService), where a draft's
+    // slug is not a live cached route.
     private void revalidateOwningPage(UUID websiteId) {
-        websiteRepository.findById(websiteId).ifPresent(w -> revalidationPort.revalidateWeddingPage(w.slug()));
+        websiteRepository.findById(websiteId)
+                .filter(WeddingWebsite::isPublished)
+                .ifPresent(w -> revalidationPort.revalidateWeddingPage(w.slug()));
     }
 }
