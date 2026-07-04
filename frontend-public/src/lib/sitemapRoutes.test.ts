@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { GET as getIndex } from '@/app/sitemap.xml/route'
 import { GET as getChild } from '@/app/sitemap/[id]/route'
+import { loadSitemapUrls } from './sitemapData'
 import { SITEMAP_URL_LIMIT } from './sitemap'
 
 // End-to-end wiring test for issue #151: with a mocked large published-site
@@ -31,6 +32,35 @@ function mockFetch(publishedCount: number) {
       return new Response(JSON.stringify(slice), { status: 200 })
     }
     // Blog feed (or anything else) is empty for this test.
+    return new Response(JSON.stringify([]), { status: 200 })
+  })
+}
+
+// Issue #241 fail-closed mock: serves normal paged slices until `failPage`, then
+// returns a 500 for that page. Models a backend blip partway through the walk.
+function mockFetchFailingAtPage(
+  publishedCount: number,
+  size: number,
+  failPage: number,
+) {
+  return vi.fn(async (input: string | URL | Request) => {
+    const url = typeof input === 'string' ? input : input.toString()
+    if (url.includes('/wedding-websites/published')) {
+      const parsed = new URL(url)
+      const page = Number(parsed.searchParams.get('page') ?? '0')
+      if (page === failPage) {
+        return new Response('upstream error', { status: 500 })
+      }
+      const start = page * size
+      const slice = Array.from(
+        { length: Math.max(0, Math.min(size, publishedCount - start)) },
+        (_unused, i) => ({
+          slug: `couple-${start + i}`,
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        }),
+      )
+      return new Response(JSON.stringify(slice), { status: 200 })
+    }
     return new Response(JSON.stringify([]), { status: 200 })
   })
 }
@@ -102,6 +132,16 @@ describe('sitemap routes with a 60,000-site catalog', () => {
     expect(feedCalls.every((url) => url.includes('page=') && url.includes('size='))).toBe(true)
     expect(feedCalls.some((url) => url.includes('page=0'))).toBe(true)
     expect(feedCalls.some((url) => url.includes('page=1'))).toBe(true)
+  })
+
+  it('fails closed when a page errors mid-walk instead of emitting a partial list', async () => {
+    // Issue #241 blocker: a backend blip on a later page must NOT be mistaken for
+    // end-of-feed. The loader throws so the ISR render aborts and Next keeps serving
+    // the last good cached sitemap, rather than caching a truncated one for an hour.
+    // 5000 sites at size 1000 is pages 0-4 full then a short page 5; page 3 fails.
+    vi.stubGlobal('fetch', mockFetchFailingAtPage(5000, 1000, 3))
+
+    await expect(loadSitemapUrls()).rejects.toThrow(/failed at page 3/)
   })
 
   it('404s an out-of-range or malformed child sitemap id', async () => {

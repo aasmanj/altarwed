@@ -6,32 +6,36 @@ import {
   type SlugSummary,
 } from './sitemap'
 
-// Fetch a slug feed (blog posts or published wedding sites) from the API. Kept
-// resilient: any failure returns an empty list so the sitemap still serves its
-// static pages instead of 500ing. Responses are cached for one hour (revalidate)
-// so the same feed is fetched once per ISR cycle and reused across the sitemap
-// index request and every child-sitemap request.
-async function fetchSlugFeed(url: string): Promise<SlugSummary[]> {
+// Fetch a slug feed (blog posts or published wedding sites) from the API. Returns
+// null on ANY failure (non-2xx, timeout, network, malformed body) and an array
+// (possibly empty) only on a successful response. That distinction is load-bearing
+// for the paginated wedding walk below: an empty array is a legitimately empty last
+// page, whereas null is a failed page that must NOT be mistaken for end-of-feed.
+// Responses are cached for one hour (revalidate) so the same feed is fetched once
+// per ISR cycle and reused across the sitemap index and every child-sitemap request.
+async function fetchSlugFeed(url: string): Promise<SlugSummary[] | null> {
   try {
     const res = await fetch(url, {
       next: { revalidate: 3600 },
       signal: AbortSignal.timeout(8000),
     })
     if (!res.ok) {
-      return []
+      return null
     }
     const data = await res.json()
-    return Array.isArray(data) ? (data as SlugSummary[]) : []
+    return Array.isArray(data) ? (data as SlugSummary[]) : null
   } catch {
-    return []
+    return null
   }
 }
 
-// Page size for the published-wedding feed. Must match the backend's server-side
-// ceiling (WeddingWebsiteService.MAX_SITEMAP_PAGE_SIZE): the loader treats a page
-// with fewer than this many rows as the last page, so a smaller value here would
-// stop early and drop sites from the sitemap.
-const WEDDING_FEED_PAGE_SIZE = 1000
+// Page size for the published-wedding feed. Must equal the backend's server-side
+// ceiling (WeddingWebsiteService.MAX_SITEMAP_PAGE_SIZE, backend/src/main/java/com/
+// altarwed/application/service/WeddingWebsiteService.java): the loader treats a page
+// with fewer than this many rows as the last page, so if this drifts below the server
+// clamp the walk would stop after page 0 and silently drop most sites. The two
+// constants are cross-checked by sitemapFeedPageSize.test.ts so drift fails CI.
+export const WEDDING_FEED_PAGE_SIZE = 1000
 
 // Hard stop on the number of pages we will walk, so a misbehaving API (one that
 // keeps returning full pages) can never spin an unbounded fetch loop during an ISR
@@ -42,12 +46,23 @@ const WEDDING_FEED_MAX_PAGES = 1000
 // Walk the paginated published-wedding feed (issue #241) until a short page signals
 // the end, concatenating every page. The backend orders by id, so paging is stable
 // and no site is duplicated or skipped across page boundaries.
+//
+// Fails closed: if any page errors (fetchSlugFeed returns null) we THROW rather than
+// return the pages gathered so far. A partial list would look healthy and get cached
+// for the full 3600s revalidate window, silently dropping every site past the failed
+// page. Throwing aborts the ISR render so Next keeps serving the last good cached
+// sitemap (stale but complete), which is strictly better than truncated-but-fresh.
 async function fetchPublishedWeddingSites(apiUrl: string): Promise<SlugSummary[]> {
   const sites: SlugSummary[] = []
   for (let page = 0; page < WEDDING_FEED_MAX_PAGES; page++) {
     const batch = await fetchSlugFeed(
       `${apiUrl}/api/v1/wedding-websites/published?page=${page}&size=${WEDDING_FEED_PAGE_SIZE}`,
     )
+    if (batch === null) {
+      throw new Error(
+        `published-wedding sitemap feed failed at page ${page}; aborting to preserve the last good sitemap`,
+      )
+    }
     sites.push(...batch)
     if (batch.length < WEDDING_FEED_PAGE_SIZE) {
       break
@@ -65,7 +80,12 @@ export async function loadSitemapUrls(): Promise<SitemapUrl[]> {
   let blogPosts: SlugSummary[] = []
   let weddingSites: SlugSummary[] = []
   if (apiUrl) {
-    blogPosts = await fetchSlugFeed(`${apiUrl}/api/v1/blog/posts`)
+    // Blog is a single, unpaginated fetch, so a failure is all-or-nothing (never a
+    // silent partial); coalesce null to [] to keep the pre-existing resilient
+    // behavior and still serve the static pages and the wedding feed.
+    blogPosts = (await fetchSlugFeed(`${apiUrl}/api/v1/blog/posts`)) ?? []
+    // The wedding feed is paginated, so it fails closed (throws) instead: a partial
+    // list would cache a truncated sitemap for the full revalidate window.
     weddingSites = await fetchPublishedWeddingSites(apiUrl)
   }
 
