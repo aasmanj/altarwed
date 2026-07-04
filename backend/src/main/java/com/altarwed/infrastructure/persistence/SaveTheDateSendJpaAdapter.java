@@ -21,7 +21,10 @@ public class SaveTheDateSendJpaAdapter implements SaveTheDateSendRepository {
     }
 
     // REQUIRES_NEW + saveAndFlush: the receipt is claimed in its OWN short transaction, not the
-    // caller's ambient sendSaveDates transaction. Two reasons, both required for correctness:
+    // caller's ambient sendSaveDates transaction. This is the specific mechanism that differs from
+    // PrintOrderService's idempotency: createOrder is deliberately NON-transactional, so its claim
+    // already runs alone; sendSaveDates is @Transactional (it must be, for the guest stamp), so the
+    // claim has to be forced out of that ambient transaction here. Two reasons, both required:
     //  1. saveAndFlush forces the INSERT to execute now, so a unique-key collision surfaces as a
     //     DataIntegrityViolationException at THIS call, which the service catches and replays.
     //     Deferred to the caller's commit it would instead bubble up as a raw 500.

@@ -230,6 +230,11 @@ public class GuestService {
         return issueInvite(guest, coupleId);
     }
 
+    // @Transactional is load-bearing, not decorative: markSaveTheDatesSent (below) is a
+    // @Modifying JPQL UPDATE with no transaction of its own (GuestJpaRepository), so it needs an
+    // ambient transaction or JPA throws TransactionRequiredException. Do NOT "simplify" this
+    // annotation away. Its presence is also exactly why the key claim needs REQUIRES_NEW +
+    // saveAndFlush (see the claim block below) to run and fail in isolation.
     @Transactional
     public SaveTheDateSendResult sendSaveDates(UUID coupleId, List<UUID> guestIds, String idempotencyKey) {
         log.info("save-the-date send batch started, coupleId={}, targetCount={}", coupleId,
@@ -238,7 +243,8 @@ public class GuestService {
         // Idempotency guard (issue #232): a send whose HTTP response was lost gets retried by the
         // couple carrying the same client-generated key. If a receipt already exists for this key,
         // return its stored summary instead of emailing and re-stamping the batch a second time.
-        // Mirrors PrintOrderService.createOrder's replay check.
+        // Same concept as PrintOrderService.createOrder's replay check; the storage mechanism
+        // differs (see the claim block below).
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             Optional<SaveTheDateSend> replay =
                     saveTheDateSendRepository.findByCoupleIdAndIdempotencyKey(coupleId, idempotencyKey);
@@ -279,13 +285,20 @@ public class GuestService {
         int validCount = valid.size();
         int suppressedCount = validCount - queueable.size();
 
-        // Claim the idempotency key BEFORE the email fan-out and the stamp, mirroring
-        // PrintOrderService: two concurrent submits with the same key both reach here having each
-        // seen no receipt above, but the unique index lets exactly one insert win. The loser's
-        // saveAndFlush throws DataIntegrityViolationException (isolated in its own REQUIRES_NEW
-        // transaction), and we replay the winner's summary rather than mailing the batch twice.
-        // The receipt commits ahead of the async send; a retry that lands after the send was
-        // enqueued but before its stamp committed correctly replays instead of re-sending.
+        // Claim the idempotency key BEFORE the email fan-out and the stamp: two concurrent submits
+        // with the same key both reach here having each seen no receipt above, but the unique index
+        // lets exactly one insert win. The loser's saveAndFlush throws DataIntegrityViolationException
+        // and we replay the winner's summary rather than mailing the batch twice. The receipt commits
+        // ahead of the async send; a retry that lands after the send was enqueued but before its
+        // stamp committed correctly replays instead of re-sending.
+        //
+        // Same idea as PrintOrderService.createOrder, but NOT the same mechanism, so do not predict
+        // one from the other: createOrder is deliberately NOT @Transactional, so its claim already
+        // runs alone in its own Spring Data transaction that flushes at method return. sendSaveDates
+        // runs inside this method's ambient @Transactional (required for the stamp above), so the
+        // claim MUST be forced into its own transaction that fails in isolation, hence the adapter's
+        // REQUIRES_NEW + saveAndFlush. Without that, the collision would surface at the outer commit
+        // (a raw 500, not a replay) and would poison the ambient transaction we still need.
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             try {
                 saveTheDateSendRepository.save(new SaveTheDateSend(
