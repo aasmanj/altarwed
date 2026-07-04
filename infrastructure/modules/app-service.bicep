@@ -289,7 +289,8 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
   }
 }
 
-// Staging deployment slot (P1v3 supports one non-production slot). This is the
+// Staging deployment slot (PremiumV3 allows up to 20 slots; we provision one
+// staging slot). This is the
 // zero-downtime deploy primitive: publish the new JAR here, let it warm up and pass
 // a health check, then swap staging <-> production so live traffic never hits a cold
 // or half-started JVM. A crash or bad build stays contained on the slot instead of

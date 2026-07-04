@@ -40,8 +40,8 @@ resource database 'Microsoft.Sql/servers/databases@2023-08-01-preview' = {
   // and do not coordinate, so total held sessions = 20 x instanceCount. At the
   // autoscale ceiling of 3 instances that is 60 sessions, all of which can be
   // executing at once. The DTU tier caps concurrent workers (in-flight requests),
-  // not just sessions: S2 allows ~120 concurrent workers / 240 sessions, S3 lifts
-  // that to ~200 workers / 400 sessions AND doubles the DTU budget (50 -> 100). The
+  // not just sessions: S2 allows 120 concurrent workers / 600 sessions, S3 lifts
+  // that to 200 workers / 900 sessions AND doubles the DTU budget (50 -> 100). The
   // binding constraint under scale-out is DTU throughput, not the session count:
   // 2-3 instances writing concurrently would queue on S2's 50-DTU budget long
   // before they exhaust sessions, so S3 buys the DTU headroom that keeps those
