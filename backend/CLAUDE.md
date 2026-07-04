@@ -194,6 +194,8 @@ Vendor controllers use `authentication.getName()` to load the vendor by email, t
 App Service ships SLF4J logs to App Insights via MDC parsing of stdout. Logs are the only
 window into prod; add them deliberately. Enforced by the `code-reviewer` agent.
 
+**DB disaster recovery (PITR restore, cutover, bad-migration playbook, quarterly drill): see `backend/docs/DR-RUNBOOK.md`.**
+
 1. **Log levels (strict).** INFO at boundary events only (HTTP write-endpoint entry, just
    before an external call, just after a durable side-effect commits, scheduled-job
    start/finish, auth events). WARN for recoverable per-item failures in a batch, expected
