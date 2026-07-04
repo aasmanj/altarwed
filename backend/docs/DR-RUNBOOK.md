@@ -16,13 +16,12 @@ overwrites the live one, so you can restore, inspect, and only then decide to cu
 
 | Thing | Value | Source |
 |---|---|---|
-| Resource group | `altarwed-rg` | `infrastructure/main.bicep` |
+| Resource group | `altarwed-rg` | deploy command in `main.bicep` header (`az deployment group create --resource-group altarwed-rg`) |
 | SQL logical server | `altarwed-prod-sql` | `main.bicep` (`${prefix}-sql`, prefix `altarwed-prod`) |
 | Live database name | `altarwed` | `main.bicep` `databaseName: 'altarwed'` |
 | Server FQDN | `altarwed-prod-sql.database.windows.net` | derived |
 | Key Vault | `altarwed-prod-kv` | `main.bicep` |
 | App Service (backend) | `altarwed-prod-api` | `${prefix}-api` |
-| App Service staging slot | `staging` | `modules/app-service.bicep` |
 | KV secret holding the JDBC URL | `AZURE-SQL-URL` | `modules/app-service.bicep` app setting `AZURE_SQL_URL` |
 | KV secret holding the DB username | `AZURE-SQL-USERNAME` | `modules/app-service.bicep` |
 | KV secret holding the DB password | `AZURE-SQL-PASSWORD` | `modules/app-service.bicep` |
@@ -157,31 +156,42 @@ az keyvault secret set \
 Key Vault keeps every prior version, so the OLD connection string is your instant rollback:
 re-set the secret with `database=altarwed` (or the previous good DB) to roll back.
 
-### 2b. Restart the App Service to pick up the new secret
+### 2b. Force the App Service to pick up the new secret
 
-App Service caches Key Vault references and only refreshes them on a schedule or when the
-app restarts. A restart forces re-resolution and cycles the connection pool:
-
-```bash
-# Restart production
-az webapp restart --resource-group altarwed-rg --name altarwed-prod-api
-```
-
-If prod traffic is being served by the staging slot (post-swap), restart the slot too. The
-slot shares the same `AZURE-SQL-URL` secret, so it picks up the same new database:
+App Service caches Key Vault references and only guarantees re-resolution on an app-settings
+CHANGE or after the ~24h cache expiry, NOT on a bare restart. So the reliable primary step is
+to write an app setting (which re-syncs ALL Key Vault references) and then restart to cycle
+the HikariCP pool against the new database:
 
 ```bash
-# Only if the staging slot is currently live
-az webapp restart --resource-group altarwed-rg --name altarwed-prod-api --slot staging
-```
-
-If, after the restart, the app still connects to the old database, the KV reference did not
-refresh. Force it by writing any app setting (which re-syncs all references), then restart again:
-
-```bash
+# PRIMARY: write an app setting to force KV-reference re-resolution, then restart
 az webapp config appsettings set -g altarwed-rg -n altarwed-prod-api \
   --settings DR_CUTOVER_TS="<RESTORE_TIME_UTC>"
 az webapp restart -g altarwed-rg -n altarwed-prod-api
+```
+
+`DR_CUTOVER_TS` is a harmless marker setting the app ignores; its only job is to change the
+config so the platform re-fetches every `@Microsoft.KeyVault(...)` reference, including
+`AZURE-SQL-URL`. Setting it to the restore instant also leaves an audit trail of the cutover.
+
+Secondary (only if you have separately confirmed the KV reference already refreshed, for
+example the 24h cache has rolled): a bare restart cycles the pool without re-touching config:
+
+```bash
+# SECONDARY: bare restart, only when the reference is known-current
+az webapp restart --resource-group altarwed-rg --name altarwed-prod-api
+```
+
+Staging slot: a staging deployment slot is NOT part of the infrastructure on `main`; it is
+staged in open PR #283 and exists only after that Bicep is applied. If the staging slot from
+PR #283 has been applied AND is currently serving prod traffic (post-swap), also force-refresh
+and restart it (it shares the same `AZURE-SQL-URL` secret, so it picks up the same new database):
+
+```bash
+# Only if the PR #283 staging slot has been applied and is live
+az webapp config appsettings set -g altarwed-rg -n altarwed-prod-api --slot staging \
+  --settings DR_CUTOVER_TS="<RESTORE_TIME_UTC>"
+az webapp restart --resource-group altarwed-rg --name altarwed-prod-api --slot staging
 ```
 
 ### 2c. Verify
@@ -279,14 +289,14 @@ After cutover, the live database is at a schema version BEFORE the bad migration
 Do NOT edit `V{N}` in place (that breaks Flyway's checksum for anyone who already ran it and
 violates the house rule that applied migrations are immutable). Instead:
 
-1. Decide whether the intent of `V{N}` is still wanted.
-   - If the migration was simply wrong and unwanted: it is already absent from the restored
-     DB's history. Add a NEW migration `V{N+1}__revert_or_supersede_bad_change.sql` that is
-     safe and idempotent, and change the bad `V{N}` file to a no-op or corrected version ONLY
-     if it never successfully applied anywhere else. When in doubt, leave history alone and
-     express the correct end-state in `V{N+1}`.
-   - If the intent was right but the SQL was buggy: write a NEW, corrected migration
-     `V{N+1}__*.sql` that achieves the intended change safely. Never patch `V{N}`.
+1. Leave `V{N}` untouched and express the corrected end-state in a NEW migration `V{N+1}`.
+   After the restore, prod's `flyway_schema_history` no longer contains `V{N}`, so `V{N}` will
+   re-run on the next deploy exactly as written. Do NOT edit `V{N}` to "fix" or no-op it:
+   - If the migration was simply wrong and unwanted: add `V{N+1}__revert_or_supersede_bad_change.sql`
+     that is safe and idempotent and reverses or supersedes what `V{N}` does.
+   - If the intent was right but the SQL was buggy: add `V{N+1}__*.sql` that achieves the
+     intended change safely.
+   Either way the fix is always a forward migration, never an edit to `V{N}`.
 2. Because the restored DB may already carry a partial `V{N}` row (if the failure was
    partway), verify `flyway_schema_history` after cutover and confirm the next deploy's
    Flyway plan is what you expect. If Flyway reports a checksum mismatch or a failed

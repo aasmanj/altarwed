@@ -18,6 +18,7 @@ SpringDoc OpenAPI.
 - ALL schema changes go through Flyway. NEVER use `spring.jpa.hibernate.ddl-auto=create/update`
   in any environment. Migrations are versioned and irreversible.
 - UUID primary keys on all tables.
+- **DB disaster recovery (PITR restore, cutover, bad-migration playbook, quarterly drill): see `backend/docs/DR-RUNBOOK.md`.**
 
 ### SQL Server + Flyway DDL rule
 Never add a column and a constraint referencing it as two separate statements in the same
@@ -193,8 +194,6 @@ Vendor controllers use `authentication.getName()` to load the vendor by email, t
 
 App Service ships SLF4J logs to App Insights via MDC parsing of stdout. Logs are the only
 window into prod; add them deliberately. Enforced by the `code-reviewer` agent.
-
-**DB disaster recovery (PITR restore, cutover, bad-migration playbook, quarterly drill): see `backend/docs/DR-RUNBOOK.md`.**
 
 1. **Log levels (strict).** INFO at boundary events only (HTTP write-endpoint entry, just
    before an external call, just after a durable side-effect commits, scheduled-job
