@@ -269,7 +269,7 @@ export default function CommunicationsPage() {
             >
               <span className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Then - Free</span>
               <h3 className="font-serif text-lg font-semibold text-brown mb-1">RSVP invitations</h3>
-              <p className="text-sm text-brown-light flex-1">Sent guest by guest from your guest list, each person gets their own RSVP link. Up to 3 sends per guest.</p>
+              <p className="text-sm text-brown-light flex-1">Send to your whole guest list at once, or one guest at a time, from your guest list. Each person gets their own RSVP link. Up to 3 sends per guest.</p>
               <span className="mt-3 text-sm font-medium text-amber-700">Open guest list to send &rarr;</span>
             </Link>
           </div>

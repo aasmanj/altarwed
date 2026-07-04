@@ -9,6 +9,7 @@ import com.altarwed.domain.model.*;
 import com.altarwed.domain.port.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +18,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.HexFormat;
@@ -360,6 +362,86 @@ public class GuestService {
             issueInvite(guest, coupleId);
         }
         return toInvite.size();
+    }
+
+    /**
+     * Bulk RSVP invite send for an explicit, couple-selected list of guest ids.
+     *
+     * Ownership is all-or-nothing: if ANY requested id is not one of this couple's
+     * guests the whole request is rejected with 403 (AccessDeniedException) before a
+     * single invite is issued, so a crafted body cannot invite (and thereby confirm the
+     * existence of) another couple's guests. This is stricter than a per-guest skip on
+     * purpose: a foreign id is an IDOR probe, not an ineligible guest.
+     *
+     * For guests that do belong to the couple, the skip rules are applied server-side and
+     * reported (never thrown) so one ineligible guest never fails the batch:
+     *   - no email address            -> skipped "no_email"
+     *   - already responded (not PENDING) -> skipped "already_responded"
+     *   - at the invite-send cap ({@value #MAX_INVITE_SENDS}) -> skipped "cap_reached"
+     *   - unsubscribed/bounced/complained -> skipped "unsubscribed" (same opt-out honoured
+     *     by the single sendInvite and the invite-all paths; a bulk action must not become a
+     *     loophole that emails someone who opted out)
+     * Everyone else is invited via the same issueInvite path as the single send, so token
+     * issuance, cap increment, and email queuing stay in one place.
+     */
+    @Transactional
+    public BulkInviteResult sendInvitesBulk(UUID coupleId, List<UUID> guestIds) {
+        log.info("bulk invite send batch started, coupleId={}, targetCount={}", coupleId, guestIds.size());
+
+        Map<UUID, Guest> byId = new HashMap<>();
+        for (Guest g : guestRepository.findAllByCoupleId(coupleId)) {
+            byId.put(g.id(), g);
+        }
+
+        // Reject the whole request if any id is not this couple's guest (IDOR). 403, not a
+        // per-guest skip, and before any invite is issued so nothing is partially processed.
+        for (UUID id : guestIds) {
+            if (!byId.containsKey(id)) {
+                log.warn("bulk invite rejected, reason=idor, coupleId={}, targetGuestId={}", coupleId, id);
+                throw new AccessDeniedException("Access denied");
+            }
+        }
+
+        // Preserve the caller's order, de-duplicate ids (a repeated id must not send twice).
+        List<Guest> requested = new ArrayList<>();
+        Set<UUID> seen = new HashSet<>();
+        for (UUID id : guestIds) {
+            if (seen.add(id)) {
+                requested.add(byId.get(id));
+            }
+        }
+
+        // Batch the suppression lookup for the addresses in play (one global + one per-couple
+        // query) instead of an existence check per guest, matching the save-the-date path.
+        Set<String> suppressedHashes = suppressionService.reasonsByHash(coupleId,
+                requested.stream()
+                        .filter(g -> g.email() != null && !g.email().isBlank())
+                        .map(g -> EmailSuppressionService.emailHash(g.email()))
+                        .toList()).keySet();
+
+        List<BulkInviteResult.SkippedGuest> skipped = new ArrayList<>();
+        List<Guest> toInvite = new ArrayList<>();
+        for (Guest g : requested) {
+            if (g.email() == null || g.email().isBlank()) {
+                skipped.add(new BulkInviteResult.SkippedGuest(g.id(), g.name(), BulkInviteResult.REASON_NO_EMAIL));
+            } else if (g.rsvpStatus() != GuestRsvpStatus.PENDING) {
+                skipped.add(new BulkInviteResult.SkippedGuest(g.id(), g.name(), BulkInviteResult.REASON_ALREADY_RESPONDED));
+            } else if ((g.inviteSendCount() != null ? g.inviteSendCount() : 0) >= MAX_INVITE_SENDS) {
+                skipped.add(new BulkInviteResult.SkippedGuest(g.id(), g.name(), BulkInviteResult.REASON_CAP_REACHED));
+            } else if (suppressedHashes.contains(EmailSuppressionService.emailHash(g.email()))) {
+                skipped.add(new BulkInviteResult.SkippedGuest(g.id(), g.name(), BulkInviteResult.REASON_UNSUBSCRIBED));
+            } else {
+                toInvite.add(g);
+            }
+        }
+
+        for (Guest g : toInvite) {
+            issueInvite(g, coupleId);
+        }
+
+        log.info("bulk invite send batch queued, coupleId={}, sent={}, skipped={}",
+                 coupleId, toInvite.size(), skipped.size());
+        return new BulkInviteResult(toInvite.size(), skipped.size(), skipped);
     }
 
     /**

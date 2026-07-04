@@ -12,6 +12,7 @@ import {
   type Guest, type RsvpStatus, type GuestSide,
 } from './useGuests'
 import ImportGuestsModal from './ImportGuestsModal'
+import BulkInviteSender from './BulkInviteSender'
 import { computeGuestStats } from '@/features/couple/guests/guestStats'
 import TipCallout from '@/components/TipCallout'
 import { useConfirm } from '@/components/ConfirmDialog'
@@ -696,6 +697,10 @@ export default function GuestListPage() {
             </p>
           )}
         </div>
+
+        {/* Bulk RSVP invite sender (mirrors the save-the-date sender; per-row single
+            send below is unchanged). Hidden when no guest is currently invitable. */}
+        {!isLoading && !isError && <BulkInviteSender coupleId={coupleId} guests={guests} />}
 
         {/* Filter tabs */}
         <div className="flex gap-1 mb-6 border-b border-gold-light overflow-x-auto">

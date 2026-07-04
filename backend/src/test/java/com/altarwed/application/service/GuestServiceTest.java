@@ -353,6 +353,166 @@ class GuestServiceTest {
         verify(tokenRepository, never()).save(any());
     }
 
+    // ---------------------------------------------------------------------------
+    // sendInvitesBulk: explicit selected-id bulk invite. Applies the three skip rules
+    // (no email / already responded / cap reached) plus the unsubscribe opt-out, reports
+    // them instead of throwing, and rejects the whole request (403) if any id is foreign.
+    // ---------------------------------------------------------------------------
+
+    private Guest respondedGuest(UUID coupleId, String name, String email) {
+        return new Guest(
+                UUID.randomUUID(), coupleId, name, email, null,
+                GuestRsvpStatus.ATTENDING, false, null, null, null,
+                null, null, null,
+                null, null, null, null, null,
+                null, 0,
+                null, null, LocalDateTime.now(), null, null, null,
+                null, null, null,
+                null, false);
+    }
+
+    @Test
+    void sendInvitesBulk_invitesEligibleGuests_andReturnsSentCount() {
+        UUID coupleId = UUID.randomUUID();
+        Guest a = guest(coupleId, "Anna", "anna@example.com");
+        Guest b = guest(coupleId, "Bo", "bo@example.com");
+
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(a, b));
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
+        when(guestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var result = service().sendInvitesBulk(coupleId, List.of(a.id(), b.id()));
+
+        assertThat(result.sent()).isEqualTo(2);
+        assertThat(result.skipped()).isZero();
+        assertThat(result.skippedGuests()).isEmpty();
+        verify(tokenRepository, times(2)).save(any());
+        verify(asyncEmailService, times(2))
+                .sendRsvpInviteEmail(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void sendInvitesBulk_skipsGuestWithNoEmail_withReason() {
+        UUID coupleId = UUID.randomUUID();
+        Guest good = guest(coupleId, "Anna", "anna@example.com");
+        Guest noEmail = guest(coupleId, "Cy", null);
+
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(good, noEmail));
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
+        when(guestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var result = service().sendInvitesBulk(coupleId, List.of(good.id(), noEmail.id()));
+
+        assertThat(result.sent()).isEqualTo(1);
+        assertThat(result.skipped()).isEqualTo(1);
+        assertThat(result.skippedGuests())
+                .singleElement()
+                .satisfies(s -> {
+                    assertThat(s.guestId()).isEqualTo(noEmail.id());
+                    assertThat(s.reason()).isEqualTo("no_email");
+                });
+        // The no-email guest never gets a token or an email.
+        verify(asyncEmailService, never())
+                .sendRsvpInviteEmail(eq(null), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void sendInvitesBulk_skipsAlreadyRespondedGuest_withReason() {
+        UUID coupleId = UUID.randomUUID();
+        Guest pending = guest(coupleId, "Anna", "anna@example.com");
+        Guest responded = respondedGuest(coupleId, "Bo", "bo@example.com");
+
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(pending, responded));
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
+        when(guestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var result = service().sendInvitesBulk(coupleId, List.of(pending.id(), responded.id()));
+
+        assertThat(result.sent()).isEqualTo(1);
+        assertThat(result.skippedGuests())
+                .singleElement()
+                .satisfies(s -> {
+                    assertThat(s.guestId()).isEqualTo(responded.id());
+                    assertThat(s.reason()).isEqualTo("already_responded");
+                });
+        verify(asyncEmailService, never()).sendRsvpInviteEmail(
+                eq("bo@example.com"), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void sendInvitesBulk_skipsOverCapGuest_withReason() {
+        UUID coupleId = UUID.randomUUID();
+        Guest eligible = guest(coupleId, "Anna", "anna@example.com", 0);
+        Guest overCap = guest(coupleId, "Bo", "bo@example.com", 3); // at MAX_INVITE_SENDS = 3
+
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(eligible, overCap));
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
+        when(guestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var result = service().sendInvitesBulk(coupleId, List.of(eligible.id(), overCap.id()));
+
+        assertThat(result.sent()).isEqualTo(1);
+        assertThat(result.skippedGuests())
+                .singleElement()
+                .satisfies(s -> {
+                    assertThat(s.guestId()).isEqualTo(overCap.id());
+                    assertThat(s.reason()).isEqualTo("cap_reached");
+                });
+        verify(asyncEmailService, never()).sendRsvpInviteEmail(
+                eq("bo@example.com"), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void sendInvitesBulk_skipsUnsubscribedGuest_withReason() {
+        UUID coupleId = UUID.randomUUID();
+        Guest eligible = guest(coupleId, "Anna", "anna@example.com");
+        Guest unsub = guest(coupleId, "Bo", "bo@example.com");
+
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(eligible, unsub));
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
+        when(guestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        // Only Bo's address is suppressed for this couple.
+        String boHash = EmailSuppressionService.emailHash("bo@example.com");
+        when(suppressionService.reasonsByHash(eq(coupleId), any()))
+                .thenReturn(Map.of(boHash, "USER_REQUEST"));
+
+        var result = service().sendInvitesBulk(coupleId, List.of(eligible.id(), unsub.id()));
+
+        assertThat(result.sent()).isEqualTo(1);
+        assertThat(result.skippedGuests())
+                .singleElement()
+                .satisfies(s -> {
+                    assertThat(s.guestId()).isEqualTo(unsub.id());
+                    assertThat(s.reason()).isEqualTo("unsubscribed");
+                });
+        verify(asyncEmailService, never()).sendRsvpInviteEmail(
+                eq("bo@example.com"), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void sendInvitesBulk_rejectsWholeRequestWith403_whenAnyIdIsAnotherCouplesGuest() {
+        UUID coupleId = UUID.randomUUID();
+        Guest mine = guest(coupleId, "Anna", "anna@example.com");
+        UUID foreignGuestId = UUID.randomUUID(); // not in this couple's list
+
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(mine));
+
+        assertThatThrownBy(() ->
+                service().sendInvitesBulk(coupleId, List.of(mine.id(), foreignGuestId)))
+                .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+
+        // Nothing is partially processed: not even the caller's own valid guest is invited.
+        verify(tokenRepository, never()).save(any());
+        verify(guestRepository, never()).save(any());
+        verify(asyncEmailService, never())
+                .sendRsvpInviteEmail(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
     @Test
     void findGuestsByName_returnsEmptyAndWritesNothing_forSubMinimumQuery() {
         // "Jor" (3 chars) is below MIN_SEARCH_QUERY_LENGTH (4, raised from 2 by issue #89
