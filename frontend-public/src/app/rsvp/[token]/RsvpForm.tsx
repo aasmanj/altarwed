@@ -198,6 +198,22 @@ export default function RsvpForm({
             Find your invitation
           </a>
         </p>
+        {/* Viral CTA on the highest-intent surface: a guest who just RSVP'd to a
+            Christian wedding is a prime free lead, and many are engaged themselves.
+            Kept last and visually secondary (a quiet divider + inline link, not a
+            loud button) so the couple's confirmation and registry link stay the
+            focus; the page footer carries the fuller button block. Same
+            utm_campaign=rsvp-thankyou tag as the footer so both surfaces roll up to
+            one measurable campaign, distinct from the wedding-footer viral-footer. */}
+        <div className="mt-6 border-t border-[#f0e8da] pt-4 text-sm text-[#8a6a4a]">
+          Getting married too?{' '}
+          <a
+            href="https://app.altarwed.com/register?utm_source=wedding-site&utm_medium=referral&utm_campaign=rsvp-thankyou"
+            className="font-medium text-[#4a1942] underline hover:text-[#3b1235]"
+          >
+            Create your Christian wedding website for free
+          </a>
+        </div>
       </div>
     )
   }
