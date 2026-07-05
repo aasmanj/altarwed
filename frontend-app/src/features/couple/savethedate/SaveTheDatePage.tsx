@@ -233,7 +233,7 @@ export default function SaveTheDatePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                   </svg>
                   <p className="text-sm font-medium text-stone-700">Drag and drop or click to upload</p>
-                  <p className="text-xs text-stone-400 mt-1">JPEG, PNG, or WebP up to {MAX_UPLOAD_LABEL}</p>
+                  <p className="text-xs text-stone-500 mt-1">JPEG, PNG, or WebP up to {MAX_UPLOAD_LABEL}</p>
                 </>
               )}
             </ImageDropzone>
@@ -330,7 +330,7 @@ export default function SaveTheDatePage() {
                         />
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-stone-800">{g.name}</p>
-                          <p className="text-xs text-stone-400 truncate">{g.email}</p>
+                          <p className="text-xs text-stone-500 truncate">{g.email}</p>
                         </div>
                         {badge && (
                           <span className={`ml-auto flex-shrink-0 inline-flex items-center gap-1 text-xs font-medium ${badge.cls}`}>
@@ -379,7 +379,7 @@ export default function SaveTheDatePage() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 border-t border-stone-100">
                 <div>
                   {website && (
-                    <p className="text-xs text-stone-400">
+                    <p className="text-xs text-stone-500">
                       Includes link to: <span className="text-amber-600">{weddingUrl}</span>
                     </p>
                   )}
@@ -461,7 +461,7 @@ export default function SaveTheDatePage() {
                 />
               </div>
               <div className="space-y-3 text-center sm:text-left">
-                <p className="text-xs text-stone-400 font-mono break-all">{weddingUrl}</p>
+                <p className="text-xs text-stone-500 font-mono break-all">{weddingUrl}</p>
                 <button
                   onClick={() => {
                     const canvas = qrRef.current
@@ -478,7 +478,7 @@ export default function SaveTheDatePage() {
                   </svg>
                   Download PNG
                 </button>
-                <p className="text-xs text-stone-400">Downloads as a high-resolution PNG ready for print.</p>
+                <p className="text-xs text-stone-500">Downloads as a high-resolution PNG ready for print.</p>
               </div>
             </div>
           </div>
