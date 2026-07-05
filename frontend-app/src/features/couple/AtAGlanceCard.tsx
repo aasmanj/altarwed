@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Link2 } from 'lucide-react'
+import { Link2, Share2 } from 'lucide-react'
 import { useGuests } from '@/features/couple/guests/useGuests'
 import { computeGuestStats } from '@/features/couple/guests/guestStats'
 import NextStepCard from '@/features/couple/NextStepCard'
 import { useBudget } from '@/features/couple/budget/useBudget'
 import { usePlanningTasks } from '@/features/couple/checklist/usePlanningTasks'
+import ShareModal from '@/features/couple/website/ShareModal'
 import type { WeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { daysUntilDate, formatShortDate, dueDateBefore } from '@/lib/date'
 
@@ -15,6 +16,7 @@ interface Props {
 
 export default function AtAGlanceCard({ coupleId, website }: Props) {
   const [copied, setCopied] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const { data: guests } = useGuests(coupleId)
   const { data: budget } = useBudget(coupleId)
   const { data: tasks } = usePlanningTasks(coupleId)
@@ -78,12 +80,14 @@ export default function AtAGlanceCard({ coupleId, website }: Props) {
             <Link2 className="w-3 h-3" />
             {copied ? 'Copied!' : 'Copy link'}
           </button>
-          <a
-            href="/dashboard/website/editor"
-            className="shrink-0 text-xs font-semibold text-green-700 hover:text-green-900 hover:underline transition"
+          <button
+            onClick={() => setShareOpen(true)}
+            aria-label="Share wedding website"
+            className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-green-700 hover:text-green-900 hover:underline transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400 rounded"
           >
-            Share ↗
-          </a>
+            <Share2 className="w-3 h-3" />
+            Share
+          </button>
         </div>
       )}
       {!website?.isPublished && website?.slug && (
@@ -131,6 +135,14 @@ export default function AtAGlanceCard({ coupleId, website }: Props) {
           bar={totalTasks > 0 ? { pct: checklistPct, color: 'bg-emerald-500' } : undefined}
         />
       </div>
+      {website?.slug && (
+        <ShareModal
+          isOpen={shareOpen}
+          onClose={() => setShareOpen(false)}
+          slug={website.slug}
+          coupleNames={`${website.partnerOneName} & ${website.partnerTwoName}`}
+        />
+      )}
     </div>
   )
 }
