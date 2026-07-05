@@ -7,6 +7,7 @@ import com.altarwed.domain.model.Couple;
 import com.altarwed.domain.model.EmailRecipient;
 import com.altarwed.domain.model.Guest;
 import com.altarwed.domain.model.GuestRsvpStatus;
+import com.altarwed.domain.model.RsvpInviteBulkSend;
 import com.altarwed.domain.model.RsvpInviteToken;
 import com.altarwed.domain.model.SaveTheDateSend;
 import com.altarwed.domain.model.WeddingWebsite;
@@ -16,6 +17,7 @@ import com.altarwed.domain.port.CaptchaVerificationPort;
 import com.altarwed.domain.port.CoupleRepository;
 import com.altarwed.domain.port.GuestRepository;
 import com.altarwed.domain.port.RsvpInviteTokenRepository;
+import com.altarwed.domain.port.RsvpInviteBulkSendRepository;
 import com.altarwed.domain.port.SaveTheDateSendRepository;
 import com.altarwed.domain.port.WeddingWebsiteRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,6 +67,7 @@ class GuestServiceTest {
     @Mock private CustomRsvpQuestionService customRsvpQuestionService;
     @Mock private CaptchaVerificationPort captchaVerificationPort;
     @Mock private SaveTheDateSendRepository saveTheDateSendRepository;
+    @Mock private RsvpInviteBulkSendRepository rsvpInviteBulkSendRepository;
 
     @BeforeEach
     void setUp() {
@@ -81,7 +84,7 @@ class GuestServiceTest {
     private GuestService service() {
         return new GuestService(guestRepository, tokenRepository, websiteRepository,
                 coupleRepository, asyncEmailService, suppressionService, customRsvpQuestionService,
-                captchaVerificationPort, saveTheDateSendRepository);
+                captchaVerificationPort, saveTheDateSendRepository, rsvpInviteBulkSendRepository);
     }
 
     private Guest guest(UUID coupleId, String name, String email) {
@@ -471,7 +474,7 @@ class GuestServiceTest {
         when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
         when(guestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        var result = service().sendInvitesBulk(coupleId, List.of(a.id(), b.id()));
+        var result = service().sendInvitesBulk(coupleId, List.of(a.id(), b.id()), null);
 
         assertThat(result.sent()).isEqualTo(2);
         assertThat(result.skipped()).isZero();
@@ -492,7 +495,7 @@ class GuestServiceTest {
         when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
         when(guestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        var result = service().sendInvitesBulk(coupleId, List.of(good.id(), noEmail.id()));
+        var result = service().sendInvitesBulk(coupleId, List.of(good.id(), noEmail.id()), null);
 
         assertThat(result.sent()).isEqualTo(1);
         assertThat(result.skipped()).isEqualTo(1);
@@ -518,7 +521,7 @@ class GuestServiceTest {
         when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
         when(guestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        var result = service().sendInvitesBulk(coupleId, List.of(pending.id(), responded.id()));
+        var result = service().sendInvitesBulk(coupleId, List.of(pending.id(), responded.id()), null);
 
         assertThat(result.sent()).isEqualTo(1);
         assertThat(result.skippedGuests())
@@ -542,7 +545,7 @@ class GuestServiceTest {
         when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
         when(guestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        var result = service().sendInvitesBulk(coupleId, List.of(eligible.id(), overCap.id()));
+        var result = service().sendInvitesBulk(coupleId, List.of(eligible.id(), overCap.id()), null);
 
         assertThat(result.sent()).isEqualTo(1);
         assertThat(result.skippedGuests())
@@ -570,7 +573,7 @@ class GuestServiceTest {
         when(suppressionService.reasonsByHash(eq(coupleId), any()))
                 .thenReturn(Map.of(boHash, "USER_REQUEST"));
 
-        var result = service().sendInvitesBulk(coupleId, List.of(eligible.id(), unsub.id()));
+        var result = service().sendInvitesBulk(coupleId, List.of(eligible.id(), unsub.id()), null);
 
         assertThat(result.sent()).isEqualTo(1);
         assertThat(result.skippedGuests())
@@ -592,7 +595,7 @@ class GuestServiceTest {
         when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(mine));
 
         assertThatThrownBy(() ->
-                service().sendInvitesBulk(coupleId, List.of(mine.id(), foreignGuestId)))
+                service().sendInvitesBulk(coupleId, List.of(mine.id(), foreignGuestId), null))
                 .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
 
         // Nothing is partially processed: not even the caller's own valid guest is invited.
@@ -600,6 +603,95 @@ class GuestServiceTest {
         verify(guestRepository, never()).save(any());
         verify(asyncEmailService, never())
                 .sendRsvpInviteEmail(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    // ---------------------------------------------------------------------------
+    // Bulk invite idempotency (issue #295). Same contract as sendSaveDates (#232):
+    // a retry carrying the same client key replays the stored summary instead of
+    // re-emailing; a concurrent duplicate loses the unique-index race and replays
+    // the winner; a keyless request behaves exactly as before.
+    // ---------------------------------------------------------------------------
+
+    @Test
+    void sendInvitesBulk_replaysStoredSummary_withoutSending_whenKeyAlreadyRecorded() {
+        UUID coupleId = UUID.randomUUID();
+        when(rsvpInviteBulkSendRepository.findByCoupleIdAndIdempotencyKey(coupleId, "key-1"))
+                .thenReturn(Optional.of(new RsvpInviteBulkSend(
+                        UUID.randomUUID(), coupleId, "key-1", 40, 2, LocalDateTime.now())));
+
+        var result = service().sendInvitesBulk(coupleId, List.of(UUID.randomUUID()), "key-1");
+
+        assertThat(result.sent()).isEqualTo(40);
+        assertThat(result.skipped()).isEqualTo(2);
+        assertThat(result.replayed()).isTrue();
+        // The replay short-circuits before any guest work: no reads, no tokens, no emails.
+        verifyNoInteractions(guestRepository, tokenRepository, asyncEmailService);
+    }
+
+    @Test
+    void sendInvitesBulk_claimsKeyBeforeFanout_thenSendsOnce() {
+        UUID coupleId = UUID.randomUUID();
+        Guest a = guest(coupleId, "Anna", "anna@example.com");
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(a));
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
+        when(guestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(rsvpInviteBulkSendRepository.findByCoupleIdAndIdempotencyKey(coupleId, "key-2"))
+                .thenReturn(Optional.empty());
+        when(rsvpInviteBulkSendRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var result = service().sendInvitesBulk(coupleId, List.of(a.id()), "key-2");
+
+        assertThat(result.sent()).isEqualTo(1);
+        assertThat(result.replayed()).isFalse();
+        // The receipt is claimed with the computed summary counts before the fan-out.
+        ArgumentCaptor<RsvpInviteBulkSend> receipt = ArgumentCaptor.forClass(RsvpInviteBulkSend.class);
+        verify(rsvpInviteBulkSendRepository).save(receipt.capture());
+        assertThat(receipt.getValue().idempotencyKey()).isEqualTo("key-2");
+        assertThat(receipt.getValue().sentCount()).isEqualTo(1);
+        assertThat(receipt.getValue().skippedCount()).isZero();
+        verify(asyncEmailService, times(1))
+                .sendRsvpInviteEmail(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void sendInvitesBulk_racingDuplicateKey_replaysWinner_withoutSending() {
+        UUID coupleId = UUID.randomUUID();
+        Guest a = guest(coupleId, "Anna", "anna@example.com");
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(a));
+        // First check sees no receipt (the race window), the claim insert loses the unique
+        // index, and the post-race lookup returns the winner's receipt.
+        when(rsvpInviteBulkSendRepository.findByCoupleIdAndIdempotencyKey(coupleId, "key-3"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(new RsvpInviteBulkSend(
+                        UUID.randomUUID(), coupleId, "key-3", 1, 0, LocalDateTime.now())));
+        when(rsvpInviteBulkSendRepository.save(any()))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("dup key"));
+
+        var result = service().sendInvitesBulk(coupleId, List.of(a.id()), "key-3");
+
+        assertThat(result.sent()).isEqualTo(1);
+        assertThat(result.replayed()).isTrue();
+        // The loser never mails the batch.
+        verify(tokenRepository, never()).save(any());
+        verify(asyncEmailService, never())
+                .sendRsvpInviteEmail(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void sendInvitesBulk_withoutKey_neverTouchesReceiptMachinery() {
+        UUID coupleId = UUID.randomUUID();
+        Guest a = guest(coupleId, "Anna", "anna@example.com");
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(a));
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
+        when(guestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var result = service().sendInvitesBulk(coupleId, List.of(a.id()), null);
+
+        assertThat(result.sent()).isEqualTo(1);
+        assertThat(result.replayed()).isFalse();
+        verifyNoInteractions(rsvpInviteBulkSendRepository);
     }
 
     @Test

@@ -116,6 +116,15 @@ describe('summariseInviteResult', () => {
     )
   })
 
+  it('reports an idempotent replay without a breakdown and without claiming a new send (issue #295)', () => {
+    // Replays carry counts only (skip details are not stored in the receipt), so the
+    // copy must make clear the retry did not email anyone twice.
+    const result: BulkInviteResult = { sent: 40, skipped: 2, skippedGuests: [], replayed: true }
+    expect(summariseInviteResult(result)).toBe(
+      'These invites were already sent (40 sent, 2 skipped). Your retry did not email anyone twice.',
+    )
+  })
+
   it('never emits an em dash (house rule)', () => {
     const result: BulkInviteResult = {
       sent: 0,

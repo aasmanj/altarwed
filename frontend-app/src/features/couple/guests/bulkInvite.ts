@@ -38,6 +38,12 @@ export function unsentInvitableIds(guests: Guest[]): string[] {
 // "Sent 12 RSVP invites. Skipped 3: 2 already responded, 1 no email address." rather
 // than a bare count.
 export function summariseInviteResult(result: BulkInviteResult): string {
+  // Idempotent replay (issue #295): the server matched a previous send with the same key,
+  // so nothing was re-emailed. Per-guest skip details are not stored in the receipt, so
+  // report the counts without a breakdown.
+  if (result.replayed) {
+    return `These invites were already sent (${result.sent} sent, ${result.skipped} skipped). Your retry did not email anyone twice.`
+  }
   const sentPart = `Sent ${result.sent} RSVP invite${result.sent === 1 ? '' : 's'}.`
   if (result.skipped === 0) return sentPart
   const counts = new Map<BulkInviteSkipReason, number>()

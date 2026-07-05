@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import confetti from 'canvas-confetti'
 import { ChevronDown, ChevronUp, Send } from 'lucide-react'
@@ -19,6 +19,19 @@ export default function BulkInviteSender({ coupleId, guests }: { coupleId: strin
   const [showList, setShowList] = useState(false)
   // null means "use the default (unsent) selection"; a concrete array is an explicit set.
   const [selectedIds, setSelectedIds] = useState<string[] | null>(null)
+  // Per-attempt dedup token (issue #295), mirroring SaveTheDatePage's #232 pattern. A retry
+  // of the SAME selection (e.g. after a lost response) keeps the key and is deduped
+  // server-side, so the batch is never re-emailed. A new selection or a completed send
+  // rotates it.
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() => crypto.randomUUID())
+
+  // Rotate the dedup key whenever the recipient selection changes, so each distinct batch
+  // is a fresh attempt server-side. Retries of the SAME selection keep the key (deduped).
+  // The success path also rotates it explicitly, since resetting back to the default (null)
+  // selection after a send may leave this dependency unchanged.
+  useEffect(() => {
+    setIdempotencyKey(crypto.randomUUID())
+  }, [selectedIds])
 
   // Guests an RSVP invite can actually reach: pending, has an email, not unsubscribed,
   // and under the send cap. Over-cap / responded / unsubscribed guests are excluded from
@@ -54,9 +67,17 @@ export default function BulkInviteSender({ coupleId, guests }: { coupleId: strin
       return
     }
     try {
-      const result = await bulkInvite.mutateAsync(sendIds)
-      // Reset back to the default (unsent) set so the just-invited guests drop out.
+      const result = await bulkInvite.mutateAsync({ guestIds: sendIds, idempotencyKey })
+      // Reset back to the default (unsent) set so the just-invited guests drop out, and
+      // rotate the dedup key so the NEXT send is a new attempt (the selection reset alone
+      // may not change the effect dependency when it was already null).
       setSelectedIds(null)
+      setIdempotencyKey(crypto.randomUUID())
+      if (result.replayed) {
+        // The server matched a previous send with this key: nothing was re-emailed.
+        toast(summariseInviteResult(result))
+        return
+      }
       if (result.sent > 0) {
         toast.success(summariseInviteResult(result))
         confetti({

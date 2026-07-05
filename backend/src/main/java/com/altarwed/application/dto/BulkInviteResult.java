@@ -22,7 +22,12 @@ import java.util.UUID;
 public record BulkInviteResult(
         Integer sent,
         Integer skipped,
-        List<SkippedGuest> skippedGuests
+        List<SkippedGuest> skippedGuests,
+        // True when this response replays a previously recorded send for the same
+        // idempotency key (issue #295): nothing was emailed by THIS request. Per-guest
+        // skip details are not persisted in the receipt, so a replay carries counts
+        // with an empty skippedGuests list, same trade-off as SaveTheDateSendResult.
+        Boolean replayed
 ) {
     // Stable reason codes shared with the dashboard toast. Kept as plain strings (not an
     // enum) so they serialise cleanly and the frontend can map them to copy without a
