@@ -68,6 +68,16 @@ param nextjsBaseUrl string = 'https://www.altarwed.com'
 @description('Numeric Google Cloud project number, used as the Picker app id (not a secret)')
 param googlePickerAppId string = ''
 
+// App Service Plan instance count. Committed default is 1 ON PURPOSE. The backend
+// rate limiter and Resend pacer are in-memory and per-instance, so 2+ instances
+// multiply both (see modules/app-service-plan.bicep). Do NOT raise this to 2 until
+// issue #109 (move those buckets to Redis) has shipped. When it has, set this to 2
+// and, in the same change, flip the autoscale resource to enabled: true.
+@description('App Service Plan instance count. Keep at 1 until issue #109 (Redis) ships, then raise to 2+.')
+@minValue(1)
+@maxValue(3)
+param appServicePlanCapacity int = 1
+
 var appName = 'altarwed'
 var prefix = '${appName}-${environment}'
 // Derived from the App Service name pattern below, so observability can reference
@@ -81,6 +91,7 @@ module appServicePlan 'modules/app-service-plan.bicep' = {
   params: {
     name: '${prefix}-plan'
     location: location
+    capacity: appServicePlanCapacity
   }
 }
 
@@ -163,6 +174,18 @@ module keyVaultAccess 'modules/keyvault-access.bicep' = {
   params: {
     keyVaultName: keyVault.outputs.name
     principalId: appService.outputs.principalId
+  }
+}
+
+// The staging deployment slot has its own SystemAssigned identity (a distinct
+// principal from prod), so it needs the same Key Vault Secrets User grant for its
+// @Microsoft.KeyVault(...) app-setting references to resolve. Without this the slot
+// boots but every secret read fails.
+module keyVaultAccessSlot 'modules/keyvault-access.bicep' = {
+  name: 'keyVaultAccessSlot'
+  params: {
+    keyVaultName: keyVault.outputs.name
+    principalId: appService.outputs.slotPrincipalId
   }
 }
 
