@@ -123,10 +123,16 @@ export default function BudgetPage() {
       isPaid: form.isPaid,
       notes: form.notes.trim() || undefined,
     }
-    if (editingId) {
-      await updateItem.mutateAsync({ itemId: editingId, ...payload })
-    } else {
-      await createItem.mutateAsync(payload)
+    try {
+      if (editingId) {
+        await updateItem.mutateAsync({ itemId: editingId, ...payload })
+      } else {
+        await createItem.mutateAsync(payload)
+      }
+    } catch {
+      // The mutation's onError surfaces the backend reason as a toast. Keep the
+      // modal open so the couple can correct the input and retry (issue #222).
+      return
     }
     closeForm()
   }

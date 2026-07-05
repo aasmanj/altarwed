@@ -8,7 +8,9 @@ import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { apiClient } from '@/core/api/client'
+import { errorDetail } from '@/lib/apiError'
 import { useWeddingWebsite, usePublishWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { useGuests, type SaveTheDateSendResult } from '@/features/couple/guests/useGuests'
 import { formatWeddingDate } from '@/lib/date'
@@ -155,6 +157,10 @@ export default function SaveTheDatePage() {
         })
       }
     },
+    // Without this, a rejected send (validation 400 or 5xx) just flipped the
+    // button back with no feedback, so a couple could think nothing was wrong
+    // while zero save-the-dates went out (issue #222).
+    onError: (err: unknown) => toast.error(errorDetail(err)),
   })
 
   const coupleNames = user?.partnerOneName && user?.partnerTwoName
