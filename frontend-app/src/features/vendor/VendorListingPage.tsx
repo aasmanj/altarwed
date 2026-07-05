@@ -470,9 +470,12 @@ export default function VendorListingPage() {
                     </button>
                   </div>
                   <div className="flex items-center gap-1 mt-1">
+                    {/* Arrows are disabled while a reorder is in flight. Combined with the
+                        cancelQueries in useReorderPortfolioPhotos' onMutate, this serializes
+                        clicks so two PATCHes can't race and settle a stale order. */}
                     <button
                       type="button"
-                      disabled={index === 0}
+                      disabled={index === 0 || reorderPortfolioPhotos.isPending}
                       onClick={() => {
                         const ids = portfolioPhotos.data!.map((p: PortfolioPhoto) => p.id)
                         const newIds = [...ids]
@@ -486,7 +489,7 @@ export default function VendorListingPage() {
                     </button>
                     <button
                       type="button"
-                      disabled={index === portfolioPhotos.data!.length - 1}
+                      disabled={index === portfolioPhotos.data!.length - 1 || reorderPortfolioPhotos.isPending}
                       onClick={() => {
                         const ids = portfolioPhotos.data!.map((p: PortfolioPhoto) => p.id)
                         const newIds = [...ids]

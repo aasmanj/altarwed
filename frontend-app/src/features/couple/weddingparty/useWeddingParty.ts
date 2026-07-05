@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { apiClient } from '@/core/api/client'
+import { errorDetail } from '@/lib/apiError'
 
 export type PartySide = 'BRIDE' | 'GROOM' | 'NEUTRAL'
 
@@ -55,6 +56,11 @@ export function useAddMember(websiteId: string) {
       apiClient.post(`/api/v1/wedding-party/website/${websiteId}`, payload).then(r => r.data),
     onSuccess: (member: WeddingPartyMember) =>
       qc.setQueryData<WeddingPartyMember[]>(key(websiteId), old => old ? [...old, member] : [member]),
+    // No optimistic update, nothing to roll back; surface the backend reason (a
+    // @Size validation 400 carries a ProblemDetail detail) so a failed add does
+    // not vanish silently (issue #303).
+    onError: (err: unknown) =>
+      toast.error(errorDetail(err, 'Could not add that member. Please try again.')),
   })
 }
 
@@ -67,6 +73,8 @@ export function useUpdateMember(websiteId: string) {
       qc.setQueryData<WeddingPartyMember[]>(key(websiteId), old =>
         old?.map(m => m.id === updated.id ? updated : m) ?? []
       ),
+    onError: (err: unknown) =>
+      toast.error(errorDetail(err, 'Could not save those changes. Please try again.')),
   })
 }
 
@@ -124,5 +132,7 @@ export function useDeleteMember(websiteId: string) {
       qc.setQueryData<WeddingPartyMember[]>(key(websiteId), old =>
         old?.filter(m => m.id !== memberId) ?? []
       ),
+    onError: (err: unknown) =>
+      toast.error(errorDetail(err, 'Could not remove that member. Please try again.')),
   })
 }
