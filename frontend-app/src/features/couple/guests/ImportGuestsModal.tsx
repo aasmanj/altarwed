@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from 'react'
 import { X, Upload } from 'lucide-react'
-import { useModalA11y } from '@/lib/useModalA11y'
+import { AnimatedModal } from '@/components/AnimatedModal'
 import {
   parseFile,
   toCreatePayload,
@@ -30,9 +30,6 @@ export default function ImportGuestsModal({ existingGuests, onImport, onClose, i
   // almost never wants the whole list added again. They can opt back in.
   const [skipDuplicates, setSkipDuplicates] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
-  // Focus in on open, Escape closes, focus restored on close (WCAG 2.4.3 / 2.1.2),
-  // matching AddGuestModal and the budget modal.
-  const dialogRef = useModalA11y<HTMLDivElement>(true, onClose)
 
   // Duplicate report, recomputed only when the parsed rows or existing list change.
   const dupReport = useMemo(
@@ -95,15 +92,12 @@ export default function ImportGuestsModal({ existingGuests, onImport, onClose, i
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="import-dialog-title"
-        className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
-      >
+    <AnimatedModal
+      onClose={onClose}
+      containerClassName="items-center justify-center px-4"
+      ariaLabelledBy="import-dialog-title"
+      panelClassName="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+    >
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gold-light shrink-0">
           <h2 id="import-dialog-title" className="font-serif text-lg font-semibold text-brown">
@@ -284,7 +278,6 @@ export default function ImportGuestsModal({ existingGuests, onImport, onClose, i
                   : `Import ${importCount} guest${importCount === 1 ? '' : 's'}`}
           </button>
         </div>
-      </div>
-    </div>
+    </AnimatedModal>
   )
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
 import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2, AlertCircle, ImagePlus, Smartphone, Monitor, Settings2, Pencil, ChevronUp, ChevronDown, X } from 'lucide-react'
@@ -856,14 +857,16 @@ export default function SideBySideEditor() {
 
       {/* In-editor drawer for editing the data behind a card block. On close we
           bumpPreview so the iframe reflects any saved venue/hotel/registry edits. */}
-      {drawerSection && website && (
-        <WebsiteSectionDrawer
-          section={drawerSection}
-          website={website}
-          coupleId={coupleId}
-          onClose={() => { setDrawerSection(null); bumpPreview() }}
-        />
-      )}
+      <AnimatePresence>
+        {drawerSection && website && (
+          <WebsiteSectionDrawer
+            section={drawerSection}
+            website={website}
+            coupleId={coupleId}
+            onClose={() => { setDrawerSection(null); bumpPreview() }}
+          />
+        )}
+      </AnimatePresence>
 
       <ShareModal
         isOpen={showShareModal}

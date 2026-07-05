@@ -270,12 +270,16 @@ function readModal(): string {
 }
 
 describe('ImportGuestsModal accessibility (#235)', () => {
-  it('wires useModalA11y (focus in on open, Escape closes, focus restored on close)', () => {
+  it('wires useModalA11y (focus in on open, Escape closes, focus restored on close) via the shared AnimatedModal wrapper (#301)', () => {
     const src = readModal()
-    expect(src).toContain("import { useModalA11y } from '@/lib/useModalA11y'")
-    expect(src).toContain('useModalA11y<HTMLDivElement>(true, onClose)')
-    // The hook container ref must sit on the dialog element it manages.
-    expect(src).toMatch(/ref=\{dialogRef\}[\s\S]*role="dialog"/)
+    // Issue #301 moved the modal chrome (backdrop, panel, useModalA11y wiring)
+    // into the shared <AnimatedModal>; ImportGuestsModal itself now only
+    // supplies its content and closes through the wrapper's onClose.
+    expect(src).toContain("import { AnimatedModal } from '@/components/AnimatedModal'")
+    expect(src).toContain('<AnimatedModal')
+    expect(src).toContain('onClose={onClose}')
+    // AnimatedModal itself is the source of truth for the useModalA11y wiring;
+    // guarded directly in AnimatedModal.test.ts.
   })
 
   it('drops the div-as-button dropzone in favour of a native button', () => {

@@ -1,5 +1,5 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { useModalA11y } from '@/lib/useModalA11y'
+import { AnimatedModal } from '@/components/AnimatedModal'
 import { framingStyle, clamp01, type ImageFraming } from '@/lib/imageFraming'
 
 interface Props {
@@ -32,7 +32,6 @@ export default function ImageRepositionModal({
   const frameRef = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
   const last = useRef({ x: 0, y: 0 })
-  const dialogRef = useModalA11y(true, onCancel)
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     dragging.current = true
@@ -59,15 +58,13 @@ export default function ImageRepositionModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/60" onClick={onCancel} aria-hidden="true" />
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md p-6 max-h-[92vh] overflow-y-auto"
-      >
+    <AnimatedModal
+      onClose={onCancel}
+      containerClassName="items-end sm:items-center justify-center p-0 sm:p-4"
+      backdropClassName="bg-black/60"
+      ariaLabel={title}
+      panelClassName="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md p-6 max-h-[92vh] overflow-y-auto"
+    >
         <h2 className="text-lg font-semibold text-stone-900 mb-1">{title}</h2>
         <p className="text-xs text-stone-500 mb-4">Drag to reposition, slide to zoom. Your original photo is never changed.</p>
 
@@ -121,7 +118,6 @@ export default function ImageRepositionModal({
             {saving ? 'Saving…' : 'Save position'}
           </button>
         </div>
-      </div>
-    </div>
+    </AnimatedModal>
   )
 }

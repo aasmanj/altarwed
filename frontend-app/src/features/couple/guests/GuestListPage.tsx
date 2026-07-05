@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import confetti from 'canvas-confetti'
 import Papa from 'papaparse'
+import { AnimatePresence } from 'framer-motion'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { FileSpreadsheet, UserPlus, X, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
@@ -18,7 +19,7 @@ import { computeGuestStats } from '@/features/couple/guests/guestStats'
 import TipCallout from '@/components/TipCallout'
 import { useConfirm } from '@/components/ConfirmDialog'
 import QueryErrorState from '@/components/QueryErrorState'
-import { useModalA11y } from '@/lib/useModalA11y'
+import { AnimatedModal } from '@/components/AnimatedModal'
 import { TIPS } from '@/lib/tips'
 import {
   useGoogleSheetSync, useSetGoogleSheetSync, useDeleteGoogleSheetSync,
@@ -722,36 +723,40 @@ export default function GuestListPage() {
         </div>
 
         {/* Add guest choice modal */}
-        {showAddModal && (
-          <AddGuestModal
-            onClose={() => setShowAddModal(false)}
-            onManual={() => { setShowAddModal(false); setShowAdd(true) }}
-            onSheetSync={() => { setShowAddModal(false); setShowSheetSync(true); setSheetUrlInput(sheetSync?.sheetUrl ?? '') }}
-            onImport={() => { setShowAddModal(false); setShowImport(true) }}
-          />
-        )}
+        <AnimatePresence>
+          {showAddModal && (
+            <AddGuestModal
+              onClose={() => setShowAddModal(false)}
+              onManual={() => { setShowAddModal(false); setShowAdd(true) }}
+              onSheetSync={() => { setShowAddModal(false); setShowSheetSync(true); setSheetUrlInput(sheetSync?.sheetUrl ?? '') }}
+              onImport={() => { setShowAddModal(false); setShowImport(true) }}
+            />
+          )}
+        </AnimatePresence>
 
         {/* Import from spreadsheet modal */}
-        {showImport && (
-          <ImportGuestsModal
-            coupleId={coupleId}
-            existingGuests={guests}
-            onClose={() => setShowImport(false)}
-            isPending={bulkAdd.isPending}
-            onImport={async (guests) => {
-              const promise = bulkAdd.mutateAsync(guests)
-              toast.promise(promise, {
-                loading: 'Importing guests...',
-                success: (added) => {
-                  setShowImport(false)
-                  return `Imported ${added.length} guest${added.length === 1 ? '' : 's'}`
-                },
-                error: 'Import failed. Check your file and try again.',
-              })
-              try { await promise } catch { /* toast.promise handles display */ }
-            }}
-          />
-        )}
+        <AnimatePresence>
+          {showImport && (
+            <ImportGuestsModal
+              coupleId={coupleId}
+              existingGuests={guests}
+              onClose={() => setShowImport(false)}
+              isPending={bulkAdd.isPending}
+              onImport={async (guests) => {
+                const promise = bulkAdd.mutateAsync(guests)
+                toast.promise(promise, {
+                  loading: 'Importing guests...',
+                  success: (added) => {
+                    setShowImport(false)
+                    return `Imported ${added.length} guest${added.length === 1 ? '' : 's'}`
+                  },
+                  error: 'Import failed. Check your file and try again.',
+                })
+                try { await promise } catch { /* toast.promise handles display */ }
+              }}
+            />
+          )}
+        </AnimatePresence>
 
         {/* Add guest form */}
         {showAdd && (
@@ -1003,46 +1008,36 @@ function AddGuestModal({
   onSheetSync: () => void
   onImport: () => void
 }) {
-  const ref = useModalA11y(true, onClose)
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
-      <div
-        ref={ref}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="add-guest-title"
-        className="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6"
-      >
-        <div className="flex items-center justify-between mb-5">
-          <h3 id="add-guest-title" className="font-serif text-lg font-semibold text-brown">Add Guests</h3>
-          <button onClick={onClose} aria-label="Close" className="text-brown-light hover:text-brown leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded"><X size={20} /></button>
-        </div>
-        <div className="space-y-3">
-          <button
-            onClick={onSheetSync}
-            className="w-full rounded-xl border-2 border-gold/40 hover:border-gold bg-ivory/50 hover:bg-gold/5 px-5 py-4 text-left transition"
-          >
-            <p className="flex items-center gap-2 font-semibold text-brown text-sm"><FileSpreadsheet size={16} className="text-gold" /> Sync Google Sheet</p>
-            <p className="text-xs text-brown-light mt-1">Connect your Google Sheet and we'll keep your guest list in sync automatically.</p>
-          </button>
-          <button
-            onClick={onImport}
-            className="w-full rounded-xl border-2 border-gold/40 hover:border-gold bg-ivory/50 hover:bg-gold/5 px-5 py-4 text-left transition"
-          >
-            <p className="flex items-center gap-2 font-semibold text-brown text-sm"><FileSpreadsheet size={16} className="text-gold" /> Import from Excel or CSV</p>
-            <p className="text-xs text-brown-light mt-1">Upload an .xlsx, .xls, or .csv file to import guests in bulk.</p>
-          </button>
-          <button
-            onClick={onManual}
-            className="w-full rounded-xl border-2 border-gold/40 hover:border-gold bg-ivory/50 hover:bg-gold/5 px-5 py-4 text-left transition"
-          >
-            <p className="flex items-center gap-2 font-semibold text-brown text-sm"><UserPlus size={16} className="text-gold" /> Add Guest Manually</p>
-            <p className="text-xs text-brown-light mt-1">Add one guest at a time with name, email, address and RSVP details.</p>
-          </button>
-        </div>
+    <AnimatedModal onClose={onClose} containerClassName="items-center justify-center px-4" ariaLabelledBy="add-guest-title" panelClassName="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+      <div className="flex items-center justify-between mb-5">
+        <h3 id="add-guest-title" className="font-serif text-lg font-semibold text-brown">Add Guests</h3>
+        <button onClick={onClose} aria-label="Close" className="text-brown-light hover:text-brown leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded"><X size={20} /></button>
       </div>
-    </div>
+      <div className="space-y-3">
+        <button
+          onClick={onSheetSync}
+          className="w-full rounded-xl border-2 border-gold/40 hover:border-gold bg-ivory/50 hover:bg-gold/5 px-5 py-4 text-left transition"
+        >
+          <p className="flex items-center gap-2 font-semibold text-brown text-sm"><FileSpreadsheet size={16} className="text-gold" /> Sync Google Sheet</p>
+          <p className="text-xs text-brown-light mt-1">Connect your Google Sheet and we'll keep your guest list in sync automatically.</p>
+        </button>
+        <button
+          onClick={onImport}
+          className="w-full rounded-xl border-2 border-gold/40 hover:border-gold bg-ivory/50 hover:bg-gold/5 px-5 py-4 text-left transition"
+        >
+          <p className="flex items-center gap-2 font-semibold text-brown text-sm"><FileSpreadsheet size={16} className="text-gold" /> Import from Excel or CSV</p>
+          <p className="text-xs text-brown-light mt-1">Upload an .xlsx, .xls, or .csv file to import guests in bulk.</p>
+        </button>
+        <button
+          onClick={onManual}
+          className="w-full rounded-xl border-2 border-gold/40 hover:border-gold bg-ivory/50 hover:bg-gold/5 px-5 py-4 text-left transition"
+        >
+          <p className="flex items-center gap-2 font-semibold text-brown text-sm"><UserPlus size={16} className="text-gold" /> Add Guest Manually</p>
+          <p className="text-xs text-brown-light mt-1">Add one guest at a time with name, email, address and RSVP details.</p>
+        </button>
+      </div>
+    </AnimatedModal>
   )
 }
 
