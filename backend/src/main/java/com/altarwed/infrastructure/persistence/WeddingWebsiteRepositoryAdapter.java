@@ -46,8 +46,10 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
     }
 
     @Override
-    public List<WeddingWebsiteSummary> findPublishedSummaries() {
-        return jpaRepository.findByIsPublishedTrueAndIsDeletedFalse()
+    public List<WeddingWebsiteSummary> findPublishedSummaries(int page, int size) {
+        // The ORDER BY id lives in the derived query name (findBy...OrderByIdAsc), so the
+        // PageRequest only needs to carry the page/size window.
+        return jpaRepository.findByIsPublishedTrueAndIsDeletedFalseOrderByIdAsc(PageRequest.of(page, size))
                 .stream()
                 .map(p -> new WeddingWebsiteSummary(p.getSlug(), p.getUpdatedAt()))
                 .toList();

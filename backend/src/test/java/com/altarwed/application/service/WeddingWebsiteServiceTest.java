@@ -3,6 +3,7 @@ package com.altarwed.application.service;
 import com.altarwed.application.dto.WeddingWebsiteSearchResultResponse;
 import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
 import com.altarwed.domain.model.WeddingWebsite;
+import com.altarwed.domain.model.WeddingWebsiteSummary;
 import com.altarwed.domain.port.ConversionEventPort;
 import com.altarwed.domain.port.CoupleRepository;
 import com.altarwed.domain.port.RevalidationPort;
@@ -23,6 +24,7 @@ import java.util.stream.IntStream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -74,6 +76,37 @@ class WeddingWebsiteServiceTest {
 
         assertThat(results).hasSize(3);
         assertThat(results.get(0).slug()).isNotBlank();
+    }
+
+    @Test
+    void getPublishedPage_withinBounds_delegatesUnchanged() {
+        // Issue #241: a normal request passes page/size straight through to the repository so the
+        // sitemap loader gets exactly the page it asked for.
+        when(websiteRepository.findPublishedSummaries(2, 500)).thenReturn(summaries(3));
+
+        List<WeddingWebsiteSummary> page = weddingWebsiteService.getPublishedPage(2, 500);
+
+        assertThat(page).hasSize(3);
+        verify(websiteRepository).findPublishedSummaries(2, 500);
+    }
+
+    @Test
+    void getPublishedPage_oversizeRequest_isClampedToCeiling() {
+        // The endpoint is unauthenticated, so a caller must not be able to request an arbitrarily
+        // large page and stream the whole published-sites table in one query.
+        weddingWebsiteService.getPublishedPage(0, 100_000);
+
+        verify(websiteRepository)
+                .findPublishedSummaries(0, WeddingWebsiteService.MAX_SITEMAP_PAGE_SIZE);
+    }
+
+    @Test
+    void getPublishedPage_negativePageAndZeroSize_areClampedToSafeFloor() {
+        // A hostile or buggy caller cannot force a negative page or a zero/negative size; both are
+        // clamped to their safe floor (page 0, size 1) before the query runs.
+        weddingWebsiteService.getPublishedPage(-4, 0);
+
+        verify(websiteRepository).findPublishedSummaries(0, 1);
     }
 
     @Test
@@ -154,6 +187,13 @@ class WeddingWebsiteServiceTest {
                 null,
                 deleted, null, null, null
         );
+    }
+
+    private List<WeddingWebsiteSummary> summaries(int count) {
+        List<WeddingWebsiteSummary> result = new ArrayList<>(count);
+        IntStream.range(0, count).forEach(i ->
+                result.add(new WeddingWebsiteSummary("couple-" + i, java.time.LocalDateTime.now())));
+        return result;
     }
 
     private List<WeddingWebsite> publishedSites(int count) {
