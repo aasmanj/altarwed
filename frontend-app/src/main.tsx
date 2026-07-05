@@ -5,14 +5,16 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { toast } from 'sonner'
 import App from './App'
 import './index.css'
-import { initAnalytics } from '@/core/analytics/analytics'
 import { captureUtmFromUrl } from '@/core/analytics/utm'
 
-// Record first-touch attribution from the landing URL before anything navigates,
-// then boot product analytics. captureUtmFromUrl is always safe (it only reads
-// the URL + localStorage); initAnalytics is a no-op until VITE_POSTHOG_KEY is set.
+// Record first-touch attribution from the landing URL before anything navigates.
+// captureUtmFromUrl is always safe (it only reads the URL + localStorage) and is
+// not analytics: it stashes UTM params for later use once consent is granted.
+//
+// PostHog is deliberately NOT initialized here. Analytics boots only from the
+// AuthContext consent gate, keyed on the couple's persisted marketing-consent
+// flag, so no PostHog network activity happens before consent (issue #218).
 captureUtmFromUrl()
-initAnalytics()
 
 // Dev-only: log a11y violations to the console as the UI mounts/updates.
 // Zero prod overhead, Vite tree-shakes the import out of the prod bundle.

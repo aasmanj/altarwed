@@ -23,7 +23,10 @@ public class SaveTheDateController {
     }
 
     // guestIds is optional -- omit or send empty list to send to all eligible guests.
-    record SendRequest(List<UUID> guestIds) {}
+    // idempotencyKey (issue #232) is a client-generated per-attempt UUID: a retry carrying the
+    // same key replays the original result instead of re-emailing. Optional for backward
+    // compatibility (an old client that omits it simply gets no dedup protection).
+    record SendRequest(List<UUID> guestIds, String idempotencyKey) {}
 
     @PostMapping("/couple/{coupleId}/send")
     public ResponseEntity<SaveTheDateSendResult> sendAll(
@@ -32,7 +35,10 @@ public class SaveTheDateController {
             @AuthenticationPrincipal String email
     ) {
         accessGuard.assertOwns(coupleId, email);
-        SaveTheDateSendResult result = guestService.sendSaveDates(coupleId, body != null ? body.guestIds() : null);
+        SaveTheDateSendResult result = guestService.sendSaveDates(
+                coupleId,
+                body != null ? body.guestIds() : null,
+                body != null ? body.idempotencyKey() : null);
         return ResponseEntity.ok(result);
     }
 }

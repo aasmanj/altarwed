@@ -11,12 +11,18 @@ import java.util.UUID;
  * "queued" means handed to Resend; final delivered/bounced counts arrive later via
  * the delivery webhook (see EmailDeliveryService) and surface per guest. Boxed types
  * per the DTO convention (a missing count must be distinguishable from zero).
+ *
+ * {@code replayed} is true when this response is an idempotent replay of an earlier send
+ * (issue #232): the couple retried with the same client key, so nothing was re-emailed and
+ * the counts are the original send's. On a replay {@code invalidEmails} is empty (the
+ * detail list is not persisted with the receipt); the counts still summarise the outcome.
  */
 public record SaveTheDateSendResult(
         Integer queued,
         Integer invalidCount,
         Integer suppressedCount,
-        List<InvalidGuestEmail> invalidEmails
+        List<InvalidGuestEmail> invalidEmails,
+        Boolean replayed
 ) {
     public record InvalidGuestEmail(UUID guestId, String name, String email) {}
 }

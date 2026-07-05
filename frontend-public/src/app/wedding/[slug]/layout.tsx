@@ -6,6 +6,7 @@ import ComingSoon from './ComingSoon'
 import { parseTabCustomisation, hasWeddingPartyMembers, hasWeddingPhotos, getAllBlocks, computeTabsWithContent } from './data'
 import { getWedding } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
+import { safeColor } from '@/lib/safeColor'
 
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
@@ -139,11 +140,12 @@ export default async function WeddingLayout({
     },
   } : null
 
-  // Validate before injecting into a <style> tag. The backend enforces @Pattern
-  // but this guards the SSR path against any future direct DB writes or bugs.
-  const accentColor = /^#[0-9a-fA-F]{3,8}$/.test(wedding.accentColor ?? '')
-    ? wedding.accentColor!
-    : '#d4af6a'
+  // Validate every couple-controlled color before it reaches a style sink. The
+  // backend enforces @Pattern but this guards the SSR path against any future
+  // direct DB writes or bugs. See src/lib/safeColor.ts for the shared rule.
+  const accentColor = safeColor(wedding.accentColor, '#d4af6a')
+  const heroTaglineColor = safeColor(wedding.heroTaglineColor, 'rgba(255,255,255,0.7)')
+  const scriptureBackgroundColor = safeColor(wedding.scriptureBackgroundColor, undefined)
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
@@ -186,7 +188,7 @@ export default async function WeddingLayout({
           {wedding.heroTagline !== '' && (
             <p
               className="mb-3 text-xs uppercase tracking-[0.3em] font-light"
-              style={{ color: wedding.heroTaglineColor ?? 'rgba(255,255,255,0.7)' }}
+              style={{ color: heroTaglineColor }}
             >
               {wedding.heroTagline ?? 'Together in covenant'}
             </p>
@@ -224,8 +226,8 @@ export default async function WeddingLayout({
       {/* ── Scripture banner, more prominent per couple feedback ── */}
       {(wedding.scriptureText || wedding.scriptureReference) && (
         <section
-          className={`${wedding.scriptureBackgroundColor ? '' : 'bg-gradient-to-b from-[#3b2f2f] to-[#4a1942]'} py-20 px-6 text-center relative`}
-          style={wedding.scriptureBackgroundColor ? { backgroundColor: wedding.scriptureBackgroundColor } : undefined}
+          className={`${scriptureBackgroundColor ? '' : 'bg-gradient-to-b from-[#3b2f2f] to-[#4a1942]'} py-20 px-6 text-center relative`}
+          style={scriptureBackgroundColor ? { backgroundColor: scriptureBackgroundColor } : undefined}
         >
           <div className="absolute inset-x-0 top-0 h-px bg-[#d4af6a]/40" />
           <div className="absolute inset-x-0 bottom-0 h-px bg-[#d4af6a]/40" />

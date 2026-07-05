@@ -8,6 +8,7 @@ import com.altarwed.domain.model.EmailRecipient;
 import com.altarwed.domain.model.Guest;
 import com.altarwed.domain.model.GuestRsvpStatus;
 import com.altarwed.domain.model.RsvpInviteToken;
+import com.altarwed.domain.model.SaveTheDateSend;
 import com.altarwed.domain.model.WeddingWebsite;
 import com.altarwed.application.dto.RsvpFindResult;
 import com.altarwed.domain.exception.CaptchaVerificationFailedException;
@@ -15,6 +16,7 @@ import com.altarwed.domain.port.CaptchaVerificationPort;
 import com.altarwed.domain.port.CoupleRepository;
 import com.altarwed.domain.port.GuestRepository;
 import com.altarwed.domain.port.RsvpInviteTokenRepository;
+import com.altarwed.domain.port.SaveTheDateSendRepository;
 import com.altarwed.domain.port.WeddingWebsiteRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,8 +24,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -59,6 +64,7 @@ class GuestServiceTest {
     @Mock private EmailSuppressionService suppressionService;
     @Mock private CustomRsvpQuestionService customRsvpQuestionService;
     @Mock private CaptchaVerificationPort captchaVerificationPort;
+    @Mock private SaveTheDateSendRepository saveTheDateSendRepository;
 
     @BeforeEach
     void setUp() {
@@ -75,7 +81,7 @@ class GuestServiceTest {
     private GuestService service() {
         return new GuestService(guestRepository, tokenRepository, websiteRepository,
                 coupleRepository, asyncEmailService, suppressionService, customRsvpQuestionService,
-                captchaVerificationPort);
+                captchaVerificationPort, saveTheDateSendRepository);
     }
 
     private Guest guest(UUID coupleId, String name, String email) {
@@ -106,7 +112,7 @@ class GuestServiceTest {
         when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
         when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
 
-        SaveTheDateSendResult result = service().sendSaveDates(coupleId, null);
+        SaveTheDateSendResult result = service().sendSaveDates(coupleId, null, null);
 
         assertThat(result.queued()).isEqualTo(2);
         assertThat(result.invalidCount()).isZero();
@@ -137,7 +143,7 @@ class GuestServiceTest {
                 coupleId, "Jordan", "Eden", "couple@example.com", "hash",
                 null, null, null, false, true, null, null)));
 
-        service().sendSaveDates(coupleId, null);
+        service().sendSaveDates(coupleId, null, null);
 
         // The last arg is the couple's own address; a guest hitting reply reaches them,
         // not the shared from-address.
@@ -157,7 +163,7 @@ class GuestServiceTest {
         when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
         when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
 
-        SaveTheDateSendResult result = service().sendSaveDates(coupleId, List.of(a.id()));
+        SaveTheDateSendResult result = service().sendSaveDates(coupleId, List.of(a.id()), null);
 
         assertThat(result.queued()).isEqualTo(1);
 
@@ -173,7 +179,7 @@ class GuestServiceTest {
         when(guestRepository.findAllByCoupleId(coupleId))
                 .thenReturn(List.of(guest(coupleId, "Cy", null)));
 
-        SaveTheDateSendResult result = service().sendSaveDates(coupleId, null);
+        SaveTheDateSendResult result = service().sendSaveDates(coupleId, null, null);
 
         assertThat(result.queued()).isZero();
         verify(asyncEmailService, never()).sendSaveTheDateEmails(any(), any(), any(), any(), any(), any(), any());
@@ -192,7 +198,7 @@ class GuestServiceTest {
         when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
         when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
 
-        SaveTheDateSendResult result = service().sendSaveDates(coupleId, null);
+        SaveTheDateSendResult result = service().sendSaveDates(coupleId, null, null);
 
         assertThat(result.queued()).isEqualTo(1);
         assertThat(result.invalidCount()).isEqualTo(2);
@@ -204,6 +210,89 @@ class GuestServiceTest {
         ArgumentCaptor<List<UUID>> stamped = ArgumentCaptor.forClass(List.class);
         verify(guestRepository).markSaveTheDatesSent(stamped.capture(), any(LocalDateTime.class));
         assertThat(stamped.getValue()).containsExactly(good.id());
+    }
+
+    // ---------------------------------------------------------------------------
+    // Idempotency (issue #232): a retry carrying the same client key must not re-email or
+    // re-stamp. The first send claims the key; a replay of that key returns the stored
+    // summary and touches nothing. A concurrent duplicate (both submits pass the initial
+    // "no receipt yet" check) is serialised by the unique index: the loser's save throws
+    // and it replays the winner rather than sending a second batch.
+    // ---------------------------------------------------------------------------
+
+    @Test
+    void sendSaveDates_replaysStoredSummary_whenKeyAlreadyRecorded_withoutEmailingOrStamping() {
+        UUID coupleId = UUID.randomUUID();
+        // A receipt for this exact key already exists (the first send succeeded server-side; its
+        // HTTP response was lost and the couple retried).
+        when(saveTheDateSendRepository.findByCoupleIdAndIdempotencyKey(coupleId, "attempt-1"))
+                .thenReturn(Optional.of(new SaveTheDateSend(
+                        UUID.randomUUID(), coupleId, "attempt-1", 3, 1, 2, LocalDateTime.now())));
+
+        SaveTheDateSendResult result = service().sendSaveDates(coupleId, null, "attempt-1");
+
+        // Summary is the original send's, flagged as a replay.
+        assertThat(result.replayed()).isTrue();
+        assertThat(result.queued()).isEqualTo(3);
+        assertThat(result.invalidCount()).isEqualTo(1);
+        assertThat(result.suppressedCount()).isEqualTo(2);
+
+        // The batch is never re-sent, never re-stamped, and no second receipt is written. The
+        // replay short-circuits before we even load the guest list.
+        verify(asyncEmailService, never()).sendSaveTheDateEmails(any(), any(), any(), any(), any(), any(), any());
+        verify(guestRepository, never()).markSaveTheDatesSent(any(), any());
+        verify(guestRepository, never()).findAllByCoupleId(any());
+        verify(saveTheDateSendRepository, never()).save(any());
+    }
+
+    @Test
+    void sendSaveDates_firstSendWithKey_recordsReceiptThenEmailsAndStamps() {
+        UUID coupleId = UUID.randomUUID();
+        Guest a = guest(coupleId, "Anna", "anna@example.com");
+        when(saveTheDateSendRepository.findByCoupleIdAndIdempotencyKey(coupleId, "attempt-1"))
+                .thenReturn(Optional.empty());
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(a));
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
+
+        SaveTheDateSendResult result = service().sendSaveDates(coupleId, null, "attempt-1");
+
+        assertThat(result.replayed()).isFalse();
+        assertThat(result.queued()).isEqualTo(1);
+        // The key is claimed with the send's actual counts before the batch goes out.
+        ArgumentCaptor<SaveTheDateSend> receipt = ArgumentCaptor.forClass(SaveTheDateSend.class);
+        verify(saveTheDateSendRepository).save(receipt.capture());
+        assertThat(receipt.getValue().idempotencyKey()).isEqualTo("attempt-1");
+        assertThat(receipt.getValue().queuedCount()).isEqualTo(1);
+        verify(asyncEmailService).sendSaveTheDateEmails(any(), any(), anyString(), anyString(), anyString(), any(), any());
+        verify(guestRepository).markSaveTheDatesSent(any(), any(LocalDateTime.class));
+    }
+
+    @Test
+    void sendSaveDates_concurrentDuplicateKey_sendsOnce_loserReplaysWinner() {
+        UUID coupleId = UUID.randomUUID();
+        Guest a = guest(coupleId, "Anna", "anna@example.com");
+        // Both concurrent submits saw no receipt on their initial check.
+        when(saveTheDateSendRepository.findByCoupleIdAndIdempotencyKey(coupleId, "attempt-1"))
+                .thenReturn(Optional.empty())                       // pre-claim replay check
+                .thenReturn(Optional.of(new SaveTheDateSend(        // post-collision winner lookup
+                        UUID.randomUUID(), coupleId, "attempt-1", 5, 0, 0, LocalDateTime.now())));
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(a));
+        // The claim (and its collision) happens before the send block loads the website/couple,
+        // so those repositories are never reached on the loser path.
+        // This request is the loser: the winner already claimed the key, so the unique index
+        // rejects this insert.
+        when(saveTheDateSendRepository.save(any()))
+                .thenThrow(new DataIntegrityViolationException("duplicate (couple_id, idempotency_key)"));
+
+        SaveTheDateSendResult result = service().sendSaveDates(coupleId, null, "attempt-1");
+
+        // The loser replays the winner's summary and, crucially, never emails or stamps: the
+        // batch is mailed exactly once across the two concurrent requests.
+        assertThat(result.replayed()).isTrue();
+        assertThat(result.queued()).isEqualTo(5);
+        verify(asyncEmailService, never()).sendSaveTheDateEmails(any(), any(), any(), any(), any(), any(), any());
+        verify(guestRepository, never()).markSaveTheDatesSent(any(), any());
     }
 
     // ---------------------------------------------------------------------------
@@ -601,5 +690,76 @@ class GuestServiceTest {
         verify(tokenRepository, never()).save(any());
         verify(asyncEmailService, never()).sendRsvpInviteEmail(
                 any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    // ---------------------------------------------------------------------------
+    // Issue #216: RSVP invite tokens expire relative to the wedding date, not a fixed 30 days
+    // after send, so a guest who clicks the emailed link in the final weeks before the wedding
+    // no longer hits a dead "This link has expired" screen.
+    //   - wedding date set:  expires at end of (weddingDate + 3 days);
+    //   - no wedding date:   expires now + 365 days;
+    //   - wedding tomorrow:  the 30-day floor keeps the link usable despite a very near date.
+    // computeInviteExpiry is a pure function, so the branch logic is asserted directly, then one
+    // wiring test proves sendInvite actually feeds the couple's wedding date into it.
+    // ---------------------------------------------------------------------------
+
+    @Test
+    void computeInviteExpiry_weddingEightWeeksOut_staysValidThroughWeddingWeekend() {
+        LocalDateTime now = LocalDateTime.of(2026, 1, 1, 9, 0);
+        LocalDate weddingDate = now.toLocalDate().plusWeeks(8); // 2026-02-26
+
+        LocalDateTime expiry = GuestService.computeInviteExpiry(weddingDate, now);
+
+        // Expires at the very end of (wedding date + 3 days), well past the wedding weekend and
+        // far beyond the old now+30 window (which would have died on 2026-01-31).
+        assertThat(expiry).isEqualTo(weddingDate.plusDays(3).atTime(LocalTime.MAX));
+        assertThat(expiry.toLocalDate()).isAfter(weddingDate);
+        assertThat(expiry).isAfter(now.plusDays(30));
+    }
+
+    @Test
+    void computeInviteExpiry_noWeddingDate_fallsBackToOneYear() {
+        LocalDateTime now = LocalDateTime.of(2026, 1, 1, 9, 0);
+
+        LocalDateTime expiry = GuestService.computeInviteExpiry(null, now);
+
+        assertThat(expiry).isEqualTo(now.plusDays(365));
+    }
+
+    @Test
+    void computeInviteExpiry_weddingTomorrow_appliesThirtyDayFloor() {
+        LocalDateTime now = LocalDateTime.of(2026, 1, 1, 9, 0);
+        LocalDate weddingDate = now.toLocalDate().plusDays(1); // wedding is tomorrow
+
+        LocalDateTime expiry = GuestService.computeInviteExpiry(weddingDate, now);
+
+        // Wedding + 3 days would expire in ~4 days, below the floor, so the floor (now + 30 days)
+        // wins and the link stays usable for a couple who sent invites at the last minute.
+        assertThat(expiry).isEqualTo(now.plusDays(30));
+        assertThat(expiry).isAfter(weddingDate.plusDays(3).atTime(LocalTime.MAX));
+    }
+
+    @Test
+    void sendInvite_setsTokenExpiryFromWeddingDate_notFixedThirtyDays() {
+        UUID coupleId = UUID.randomUUID();
+        Guest g = guest(coupleId, "Anna", "anna@example.com");
+        LocalDate weddingDate = LocalDate.now().plusWeeks(8);
+
+        WeddingWebsite website = mock(WeddingWebsite.class);
+        when(website.weddingDate()).thenReturn(weddingDate);
+
+        when(guestRepository.findById(g.id())).thenReturn(Optional.of(g));
+        when(suppressionService.isSuppressed(eq(coupleId), anyString())).thenReturn(false);
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.of(website));
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
+        when(guestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service().sendInvite(coupleId, g.id());
+
+        ArgumentCaptor<RsvpInviteToken> saved = ArgumentCaptor.forClass(RsvpInviteToken.class);
+        verify(tokenRepository).save(saved.capture());
+        // The persisted token expires from the wedding date, not now+30, so a late click still works.
+        assertThat(saved.getValue().expiresAt())
+                .isEqualTo(weddingDate.plusDays(3).atTime(LocalTime.MAX));
     }
 }
