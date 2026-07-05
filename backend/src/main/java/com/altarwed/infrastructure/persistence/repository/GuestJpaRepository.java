@@ -17,10 +17,17 @@ public interface GuestJpaRepository extends JpaRepository<GuestEntity, UUID> {
     boolean existsByIdAndCoupleId(UUID id, UUID coupleId);
 
     // Finds guests whose reminder is due: remind_at is set, it is on or before asOf,
-    // and the guest is still PENDING (has not yet responded).
-    @Query("SELECT g FROM GuestEntity g WHERE g.remindAt IS NOT NULL AND g.remindAt <= :asOf AND g.rsvpStatus = :pending")
+    // the guest is still PENDING (has not yet responded), and the guest is still below the
+    // invite-send cap. The cap predicate (issue #233) stops a guest who deferred until they
+    // reached the cap from staying due forever, since issueInvite would reject the send at the
+    // cap check on every hourly run. invite_send_count is NOT NULL in the schema, so no null
+    // guard is needed. Backed by the filtered ix_guests_remind_at index (WHERE remind_at IS NOT
+    // NULL) which now covers invite_send_count too, see V87.
+    @Query("SELECT g FROM GuestEntity g WHERE g.remindAt IS NOT NULL AND g.remindAt <= :asOf "
+            + "AND g.rsvpStatus = :pending AND g.inviteSendCount < :maxInviteSends")
     List<GuestEntity> findDueReminders(@Param("asOf") LocalDateTime asOf,
-                                       @Param("pending") GuestRsvpStatus pending);
+                                       @Param("pending") GuestRsvpStatus pending,
+                                       @Param("maxInviteSends") int maxInviteSends);
 
     List<GuestEntity> findAllByPartyIdOrderByCreatedAt(UUID partyId);
 

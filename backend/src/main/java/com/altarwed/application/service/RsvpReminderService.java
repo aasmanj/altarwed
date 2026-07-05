@@ -61,7 +61,11 @@ public class RsvpReminderService {
         LockAssert.assertLocked();
         UUID runId = UUID.randomUUID();
         long startMs = System.currentTimeMillis();
-        List<Guest> due = guestRepository.findDueReminders(LocalDateTime.now());
+        // Exclude guests already at the invite-send cap: they can never be sent again, so
+        // re-fetching them every hour only to have the send rejected at the cap check is wasted
+        // work and log noise (issue #233). sendReminderInvite below is the second line of defence.
+        List<Guest> due = guestRepository.findDueReminders(
+                LocalDateTime.now(), GuestService.MAX_INVITE_SENDS);
         log.info("rsvp reminder job started, runId={}, dueCount={}", runId, due.size());
         if (due.isEmpty()) return;
 
@@ -69,10 +73,13 @@ public class RsvpReminderService {
         int failed = 0;
         for (Guest guest : due) {
             try {
-                // issueInvite increments inviteSendCount, issues a fresh token, sends the email,
-                // and clears remindAt. It respects the MAX_INVITE_SENDS cap; if the cap is hit
-                // the call throws, which we catch so one over-limit guest doesn't abort the batch.
-                guestService.sendInvite(guest.coupleId(), guest.id());
+                // sendReminderInvite issues a fresh token, sends the email, increments
+                // inviteSendCount, and clears remindAt. Unlike the couple-initiated sendInvite,
+                // if the guest is at the MAX_INVITE_SENDS cap it clears remindAt (so the guest
+                // drops out of findDueReminders) instead of throwing and being retried forever
+                // (issue #233). Other failures (unsubscribed, no email) still throw and are
+                // caught below so one bad guest never aborts the batch.
+                guestService.sendReminderInvite(guest.coupleId(), guest.id());
                 sent++;
             } catch (Exception ex) {
                 // Log and continue: never let one failed reminder abort the rest of the batch.

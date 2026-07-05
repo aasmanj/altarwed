@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -69,13 +70,14 @@ class SchedulerLeaderLockTest {
 
     @Test
     void concurrentSendDueReminders_onlyOneCallerRunsTheBody() throws InterruptedException {
-        when(guestRepository.findDueReminders(any(LocalDateTime.class))).thenReturn(Collections.emptyList());
+        when(guestRepository.findDueReminders(any(LocalDateTime.class), anyInt()))
+                .thenReturn(Collections.emptyList());
 
         runConcurrently(rsvpReminderService::sendDueReminders);
 
         // Both threads called the annotated method; ShedLock must have let exactly one of them
         // reach the body (the only place findDueReminders is invoked).
-        verify(guestRepository, times(1)).findDueReminders(any(LocalDateTime.class));
+        verify(guestRepository, times(1)).findDueReminders(any(LocalDateTime.class), anyInt());
     }
 
     @Test

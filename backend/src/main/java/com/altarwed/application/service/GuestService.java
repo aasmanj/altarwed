@@ -45,7 +45,10 @@ public class GuestService {
     // Floor: never issue a token that expires sooner than this, even when the wedding is tomorrow
     // (or already past), so a couple sending invites late still gets a usable link.
     private static final int INVITE_EXPIRY_FLOOR_DAYS = 30;
-    private static final int MAX_INVITE_SENDS = 3;
+    // Public so RsvpReminderService can exclude at-cap guests from its due-reminder query
+    // (issue #233) using the same source of truth this service enforces, with no risk of a
+    // hardcoded copy drifting.
+    public static final int MAX_INVITE_SENDS = 3;
     private static final int SEARCH_TOKEN_EXPIRY_HOURS = 1;
     // The public find-invitation search ignores queries shorter than this so a short guess
     // cannot enumerate masked names or mint tokens by brute force. Raised from 2 to 4 (issue
@@ -241,6 +244,35 @@ public class GuestService {
                     + "your wedding site, or you can invite them another way.");
         }
         return issueInvite(guest, coupleId);
+    }
+
+    /**
+     * Reminder-scheduler entry point for re-sending a deferred ("remind me later") RSVP invite.
+     *
+     * Identical to {@link #sendInvite} except for the invite-cap branch, and that difference is
+     * the whole point of the method (issue #233). A couple-initiated send that hits the cap
+     * throws so the couple sees the rejection. A reminder-driven send that hits the cap must NOT
+     * throw and be retried forever: issueInvite throws at the cap check before it can clear
+     * remind_at, sendDueReminders catches and continues, and the same guest re-qualifies for
+     * findDueReminders every hour until the wedding. So at the cap we clear remind_at and return
+     * without sending, dropping the guest out of the reminder query permanently. This is the belt
+     * to findDueReminders' suspenders: that query already excludes at-cap guests, and this clears
+     * any that still reach here (e.g. a guest who crossed the cap on a couple-initiated send
+     * between the poll and this call).
+     */
+    @Transactional
+    public void sendReminderInvite(UUID coupleId, UUID guestId) {
+        Guest guest = getGuest(coupleId, guestId);
+        int currentSends = guest.inviteSendCount() != null ? guest.inviteSendCount() : 0;
+        if (currentSends >= MAX_INVITE_SENDS) {
+            log.info("rsvp reminder cleared, guest at invite cap, guestId={}, coupleId={}, sends={}",
+                     guestId, coupleId, currentSends);
+            guestRepository.save(withRemindAtCleared(guest));
+            return;
+        }
+        // Below the cap: the normal single-send path (unsubscribe honoured, token issued, cap
+        // incremented, remind_at cleared by issueInvite on success).
+        sendInvite(coupleId, guestId);
     }
 
     // @Transactional is load-bearing, not decorative: markSaveTheDatesSent (below) is a
@@ -810,6 +842,25 @@ public class GuestService {
                 .map(g -> new PartyResolution(g.partyId(), false))
                 .findFirst()
                 .orElseGet(() -> new PartyResolution(UUID.randomUUID(), true));
+    }
+
+    // Rebuilds a guest with remind_at cleared and updated_at refreshed, leaving every other
+    // field (including invite_send_count) untouched. Used only by the reminder path when an
+    // at-cap guest must be dropped from the reminder query without issuing another invite.
+    private Guest withRemindAtCleared(Guest g) {
+        return new Guest(
+                g.id(), g.coupleId(), g.name(), g.email(), g.phone(),
+                g.rsvpStatus(), g.plusOneAllowed(), g.plusOneName(),
+                g.dietaryRestrictions(), g.songRequest(),
+                g.tableNumber(), g.side(), g.notes(),
+                g.mailLine1(), g.mailCity(), g.mailState(), g.mailZip(), g.mailCountry(),
+                g.noteForCouple(), g.inviteSendCount(),
+                g.inviteSentAt(), g.saveTheDateSentAt(), g.respondedAt(),
+                null, // clear remindAt so this guest can never re-qualify for a reminder
+                g.createdAt(), LocalDateTime.now(),
+                g.partyId(), g.partyName(), g.partyContact(),
+                g.sheetSyncId(), g.syncedFromSheet()
+        );
     }
 
     private Guest getGuest(UUID coupleId, UUID guestId) {

@@ -19,7 +19,9 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -71,21 +73,34 @@ class RsvpReminderServiceTest {
         Guest unsubscribed = dueGuest(coupleId);
         Guest last = dueGuest(coupleId);
 
-        when(guestRepository.findDueReminders(any()))
+        when(guestRepository.findDueReminders(any(), anyInt()))
                 .thenReturn(List.of(first, unsubscribed, last));
-        // The middle guest unsubscribed: its sendInvite throws. Before this fix the shared
-        // transaction would be marked rollback-only and the whole batch would die at commit.
-        when(guestService.sendInvite(eq(coupleId), eq(unsubscribed.id())))
-                .thenThrow(new GuestUnsubscribedException("unsubscribed"));
+        // The middle guest unsubscribed: its sendReminderInvite throws. Before this fix the
+        // shared transaction would be marked rollback-only and the whole batch would die at
+        // commit. sendReminderInvite is void, so stub the throw with doThrow.
+        doThrow(new GuestUnsubscribedException("unsubscribed"))
+                .when(guestService).sendReminderInvite(eq(coupleId), eq(unsubscribed.id()));
 
         // The job swallows the per-guest failure and never propagates it.
         assertThatCode(() -> service().sendDueReminders()).doesNotThrowAnyException();
 
         // Every due guest is still attempted; the throwing one does not short-circuit the rest.
-        verify(guestService).sendInvite(coupleId, first.id());
-        verify(guestService).sendInvite(coupleId, unsubscribed.id());
-        verify(guestService).sendInvite(coupleId, last.id());
-        verify(guestService, times(3)).sendInvite(eq(coupleId), any());
+        verify(guestService).sendReminderInvite(coupleId, first.id());
+        verify(guestService).sendReminderInvite(coupleId, unsubscribed.id());
+        verify(guestService).sendReminderInvite(coupleId, last.id());
+        verify(guestService, times(3)).sendReminderInvite(eq(coupleId), any());
+    }
+
+    @Test
+    void sendDueReminders_queriesWithTheInviteCap_soAtCapGuestsAreNeverFetched() {
+        // Issue #233: the due-reminder query must exclude guests already at the invite-send cap
+        // (the belt to sendReminderInvite's suspenders). Assert the scheduler passes the cap
+        // through so an at-cap guest is filtered out in SQL, not re-fetched and rejected hourly.
+        when(guestRepository.findDueReminders(any(), anyInt())).thenReturn(List.of());
+
+        service().sendDueReminders();
+
+        verify(guestRepository).findDueReminders(any(), eq(GuestService.MAX_INVITE_SENDS));
     }
 
     @Test
