@@ -32,6 +32,14 @@ import {
   type BlockType,
   defaultContentJson,
 } from './types'
+import {
+  TAB_SWITCH_ACK_TIMEOUT_MS,
+  originOf,
+  makeTabSwitchMessage,
+  makeBlocksUpdateMessage,
+  isTabSwitchAck,
+  isPreviewTabReady,
+} from './previewChannel'
 
 // The preview URL is on the public marketing domain (frontend-public).
 // In prod it is the real altarwed.com origin; in local dev we fall back to
@@ -39,6 +47,11 @@ import {
 const PREVIEW_ORIGIN =
   (import.meta as unknown as { env: { VITE_PUBLIC_BASE_URL?: string } }).env.VITE_PUBLIC_BASE_URL
   ?? 'https://www.altarwed.com'
+
+// MessageEvent.origin is always a bare origin (scheme://host[:port]); normalize
+// the configured base URL once so incoming preview messages can be compared
+// with strict equality.
+const PREVIEW_MESSAGE_ORIGIN = originOf(PREVIEW_ORIGIN)
 
 // Tabs that always make sense to show in the editor, even if empty.
 // Each one renders its own preview route via the iframe.
@@ -81,6 +94,13 @@ export default function SideBySideEditor() {
   const [drawerSection, setDrawerSection] = useState<WebsiteSection | null>(null)
   const [previewKey, setPreviewKey] = useState(0)
   const [previewLoading, setPreviewLoading] = useState(true)
+  // The tab the iframe's src attribute points at. Deliberately NOT derived from
+  // activeTab: changing an iframe's src triggers a full document navigation even
+  // without a key bump, so deriving it from activeTab would reload the preview
+  // on every tab click. Tab switches instead go over postMessage (issue #310);
+  // only the true reload paths (bumpPreview and the tab-switch fallback below)
+  // move this value.
+  const [iframeTab, setIframeTab] = useState<BlockTab>(activeTab)
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
   const [heroUploading, setHeroUploading] = useState(false)
   const [heroUploadError, setHeroUploadError] = useState<string | null>(null)
@@ -228,6 +248,46 @@ export default function SideBySideEditor() {
     )
   }, [])
 
+  // ── Tab switching without an iframe remount (issue #310) ────────────────
+  // Clicking a tab used to bump previewKey, remounting the iframe and paying a
+  // full SSR round trip (white flash + spinner) on the editor's most-clicked
+  // control. Instead we postMessage a 'tab-switch' and the preview swaps tabs
+  // with a client-side navigation. If the preview does not ack within
+  // TAB_SWITCH_ACK_TIMEOUT_MS (older preview deploy, iframe never loaded), we
+  // fall back to the old full reload so the couple is never stuck.
+  const pendingTabSwitchRef = useRef<{ tab: BlockTab; timer: number } | null>(null)
+
+  // Full iframe reload at a specific tab: the only paths that move the iframe's
+  // src. Also cancels any pending tab-switch fallback, since the reload itself
+  // lands on the requested tab.
+  const reloadPreview = useCallback((tab: BlockTab) => {
+    const pending = pendingTabSwitchRef.current
+    if (pending) {
+      window.clearTimeout(pending.timer)
+      pendingTabSwitchRef.current = null
+    }
+    setIframeTab(tab)
+    setPreviewLoading(true)
+    setPreviewKey(k => k + 1)
+  }, [])
+
+  const switchPreviewTab = useCallback((tab: BlockTab) => {
+    // A newer click supersedes any pending switch.
+    const pending = pendingTabSwitchRef.current
+    if (pending) window.clearTimeout(pending.timer)
+    const win = iframeRef.current?.contentWindow
+    if (!win) {
+      reloadPreview(tab)
+      return
+    }
+    win.postMessage(makeTabSwitchMessage(tab), PREVIEW_ORIGIN)
+    const timer = window.setTimeout(() => {
+      pendingTabSwitchRef.current = null
+      reloadPreview(tab)
+    }, TAB_SWITCH_ACK_TIMEOUT_MS)
+    pendingTabSwitchRef.current = { tab, timer }
+  }, [reloadPreview])
+
   // Block counts per tab: used to badge tabs that already have content so
   // couples can see at a glance which sections they've configured.
   const blockCountByTab = useMemo(() => {
@@ -248,11 +308,44 @@ export default function SideBySideEditor() {
   // the early-return guards so the hook order stays stable across renders.
   useEffect(() => {
     if (!iframeRef.current) return
+    // Tagged with the tab so a preview mid-navigation between tabs can drop
+    // updates meant for a different tab instead of flashing them briefly.
     iframeRef.current.contentWindow?.postMessage(
-      { type: 'blocks-update', blocks: blocksForTab },
+      makeBlocksUpdateMessage(activeTab, blocksForTab),
       PREVIEW_ORIGIN,
     )
-  }, [blocksForTab])
+  }, [activeTab, blocksForTab])
+
+  // Listen for the preview's replies to the tab-switch channel above.
+  // 'tab-switch-ack' cancels the reload fallback; 'preview-tab-ready' (a
+  // preview document finished mounting after a client-side tab swap) triggers
+  // a blocks resend so edits made while the navigation was in flight are not
+  // lost. Origin-checked as strictly as the preview checks our messages.
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (e.origin !== PREVIEW_MESSAGE_ORIGIN) return
+      const pending = pendingTabSwitchRef.current
+      if (pending && isTabSwitchAck(e.data, pending.tab)) {
+        window.clearTimeout(pending.timer)
+        pendingTabSwitchRef.current = null
+        return
+      }
+      if (isPreviewTabReady(e.data, activeTab)) {
+        iframeRef.current?.contentWindow?.postMessage(
+          makeBlocksUpdateMessage(activeTab, blocksForTab),
+          PREVIEW_ORIGIN,
+        )
+      }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [activeTab, blocksForTab])
+
+  // Clear any pending fallback timer if the editor unmounts mid-switch.
+  useEffect(() => () => {
+    const pending = pendingTabSwitchRef.current
+    if (pending) window.clearTimeout(pending.timer)
+  }, [])
 
   // ── Auto-backfill on first entry ─────────────────────────────────────────
   // If the couple has scalar fields (story, venue, hotel, etc.) but zero
@@ -318,10 +411,11 @@ export default function SideBySideEditor() {
 
   // Full iframe reload. Used only for changes the live-preview channel can't
   // express: hero photo upload (server-rendered Image), publish toggle (toggles
-  // the draft watermark), manual refresh button.
+  // the draft watermark), template/settings saves, manual refresh button.
+  // Tab switches do NOT come through here anymore (issue #310); they go over
+  // the postMessage tab-switch channel via switchPreviewTab.
   const bumpPreview = () => {
-    setPreviewLoading(true)
-    setPreviewKey(k => k + 1)
+    reloadPreview(activeTab)
     setLastSavedAt(Date.now())
   }
 
@@ -565,7 +659,12 @@ export default function SideBySideEditor() {
             <iframe
               ref={iframeRef}
               key={previewKey}
-              src={tabPreviewUrl}
+              // src uses iframeTab (the tab of the last real load), NOT activeTab:
+              // an iframe src change is itself a full document navigation, so
+              // deriving src from activeTab would reload the preview on every
+              // tab click even without a key bump. Tab switches navigate the
+              // iframe client-side over postMessage instead (issue #310).
+              src={previewUrl(website.slug, iframeTab)}
               title={`Wedding website preview: ${BLOCK_TAB_LABELS[activeTab]} tab`}
               className="w-full h-full bg-white"
               onLoad={() => {
@@ -575,7 +674,7 @@ export default function SideBySideEditor() {
                 // loading: the postMessage effect fires before BlockListLive is
                 // listening, so we resend the latest state on load.
                 iframeRef.current?.contentWindow?.postMessage(
-                  { type: 'blocks-update', blocks: blocksForTab },
+                  makeBlocksUpdateMessage(activeTab, blocksForTab),
                   PREVIEW_ORIGIN,
                 )
               }}
