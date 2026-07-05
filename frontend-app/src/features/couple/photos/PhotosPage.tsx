@@ -38,6 +38,17 @@ interface Photo {
   zoom: number | null
 }
 
+// Issue #309(A): opening the lightbox swapped `src` with no loading state, so on
+// a slow connection the enlarged image area stayed blank for seconds. Model the
+// spinner as a tiny state machine: opening a photo shows the spinner; the
+// image's own onLoad (or onError, so a failed fetch never leaves it stuck)
+// hides it. Pure + exported so the node-env vitest guard can assert the switch
+// without a DOM.
+export type LightboxLoadEvent = 'open' | 'loaded' | 'error'
+export function lightboxSpinnerVisibleAfter(event: LightboxLoadEvent): boolean {
+  return event === 'open'
+}
+
 function usePhotos(websiteId: string) {
   return useQuery<Photo[]>({
     queryKey: ['wedding-photos', websiteId],
@@ -160,6 +171,7 @@ export default function PhotosPage() {
   const [captionError, setCaptionError] = useState<string | null>(null)
   const [repositioning, setRepositioning] = useState<Photo | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [lightboxLoading, setLightboxLoading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null)
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -191,6 +203,10 @@ export default function PhotosPage() {
     else toast.error(summary.message)
   }
 
+  const openLightbox = useCallback((url: string) => {
+    setLightboxUrl(url)
+    setLightboxLoading(lightboxSpinnerVisibleAfter('open'))
+  }, [])
   const closeLightbox = useCallback(() => setLightboxUrl(null), [])
 
   if (!websiteId || isLoading) {
@@ -303,7 +319,7 @@ export default function PhotosPage() {
                   type="button"
                   className="block w-full aspect-square overflow-hidden focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none"
                   aria-label={photo.caption ? `Enlarge photo: ${photo.caption}` : 'Enlarge photo'}
-                  onClick={() => setLightboxUrl(photo.url)}
+                  onClick={() => openLightbox(photo.url)}
                 >
                   <img
                     src={photo.url}
@@ -462,7 +478,17 @@ export default function PhotosPage() {
               src={lightboxUrl}
               alt="Enlarged view"
               className="max-w-full max-h-full object-contain rounded-lg"
+              onLoad={() => setLightboxLoading(lightboxSpinnerVisibleAfter('loaded'))}
+              onError={() => setLightboxLoading(lightboxSpinnerVisibleAfter('error'))}
             />
+            {lightboxLoading && (
+              <div
+                className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                aria-hidden="true"
+              >
+                <div className="animate-spin h-8 w-8 border-2 border-white border-t-transparent rounded-full" />
+              </div>
+            )}
           </AnimatedModal>
         )}
       </AnimatePresence>
