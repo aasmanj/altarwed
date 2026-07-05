@@ -4,6 +4,7 @@ import path from 'path'
 import {
   runFinishAttempt,
   initialFinishFlowState,
+  slugDriftNotice,
   OPTIONAL_DETAILS_NOTICE,
   type FinishFlowDeps,
 } from './OnboardingWizard'
@@ -39,6 +40,7 @@ function makeDeps(overrides: Partial<FinishFlowDeps> = {}): FinishFlowDeps {
     hasHeroFile: false,
     heroErrorReason: () => 'The hero photo failed to upload.',
     trackCompleted: vi.fn(),
+    requestedSlug: SITE.slug,
     ...overrides,
   }
 }
@@ -196,6 +198,111 @@ describe('double PATCH failure leaves with a notice (acceptance 2)', () => {
   })
 })
 
+describe('slug edited after a successful create (review fix 1)', () => {
+  it('appends the drift notice when the slug changed between attempts', async () => {
+    const patchOptional = vi.fn()
+      .mockRejectedValueOnce(new Error('transient'))
+      .mockResolvedValueOnce(undefined)
+    const deps = makeDeps({ patchOptional })
+
+    const first = await runFinishAttempt(initialFinishFlowState(), deps)
+    expect(first.kind).toBe('stay')
+
+    // The couple went back to step 2 and edited the slug before retrying.
+    const second = await runFinishAttempt(first.state, { ...deps, requestedSlug: 'amy-and-joseph' })
+    expect(second.kind).toBe('leave')
+    if (second.kind === 'leave') {
+      expect(second.notice).toBe(slugDriftNotice(SITE.slug))
+      expect(second.notice).toContain(`altarwed.com/wedding/${SITE.slug}`)
+      expect(second.notice).toContain('did not apply because your site was already created')
+    }
+    // Create still ran exactly once; the edited slug was never POSTed.
+    expect(deps.createSite).toHaveBeenCalledTimes(1)
+  })
+
+  it('stays silent when the slug is unchanged on the retry', async () => {
+    const patchOptional = vi.fn()
+      .mockRejectedValueOnce(new Error('transient'))
+      .mockResolvedValueOnce(undefined)
+    const deps = makeDeps({ patchOptional })
+
+    const first = await runFinishAttempt(initialFinishFlowState(), deps)
+    const second = await runFinishAttempt(first.state, deps)
+
+    expect(second.kind).toBe('leave')
+    if (second.kind === 'leave') expect(second.notice).toBeNull()
+  })
+
+  it('composes the drift notice after the give-up notice, not instead of it', async () => {
+    const patchOptional = vi.fn().mockRejectedValue(new Error('still down'))
+    const deps = makeDeps({ patchOptional })
+
+    const first = await runFinishAttempt(initialFinishFlowState(), deps)
+    const second = await runFinishAttempt(first.state, { ...deps, requestedSlug: 'amy-and-joseph' })
+
+    expect(second.kind).toBe('leave')
+    if (second.kind === 'leave') {
+      expect(second.notice).toBe(`${OPTIONAL_DETAILS_NOTICE} ${slugDriftNotice(SITE.slug)}`)
+    }
+  })
+
+  it('composes the drift notice after the hero-failure notice too', async () => {
+    const patchOptional = vi.fn()
+      .mockRejectedValueOnce(new Error('transient'))
+      .mockResolvedValueOnce(undefined)
+    const uploadHero = vi.fn().mockRejectedValue(new Error('too large'))
+    const deps = makeDeps({ patchOptional, uploadHero, hasHeroFile: true })
+
+    const first = await runFinishAttempt(initialFinishFlowState(), deps)
+    const second = await runFinishAttempt(first.state, { ...deps, requestedSlug: 'amy-and-joseph' })
+
+    expect(second.kind).toBe('leave')
+    if (second.kind === 'leave') {
+      expect(second.notice).toContain('the hero photo could not be added')
+      expect(second.notice).toContain(slugDriftNotice(SITE.slug))
+    }
+  })
+
+  it('never warns on a clean first-attempt create (nothing to drift from)', async () => {
+    // Even if the server normalized the stored slug, the couple made no edit
+    // after creation, so the "change you made did not apply" copy would lie.
+    const deps = makeDeps({ requestedSlug: 'amy-and-joe ' })
+    const outcome = await runFinishAttempt(initialFinishFlowState(), deps)
+
+    expect(outcome.kind).toBe('leave')
+    if (outcome.kind === 'leave') expect(outcome.notice).toBeNull()
+  })
+})
+
+describe('trackCompleted can never break the finish flow (review fix 2)', () => {
+  it('a throwing tracker is swallowed and the couple still leaves cleanly', async () => {
+    const trackCompleted = vi.fn(() => { throw new Error('analytics down') })
+    const deps = makeDeps({ trackCompleted })
+
+    const outcome = await runFinishAttempt(initialFinishFlowState(), deps)
+
+    expect(outcome.kind).toBe('leave')
+    if (outcome.kind === 'leave') expect(outcome.notice).toBeNull()
+    // The created-site fact survived the throw...
+    expect(outcome.state.createdSite).toEqual(SITE)
+
+    // ...so a subsequent attempt still skips the POST (never re-create).
+    await runFinishAttempt(outcome.state, deps)
+    expect(deps.createSite).toHaveBeenCalledTimes(1)
+  })
+
+  it('a throwing tracker still runs the pending hero upload', async () => {
+    const trackCompleted = vi.fn(() => { throw new Error('analytics down') })
+    const uploadHero = vi.fn().mockResolvedValue(undefined)
+    const deps = makeDeps({ trackCompleted, uploadHero, hasHeroFile: true })
+
+    const outcome = await runFinishAttempt(initialFinishFlowState(), deps)
+
+    expect(outcome.kind).toBe('leave')
+    expect(uploadHero).toHaveBeenCalledWith(SITE.id)
+  })
+})
+
 describe('wizard wiring (acceptance 3: draft cleared only on leave)', () => {
   const src = read('features/couple/onboarding/OnboardingWizard.tsx')
 
@@ -213,6 +320,19 @@ describe('wizard wiring (acceptance 3: draft cleared only on leave)', () => {
     expect(src).toContain('finishFlowRef')
     expect(src).toContain('runFinishAttempt(finishFlowRef.current')
     expect(src).toContain('finishFlowRef.current = outcome.state')
+  })
+
+  it('records the created site into the ref synchronously inside the createSite dep', () => {
+    // Review fix 2a: the fact that the site exists must be written before the
+    // attempt can throw anywhere else, so an unexpected error after a
+    // successful POST can never cause a re-create on retry.
+    expect(src).toMatch(
+      /createSite: async \(\) => \{[\s\S]*?finishFlowRef\.current = \{ \.\.\.finishFlowRef\.current, createdSite: ref \}[\s\S]*?return ref/,
+    )
+  })
+
+  it('passes the live slug to the machine for the drift notice', () => {
+    expect(src).toContain('requestedSlug: slug')
   })
 
   it('passes the non-blocking notice to the editor via router state', () => {

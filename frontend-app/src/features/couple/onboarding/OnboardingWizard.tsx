@@ -146,6 +146,11 @@ export interface FinishFlowDeps {
   hasHeroFile: boolean
   heroErrorReason: (err: unknown) => string
   trackCompleted: () => void
+  // The slug currently typed in the wizard. After a create-ok / patch-fail
+  // retry the couple can go back and edit it, but the site already exists
+  // under the original slug and the retry skips the POST, so the edit would
+  // be silently discarded. The exit notice tells them explicitly instead.
+  requestedSlug: string
 }
 
 // 'stay' keeps the couple on the wizard with an inline error (retry possible);
@@ -159,19 +164,30 @@ function apiErrorDetail(err: unknown): string | undefined {
   return (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
 }
 
-function buildExitNotice(patchGaveUp: boolean, heroReason: string | null): string | null {
+// Composed onto the exit notice when the couple edited the slug after the
+// site was already created on an earlier attempt: the retry skips the POST,
+// so the edited slug never applied and staying silent about it would leave
+// them sharing a URL that does not exist.
+export function slugDriftNotice(createdSlug: string): string {
+  return `Your site address is altarwed.com/wedding/${createdSlug}. The address change you made did not apply because your site was already created; you can change it from the editor.`
+}
+
+function buildExitNotice(patchGaveUp: boolean, heroReason: string | null, driftSlug: string | null): string | null {
+  let base: string | null = null
   if (patchGaveUp && heroReason) {
-    return `Your site was created, but some details did not save and the hero photo could not be added: ${heroReason} You can add them from the editor.`
-  }
-  if (patchGaveUp) return OPTIONAL_DETAILS_NOTICE
-  if (heroReason) {
+    base = `Your site was created, but some details did not save and the hero photo could not be added: ${heroReason} You can add them from the editor.`
+  } else if (patchGaveUp) {
+    base = OPTIONAL_DETAILS_NOTICE
+  } else if (heroReason) {
     // The site is created either way; surface the backend's real rejection
     // detail (size / type / dimensions on a 413/415/400) so the couple knows
     // what to fix instead of guessing, and reassure them the photo can still
     // be added from the editor.
-    return `Your site was created, but the hero photo could not be added: ${heroReason} You can add or replace it from the editor.`
+    base = `Your site was created, but the hero photo could not be added: ${heroReason} You can add or replace it from the editor.`
   }
-  return null
+  if (!driftSlug) return base
+  const drift = slugDriftNotice(driftSlug)
+  return base ? `${base} ${drift}` : drift
 }
 
 export async function runFinishAttempt(prev: FinishFlowState, deps: FinishFlowDeps): Promise<FinishOutcome> {
@@ -213,7 +229,11 @@ export async function runFinishAttempt(prev: FinishFlowState, deps: FinishFlowDe
   // leaving the wizard on every path below (clean exit, patch-gave-up exit,
   // hero-failed exit), so this fires exactly once per created site. A 'stay'
   // outcome above returns before this line, so a failed attempt never counts.
-  deps.trackCompleted()
+  try {
+    deps.trackCompleted()
+  } catch {
+    // Analytics must never break the finish flow; swallow and move on.
+  }
 
   // 3. Hero file upload. Has to happen AFTER website creation because the
   //    endpoint is keyed by websiteId. If it fails, the site is still created;
@@ -227,7 +247,15 @@ export async function runFinishAttempt(prev: FinishFlowState, deps: FinishFlowDe
     }
   }
 
-  return { kind: 'leave', notice: buildExitNotice(patchGaveUp, heroReason), state }
+  // Slug drift check: only a site created on a PREVIOUS attempt (prev, not
+  // state) can drift, because within one attempt the POST used the slug the
+  // couple has typed right now. A first-attempt clean create can never warn.
+  const driftSlug =
+    prev.createdSite && deps.requestedSlug.trim() !== prev.createdSite.slug
+      ? prev.createdSite.slug
+      : null
+
+  return { kind: 'leave', notice: buildExitNotice(patchGaveUp, heroReason, driftSlug), state }
 }
 
 interface FeaturedRefs { references: string[] }
@@ -403,7 +431,13 @@ export default function OnboardingWizard() {
             partnerTwoName: partnerTwoName.trim(),
             weddingDate: weddingDate || undefined,
           })
-          return { id: created.id, slug: created.slug }
+          const ref = { id: created.id, slug: created.slug }
+          // Record the created site into the ref synchronously, not only via
+          // outcome.state after the attempt returns: if anything later in the
+          // attempt throws unexpectedly, the created-site fact must survive
+          // so the retry still skips the POST (never re-create).
+          finishFlowRef.current = { ...finishFlowRef.current, createdSite: ref }
+          return ref
         },
         patchOptional: fields => updateWebsite.mutateAsync(fields),
         uploadHero: async websiteId => {
@@ -427,6 +461,8 @@ export default function OnboardingWizard() {
         }),
         hasHeroFile: !!heroFile,
         heroErrorReason: err => uploadErrorMessage(err, 'The hero photo failed to upload.'),
+        // Lets the machine warn when a post-create slug edit did not apply.
+        requestedSlug: slug,
         // Completion moment (issue #239): fired by the state machine exactly
         // once, when the site row exists and the couple is actually leaving.
         trackCompleted: () => trackOnboardingCompleted(),
@@ -443,7 +479,9 @@ export default function OnboardingWizard() {
       }
     } catch {
       // runFinishAttempt handles every expected rejection itself; this only
-      // catches a synchronous programming error so the button never wedges.
+      // catches an unexpected programming error so the button never wedges.
+      // The created-site fact is safe even here: the createSite dep wrote it
+      // into finishFlowRef synchronously, so a retry still skips the POST.
       setError('Something went wrong. Please try again.')
     } finally {
       setSubmitting(false)
