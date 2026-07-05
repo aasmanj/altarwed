@@ -3,8 +3,13 @@
 @tailwind utilities;
 
 @layer base {
-  html {
-    scroll-behavior: smooth;
+  /* Smooth scrolling is a motion effect, so it must honor the OS-level
+     reduced-motion preference (WCAG 2.3.3): guests with vestibular disorders
+     get instant jumps, everyone else keeps the smooth anchor scroll. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
   }
 
   body {
@@ -41,7 +46,32 @@
   }
 }
 
-@keyframes scroll {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+/* Entry transitions for the RSVP form's conditional sections and its
+   post-submit swap (issue #307). Animation-on-mount is the CSS-only way to
+   transition React conditionally-rendered content: the element does not exist
+   before the state change, so a class transition has no starting frame, while
+   an entry @keyframes runs the moment it mounts. max-height stands in for
+   height (auto is not animatable); overflow: hidden inside the keyframes clips
+   only while the animation runs, so focus rings are never clipped afterwards.
+   The whole block sits under prefers-reduced-motion: no-preference, so
+   reduced-motion users get instant appearance with zero extra motion and no
+   layout shimmy. */
+@media (prefers-reduced-motion: no-preference) {
+  .rsvp-expand-in {
+    animation: rsvp-expand-in 0.25s ease-out;
+  }
+
+  .rsvp-fade-in {
+    animation: rsvp-fade-in 0.3s ease-out;
+  }
+
+  @keyframes rsvp-expand-in {
+    from { opacity: 0; max-height: 0; overflow: hidden; }
+    to   { opacity: 1; max-height: 60rem; overflow: hidden; }
+  }
+
+  @keyframes rsvp-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
 }
