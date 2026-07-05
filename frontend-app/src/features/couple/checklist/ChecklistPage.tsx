@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import {
   ChevronDown, ChevronRight, AlertTriangle, CalendarClock, CalendarRange, CalendarDays, CheckCircle2,
-  Cross, Gem, Landmark, Camera, ClipboardList, Shirt, Users, PartyPopper, Plane,
+  Cross, Gem, Landmark, Camera, ClipboardList, Shirt, Users, PartyPopper, Plane, Trash2,
   type LucideIcon,
 } from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
@@ -487,6 +487,34 @@ function sortDated(a: DatedTask, b: DatedTask): number {
   return a.task.sortOrder - b.task.sortOrder
 }
 
+// Shared animated row list. Checking a task off optimistically rebuckets it, so
+// the row's key leaves this group and appears in another. AnimatePresence gives
+// the departing row a short fade (the click's acknowledgement) and popLayout
+// lifts it out of flow so the siblings' layout="position" slide happens at once
+// instead of waiting for the exit. The same exit path covers filter removal, so
+// the two never fight over the element. Motion is transform/layout based, which
+// the app-level MotionConfig reducedMotion="user" disables automatically.
+function AnimatedRowList({ items, ...handlers }: { items: DatedTask[] } & RowHandlers) {
+  return (
+    <div className="rounded-xl border border-gold-light bg-white overflow-hidden divide-y divide-gold-light/50">
+      <AnimatePresence initial={false} mode="popLayout">
+        {items.map(d => (
+          <motion.div
+            key={d.task.id}
+            layout="position"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.18 }}
+          >
+            <TaskRow dated={d} {...handlers} />
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 function TimelineView({ dated, ...handlers }: { dated: DatedTask[] } & RowHandlers) {
   const grouped = BUCKET_ORDER.map(bucket => ({
     bucket,
@@ -497,29 +525,36 @@ function TimelineView({ dated, ...handlers }: { dated: DatedTask[] } & RowHandle
 
   return (
     <div className="space-y-8">
-      {grouped.map(({ bucket, items }) => {
-        const meta = BUCKET_META[bucket]
-        const Icon = meta.icon
-        const done = items.filter(d => d.task.isCompleted).length
-        return (
-          <div key={bucket}>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="flex items-center gap-2 font-serif text-base font-semibold text-brown">
-                <Icon className={`w-4 h-4 ${meta.tone}`} aria-hidden="true" />
-                {meta.label}
-              </h2>
-              <span className="text-xs text-brown-light">
-                {bucket === 'done' ? items.length : `${done}/${items.length}`}
-              </span>
-            </div>
-            <div className="rounded-xl border border-gold-light bg-white overflow-hidden divide-y divide-gold-light/50">
-              {items.map(d => (
-                <TaskRow key={d.task.id} dated={d} {...handlers} />
-              ))}
-            </div>
-          </div>
-        )
-      })}
+      {/* Groups animate too: without this, emptying a bucket unmounts the group
+          mid-row-exit and the animation is cut short. */}
+      <AnimatePresence initial={false} mode="popLayout">
+        {grouped.map(({ bucket, items }) => {
+          const meta = BUCKET_META[bucket]
+          const Icon = meta.icon
+          const done = items.filter(d => d.task.isCompleted).length
+          return (
+            <motion.div
+              key={bucket}
+              layout="position"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="flex items-center gap-2 font-serif text-base font-semibold text-brown">
+                  <Icon className={`w-4 h-4 ${meta.tone}`} aria-hidden="true" />
+                  {meta.label}
+                </h2>
+                <span className="text-xs text-brown-light">
+                  {bucket === 'done' ? items.length : `${done}/${items.length}`}
+                </span>
+              </div>
+              <AnimatedRowList items={items} {...handlers} />
+            </motion.div>
+          )
+        })}
+      </AnimatePresence>
     </div>
   )
 }
@@ -534,26 +569,31 @@ function CategoryView({ dated, ...handlers }: { dated: DatedTask[] } & RowHandle
 
   return (
     <div className="space-y-8">
-      {byCategory.map(({ cat, items }) => {
-        const done = items.filter(d => d.task.isCompleted).length
-        const CatIcon = CATEGORY_ICON[cat]
-        return (
-          <div key={cat}>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="flex items-center gap-2 font-serif text-base font-semibold text-brown">
-                <CatIcon className="w-4 h-4 text-gold" aria-hidden="true" />
-                {CATEGORY_LABEL[cat]}
-              </h2>
-              <span className="text-xs text-brown-light">{done}/{items.length}</span>
-            </div>
-            <div className="rounded-xl border border-gold-light bg-white overflow-hidden divide-y divide-gold-light/50">
-              {items.map(d => (
-                <TaskRow key={d.task.id} dated={d} {...handlers} />
-              ))}
-            </div>
-          </div>
-        )
-      })}
+      <AnimatePresence initial={false} mode="popLayout">
+        {byCategory.map(({ cat, items }) => {
+          const done = items.filter(d => d.task.isCompleted).length
+          const CatIcon = CATEGORY_ICON[cat]
+          return (
+            <motion.div
+              key={cat}
+              layout="position"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="flex items-center gap-2 font-serif text-base font-semibold text-brown">
+                  <CatIcon className="w-4 h-4 text-gold" aria-hidden="true" />
+                  {CATEGORY_LABEL[cat]}
+                </h2>
+                <span className="text-xs text-brown-light">{done}/{items.length}</span>
+              </div>
+              <AnimatedRowList items={items} {...handlers} />
+            </motion.div>
+          )
+        })}
+      </AnimatePresence>
     </div>
   )
 }
@@ -601,6 +641,10 @@ function NoMatches() {
 function TaskRow({ dated, onToggle, onSaveDetails, onDelete }: { dated: DatedTask } & RowHandlers) {
   const { task, dueDate, bucket } = dated
   const confirm = useConfirm()
+  // MotionConfig reducedMotion="user" only silences transform and layout
+  // animations; a raw height tween is a plain value animation, so the detail
+  // panel gates its duration on the user's preference explicitly.
+  const reduceMotion = useReducedMotion()
   const [expanded, setExpanded] = useState(false)
   const [notes, setNotes] = useState(task.notes ?? '')
   const [assignee, setAssignee] = useState(task.assignee ?? '')
@@ -687,62 +731,76 @@ function TaskRow({ dated, onToggle, onSaveDetails, onDelete }: { dated: DatedTas
               confirmLabel: 'Delete',
             })) onDelete(task)
           }}
-          className="shrink-0 text-xs text-red-300 hover:text-red-500 transition"
+          className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-red-300 hover:text-red-500 hover:bg-red-50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+          aria-label={`Remove task: ${task.title}`}
         >
-          Remove
+          <Trash2 size={16} aria-hidden="true" />
         </button>
       </div>
 
-      {expanded && (
-        <div className="px-5 pb-4 pt-1 space-y-3">
-          <label className="block">
-            <span className="block text-xs font-medium text-brown-light mb-1">Assigned to</span>
-            <input
-              type="text"
-              value={assignee}
-              onChange={e => setAssignee(e.target.value)}
-              placeholder="e.g. Bride, Groom, Maid of honor"
-              className="w-full rounded-lg border border-gold-light px-3 py-2 text-sm text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
-            />
-          </label>
-          <label className="block">
-            <span className="block text-xs font-medium text-brown-light mb-1">Notes</span>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              rows={4}
-              placeholder="Vendor contact, deadline, payment status…"
-              className="w-full rounded-lg border border-gold-light px-3 py-2 text-sm text-brown leading-relaxed focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold resize-y min-h-[88px]"
-            />
-          </label>
-          <div className="flex items-center gap-3 pt-0.5">
-            <button
-              onClick={() => {
-                onSaveDetails(task, { notes, assignee })
-                setExpanded(false)
-              }}
-              disabled={!isDirty}
-              className="rounded-lg bg-gold px-4 py-1.5 text-xs font-semibold text-brown hover:bg-gold-dark disabled:opacity-50 transition"
-            >
-              Save details
-            </button>
-            {isDirty && (
-              <button
-                onClick={() => {
-                  setNotes(task.notes ?? '')
-                  setAssignee(task.assignee ?? '')
-                }}
-                className="text-xs text-brown-light hover:text-brown"
-              >
-                Reset
-              </button>
-            )}
-            {!isDirty && (notes || assignee) && (
-              <span className="text-xs text-green-600">Saved</span>
-            )}
-          </div>
-        </div>
-      )}
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            key="task-details"
+            className="overflow-hidden"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
+          >
+            {/* Padding lives on this inner div so nothing peeks out while the
+                outer element's height animates to zero. */}
+            <div className="px-5 pb-4 pt-1 space-y-3">
+              <label className="block">
+                <span className="block text-xs font-medium text-brown-light mb-1">Assigned to</span>
+                <input
+                  type="text"
+                  value={assignee}
+                  onChange={e => setAssignee(e.target.value)}
+                  placeholder="e.g. Bride, Groom, Maid of honor"
+                  className="w-full rounded-lg border border-gold-light px-3 py-2 text-sm text-brown focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                />
+              </label>
+              <label className="block">
+                <span className="block text-xs font-medium text-brown-light mb-1">Notes</span>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  rows={4}
+                  placeholder="Vendor contact, deadline, payment status…"
+                  className="w-full rounded-lg border border-gold-light px-3 py-2 text-sm text-brown leading-relaxed focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold resize-y min-h-[88px]"
+                />
+              </label>
+              <div className="flex items-center gap-3 pt-0.5">
+                <button
+                  onClick={() => {
+                    onSaveDetails(task, { notes, assignee })
+                    setExpanded(false)
+                  }}
+                  disabled={!isDirty}
+                  className="rounded-lg bg-gold px-4 py-1.5 text-xs font-semibold text-brown hover:bg-gold-dark disabled:opacity-50 transition"
+                >
+                  Save details
+                </button>
+                {isDirty && (
+                  <button
+                    onClick={() => {
+                      setNotes(task.notes ?? '')
+                      setAssignee(task.assignee ?? '')
+                    }}
+                    className="text-xs text-brown-light hover:text-brown"
+                  >
+                    Reset
+                  </button>
+                )}
+                {!isDirty && (notes || assignee) && (
+                  <span className="text-xs text-green-600">Saved</span>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
