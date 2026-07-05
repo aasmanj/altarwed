@@ -45,17 +45,28 @@ function isValidTab(v: unknown): v is BlockTab {
   return typeof v === 'string' && VALID_TABS.has(v as BlockTab)
 }
 
-// Returns the requested tab if `data` is a well-formed 'tab-switch' message,
-// or null otherwise (wrong type, missing tab, or a tab outside the whitelist).
-export function parseTabSwitch(data: unknown): BlockTab | null {
+// A parsed, well-formed 'tab-switch' request. switchId is opaque here (the
+// preview only echoes it back on the ack); the editor is the side that
+// compares it to decide whether an ack is stale (see previewChannel.ts).
+export interface TabSwitchRequest {
+  tab: BlockTab
+  switchId: number
+}
+
+// Returns the requested tab + switchId if `data` is a well-formed 'tab-switch'
+// message, or null otherwise (wrong type, missing/invalid tab, or a missing
+// switchId).
+export function parseTabSwitch(data: unknown): TabSwitchRequest | null {
   if (!data || typeof data !== 'object') return null
   const m = data as Record<string, unknown>
   if (m.type !== 'tab-switch') return null
-  return isValidTab(m.tab) ? m.tab : null
+  if (!isValidTab(m.tab)) return null
+  if (typeof m.switchId !== 'number') return null
+  return { tab: m.tab, switchId: m.switchId }
 }
 
-export function makeTabSwitchAckMessage(tab: BlockTab) {
-  return { type: 'tab-switch-ack', tab } as const
+export function makeTabSwitchAckMessage(tab: BlockTab, switchId: number) {
+  return { type: 'tab-switch-ack', tab, switchId } as const
 }
 
 export function makePreviewTabReadyMessage(tab: BlockTab) {

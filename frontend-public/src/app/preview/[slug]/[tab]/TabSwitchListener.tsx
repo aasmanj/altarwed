@@ -26,6 +26,16 @@
 // Origin check: as strict as HeroLive/BlockListLive -- only EDITOR_ORIGINS may
 // trigger a switch, and every outgoing reply targets the exact origin the
 // triggering message came from (never a wildcard '*' targetOrigin).
+//
+// Origin persistence: editorOriginRef is backed by sessionStorage
+// (editorOriginStorage.ts), not a plain ref alone. See that file's header
+// comment for why: a component remount on tab switch would otherwise reset
+// the ref to null and silently disable the ready-announce below for the rest
+// of the session. readyAnnouncedForRef does NOT need the same treatment --
+// it dedupes against the `tab` prop, which is always fresh on every render
+// (including a fresh mount after a remount), so the worst case of a remount
+// resetting it is one redundant 'preview-tab-ready' announce, not a
+// permanently disabled mechanism.
 
 import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -36,6 +46,7 @@ import {
   makeTabSwitchAckMessage,
   makePreviewTabReadyMessage,
 } from './previewMessages'
+import { readStoredEditorOrigin, storeEditorOrigin } from './editorOriginStorage'
 
 interface Props {
   slug: string
@@ -47,8 +58,13 @@ export default function TabSwitchListener({ slug, tab }: Props) {
   // Origin of the editor window, learned the first time it messages us.
   // Used only as a postMessage targetOrigin (never to decide what to accept);
   // acks are also sent straight back to the verified e.origin of the message
-  // that triggered them.
+  // that triggered them. Seeded from sessionStorage on init (not just null)
+  // so a remounted instance recovers an origin learned by a prior instance
+  // in this same browsing session.
   const editorOriginRef = useRef<string | null>(null)
+  if (editorOriginRef.current === null) {
+    editorOriginRef.current = readStoredEditorOrigin()
+  }
   // The tab we've already announced 'preview-tab-ready' for, so a re-render
   // that does not change the tab (e.g. a sibling prop update) does not
   // re-announce.
@@ -57,14 +73,18 @@ export default function TabSwitchListener({ slug, tab }: Props) {
   useEffect(() => {
     const handler = (e: MessageEvent) => {
       if (!EDITOR_ORIGINS.includes(e.origin)) return
-      const requestedTab = parseTabSwitch(e.data)
-      if (!requestedTab) return
+      const request = parseTabSwitch(e.data)
+      if (!request) return
+      const { tab: requestedTab, switchId } = request
       editorOriginRef.current = e.origin
+      storeEditorOrigin(e.origin)
       // Ack unconditionally, even a same-tab request: the ack is what cancels
       // the editor's reload fallback timer, and a rapid double click on the
       // active tab should not fall through to a full reload either. Reply
-      // straight back to the verified e.origin, never a wildcard.
-      window.parent.postMessage(makeTabSwitchAckMessage(requestedTab), e.origin)
+      // straight back to the verified e.origin, never a wildcard. Echoing
+      // switchId back lets the editor tell this ack apart from a stale ack
+      // for a superseded request to the same tab.
+      window.parent.postMessage(makeTabSwitchAckMessage(requestedTab, switchId), e.origin)
       if (requestedTab === tab) return
       router.push(`/preview/${slug}/${requestedTab.toLowerCase()}`)
     }

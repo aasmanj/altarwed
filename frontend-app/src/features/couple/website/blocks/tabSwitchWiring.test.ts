@@ -32,9 +32,14 @@ describe('SideBySideEditor tab click no longer remounts the preview (issue #310)
     const match = src.match(/const switchPreviewTab = useCallback\(\(tab: BlockTab\) => \{([\s\S]*?)\n {2}\}, \[reloadPreview\]\)/)
     expect(match, 'expected to find switchPreviewTab').not.toBeNull()
     const body = match![1]
-    expect(body).toContain('makeTabSwitchMessage(tab)')
+    expect(body).toContain('makeTabSwitchMessage(tab, switchId)')
+    expect(body).toContain('nextTabSwitchId()')
     expect(body).toContain('TAB_SWITCH_ACK_TIMEOUT_MS')
     expect(body).toContain('reloadPreview(tab)')
+  })
+
+  it('the ack handler matches on switchId, not just tab (rejects a stale ack from a superseded same-tab request)', () => {
+    expect(src).toContain('isTabSwitchAck(e.data, pending.tab, pending.switchId)')
   })
 
   it('bumpPreview still reloads the iframe for publish (template/reload paths untouched)', () => {

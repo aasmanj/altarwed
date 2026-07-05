@@ -35,6 +35,7 @@ import {
 import {
   TAB_SWITCH_ACK_TIMEOUT_MS,
   originOf,
+  nextTabSwitchId,
   makeTabSwitchMessage,
   makeBlocksUpdateMessage,
   isTabSwitchAck,
@@ -255,7 +256,7 @@ export default function SideBySideEditor() {
   // with a client-side navigation. If the preview does not ack within
   // TAB_SWITCH_ACK_TIMEOUT_MS (older preview deploy, iframe never loaded), we
   // fall back to the old full reload so the couple is never stuck.
-  const pendingTabSwitchRef = useRef<{ tab: BlockTab; timer: number } | null>(null)
+  const pendingTabSwitchRef = useRef<{ tab: BlockTab; switchId: number; timer: number } | null>(null)
 
   // Full iframe reload at a specific tab: the only paths that move the iframe's
   // src. Also cancels any pending tab-switch fallback, since the reload itself
@@ -280,12 +281,16 @@ export default function SideBySideEditor() {
       reloadPreview(tab)
       return
     }
-    win.postMessage(makeTabSwitchMessage(tab), PREVIEW_ORIGIN)
+    // Every request gets a fresh id so a stale ack for a superseded same-tab
+    // request (rapid A -> B -> A clicks) can never satisfy this newer switch's
+    // fallback timer -- see previewChannel.ts.
+    const switchId = nextTabSwitchId()
+    win.postMessage(makeTabSwitchMessage(tab, switchId), PREVIEW_ORIGIN)
     const timer = window.setTimeout(() => {
       pendingTabSwitchRef.current = null
       reloadPreview(tab)
     }, TAB_SWITCH_ACK_TIMEOUT_MS)
-    pendingTabSwitchRef.current = { tab, timer }
+    pendingTabSwitchRef.current = { tab, switchId, timer }
   }, [reloadPreview])
 
   // Block counts per tab: used to badge tabs that already have content so
@@ -325,7 +330,7 @@ export default function SideBySideEditor() {
     const handler = (e: MessageEvent) => {
       if (e.origin !== PREVIEW_MESSAGE_ORIGIN) return
       const pending = pendingTabSwitchRef.current
-      if (pending && isTabSwitchAck(e.data, pending.tab)) {
+      if (pending && isTabSwitchAck(e.data, pending.tab, pending.switchId)) {
         window.clearTimeout(pending.timer)
         pendingTabSwitchRef.current = null
         return

@@ -18,17 +18,22 @@ describe('previewMessages message contract (issue #310)', () => {
   })
 
   describe('parseTabSwitch', () => {
-    it('returns the requested tab for a well-formed tab-switch message', () => {
-      expect(parseTabSwitch({ type: 'tab-switch', tab: 'REGISTRY' })).toBe('REGISTRY')
+    it('returns the requested tab and switchId for a well-formed tab-switch message', () => {
+      expect(parseTabSwitch({ type: 'tab-switch', tab: 'REGISTRY', switchId: 3 })).toEqual({ tab: 'REGISTRY', switchId: 3 })
     })
 
     it('rejects the wrong message type', () => {
-      expect(parseTabSwitch({ type: 'blocks-update', tab: 'REGISTRY' })).toBeNull()
+      expect(parseTabSwitch({ type: 'blocks-update', tab: 'REGISTRY', switchId: 1 })).toBeNull()
     })
 
     it('rejects a tab outside the known whitelist (never drives router.push blindly)', () => {
-      expect(parseTabSwitch({ type: 'tab-switch', tab: 'NOT_A_REAL_TAB' })).toBeNull()
-      expect(parseTabSwitch({ type: 'tab-switch', tab: '../../etc/passwd' })).toBeNull()
+      expect(parseTabSwitch({ type: 'tab-switch', tab: 'NOT_A_REAL_TAB', switchId: 1 })).toBeNull()
+      expect(parseTabSwitch({ type: 'tab-switch', tab: '../../etc/passwd', switchId: 1 })).toBeNull()
+    })
+
+    it('rejects a missing or non-numeric switchId', () => {
+      expect(parseTabSwitch({ type: 'tab-switch', tab: 'REGISTRY' })).toBeNull()
+      expect(parseTabSwitch({ type: 'tab-switch', tab: 'REGISTRY', switchId: '3' })).toBeNull()
     })
 
     it('rejects malformed/absent data without throwing', () => {
@@ -41,8 +46,8 @@ describe('previewMessages message contract (issue #310)', () => {
   })
 
   describe('makeTabSwitchAckMessage / makePreviewTabReadyMessage', () => {
-    it('builds the ack message for the tab that was switched to', () => {
-      expect(makeTabSwitchAckMessage('PHOTOS')).toEqual({ type: 'tab-switch-ack', tab: 'PHOTOS' })
+    it('builds the ack message for the tab and switchId that was switched to, echoing the id back', () => {
+      expect(makeTabSwitchAckMessage('PHOTOS', 5)).toEqual({ type: 'tab-switch-ack', tab: 'PHOTOS', switchId: 5 })
     })
 
     it('builds the ready message for the tab that finished mounting', () => {

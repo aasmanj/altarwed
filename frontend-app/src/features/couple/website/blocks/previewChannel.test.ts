@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   TAB_SWITCH_ACK_TIMEOUT_MS,
   originOf,
+  nextTabSwitchId,
   makeTabSwitchMessage,
   makeBlocksUpdateMessage,
   isTabSwitchAck,
@@ -32,9 +33,19 @@ describe('previewChannel message contract (issue #310)', () => {
     })
   })
 
+  describe('nextTabSwitchId', () => {
+    it('returns a strictly increasing id on each call', () => {
+      const a = nextTabSwitchId()
+      const b = nextTabSwitchId()
+      const c = nextTabSwitchId()
+      expect(b).toBeGreaterThan(a)
+      expect(c).toBeGreaterThan(b)
+    })
+  })
+
   describe('makeTabSwitchMessage / makeBlocksUpdateMessage', () => {
-    it('builds a tab-switch message carrying the requested tab', () => {
-      expect(makeTabSwitchMessage('REGISTRY')).toEqual({ type: 'tab-switch', tab: 'REGISTRY' })
+    it('builds a tab-switch message carrying the requested tab and switch id', () => {
+      expect(makeTabSwitchMessage('REGISTRY', 7)).toEqual({ type: 'tab-switch', tab: 'REGISTRY', switchId: 7 })
     })
 
     it('builds a blocks-update message tagged with the tab it applies to', () => {
@@ -44,23 +55,32 @@ describe('previewChannel message contract (issue #310)', () => {
   })
 
   describe('isTabSwitchAck', () => {
-    it('matches an ack for the exact pending tab', () => {
-      expect(isTabSwitchAck({ type: 'tab-switch-ack', tab: 'PHOTOS' }, 'PHOTOS')).toBe(true)
+    it('matches an ack for the exact pending tab and switch id', () => {
+      expect(isTabSwitchAck({ type: 'tab-switch-ack', tab: 'PHOTOS', switchId: 1 }, 'PHOTOS', 1)).toBe(true)
     })
 
     it('rejects an ack for a different tab (stale reply after a rapid re-click)', () => {
-      expect(isTabSwitchAck({ type: 'tab-switch-ack', tab: 'PHOTOS' }, 'RSVP')).toBe(false)
+      expect(isTabSwitchAck({ type: 'tab-switch-ack', tab: 'PHOTOS', switchId: 1 }, 'RSVP', 1)).toBe(false)
+    })
+
+    it('rejects a stale ack whose switchId does not match the newest pending switch, even for the same tab (rapid A -> B -> A re-click)', () => {
+      // Two requests to the same tab (superseded by a same-tab re-click) carry
+      // different switchIds; the ack for the first must not satisfy the
+      // pending switch armed by the second.
+      expect(isTabSwitchAck({ type: 'tab-switch-ack', tab: 'PHOTOS', switchId: 1 }, 'PHOTOS', 2)).toBe(false)
     })
 
     it('rejects the wrong message type', () => {
-      expect(isTabSwitchAck({ type: 'preview-tab-ready', tab: 'PHOTOS' }, 'PHOTOS')).toBe(false)
+      expect(isTabSwitchAck({ type: 'preview-tab-ready', tab: 'PHOTOS', switchId: 1 }, 'PHOTOS', 1)).toBe(false)
     })
 
     it('rejects malformed/absent data without throwing', () => {
-      expect(isTabSwitchAck(null, 'PHOTOS')).toBe(false)
-      expect(isTabSwitchAck(undefined, 'PHOTOS')).toBe(false)
-      expect(isTabSwitchAck('tab-switch-ack', 'PHOTOS')).toBe(false)
-      expect(isTabSwitchAck({}, 'PHOTOS')).toBe(false)
+      expect(isTabSwitchAck(null, 'PHOTOS', 1)).toBe(false)
+      expect(isTabSwitchAck(undefined, 'PHOTOS', 1)).toBe(false)
+      expect(isTabSwitchAck('tab-switch-ack', 'PHOTOS', 1)).toBe(false)
+      expect(isTabSwitchAck({}, 'PHOTOS', 1)).toBe(false)
+      // Missing switchId on the message itself must not match by coincidence.
+      expect(isTabSwitchAck({ type: 'tab-switch-ack', tab: 'PHOTOS' }, 'PHOTOS', 1)).toBe(false)
     })
   })
 

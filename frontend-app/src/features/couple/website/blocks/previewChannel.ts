@@ -39,8 +39,22 @@ export function originOf(baseUrl: string): string {
   }
 }
 
-export function makeTabSwitchMessage(tab: BlockTab) {
-  return { type: 'tab-switch', tab } as const
+// Monotonic id generator for outgoing 'tab-switch' requests. Matching an ack
+// by `tab` alone cannot tell apart a rapid same-tab re-click (A -> B -> A):
+// each of the two "A" requests arms its own pending switch, and a stale ack
+// for the first one must never be mistaken for the ack to the second. Each
+// request therefore carries a unique id, and the preview echoes it back on
+// the ack; module-scoped (not per-hook-instance) so ids stay unique for the
+// life of the editor tab/session.
+let switchIdCounter = 0
+
+export function nextTabSwitchId(): number {
+  switchIdCounter += 1
+  return switchIdCounter
+}
+
+export function makeTabSwitchMessage(tab: BlockTab, switchId: number) {
+  return { type: 'tab-switch', tab, switchId } as const
 }
 
 export function makeBlocksUpdateMessage(tab: BlockTab, blocks: WeddingPageBlock[]) {
@@ -53,11 +67,15 @@ function hasTypeAndTab(data: unknown, type: string, tab: BlockTab): boolean {
   return m.type === type && m.tab === tab
 }
 
-// True when `data` is the preview's ack for the specific tab we asked for.
-// Acks for a different tab (a stale answer after a rapid double tab click)
-// must not cancel the newer pending switch's fallback timer.
-export function isTabSwitchAck(data: unknown, tab: BlockTab): boolean {
-  return hasTypeAndTab(data, 'tab-switch-ack', tab)
+// True when `data` is the preview's ack for the specific tab AND switchId we
+// asked for. Acks for a different tab (a stale answer after a rapid double
+// tab click) must not cancel the newer pending switch's fallback timer, and
+// neither must a stale ack for a superseded request to the SAME tab -- tab
+// alone is identical for both, so switchId is what tells them apart.
+export function isTabSwitchAck(data: unknown, tab: BlockTab, switchId: number): boolean {
+  if (!hasTypeAndTab(data, 'tab-switch-ack', tab)) return false
+  const m = data as Record<string, unknown>
+  return m.switchId === switchId
 }
 
 // True when `data` announces that the preview document for `tab` just mounted.

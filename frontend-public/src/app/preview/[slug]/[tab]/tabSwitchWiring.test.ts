@@ -19,9 +19,9 @@ describe('TabSwitchListener (issue #310)', () => {
     expect(src).toContain('EDITOR_ORIGINS.includes(e.origin)')
   })
 
-  it('acks the tab-switch straight back to the verified sender origin, never a wildcard', () => {
-    expect(src).toContain('makeTabSwitchAckMessage(requestedTab), e.origin')
-    expect(src).not.toContain("postMessage(makeTabSwitchAckMessage(requestedTab), '*')")
+  it('acks the tab-switch straight back to the verified sender origin, echoing switchId, never a wildcard', () => {
+    expect(src).toContain('makeTabSwitchAckMessage(requestedTab, switchId), e.origin')
+    expect(src).not.toContain("postMessage(makeTabSwitchAckMessage(requestedTab, switchId), '*')")
   })
 
   it('navigates with Next\'s router instead of a full document reload', () => {
@@ -32,6 +32,12 @@ describe('TabSwitchListener (issue #310)', () => {
   it('announces preview-tab-ready once mounted for the tab, not to a wildcard origin', () => {
     expect(src).toContain('makePreviewTabReadyMessage(tab)')
     expect(src).not.toContain("postMessage(makePreviewTabReadyMessage(tab), '*')")
+  })
+
+  it('persists the learned editor origin via sessionStorage, not just a plain ref (survives a possible component remount on tab switch)', () => {
+    expect(src).toContain("import { readStoredEditorOrigin, storeEditorOrigin } from './editorOriginStorage'")
+    expect(src).toContain('editorOriginRef.current = readStoredEditorOrigin()')
+    expect(src).toContain('storeEditorOrigin(e.origin)')
   })
 })
 
