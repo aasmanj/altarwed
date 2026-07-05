@@ -11,6 +11,11 @@ import { normalizeImageFile, isAllowedImageType } from '@/lib/normalizeImageFile
 import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, uploadErrorMessage } from '@/lib/upload'
 import ImageDropzone from '@/components/ImageDropzone'
 import { readPersistedState, writePersistedState, clearPersistentState } from '@/lib/usePersistentState'
+import {
+  trackOnboardingStepViewed,
+  trackOnboardingSkipped,
+  trackOnboardingCompleted,
+} from '@/features/couple/onboarding/onboardingAnalytics'
 
 // Wizard collects everything required to render a presentable rough draft of
 // the wedding site in one sitting. Steps after #2 are all optional so couples
@@ -185,6 +190,15 @@ export default function OnboardingWizard() {
       hotelName, hotelUrl, hotelDetails, heroPhotoUrl,
       scriptureReference, scriptureText, registryUrl1, registryLabel1])
 
+  // Emit one analytics event per step VIEW (issue #239). Keyed on step only, so
+  // it fires on mount (step 1, or the persisted step after a refresh) and again
+  // on every forward/back transition, but a re-render from a field change does
+  // not re-run it and cannot double-fire. Only the step index and a static slug
+  // leave the browser; no couple-entered value is attached.
+  useEffect(() => {
+    trackOnboardingStepViewed(step)
+  }, [step])
+
   const suggestSlug = () => {
     if (partnerOneName && partnerTwoName) {
       const raw = `${partnerTwoName}-and-${partnerOneName}`
@@ -266,6 +280,13 @@ export default function OnboardingWizard() {
         await updateWebsite.mutateAsync(optional)
       }
 
+      // Completion moment (issue #239): the site row now exists. This is the
+      // distinct funnel-close before website_published (which fires later, in
+      // the editor), and it is fired here so both exit paths below (successful
+      // hero upload and the hero-upload-failed fallback, where the site is still
+      // created) already count as completed. No PII in the payload.
+      trackOnboardingCompleted()
+
       // 3. Hero file upload. Has to happen AFTER website creation because
       //    the endpoint is keyed by websiteId. If it fails, site is still
       //    created -- send the couple to the editor with an actionable notice.
@@ -300,6 +321,16 @@ export default function OnboardingWizard() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  // The "Skip the rest, create my site now" shortcut. Records where the couple
+  // jumped out of the guided flow (issue #239) before reusing the shared
+  // handleFinish, so the skip event and the completion event are both attributed
+  // to the same run. Keeping this a thin wrapper preserves the behavior-neutral
+  // guarantee that the shortcut and the tap-through path save identical data.
+  const handleSkipFinish = () => {
+    trackOnboardingSkipped(step)
+    void handleFinish()
   }
 
   return (
@@ -447,7 +478,7 @@ export default function OnboardingWizard() {
           <div className="mt-4 text-center">
             <button
               type="button"
-              onClick={handleFinish}
+              onClick={handleSkipFinish}
               disabled={submitting || !slug.trim()}
               className="text-sm font-medium text-[#8a6a4a] underline underline-offset-2 hover:text-[#3b2f2f] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#d4af6a] rounded disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
             >
