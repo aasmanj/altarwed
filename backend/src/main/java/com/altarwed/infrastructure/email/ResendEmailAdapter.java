@@ -176,6 +176,31 @@ public class ResendEmailAdapter implements EmailPort {
         return "\n\nTo unsubscribe: " + unsubUrl + "\n" + postalAddress;
     }
 
+    // The growth CTA (the viral loop): guest-facing invite and save-the-date mail lands in the
+    // exact target demographic, so every one is a free impression. This block invites a guest who
+    // is also engaged to spin up their own free AltarWed wedding site. It renders directly ABOVE
+    // the compliance footer (unsubscribe link + postal address), never in place of it, and stays
+    // visually secondary to the couple's own content. Styled with inline CSS because email clients
+    // strip <style> blocks. The utm_source stays rsvp_email so signups keep flowing into the same
+    // MetricsJpaAdapter channel bucket; utm_campaign distinguishes which template drove the signup.
+    private String growthCtaUrl(String utmCampaign) {
+        return publicBaseUrl + "?utm_source=rsvp_email&utm_medium=email&utm_campaign="
+                + utmCampaign + "&utm_content=cta";
+    }
+
+    private static String growthCtaHtml(String ctaUrl) {
+        return """
+                <div style="margin-top:28px;padding:20px 24px;background:#f7f0e6;border-radius:6px;text-align:center;font-family:sans-serif;">
+                  <p style="margin:0 0 12px;color:#6b5344;font-size:14px;line-height:1.5;">Getting married too?<br>Create your free Christian wedding website.</p>
+                  <a href="%s" style="display:inline-block;padding:10px 24px;background:#4a1942;color:#ffffff;text-decoration:none;border-radius:6px;font-size:13px;">Create your free wedding website</a>
+                </div>
+                """.formatted(ctaUrl);
+    }
+
+    private static String growthCtaText(String ctaUrl) {
+        return "\n\nGetting married too? Create your free Christian wedding website:\n" + ctaUrl;
+    }
+
     @Override
     public void sendRsvpInviteEmail(String toEmail, String guestName, String coupleNames,
                                     String weddingDate, String rsvpToken, UUID guestId, UUID coupleId,
@@ -185,9 +210,19 @@ public class ResendEmailAdapter implements EmailPort {
                     LogSanitizer.maskEmail(toEmail));
             return;
         }
+        Map<String, Object> body = buildRsvpInviteBody(toEmail, guestName, coupleNames,
+                weddingDate, rsvpToken, guestId, coupleId, coupleReplyToEmail);
+        postEmail("rsvp-invite", toEmail, body);
+    }
+
+    // Package-private so the email-template tests can assert the rendered markup (growth CTA,
+    // UTM tag, and intact compliance footer) without making a live Resend call.
+    Map<String, Object> buildRsvpInviteBody(String toEmail, String guestName, String coupleNames,
+                                            String weddingDate, String rsvpToken, UUID guestId, UUID coupleId,
+                                            String coupleReplyToEmail) {
         String rsvpUrl = appBaseUrl.replace("app.", "www.") + "/rsvp/" + rsvpToken;
 
-        String viralCtaUrl = publicBaseUrl + "?utm_source=rsvp_email&utm_medium=email&utm_campaign=viral_invite&utm_content=footer";
+        String viralCtaUrl = growthCtaUrl("viral_invite");
 
         String html = """
                 <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto;">
@@ -203,11 +238,8 @@ public class ResendEmailAdapter implements EmailPort {
                     If you have any questions, reply to this email.<br>
                     This RSVP link expires in 30 days.
                   </p>
-                  <div style="margin-top:28px;padding-top:14px;text-align:center;color:#a08060;font-size:11px;font-family:sans-serif;">
-                    <a href="%s" style="color:#a08060;text-decoration:none;">Sent with AltarWed</a>
-                  </div>
                 </div>
-                """.formatted(guestName, coupleNames, weddingDate, rsvpUrl, viralCtaUrl);
+                """.formatted(guestName, coupleNames, weddingDate, rsvpUrl);
 
         String text = """
                 You're invited!
@@ -221,14 +253,13 @@ public class ResendEmailAdapter implements EmailPort {
 
                 This link expires in 30 days.
                 If you have any questions, reply to this email.
-
-                Sent with AltarWed: %s
-                """.formatted(guestName, coupleNames, weddingDate, rsvpUrl, viralCtaUrl);
+                """.formatted(guestName, coupleNames, weddingDate, rsvpUrl);
 
         // The invite carries the AltarWed growth CTA (the viral loop), so we treat it as
         // marketing for compliance: a working unsubscribe footer + RFC 8058 one-click
         // header + postal address, scoped to this couple. A guest who opts out here stops
-        // only this couple's mail and resubscribes by RSVPing later.
+        // only this couple's mail and resubscribes by RSVPing later. Ordering matters: the
+        // growth CTA sits BELOW the couple's content and ABOVE the compliance footer.
         String displayUnsubUrl = unsubscribeDisplayUrl(toEmail, coupleId);
         String oneClickUnsubUrl = unsubscribeOneClickUrl(toEmail, coupleId);
 
@@ -237,15 +268,14 @@ public class ResendEmailAdapter implements EmailPort {
         body.put("to", List.of(EmailAddresses.normalize(toEmail)));
         addReplyTo(body, coupleReplyToEmail);
         body.put("subject", "You're invited to " + coupleNames + "'s wedding!");
-        body.put("html", html + unsubscribeFooterHtml(displayUnsubUrl));
-        body.put("text", text + unsubscribeFooterText(displayUnsubUrl));
+        body.put("html", html + growthCtaHtml(viralCtaUrl) + unsubscribeFooterHtml(displayUnsubUrl));
+        body.put("text", text + growthCtaText(viralCtaUrl) + unsubscribeFooterText(displayUnsubUrl));
         body.put("headers", Map.of(
                 "List-Unsubscribe", "<" + oneClickUnsubUrl + ">",
                 "List-Unsubscribe-Post", "List-Unsubscribe=One-Click"
         ));
         body.put("tags", guestTags(guestId, coupleId, "rsvp-invite"));
-
-        postEmail("rsvp-invite", toEmail, body);
+        return body;
     }
 
     @Override
@@ -273,9 +303,11 @@ public class ResendEmailAdapter implements EmailPort {
         postBatch("save-the-date", messages);
     }
 
-    private Map<String, Object> buildSaveTheDateBody(String toEmail, String guestName, UUID guestId, UUID coupleId,
-                                                     String coupleNames, String weddingDate, String weddingUrl,
-                                                     String stdImageUrl, String coupleReplyToEmail) {
+    // Package-private so the email-template tests can assert the rendered markup (growth CTA,
+    // UTM tag, and intact compliance footer) without making a live Resend call.
+    Map<String, Object> buildSaveTheDateBody(String toEmail, String guestName, UUID guestId, UUID coupleId,
+                                             String coupleNames, String weddingDate, String weddingUrl,
+                                             String stdImageUrl, String coupleReplyToEmail) {
         String imageBlock = (stdImageUrl != null && !stdImageUrl.isBlank())
                 ? "<img src=\"" + stdImageUrl + "\" alt=\"Save the Date\" style=\"display:block;width:100%;max-width:540px;margin:0 auto 32px;border-radius:6px;\" />"
                 : "";
@@ -305,6 +337,9 @@ public class ResendEmailAdapter implements EmailPort {
 
         String displayUnsubUrl = unsubscribeDisplayUrl(toEmail, coupleId);
         String oneClickUnsubUrl = unsubscribeOneClickUrl(toEmail, coupleId);
+        // Distinct utm_campaign (std_email vs the invite's viral_invite) so we can tell which
+        // template drove a signup; the shared utm_source keeps both in the same channel bucket.
+        String stdCtaUrl = growthCtaUrl("std_email");
         String text = """
                 Save the Date
 
@@ -316,6 +351,7 @@ public class ResendEmailAdapter implements EmailPort {
 
                 "And over all these virtues put on love, which binds them all together in perfect unity." (Colossians 3:14)
                 """.formatted(coupleNames, weddingDate, guestName, weddingUrl)
+                + growthCtaText(stdCtaUrl)
                 + unsubscribeFooterText(displayUnsubUrl);
 
         Map<String, Object> body = new HashMap<>();
@@ -323,7 +359,8 @@ public class ResendEmailAdapter implements EmailPort {
         body.put("to", List.of(EmailAddresses.normalize(toEmail)));
         addReplyTo(body, coupleReplyToEmail);
         body.put("subject", "Save the Date: " + coupleNames + " are getting married!");
-        body.put("html", html + unsubscribeFooterHtml(displayUnsubUrl));
+        // Growth CTA sits below the couple's content and above the compliance footer.
+        body.put("html", html + growthCtaHtml(stdCtaUrl) + unsubscribeFooterHtml(displayUnsubUrl));
         body.put("text", text);
         body.put("headers", Map.of(
                 "List-Unsubscribe", "<" + oneClickUnsubUrl + ">",

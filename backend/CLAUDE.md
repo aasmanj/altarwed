@@ -18,6 +18,7 @@ SpringDoc OpenAPI.
 - ALL schema changes go through Flyway. NEVER use `spring.jpa.hibernate.ddl-auto=create/update`
   in any environment. Migrations are versioned and irreversible.
 - UUID primary keys on all tables.
+- **DB disaster recovery (PITR restore, cutover, bad-migration playbook, quarterly drill): see `backend/docs/DR-RUNBOOK.md`.**
 
 ### SQL Server + Flyway DDL rule
 Never add a column and a constraint referencing it as two separate statements in the same

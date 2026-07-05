@@ -19,7 +19,10 @@ public interface WeddingWebsiteJpaRepository extends JpaRepository<WeddingWebsit
 
     // Closed interface projection: selects only slug + updated_at, never the full
     // entity. Backs the /published sitemap endpoint, which discards every other column.
-    List<WeddingWebsiteSitemapProjection> findByIsPublishedTrueAndIsDeletedFalse();
+    // Paged and ordered by id (issue #241) so the unauthenticated feed never loads the
+    // whole published-sites table into memory, and so paging is stable (deterministic
+    // ORDER BY) across the sequential page requests the sitemap loader makes.
+    List<WeddingWebsiteSitemapProjection> findByIsPublishedTrueAndIsDeletedFalseOrderByIdAsc(Pageable pageable);
 
     boolean existsBySlug(String slug);
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { safeColor } from '@/lib/safeColor'
 
 // Origins allowed to send live-preview messages. The dashboard editor lives at
 // app.altarwed.com in prod and on localhost during dev. Any postMessage from a
@@ -67,7 +68,7 @@ export default function HeroLive({ initialTagline, initialTaglineColor, partnerO
       {tagline !== '' && (
         <p
           className="mb-2 text-[10px] uppercase tracking-[0.3em] font-light"
-          style={{ color: taglineColor ?? 'rgba(255,255,255,0.7)' }}
+          style={{ color: safeColor(taglineColor, 'rgba(255,255,255,0.7)') }}
         >
           {tagline ?? 'Together in covenant'}
         </p>
