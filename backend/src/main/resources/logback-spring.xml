@@ -4,6 +4,16 @@
   App Insights / Log Stream. No file appenders (App Service disks are ephemeral
   and per-instance; the pipeline is the source of truth).
 
+  Timestamps (issue #294): our %d is pinned to America/New_York for human
+  readability, with the zone abbreviation printed so the DST fall-back hour is
+  unambiguous. This is display-only; the JVM stays on UTC (never set
+  WEBSITE_TIME_ZONE / TZ on the App Service, it shifts every LocalDateTime.now()
+  in the app while the DB and existing rows stay UTC). The Log Stream shows a
+  second, leading UTC timestamp on every line; that is the fixed Docker
+  container-log prefix Azure adds outside our process and it cannot be
+  suppressed from app config. Query App Insights / Kusto when you want a single
+  chosen display timezone.
+
   Pattern includes %X{requestId} so every line in App Insights can be filtered
   back to one HTTP request. requestId is populated by RequestIdFilter and
   propagated across @Async via MdcTaskDecorator on the emailExecutor.
@@ -15,7 +25,7 @@
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
 
     <property name="LOG_PATTERN"
-              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [%t] [requestId=%X{requestId:-none}] %logger{36} - %msg%n%wEx"/>
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS zzz, America/New_York} %5p [%t] [requestId=%X{requestId:-none}] %logger{36} - %msg%n%wEx"/>
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
