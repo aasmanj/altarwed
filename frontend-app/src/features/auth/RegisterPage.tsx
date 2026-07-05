@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import confetti from 'canvas-confetti'
 import { useAuth } from '@/core/auth/AuthContext'
 import { captureEvent, identifyUser, initAnalytics } from '@/core/analytics/analytics'
+import { initPixel, trackCompleteRegistration } from '@/core/analytics/metaPixel'
 import { getStoredAcquisition, clearStoredAcquisition } from '@/core/analytics/utm'
 import { usePersistentState, clearPersistentState } from '@/lib/usePersistentState'
 
@@ -95,6 +96,13 @@ export default function RegisterPage() {
       if (newUser.marketingConsent) {
         initAnalytics()
         identifyUser(newUser.id, { role: newUser.role })
+        // Meta Pixel conversion. Boot the pixel (lazy fbq snippet, still GPC/DNT
+        // gated) then fire CompleteRegistration exactly once so Facebook can
+        // optimize ad delivery toward activated couples and seed a converter
+        // lookalike audience. Couple signup only; the vendor funnel is not a
+        // couples-acquisition surface and gets no pixel.
+        initPixel()
+        trackCompleteRegistration()
       }
       captureEvent('signed_up', {
         has_wedding_date: !!form.weddingDate,
