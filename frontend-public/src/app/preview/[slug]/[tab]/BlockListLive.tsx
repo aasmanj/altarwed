@@ -12,48 +12,49 @@
 // over postMessage until the user changes tab or triggers a true reload (hero
 // photo upload, publish toggle).
 //
-// Origin check: messages must come from this preview's parent origin (the
-// frontend-app dashboard). Anything else is discarded silently.
+// Origin check: messages must come from an allowed editor origin (the
+// frontend-app dashboard, see EDITOR_ORIGINS in previewMessages.ts). Anything
+// else is discarded silently.
+//
+// Tab tagging (issue #310): 'blocks-update' messages now carry the tab they
+// are for. A client-side tab-switch navigation (TabSwitchListener) can leave
+// this component mounted for a brief moment while the new tab's data is still
+// in flight; without the tag a stale update meant for the tab we're
+// navigating away from could flash in right before the swap completes.
 
 import { useEffect, useState } from 'react'
 import BlockRenderer, { type WeddingPartyMember, type WeddingPhoto } from '@/components/blocks/BlockRenderer'
-import type { WeddingPageBlock, WeddingWebsite } from '@/app/wedding/[slug]/data'
+import type { BlockTab, WeddingPageBlock, WeddingWebsite } from '@/app/wedding/[slug]/data'
+import { EDITOR_ORIGINS, parseBlocksUpdate } from './previewMessages'
 
 interface Props {
+  tab: BlockTab
   initialBlocks: WeddingPageBlock[]
   wedding: WeddingWebsite
   partyMembers: WeddingPartyMember[]
   photos: WeddingPhoto[]
 }
 
-interface BlocksUpdateMessage {
-  type: 'blocks-update'
-  blocks: WeddingPageBlock[]
-}
-
-function isBlocksUpdate(d: unknown): d is BlocksUpdateMessage {
-  if (!d || typeof d !== 'object') return false
-  const m = d as Record<string, unknown>
-  return m.type === 'blocks-update' && Array.isArray(m.blocks)
-}
-
-export default function BlockListLive({ initialBlocks, wedding, partyMembers, photos }: Props) {
+export default function BlockListLive({ tab, initialBlocks, wedding, partyMembers, photos }: Props) {
   const [blocks, setBlocks] = useState(initialBlocks)
 
-  // Re-hydrate from server props when they change (happens on tab switch,
-  // hero photo upload, or publish toggle, anything that re-mounts the iframe).
+  // Re-hydrate from server props when they change (happens on a tab switch's
+  // client-side navigation, hero photo upload, publish toggle, anything that
+  // re-renders/re-mounts this component with fresh server-fetched blocks).
   useEffect(() => {
     setBlocks(initialBlocks)
   }, [initialBlocks])
 
   useEffect(() => {
     const handler = (e: MessageEvent) => {
-      if (!isBlocksUpdate(e.data)) return
-      setBlocks(e.data.blocks)
+      if (!EDITOR_ORIGINS.includes(e.origin)) return
+      const updated = parseBlocksUpdate(e.data, tab)
+      if (!updated) return
+      setBlocks(updated)
     }
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
-  }, [])
+  }, [tab])
 
   if (blocks.length === 0) {
     return (

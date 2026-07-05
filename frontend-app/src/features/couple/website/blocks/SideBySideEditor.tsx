@@ -821,7 +821,10 @@ export default function SideBySideEditor() {
                     onClick={() => {
                       setActiveTab(t)
                       setPicking(false)
-                      bumpPreview()
+                      // Tab switch goes over postMessage (issue #310), not a
+                      // full iframe reload. switchPreviewTab falls back to
+                      // reloadPreview on its own if the preview never acks.
+                      switchPreviewTab(t)
                     }}
                     className={`px-3 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 transition inline-flex items-center gap-1.5 ${
                       isActive

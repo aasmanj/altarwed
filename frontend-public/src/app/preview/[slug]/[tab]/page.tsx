@@ -17,6 +17,7 @@ import { formatWeddingDate, daysUntilDate } from '@/lib/date'
 import { safeColor } from '@/lib/safeColor'
 import HeroLive from './HeroLive'
 import BlockListLive from './BlockListLive'
+import TabSwitchListener from './TabSwitchListener'
 
 export const metadata: Metadata = { robots: { index: false, follow: false } }
 
@@ -71,12 +72,15 @@ export default async function PreviewPage({
   const tab = rawTab.toUpperCase()
 
   if (!VALID_TABS.has(tab)) notFound()
+  // Narrowed by the VALID_TABS check above (VALID_TABS is a Set<string> so TS
+  // cannot narrow it directly); safe to treat as BlockTab from here on.
+  const currentTab = tab as BlockTab
 
   // fresh=true: the preview is owner-only and must reflect just-saved edits and
   // publish state immediately, so bypass the 60s ISR data cache.
   const [wedding, blocks] = await Promise.all([
     getWedding(slug, true),
-    getBlocks(slug, tab as BlockTab, true),
+    getBlocks(slug, currentTab, true),
   ])
 
   // Preview must render drafts, that is the whole point of WYSIWYG.
@@ -103,6 +107,11 @@ export default async function PreviewPage({
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
       <style>{`:root { --accent: ${accentColor}; }`}</style>
 
+      {/* Handles the editor's tab-switch postMessage with a client-side (RSC)
+          navigation instead of the iframe reload this route used to require
+          on every tab click (issue #310). Renders nothing. */}
+      <TabSwitchListener slug={slug} tab={currentTab} />
+
       {/* Draft watermark, only visible on unpublished sites so couples know
           this preview is private. Sticky so it stays in view during scroll. */}
       {!wedding.isPublished && (
@@ -113,7 +122,7 @@ export default async function PreviewPage({
         </div>
       )}
 
-      {/* Preview tab navigation — shows all 8 tabs so couples can navigate
+      {/* Preview tab navigation, shows all 8 tabs so couples can navigate
           between sections while previewing. Hidden tabs get a "(hidden)" badge
           so the couple knows guests won't see them. */}
       <nav
@@ -212,6 +221,7 @@ export default async function PreviewPage({
           uploads all reflect in the preview without an iframe reload. */}
       <main className="max-w-3xl mx-auto px-6 py-10 space-y-8">
         <BlockListLive
+          tab={currentTab}
           initialBlocks={blocks}
           wedding={wedding}
           partyMembers={partyMembers}
