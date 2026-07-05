@@ -57,6 +57,22 @@ export interface SaveTheDateSendResult {
   replayed?: boolean
 }
 
+// Stable skip-reason codes returned by the bulk RSVP invite endpoint. Kept in sync
+// with BulkInviteResult on the backend; the UI maps them to friendly copy.
+export type BulkInviteSkipReason =
+  | 'no_email'
+  | 'already_responded'
+  | 'cap_reached'
+  | 'unsubscribed'
+
+// Synchronous result of a bulk RSVP invite send: how many were queued vs skipped,
+// with a per-guest reason for each skip so the dashboard can summarise the outcome.
+export interface BulkInviteResult {
+  sent: number
+  skipped: number
+  skippedGuests: { guestId: string; name: string; reason: BulkInviteSkipReason }[]
+}
+
 export interface CreateGuestPayload {
   name: string
   email?: string
@@ -230,6 +246,24 @@ export function useSendAllInvites(coupleId: string) {
     mutationFn: () =>
       apiClient.post(`/api/v1/guests/couple/${coupleId}/invite-all`).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: key(coupleId) }),
+  })
+}
+
+// Bulk RSVP invite for an explicit list of selected guest ids. The backend applies the
+// skip rules (no email, already responded, cap reached, unsubscribed) and reports them
+// per guest, so the caller reads result.skippedGuests to summarise the outcome. Cache is
+// invalidated on success so freshly invited guests pick up their new send count and
+// "Invited" state. onError toasts rather than failing silently (issue #222): a bulk send
+// that quietly does nothing would leave a couple thinking their whole list was emailed.
+export function useSendBulkInvites(coupleId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (guestIds: string[]) =>
+      apiClient
+        .post(`/api/v1/guests/couple/${coupleId}/invite-bulk`, { guestIds })
+        .then(r => r.data as BulkInviteResult),
+    onSuccess: () => qc.invalidateQueries({ queryKey: key(coupleId) }),
+    onError: () => toast.error('Could not send the RSVP invites. Please try again.'),
   })
 }
 

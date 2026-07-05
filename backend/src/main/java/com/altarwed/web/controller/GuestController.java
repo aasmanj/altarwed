@@ -143,6 +143,19 @@ public class GuestController {
         return ResponseEntity.ok(Map.of("invitesSent", count));
     }
 
+    // Bulk RSVP invite for an explicit list of selected guest ids. Skip rules (no email,
+    // already responded, cap reached, unsubscribed) are applied and reported per guest; a
+    // guest id that does not belong to this couple rejects the whole request with 403.
+    @PostMapping("/couple/{coupleId}/invite-bulk")
+    public ResponseEntity<BulkInviteResult> sendBulkInvites(
+            @PathVariable UUID coupleId,
+            @Valid @RequestBody BulkInviteRequest request,
+            @AuthenticationPrincipal String email
+    ) {
+        accessGuard.assertOwns(coupleId, email);
+        return ResponseEntity.ok(guestService.sendInvitesBulk(coupleId, request.guestIds()));
+    }
+
     // Public endpoints, no auth, used by the Next.js RSVP page. NO ownership guard,
     // these are intentionally unauthenticated (whitelisted in SecurityConfig) and
     // scoped by slug/token, not coupleId.

@@ -10,6 +10,7 @@ import com.altarwed.domain.port.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +21,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.HexFormat;
@@ -430,6 +432,100 @@ public class GuestService {
     }
 
     /**
+     * Bulk RSVP invite send for an explicit, couple-selected list of guest ids.
+     *
+     * Ownership is all-or-nothing: if ANY requested id is not one of this couple's
+     * guests the whole request is rejected with 403 (AccessDeniedException) before a
+     * single invite is issued, so a crafted body cannot invite (and thereby confirm the
+     * existence of) another couple's guests. This is stricter than a per-guest skip on
+     * purpose: a foreign id is an IDOR probe, not an ineligible guest.
+     *
+     * For guests that do belong to the couple, the skip rules are applied server-side and
+     * reported (never thrown) so one ineligible guest never fails the batch:
+     *   - no email address            -> skipped "no_email"
+     *   - already responded (not PENDING) -> skipped "already_responded"
+     *   - at the invite-send cap ({@value #MAX_INVITE_SENDS}) -> skipped "cap_reached"
+     *   - unsubscribed/bounced/complained -> skipped "unsubscribed" (same opt-out honoured
+     *     by the single sendInvite and the invite-all paths; a bulk action must not become a
+     *     loophole that emails someone who opted out)
+     * Everyone else is invited via the same issueInvite path as the single send, so token
+     * issuance, cap increment, and email queuing stay in one place.
+     */
+    @Transactional
+    public BulkInviteResult sendInvitesBulk(UUID coupleId, List<UUID> guestIds) {
+        log.info("bulk invite send batch started, coupleId={}, targetCount={}", coupleId, guestIds.size());
+
+        Map<UUID, Guest> byId = new HashMap<>();
+        for (Guest g : guestRepository.findAllByCoupleId(coupleId)) {
+            byId.put(g.id(), g);
+        }
+
+        // Reject the whole request if any id is not this couple's guest (IDOR). 403, not a
+        // per-guest skip, and before any invite is issued so nothing is partially processed.
+        for (UUID id : guestIds) {
+            if (!byId.containsKey(id)) {
+                log.warn("bulk invite rejected, reason=idor, coupleId={}, targetGuestId={}", coupleId, id);
+                throw new AccessDeniedException("Access denied");
+            }
+        }
+
+        // Preserve the caller's order, de-duplicate ids (a repeated id must not send twice).
+        List<Guest> requested = new ArrayList<>();
+        Set<UUID> seen = new HashSet<>();
+        for (UUID id : guestIds) {
+            if (seen.add(id)) {
+                requested.add(byId.get(id));
+            }
+        }
+
+        // Batch the suppression lookup for the addresses in play (one global + one per-couple
+        // query) instead of an existence check per guest, matching the save-the-date path.
+        Set<String> suppressedHashes = suppressionService.reasonsByHash(coupleId,
+                requested.stream()
+                        .filter(g -> g.email() != null && !g.email().isBlank())
+                        .map(g -> EmailSuppressionService.emailHash(g.email()))
+                        .toList()).keySet();
+
+        List<BulkInviteResult.SkippedGuest> skipped = new ArrayList<>();
+        List<Guest> toInvite = new ArrayList<>();
+        for (Guest g : requested) {
+            if (g.email() == null || g.email().isBlank()) {
+                skipped.add(new BulkInviteResult.SkippedGuest(g.id(), g.name(), BulkInviteResult.REASON_NO_EMAIL));
+            } else if (g.rsvpStatus() != GuestRsvpStatus.PENDING) {
+                skipped.add(new BulkInviteResult.SkippedGuest(g.id(), g.name(), BulkInviteResult.REASON_ALREADY_RESPONDED));
+            } else if ((g.inviteSendCount() != null ? g.inviteSendCount() : 0) >= MAX_INVITE_SENDS) {
+                skipped.add(new BulkInviteResult.SkippedGuest(g.id(), g.name(), BulkInviteResult.REASON_CAP_REACHED));
+            } else if (suppressedHashes.contains(EmailSuppressionService.emailHash(g.email()))) {
+                skipped.add(new BulkInviteResult.SkippedGuest(g.id(), g.name(), BulkInviteResult.REASON_UNSUBSCRIBED));
+            } else {
+                toInvite.add(g);
+            }
+        }
+
+        // Preload the couple + website once (identical for every guest) and pass them into
+        // issueInvite so a large batch is two extra queries, not two per guest (N+1). Guarded
+        // on a non-empty list so a send with nothing to invite issues no queries at all.
+        //
+        // Rollback window: the invites are queued on the emailExecutor (@Async) and are NOT
+        // enrolled in this @Transactional method. If the transaction aborts partway through the
+        // loop, the token/cap writes for earlier guests roll back but their already-queued
+        // emails still go out. We accept that here for the same reason invite-all does (see the
+        // over-cap note above): the cap check makes a re-run safe, so a partial send beats a
+        // hard failure.
+        if (!toInvite.isEmpty()) {
+            WeddingWebsite website = websiteRepository.findByCoupleId(coupleId).orElse(null);
+            Couple couple = coupleRepository.findById(coupleId).orElse(null);
+            for (Guest g : toInvite) {
+                issueInvite(g, coupleId, website, couple);
+            }
+        }
+
+        log.info("bulk invite send batch queued, coupleId={}, sent={}, skipped={}",
+                 coupleId, toInvite.size(), skipped.size());
+        return new BulkInviteResult(toInvite.size(), skipped.size(), skipped);
+    }
+
+    /**
      * Public "find your invitation" search. Given a wedding slug and a partial name,
      * returns up to 5 matching guests with masked names and short-lived (1-hour) RSVP tokens.
      * Issues fresh tokens without revoking existing email-invite tokens so the emailed link
@@ -726,6 +822,18 @@ public class GuestService {
     }
 
     private Guest issueInvite(Guest guest, UUID coupleId) {
+        // Single-invite entry point: load the couple + website for this one send, then
+        // delegate. The bulk path preloads these once and calls the overload directly to
+        // avoid re-querying them per guest (N+1).
+        return issueInvite(guest, coupleId,
+                websiteRepository.findByCoupleId(coupleId).orElse(null),
+                coupleRepository.findById(coupleId).orElse(null));
+    }
+
+    // Package-private overload taking a preloaded website/couple so a batch caller can look
+    // them up once and reuse them across the loop. The token/expiry logic below is unchanged
+    // (kept intact so PR #254's expiry edits still merge cleanly).
+    Guest issueInvite(Guest guest, UUID coupleId, WeddingWebsite website, Couple couple) {
         if (guest.email() == null || guest.email().isBlank()) {
             log.warn("invite rejected, guest has no email, guestId={}, coupleId={}", guest.id(), coupleId);
             throw new IllegalArgumentException("Guest has no email address");
@@ -740,9 +848,6 @@ public class GuestService {
 
         // Invalidate any outstanding invite tokens before issuing a new one
         tokenRepository.deleteAllByGuestId(guest.id());
-
-        var website = websiteRepository.findByCoupleId(coupleId).orElse(null);
-        var couple  = coupleRepository.findById(coupleId).orElse(null);
 
         LocalDate coupleWeddingDate = website != null ? website.weddingDate() : null;
         String rawToken = UUID.randomUUID().toString();
@@ -765,7 +870,10 @@ public class GuestService {
         String coupleReplyTo = couple != null ? couple.email() : null;
         asyncEmailService.sendRsvpInviteEmail(guest.email(), guest.name(), coupleNames, weddingDate, rawToken,
                 guest.id(), coupleId, coupleReplyTo);
-        log.info("rsvp invite queued, guestId={}, coupleId={}, sendNumber={}",
+        // DEBUG, not INFO: this runs once per guest inside both bulk send loops, which each
+        // already emit an aggregate INFO. Per-guest INFO here would break the no-INFO-in-loops
+        // rule and inflate App Insights cost (observability rule 9).
+        log.debug("rsvp invite queued, guestId={}, coupleId={}, sendNumber={}",
                  guest.id(), coupleId, currentSends + 1);
 
         Guest updated = new Guest(
