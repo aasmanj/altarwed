@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
+import SearchForm from './SearchForm'
 import { formatShortDate } from '@/lib/date'
 
 export const metadata: Metadata = {
@@ -68,32 +69,8 @@ export default async function FindWeddingPage({
 
         <div className="max-w-2xl mx-auto px-6 py-10 space-y-8">
 
-          {/* Search form */}
-          <form method="GET" className="flex flex-col sm:flex-row gap-3">
-            <input
-              type="text"
-              name="name"
-              defaultValue={name}
-              placeholder="Search by name"
-              className="flex-1 rounded-xl border border-[#e8dcc8] bg-white px-4 py-3 text-base sm:text-sm text-[#3b2f2f] placeholder-[#8a6a4a] focus:border-[#d4af6a] focus:outline-none"
-            />
-            <select
-              name="year"
-              defaultValue={year}
-              className="rounded-xl border border-[#e8dcc8] bg-white px-4 py-3 text-base sm:text-sm text-[#3b2f2f] focus:border-[#d4af6a] focus:outline-none"
-            >
-              <option value="">Any year</option>
-              {yearOptions.map(y => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="rounded-xl bg-[#3b2f2f] px-6 py-3 text-sm font-semibold text-white hover:bg-[#5c4033] transition whitespace-nowrap"
-            >
-              Search
-            </button>
-          </form>
+          {/* Search form (client component: shows a pending state on submit) */}
+          <SearchForm defaultName={name} defaultYear={year} yearOptions={yearOptions} />
 
           {/* Results */}
           {hasQuery && (
