@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://www.altarwed.com/privacy' },
 }
 
-const EFFECTIVE_DATE = 'June 5, 2026'
+const EFFECTIVE_DATE = 'July 4, 2026'
 const CONTACT_EMAIL = 'hello@altarwed.com'
 
 export default function PrivacyPage() {
@@ -91,6 +91,7 @@ export default function PrivacyPage() {
                 <li><strong>Opt-out of email communications:</strong> Every save-the-date and welcome email includes an unsubscribe link. You may also email us to be removed from all future outreach.</li>
               </ul>
               <p>To exercise any of these rights, email <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#d4af6a] hover:underline">{CONTACT_EMAIL}</a>. We will respond within 30 days.</p>
+              <p><strong>Guests whose information a couple added:</strong> If you are a wedding guest and a couple added your information to the Service, for example through a guest list or RSVP, that couple controls their guest list as described in our <Link href="/terms" className="text-[#d4af6a] hover:underline">Terms of Service</Link>. You may still request access to or deletion of your information by emailing <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#d4af6a] hover:underline">{CONTACT_EMAIL}</a>. Because the couple controls the guest list, we will coordinate with the couple who added your information to complete your request, and we may refer your request to them. We will respond within 30 days.</p>
             </Section>
 
             <Section title="8. Cookies and Tracking Technologies">

@@ -53,6 +53,9 @@ export interface SaveTheDateSendResult {
   invalidCount: number
   suppressedCount: number
   invalidEmails: { guestId: string; name: string; email: string }[]
+  // True when this is an idempotent replay of an earlier send (issue #232): the couple
+  // retried the same attempt, so nothing was re-emailed and invalidEmails is empty.
+  replayed?: boolean
 }
 
 // Stable skip-reason codes returned by the bulk RSVP invite endpoint. Kept in sync

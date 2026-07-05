@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { Link2 } from 'lucide-react'
+import { Link2, Share2 } from 'lucide-react'
 import { useGuests } from '@/features/couple/guests/useGuests'
 import { computeGuestStats } from '@/features/couple/guests/guestStats'
+import NextStepCard from '@/features/couple/NextStepCard'
 import { useBudget } from '@/features/couple/budget/useBudget'
 import { usePlanningTasks } from '@/features/couple/checklist/usePlanningTasks'
+import ShareModal from '@/features/couple/website/ShareModal'
 import type { WeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { daysUntilDate, formatShortDate, dueDateBefore } from '@/lib/date'
 
@@ -14,6 +16,7 @@ interface Props {
 
 export default function AtAGlanceCard({ coupleId, website }: Props) {
   const [copied, setCopied] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const { data: guests } = useGuests(coupleId)
   const { data: budget } = useBudget(coupleId)
   const { data: tasks } = usePlanningTasks(coupleId)
@@ -24,7 +27,8 @@ export default function AtAGlanceCard({ coupleId, website }: Props) {
   // Shared with GuestListPage's stat tiles/analytics panel (guestStats.ts) so the two
   // pages can't silently drift apart again the way the RSVP headcount and response-rate
   // denominator both did.
-  const { attending, total: totalGuests, declining, pending, responseRate } = computeGuestStats(guests ?? [])
+  const guestStats = computeGuestStats(guests ?? [])
+  const { attending, total: totalGuests, declining, pending, responseRate } = guestStats
 
   const spent = budget?.totalActual ?? 0
   const goal = website?.goalBudget ?? 0
@@ -76,12 +80,14 @@ export default function AtAGlanceCard({ coupleId, website }: Props) {
             <Link2 className="w-3 h-3" />
             {copied ? 'Copied!' : 'Copy link'}
           </button>
-          <a
-            href="/dashboard/website/editor"
-            className="shrink-0 text-xs font-semibold text-green-700 hover:text-green-900 hover:underline transition"
+          <button
+            onClick={() => setShareOpen(true)}
+            aria-label="Share wedding website"
+            className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-green-700 hover:text-green-900 hover:underline transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400 rounded"
           >
-            Share ↗
-          </a>
+            <Share2 className="w-3 h-3" />
+            Share
+          </button>
         </div>
       )}
       {!website?.isPublished && website?.slug && (
@@ -94,6 +100,12 @@ export default function AtAGlanceCard({ coupleId, website }: Props) {
             Publish →
           </a>
         </div>
+      )}
+      {/* Post-publish "what's next" nudge. Only after publishing, since the draft banner
+          above already guides couples to publish; the pre-website wizard covers earlier
+          stages. Driven by the guests/stats already loaded here, so it adds no API calls. */}
+      {website?.isPublished && guests !== undefined && (
+        <NextStepCard coupleId={coupleId} guests={guests} stats={guestStats} />
       )}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <Metric
@@ -123,6 +135,14 @@ export default function AtAGlanceCard({ coupleId, website }: Props) {
           bar={totalTasks > 0 ? { pct: checklistPct, color: 'bg-emerald-500' } : undefined}
         />
       </div>
+      {website?.slug && (
+        <ShareModal
+          isOpen={shareOpen}
+          onClose={() => setShareOpen(false)}
+          slug={website.slug}
+          coupleNames={`${website.partnerOneName} & ${website.partnerTwoName}`}
+        />
+      )}
     </div>
   )
 }

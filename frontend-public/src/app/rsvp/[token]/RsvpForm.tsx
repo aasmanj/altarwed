@@ -185,6 +185,35 @@ export default function RsvpForm({
             </p>
           )
         )}
+        {/* Recovery path: the emailed RSVP link is single-use, so once a guest has
+            responded, point them at the find-your-invitation finder (which mints a
+            fresh link) rather than the dead emailed one. Uses the wedding-scoped
+            finder when we know the slug, otherwise the name-search entry point. */}
+        <p className="mt-4 text-sm text-[#6b5344]">
+          Need to change your response?{' '}
+          <a
+            href={weddingSlug ? `/wedding/${weddingSlug}/rsvp` : '/find-wedding'}
+            className="font-medium text-[#4a1942] underline hover:text-[#3b1235]"
+          >
+            Find your invitation
+          </a>
+        </p>
+        {/* Viral CTA on the highest-intent surface: a guest who just RSVP'd to a
+            Christian wedding is a prime free lead, and many are engaged themselves.
+            Kept last and visually secondary (a quiet divider + inline link, not a
+            loud button) so the couple's confirmation and registry link stay the
+            focus; the page footer carries the fuller button block. Same
+            utm_campaign=rsvp-thankyou tag as the footer so both surfaces roll up to
+            one measurable campaign, distinct from the wedding-footer viral-footer. */}
+        <div className="mt-6 border-t border-[#f0e8da] pt-4 text-sm text-[#6b5344]">
+          Getting married too?{' '}
+          <a
+            href="https://app.altarwed.com/register?utm_source=wedding-site&utm_medium=referral&utm_campaign=rsvp-thankyou"
+            className="font-medium text-[#4a1942] underline hover:text-[#3b1235]"
+          >
+            Create your Christian wedding website for free
+          </a>
+        </div>
       </div>
     )
   }

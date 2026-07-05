@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import { authApi } from '@/core/api/authApi'
 import type { RegisterCouplePayload, RegisterVendorPayload } from '@/core/api/authApi'
 import { setupAuthInterceptor } from '@/core/api/client'
-import { identifyUser, initAnalytics, resetAnalytics } from '@/core/analytics/analytics'
+import { identifyUser, initAnalytics, disableAnalytics } from '@/core/analytics/analytics'
+import { disablePixel } from '@/core/analytics/metaPixel'
 
 export type UserRole = 'COUPLE' | 'VENDOR'
 
@@ -24,7 +25,9 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>
-  register: (payload: RegisterCouplePayload) => Promise<void>
+  // Returns the created couple so the caller can gate/boot analytics on the
+  // freshly persisted marketingConsent flag without waiting for a re-render.
+  register: (payload: RegisterCouplePayload) => Promise<{ user: AuthUser }>
   registerVendor: (payload: RegisterVendorPayload) => Promise<void>
   logout: () => Promise<void>
   refreshAccessToken: () => Promise<string | null>
@@ -69,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { accessToken, user } = await authApi.register(payload)
     localStorage.setItem(SESSION_HINT_KEY, '1')
     setState({ user, accessToken })
+    return { user }
   }, [])
 
   const registerVendor = useCallback(async (payload: RegisterVendorPayload) => {
@@ -81,9 +85,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await authApi.logout().catch(() => {})
     localStorage.removeItem(SESSION_HINT_KEY)
     setState({ user: null, accessToken: null })
-    // Unlink the analytics identity so the next person on a shared browser is a
-    // fresh anonymous visitor, not a continuation of this couple's session.
-    resetAnalytics()
+    // Turn analytics off entirely so the next person on a shared browser sends
+    // nothing until they themselves consent, and starts as a fresh, unlinked
+    // anonymous visitor rather than a continuation of this couple's session.
+    disableAnalytics()
+    // Same teardown for the Meta Pixel: flip it off so no CompleteRegistration
+    // (or any future pixel call) can fire for the next person until they sign up
+    // and consent themselves.
+    disablePixel()
   }, [])
 
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {

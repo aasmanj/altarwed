@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import confetti from 'canvas-confetti'
 import { useAuth } from '@/core/auth/AuthContext'
-import { captureEvent } from '@/core/analytics/analytics'
+import { captureEvent, identifyUser, initAnalytics } from '@/core/analytics/analytics'
+import { initPixel, trackCompleteRegistration } from '@/core/analytics/metaPixel'
 import { getStoredAcquisition, clearStoredAcquisition } from '@/core/analytics/utm'
 import { usePersistentState, clearPersistentState } from '@/lib/usePersistentState'
 
@@ -74,7 +75,7 @@ export default function RegisterPage() {
     setLoading(true)
     try {
       const acquisition = getStoredAcquisition()
-      await register({
+      const { user: newUser } = await register({
         partnerOneName: groomName,
         partnerTwoName: brideName,
         email: form.email.trim(),
@@ -85,10 +86,24 @@ export default function RegisterPage() {
       })
       // Account created: clear the persisted draft so it isn't restored later.
       clearPersistentState(REGISTER_FORM_KEY)
-      // Funnel conversion event. The couple is identified by AuthContext's effect
-      // the moment register() sets the user, so this capture is attached to the
-      // right person. UTM props let PostHog break the funnel down by campaign;
-      // they mirror what the backend just persisted on the couples row.
+      // Funnel conversion event. AuthContext's consent-gate effect only runs after
+      // React commits this re-render, so at this point analytics is still off and a
+      // bare captureEvent would be discarded. When the new couple consented, boot
+      // and identify analytics here so signed_up actually lands. initAnalytics is
+      // idempotent and still honors GPC/DNT, so consent semantics hold and the gate
+      // effect no-ops afterwards. UTM props let PostHog break the funnel down by
+      // campaign; they mirror what the backend just persisted on the couples row.
+      if (newUser.marketingConsent) {
+        initAnalytics()
+        identifyUser(newUser.id, { role: newUser.role })
+        // Meta Pixel conversion. Boot the pixel (lazy fbq snippet, still GPC/DNT
+        // gated) then fire CompleteRegistration exactly once so Facebook can
+        // optimize ad delivery toward activated couples and seed a converter
+        // lookalike audience. Couple signup only; the vendor funnel is not a
+        // couples-acquisition surface and gets no pixel.
+        initPixel()
+        trackCompleteRegistration()
+      }
       captureEvent('signed_up', {
         has_wedding_date: !!form.weddingDate,
         utm_source: acquisition?.utmSource ?? null,
@@ -237,6 +252,31 @@ export default function RegisterPage() {
               </span>
             </label>
           </div>
+
+          {/* Sign-in-wrap acceptance directly above the action button (issue #219).
+              Adjacent to the submit control is the enforceable clickwrap pattern, no
+              extra checkbox needed. text-brown-light is ~7.7:1 on white (WCAG AA). */}
+          <p className="mb-4 text-xs text-brown-light leading-snug">
+            By creating an account you agree to our{' '}
+            <a
+              href="https://www.altarwed.com/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-brown font-medium underline hover:text-gold-dark"
+            >
+              Terms of Service
+            </a>{' '}
+            and{' '}
+            <a
+              href="https://www.altarwed.com/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-brown font-medium underline hover:text-gold-dark"
+            >
+              Privacy Policy
+            </a>
+            , and you confirm you have the authority to add the guests you invite through AltarWed.
+          </p>
 
           <button
             type="submit"

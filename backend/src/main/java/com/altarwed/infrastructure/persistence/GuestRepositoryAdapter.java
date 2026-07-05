@@ -48,8 +48,9 @@ public class GuestRepositoryAdapter implements GuestRepository {
     }
 
     @Override
-    public List<Guest> findDueReminders(LocalDateTime asOf) {
-        return jpa.findDueReminders(asOf, GuestRsvpStatus.PENDING).stream().map(this::toDomain).toList();
+    public List<Guest> findDueReminders(LocalDateTime asOf, int maxInviteSends) {
+        return jpa.findDueReminders(asOf, GuestRsvpStatus.PENDING, maxInviteSends)
+                .stream().map(this::toDomain).toList();
     }
 
     @Override

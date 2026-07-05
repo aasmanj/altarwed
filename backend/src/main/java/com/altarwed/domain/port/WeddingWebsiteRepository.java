@@ -23,8 +23,11 @@ public interface WeddingWebsiteRepository {
     Optional<WeddingWebsite> findBySlug(String slug);
 
     // Slim projection for the sitemap: only slug + updatedAt per published, non-deleted
-    // site. Never hydrates the full WeddingWebsite (see WeddingWebsiteSummary).
-    List<WeddingWebsiteSummary> findPublishedSummaries();
+    // site. Never hydrates the full WeddingWebsite (see WeddingWebsiteSummary). Returns a
+    // single, id-ordered page (issue #241) so the unauthenticated feed never streams the
+    // whole published-sites table; the sitemap loader iterates pages until one comes back
+    // short. Page is zero-based.
+    List<WeddingWebsiteSummary> findPublishedSummaries(int page, int size);
 
     boolean existsBySlug(String slug);
 

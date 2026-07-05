@@ -9,6 +9,7 @@ import com.altarwed.domain.model.*;
 import com.altarwed.domain.port.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,7 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,6 +27,7 @@ import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -31,8 +35,20 @@ import java.util.UUID;
 public class GuestService {
 
     private static final Logger log = LoggerFactory.getLogger(GuestService.class);
-    private static final int INVITE_EXPIRY_DAYS = 30;
-    private static final int MAX_INVITE_SENDS = 3;
+    // RSVP invite tokens expire relative to the couple's wedding date, not a fixed window after
+    // send (issue #216). Invites go out 6 to 8 weeks ahead and most guests respond in the final
+    // weeks, so a fixed 30-day expiry killed the emailed link for late responders. Expiry =
+    // wedding date + this grace (end of that day) so the link stays valid through the weekend.
+    private static final int INVITE_EXPIRY_GRACE_DAYS_AFTER_WEDDING = 3;
+    // Couple has not set a wedding date yet: fall back to a long window so the link does not die.
+    private static final int INVITE_EXPIRY_NO_DATE_DAYS = 365;
+    // Floor: never issue a token that expires sooner than this, even when the wedding is tomorrow
+    // (or already past), so a couple sending invites late still gets a usable link.
+    private static final int INVITE_EXPIRY_FLOOR_DAYS = 30;
+    // Public so RsvpReminderService can exclude at-cap guests from its due-reminder query
+    // (issue #233) using the same source of truth this service enforces, with no risk of a
+    // hardcoded copy drifting.
+    public static final int MAX_INVITE_SENDS = 3;
     private static final int SEARCH_TOKEN_EXPIRY_HOURS = 1;
     // The public find-invitation search ignores queries shorter than this so a short guess
     // cannot enumerate masked names or mint tokens by brute force. Raised from 2 to 4 (issue
@@ -51,6 +67,7 @@ public class GuestService {
     private final EmailSuppressionService suppressionService;
     private final CustomRsvpQuestionService customRsvpQuestionService;
     private final CaptchaVerificationPort captchaVerificationPort;
+    private final SaveTheDateSendRepository saveTheDateSendRepository;
 
     public GuestService(
             GuestRepository guestRepository,
@@ -60,7 +77,8 @@ public class GuestService {
             AsyncEmailService asyncEmailService,
             EmailSuppressionService suppressionService,
             CustomRsvpQuestionService customRsvpQuestionService,
-            CaptchaVerificationPort captchaVerificationPort
+            CaptchaVerificationPort captchaVerificationPort,
+            SaveTheDateSendRepository saveTheDateSendRepository
     ) {
         this.guestRepository = guestRepository;
         this.tokenRepository = tokenRepository;
@@ -70,6 +88,7 @@ public class GuestService {
         this.suppressionService = suppressionService;
         this.customRsvpQuestionService = customRsvpQuestionService;
         this.captchaVerificationPort = captchaVerificationPort;
+        this.saveTheDateSendRepository = saveTheDateSendRepository;
     }
 
     @Transactional
@@ -227,10 +246,61 @@ public class GuestService {
         return issueInvite(guest, coupleId);
     }
 
+    /**
+     * Reminder-scheduler entry point for re-sending a deferred ("remind me later") RSVP invite.
+     *
+     * Identical to {@link #sendInvite} except for the invite-cap branch, and that difference is
+     * the whole point of the method (issue #233). A couple-initiated send that hits the cap
+     * throws so the couple sees the rejection. A reminder-driven send that hits the cap must NOT
+     * throw and be retried forever: issueInvite throws at the cap check before it can clear
+     * remind_at, sendDueReminders catches and continues, and the same guest re-qualifies for
+     * findDueReminders every hour until the wedding. So at the cap we clear remind_at and return
+     * without sending, dropping the guest out of the reminder query permanently. This is the belt
+     * to findDueReminders' suspenders: that query already excludes at-cap guests, and this clears
+     * any that still reach here (e.g. a guest who crossed the cap on a couple-initiated send
+     * between the poll and this call).
+     */
     @Transactional
-    public SaveTheDateSendResult sendSaveDates(UUID coupleId, List<UUID> guestIds) {
+    public void sendReminderInvite(UUID coupleId, UUID guestId) {
+        Guest guest = getGuest(coupleId, guestId);
+        int currentSends = guest.inviteSendCount() != null ? guest.inviteSendCount() : 0;
+        if (currentSends >= MAX_INVITE_SENDS) {
+            log.info("rsvp reminder cleared, guest at invite cap, guestId={}, coupleId={}, sends={}",
+                     guestId, coupleId, currentSends);
+            guestRepository.save(withRemindAtCleared(guest));
+            return;
+        }
+        // Below the cap: the normal single-send path (unsubscribe honoured, token issued, cap
+        // incremented, remind_at cleared by issueInvite on success).
+        sendInvite(coupleId, guestId);
+    }
+
+    // @Transactional is load-bearing, not decorative: markSaveTheDatesSent (below) is a
+    // @Modifying JPQL UPDATE with no transaction of its own (GuestJpaRepository), so it needs an
+    // ambient transaction or JPA throws TransactionRequiredException. Do NOT "simplify" this
+    // annotation away. Its presence is also exactly why the key claim needs REQUIRES_NEW +
+    // saveAndFlush (see the claim block below) to run and fail in isolation.
+    @Transactional
+    public SaveTheDateSendResult sendSaveDates(UUID coupleId, List<UUID> guestIds, String idempotencyKey) {
         log.info("save-the-date send batch started, coupleId={}, targetCount={}", coupleId,
                 guestIds == null ? "all" : guestIds.size());
+
+        // Idempotency guard (issue #232): a send whose HTTP response was lost gets retried by the
+        // couple carrying the same client-generated key. If a receipt already exists for this key,
+        // return its stored summary instead of emailing and re-stamping the batch a second time.
+        // Same concept as PrintOrderService.createOrder's replay check; the storage mechanism
+        // differs (see the claim block below).
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<SaveTheDateSend> replay =
+                    saveTheDateSendRepository.findByCoupleIdAndIdempotencyKey(coupleId, idempotencyKey);
+            if (replay.isPresent()) {
+                SaveTheDateSend r = replay.get();
+                log.info("save-the-date send idempotent replay, returning existing, coupleId={}, sendId={}",
+                        coupleId, r.id());
+                return new SaveTheDateSendResult(
+                        r.queuedCount(), r.invalidCount(), r.suppressedCount(), List.of(), true);
+            }
+        }
 
         Set<UUID> guestIdSet = guestIds != null ? new HashSet<>(guestIds) : null;
         List<Guest> withEmail = guestRepository.findAllByCoupleId(coupleId).stream()
@@ -259,6 +329,35 @@ public class GuestService {
                 .toList();
         int validCount = valid.size();
         int suppressedCount = validCount - queueable.size();
+
+        // Claim the idempotency key BEFORE the email fan-out and the stamp: two concurrent submits
+        // with the same key both reach here having each seen no receipt above, but the unique index
+        // lets exactly one insert win. The loser's saveAndFlush throws DataIntegrityViolationException
+        // and we replay the winner's summary rather than mailing the batch twice. The receipt commits
+        // ahead of the async send; a retry that lands after the send was enqueued but before its
+        // stamp committed correctly replays instead of re-sending.
+        //
+        // Same idea as PrintOrderService.createOrder, but NOT the same mechanism, so do not predict
+        // one from the other: createOrder is deliberately NOT @Transactional, so its claim already
+        // runs alone in its own Spring Data transaction that flushes at method return. sendSaveDates
+        // runs inside this method's ambient @Transactional (required for the stamp above), so the
+        // claim MUST be forced into its own transaction that fails in isolation, hence the adapter's
+        // REQUIRES_NEW + saveAndFlush. Without that, the collision would surface at the outer commit
+        // (a raw 500, not a replay) and would poison the ambient transaction we still need.
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            try {
+                saveTheDateSendRepository.save(new SaveTheDateSend(
+                        null, coupleId, idempotencyKey,
+                        queueable.size(), invalid.size(), suppressedCount, LocalDateTime.now()));
+            } catch (DataIntegrityViolationException race) {
+                log.warn("save-the-date send idempotency race, returning concurrent summary, coupleId={}", coupleId);
+                SaveTheDateSend r = saveTheDateSendRepository
+                        .findByCoupleIdAndIdempotencyKey(coupleId, idempotencyKey)
+                        .orElseThrow(() -> race);
+                return new SaveTheDateSendResult(
+                        r.queuedCount(), r.invalidCount(), r.suppressedCount(), List.of(), true);
+            }
+        }
 
         if (!queueable.isEmpty()) {
             var website = websiteRepository.findByCoupleId(coupleId).orElse(null);
@@ -290,7 +389,7 @@ public class GuestService {
 
         log.info("save-the-date send batch queued, coupleId={}, queued={}, invalid={}, suppressed={}",
                 coupleId, queueable.size(), invalid.size(), suppressedCount);
-        return new SaveTheDateSendResult(queueable.size(), invalid.size(), suppressedCount, invalid);
+        return new SaveTheDateSendResult(queueable.size(), invalid.size(), suppressedCount, invalid, false);
     }
 
     /**
@@ -745,6 +844,25 @@ public class GuestService {
                 .orElseGet(() -> new PartyResolution(UUID.randomUUID(), true));
     }
 
+    // Rebuilds a guest with remind_at cleared and updated_at refreshed, leaving every other
+    // field (including invite_send_count) untouched. Used only by the reminder path when an
+    // at-cap guest must be dropped from the reminder query without issuing another invite.
+    private Guest withRemindAtCleared(Guest g) {
+        return new Guest(
+                g.id(), g.coupleId(), g.name(), g.email(), g.phone(),
+                g.rsvpStatus(), g.plusOneAllowed(), g.plusOneName(),
+                g.dietaryRestrictions(), g.songRequest(),
+                g.tableNumber(), g.side(), g.notes(),
+                g.mailLine1(), g.mailCity(), g.mailState(), g.mailZip(), g.mailCountry(),
+                g.noteForCouple(), g.inviteSendCount(),
+                g.inviteSentAt(), g.saveTheDateSentAt(), g.respondedAt(),
+                null, // clear remindAt so this guest can never re-qualify for a reminder
+                g.createdAt(), LocalDateTime.now(),
+                g.partyId(), g.partyName(), g.partyContact(),
+                g.sheetSyncId(), g.syncedFromSheet()
+        );
+    }
+
     private Guest getGuest(UUID coupleId, UUID guestId) {
         Guest guest = guestRepository.findById(guestId)
                 .orElseThrow(() -> new GuestNotFoundException(guestId.toString()));
@@ -782,10 +900,11 @@ public class GuestService {
         // Invalidate any outstanding invite tokens before issuing a new one
         tokenRepository.deleteAllByGuestId(guest.id());
 
+        LocalDate coupleWeddingDate = website != null ? website.weddingDate() : null;
         String rawToken = UUID.randomUUID().toString();
         RsvpInviteToken token = new RsvpInviteToken(
                 null, hash(rawToken), guest.id(),
-                LocalDateTime.now().plusDays(INVITE_EXPIRY_DAYS),
+                computeInviteExpiry(coupleWeddingDate, LocalDateTime.now()),
                 false, null, RsvpInviteToken.SOURCE_INVITE
         );
         tokenRepository.save(token);
@@ -822,6 +941,22 @@ public class GuestService {
                 guest.sheetSyncId(), guest.syncedFromSheet()
         );
         return guestRepository.save(updated);
+    }
+
+    // Derive an RSVP invite token's expiry from the wedding date so the emailed link stays valid
+    // through the wedding weekend, instead of a fixed 30 days after send (issue #216). Package
+    // private and static (pure function of its inputs) so it is unit-testable without a Spring
+    // context. Rules:
+    //   - wedding date set: expires at end of (weddingDate + grace days);
+    //   - no wedding date:  expires now + INVITE_EXPIRY_NO_DATE_DAYS;
+    //   - floor: never before now + INVITE_EXPIRY_FLOOR_DAYS, covering a wedding that is tomorrow
+    //     (or already past) so a late send still yields a usable link.
+    static LocalDateTime computeInviteExpiry(LocalDate weddingDate, LocalDateTime now) {
+        LocalDateTime floor = now.plusDays(INVITE_EXPIRY_FLOOR_DAYS);
+        LocalDateTime candidate = weddingDate != null
+                ? weddingDate.plusDays(INVITE_EXPIRY_GRACE_DAYS_AFTER_WEDDING).atTime(LocalTime.MAX)
+                : now.plusDays(INVITE_EXPIRY_NO_DATE_DAYS);
+        return candidate.isAfter(floor) ? candidate : floor;
     }
 
     // token.source() (SEARCH vs INVITE) is intentionally NOT checked here. The discriminator

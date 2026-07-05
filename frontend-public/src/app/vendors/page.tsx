@@ -112,6 +112,17 @@ export default async function VendorsPage({
   const prevHref = buildHref({ page: page - 1 })
   const nextHref = buildHref({ page: page + 1 })
 
+  // A zero-results state means one of two very different things. If the visitor
+  // has narrowed the directory (category, city, or price), it is a filter miss,
+  // not an empty directory, so we show what they filtered by and a one-click
+  // reset. If nothing is filtered, the directory is genuinely empty and the
+  // original "no vendors yet" copy is accurate.
+  const activeFilters: string[] = []
+  if (category) activeFilters.push(CATEGORY_LABELS[category] ?? category)
+  if (city) activeFilters.push(`"${city}"`)
+  if (tier) activeFilters.push(`Price ${tier}`)
+  const hasActiveFilters = activeFilters.length > 0
+
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
       <SiteHeader />
@@ -181,15 +192,37 @@ export default async function VendorsPage({
 
         {/* Grid */}
         {total === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-[#8a6a4a] text-lg mb-2">No vendors listed yet in this area</p>
-            <p className="text-sm text-[#8a6a4a]">
-              Are you a vendor?{' '}
-              <a href="https://app.altarwed.com/register/vendor" className="text-[#d4af6a] hover:underline">
-                List your business →
-              </a>
-            </p>
-          </div>
+          hasActiveFilters ? (
+            <div className="text-center py-20">
+              <p className="text-[#3b2f2f] text-lg mb-2">No vendors match these filters yet.</p>
+              <p className="mb-6 text-sm text-[#8a6a4a]">
+                Filtering by{' '}
+                <span className="font-medium text-[#6b5344]">{activeFilters.join(', ')}</span>.
+              </p>
+              <Link
+                href="/vendors"
+                className="inline-block rounded-lg bg-[#3b2f2f] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#5c4033] transition"
+              >
+                Clear all filters
+              </Link>
+              <p className="mt-6 text-sm text-[#8a6a4a]">
+                Are you a vendor?{' '}
+                <a href="https://app.altarwed.com/register/vendor" className="text-[#d4af6a] hover:underline">
+                  List your business →
+                </a>
+              </p>
+            </div>
+          ) : (
+            <div className="text-center py-20">
+              <p className="text-[#8a6a4a] text-lg mb-2">No vendors listed yet</p>
+              <p className="text-sm text-[#8a6a4a]">
+                Are you a vendor?{' '}
+                <a href="https://app.altarwed.com/register/vendor" className="text-[#d4af6a] hover:underline">
+                  List your business →
+                </a>
+              </p>
+            </div>
+          )
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {vendors.map(vendor => (

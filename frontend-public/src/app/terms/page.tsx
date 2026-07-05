@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://www.altarwed.com/terms' },
 }
 
-const EFFECTIVE_DATE = 'May 11, 2026'
+const EFFECTIVE_DATE = 'July 4, 2026'
 const CONTACT_EMAIL = 'hello@altarwed.com'
 
 export default function TermsPage() {
@@ -54,11 +54,17 @@ export default function TermsPage() {
               <p>We reserve the right to remove User Content that violates these Terms without notice.</p>
             </Section>
 
-            <Section title="5. Public Wedding Websites">
+            <Section title="5. Guest Information You Add">
+              <p>When you add guest information to the Service, such as names, email addresses, mailing addresses, phone numbers, dietary preferences, and RSVP details, you are the party that decides why and how that information is used. For guest information you provide, you act as the data controller and AltarWed acts as a data processor that stores and processes it only to operate the Service and only on your instructions.</p>
+              <p>You represent and warrant that you have the authority and any consent or permission required to provide each guest&apos;s information to AltarWed and to have us process it on your behalf. You are responsible for responding to guests who ask to access, correct, or delete the information you provided about them, and for telling those guests how their information is used.</p>
+              <p>If a guest contacts us directly about information you added, we may refer the request to you or ask you to act on it. You agree to indemnify AltarWed for any claim arising from guest information you provide without the authority or consent required by law.</p>
+            </Section>
+
+            <Section title="6. Public Wedding Websites">
               <p>When you publish your wedding website, it becomes accessible to anyone with the URL. You are responsible for the content you publish. You may unpublish or delete your website at any time. AltarWed displays a &ldquo;Created with AltarWed&rdquo; attribution on public wedding pages.</p>
             </Section>
 
-            <Section title="6. Prohibited Uses">
+            <Section title="7. Prohibited Uses">
               <p>You may not use the Service to:</p>
               <ul>
                 <li>Scrape, crawl, or harvest data from the platform without written permission</li>
@@ -70,7 +76,7 @@ export default function TermsPage() {
               </ul>
             </Section>
 
-            <Section title="7. Vendor Listings and Religious Mission">
+            <Section title="8. Vendor Listings and Religious Mission">
               <p>AltarWed is a faith-based platform dedicated to supporting Christian couples in planning their weddings and building their marriages on a foundation of faith.</p>
               <p>Vendors who list services on AltarWed acknowledge that the platform exists to serve couples planning Christian weddings consistent with a biblical understanding of marriage as a covenant between one man and one woman.</p>
               <p>By submitting a vendor listing, you represent that:</p>
@@ -85,39 +91,52 @@ export default function TermsPage() {
               <p>Paid vendor subscription plans govern additional terms for featured listings. All fees paid before a listing is removed for mission-inconsistency are non-refundable.</p>
             </Section>
 
-            <Section title="8. Payment and Subscriptions">
+            <Section title="9. Payment and Subscriptions">
               <p>Certain features of AltarWed require a paid subscription. Payment terms, pricing, and cancellation policies will be presented at the time of purchase. All fees are non-refundable except as required by law or as stated in our refund policy. We reserve the right to change pricing with 30 days&apos; notice to existing subscribers.</p>
             </Section>
 
-            <Section title="9. Intellectual Property">
+            <Section title="10. Intellectual Property">
               <p>The AltarWed name, logo, and all platform code, design, and original content are owned by AltarWed and protected by applicable intellectual property laws. You may not copy, modify, distribute, or create derivative works without our written permission.</p>
             </Section>
 
-            <Section title="10. Disclaimer of Warranties">
+            <Section title="11. Copyright Complaints (DMCA)">
+              <p>AltarWed respects the intellectual property rights of others and responds to notices of alleged copyright infringement under the Digital Millennium Copyright Act (DMCA). If you believe content on the Service infringes a copyright you own or control, send a written notice to our designated agent at <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> that includes:</p>
+              <ul>
+                <li>A physical or electronic signature of the copyright owner or a person authorized to act on their behalf</li>
+                <li>Identification of the copyrighted work you claim has been infringed</li>
+                <li>Identification of the material you claim is infringing, with enough detail for us to locate it, such as the URL</li>
+                <li>Your name, mailing address, telephone number, and email address</li>
+                <li>A statement that you have a good faith belief that the use is not authorized by the copyright owner, its agent, or the law</li>
+                <li>A statement, made under penalty of perjury, that the information in your notice is accurate and that you are the copyright owner or authorized to act on the owner&apos;s behalf</li>
+              </ul>
+              <p>We will remove or disable access to material we determine to be infringing, and in appropriate circumstances we will terminate the accounts of users who repeatedly infringe. If you believe your material was removed by mistake or misidentification, you may send a counter-notice to the same address.</p>
+            </Section>
+
+            <Section title="12. Disclaimer of Warranties">
               <p>THE SERVICE IS PROVIDED &ldquo;AS IS&rdquo; AND &ldquo;AS AVAILABLE&rdquo; WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED, ERROR-FREE, OR FREE OF VIRUSES OR OTHER HARMFUL COMPONENTS.</p>
             </Section>
 
-            <Section title="11. Limitation of Liability">
+            <Section title="13. Limitation of Liability">
               <p>TO THE MAXIMUM EXTENT PERMITTED BY LAW, ALTARWED SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS, REVENUE, DATA, OR GOODWILL, ARISING OUT OF OR IN CONNECTION WITH YOUR USE OF THE SERVICE, EVEN IF WE HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES. OUR TOTAL LIABILITY TO YOU FOR ANY CLAIM ARISING FROM THESE TERMS OR THE SERVICE SHALL NOT EXCEED $100.</p>
             </Section>
 
-            <Section title="12. Indemnification">
+            <Section title="14. Indemnification">
               <p>You agree to indemnify and hold harmless AltarWed and its officers, directors, and employees from any claims, damages, losses, and expenses (including reasonable attorneys&apos; fees) arising from your use of the Service, your User Content, or your violation of these Terms.</p>
             </Section>
 
-            <Section title="13. Termination">
+            <Section title="15. Termination">
               <p>You may delete your account at any time from your account settings. We reserve the right to suspend or terminate your account at any time for violation of these Terms. Upon termination, your right to use the Service ceases immediately.</p>
             </Section>
 
-            <Section title="14. Governing Law">
+            <Section title="16. Governing Law">
               <p>These Terms are governed by the laws of the United States. Any disputes arising under these Terms shall be subject to the exclusive jurisdiction of courts located in the United States.</p>
             </Section>
 
-            <Section title="15. Changes to Terms">
+            <Section title="17. Changes to Terms">
               <p>We may update these Terms from time to time. We will notify you of material changes by email and by posting a notice on our website. Continued use of the Service after changes become effective constitutes your acceptance of the updated Terms.</p>
             </Section>
 
-            <Section title="16. Contact">
+            <Section title="18. Contact">
               <p>Questions about these Terms? Contact us at <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.</p>
             </Section>
           </div>
