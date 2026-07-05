@@ -23,7 +23,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -378,5 +380,76 @@ class GuestServiceTest {
                 .isInstanceOf(CaptchaVerificationFailedException.class);
 
         verifyNoInteractions(websiteRepository, guestRepository, tokenRepository);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Issue #216: RSVP invite tokens expire relative to the wedding date, not a fixed 30 days
+    // after send, so a guest who clicks the emailed link in the final weeks before the wedding
+    // no longer hits a dead "This link has expired" screen.
+    //   - wedding date set:  expires at end of (weddingDate + 3 days);
+    //   - no wedding date:   expires now + 365 days;
+    //   - wedding tomorrow:  the 30-day floor keeps the link usable despite a very near date.
+    // computeInviteExpiry is a pure function, so the branch logic is asserted directly, then one
+    // wiring test proves sendInvite actually feeds the couple's wedding date into it.
+    // ---------------------------------------------------------------------------
+
+    @Test
+    void computeInviteExpiry_weddingEightWeeksOut_staysValidThroughWeddingWeekend() {
+        LocalDateTime now = LocalDateTime.of(2026, 1, 1, 9, 0);
+        LocalDate weddingDate = now.toLocalDate().plusWeeks(8); // 2026-02-26
+
+        LocalDateTime expiry = GuestService.computeInviteExpiry(weddingDate, now);
+
+        // Expires at the very end of (wedding date + 3 days), well past the wedding weekend and
+        // far beyond the old now+30 window (which would have died on 2026-01-31).
+        assertThat(expiry).isEqualTo(weddingDate.plusDays(3).atTime(LocalTime.MAX));
+        assertThat(expiry.toLocalDate()).isAfter(weddingDate);
+        assertThat(expiry).isAfter(now.plusDays(30));
+    }
+
+    @Test
+    void computeInviteExpiry_noWeddingDate_fallsBackToOneYear() {
+        LocalDateTime now = LocalDateTime.of(2026, 1, 1, 9, 0);
+
+        LocalDateTime expiry = GuestService.computeInviteExpiry(null, now);
+
+        assertThat(expiry).isEqualTo(now.plusDays(365));
+    }
+
+    @Test
+    void computeInviteExpiry_weddingTomorrow_appliesThirtyDayFloor() {
+        LocalDateTime now = LocalDateTime.of(2026, 1, 1, 9, 0);
+        LocalDate weddingDate = now.toLocalDate().plusDays(1); // wedding is tomorrow
+
+        LocalDateTime expiry = GuestService.computeInviteExpiry(weddingDate, now);
+
+        // Wedding + 3 days would expire in ~4 days, below the floor, so the floor (now + 30 days)
+        // wins and the link stays usable for a couple who sent invites at the last minute.
+        assertThat(expiry).isEqualTo(now.plusDays(30));
+        assertThat(expiry).isAfter(weddingDate.plusDays(3).atTime(LocalTime.MAX));
+    }
+
+    @Test
+    void sendInvite_setsTokenExpiryFromWeddingDate_notFixedThirtyDays() {
+        UUID coupleId = UUID.randomUUID();
+        Guest g = guest(coupleId, "Anna", "anna@example.com");
+        LocalDate weddingDate = LocalDate.now().plusWeeks(8);
+
+        WeddingWebsite website = mock(WeddingWebsite.class);
+        when(website.weddingDate()).thenReturn(weddingDate);
+
+        when(guestRepository.findById(g.id())).thenReturn(Optional.of(g));
+        when(suppressionService.isSuppressed(eq(coupleId), anyString())).thenReturn(false);
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.of(website));
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
+        when(guestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service().sendInvite(coupleId, g.id());
+
+        ArgumentCaptor<RsvpInviteToken> saved = ArgumentCaptor.forClass(RsvpInviteToken.class);
+        verify(tokenRepository).save(saved.capture());
+        // The persisted token expires from the wedding date, not now+30, so a late click still works.
+        assertThat(saved.getValue().expiresAt())
+                .isEqualTo(weddingDate.plusDays(3).atTime(LocalTime.MAX));
     }
 }
