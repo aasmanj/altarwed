@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import confetti from 'canvas-confetti'
+import { fireConfetti } from '@/lib/fireConfetti'
 import {
   ChevronDown, ChevronRight, AlertTriangle, CalendarClock, CalendarRange, CalendarDays, CheckCircle2,
   Cross, Gem, Landmark, Camera, ClipboardList, Shirt, Users, PartyPopper, Plane, Trash2,
@@ -140,7 +140,7 @@ export default function ChecklistPage() {
       if (msg) {
         setCelebrateMsg(msg)
         setAnnounce(msg)
-        confetti({
+        fireConfetti({
           particleCount: current === 100 ? 220 : 120,
           spread: current === 100 ? 100 : 70,
           origin: { y: 0.4 },

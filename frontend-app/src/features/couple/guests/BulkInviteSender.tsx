@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import confetti from 'canvas-confetti'
+import { fireConfetti } from '@/lib/fireConfetti'
 import { ChevronDown, ChevronUp, Send } from 'lucide-react'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { useSendBulkInvites, type Guest } from './useGuests'
@@ -80,7 +80,7 @@ export default function BulkInviteSender({ coupleId, guests }: { coupleId: strin
       }
       if (result.sent > 0) {
         toast.success(summariseInviteResult(result))
-        confetti({
+        fireConfetti({
           particleCount: 140,
           spread: 80,
           origin: { y: 0.5 },

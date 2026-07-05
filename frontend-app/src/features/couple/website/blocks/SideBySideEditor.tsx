@@ -5,7 +5,7 @@ import { useAuth } from '@/core/auth/AuthContext'
 import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2, AlertCircle, ImagePlus, Smartphone, Monitor, Settings2, Pencil, ChevronUp, ChevronDown, X } from 'lucide-react'
 import { apiClient } from '@/core/api/client'
 import { captureEvent } from '@/core/analytics/analytics'
-import confetti from 'canvas-confetti'
+import { fireConfetti } from '@/lib/fireConfetti'
 import { useWeddingWebsite, usePublishWeddingWebsite, useUpdateWeddingWebsite, type WeddingWebsite } from '../useWeddingWebsite'
 import ShareModal from '../ShareModal'
 import DraftBanner from '../DraftBanner'
@@ -467,7 +467,7 @@ export default function SideBySideEditor() {
           captureEvent('website_published', { slug: website.slug })
           // Mirror the classic editor: confetti + the ShareModal prompting the
           // couple to send their new live link at the highest-leverage instant.
-          confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 }, colors: ['#d4af6a', '#3b2f2f', '#f5ede0'] })
+          fireConfetti({ particleCount: 120, spread: 80, origin: { y: 0.5 }, colors: ['#d4af6a', '#3b2f2f', '#f5ede0'] })
           setShowShareModal(true)
         }
       },
