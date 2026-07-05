@@ -35,6 +35,9 @@ describe('lightbox loading spinner state switch (#309A)', () => {
     // The enlarged image clears the spinner via its own onLoad / onError.
     expect(src).toContain("onLoad={() => setLightboxLoading(lightboxSpinnerVisibleAfter('loaded'))}")
     expect(src).toContain("onError={() => setLightboxLoading(lightboxSpinnerVisibleAfter('error'))}")
+    // Cache-hit path: onLoad does not fire for an already-complete (cached)
+    // image, so a ref + effect reads img.complete to clear the stuck spinner.
+    expect(src).toContain('lightboxImgRef.current?.complete')
     // The overlay only renders while loading, and does not eat pointer events
     // (so the backdrop click-to-close still works underneath it).
     expect(src).toContain('{lightboxLoading && (')

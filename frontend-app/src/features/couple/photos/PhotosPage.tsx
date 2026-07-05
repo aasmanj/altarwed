@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef, type ReactNode, type CSSProperties } from 'react'
+import { useCallback, useEffect, useState, useRef, type ReactNode, type CSSProperties } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { Camera, ExternalLink, X, Crop, GripVertical } from 'lucide-react'
 import {
@@ -173,6 +173,20 @@ export default function PhotosPage() {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [lightboxLoading, setLightboxLoading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null)
+  const lightboxImgRef = useRef<HTMLImageElement>(null)
+
+  // Cache-hit path for the lightbox spinner: the enlarged <img> reuses the same
+  // `photo.url` as the thumbnail, so the image is usually already in the browser
+  // cache and its load completes before React binds onLoad. React does not fire
+  // onLoad for an already-complete image, so the spinner would hang forever.
+  // Reading `img.complete` after mount clears it for the cached case; onLoad /
+  // onError still cover the genuine cache-miss fetch. (Escape-to-close is handled
+  // by AnimatedModal's useModalA11y, not duplicated here.)
+  useEffect(() => {
+    if (lightboxImgRef.current?.complete) {
+      setLightboxLoading(false)
+    }
+  }, [lightboxUrl])
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
@@ -475,6 +489,7 @@ export default function PhotosPage() {
               <X size={24} />
             </button>
             <img
+              ref={lightboxImgRef}
               src={lightboxUrl}
               alt="Enlarged view"
               className="max-w-full max-h-full object-contain rounded-lg"
