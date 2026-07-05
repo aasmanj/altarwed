@@ -12,6 +12,9 @@ import posthog from 'posthog-js'
 //   - session recording OFF. The authed dashboard renders guest names, emails,
 //     and addresses; recording it is a PII liability until masking + consent
 //     ship in Session 3. Do not flip this on without configuring input masking.
+// In prod VITE_POSTHOG_HOST is the PostHog managed reverse proxy (https://f.altarwed.com):
+// events go out as first-party traffic so ad blockers that blanket-block *.posthog.com
+// do not blind the funnel. The fallback stays the direct US ingest host for local dev.
 const HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) || 'https://us.i.posthog.com'
 
 // Two separate flags on purpose:
@@ -53,6 +56,9 @@ export function initAnalytics(): void {
   if (!initialized) {
     posthog.init(KEY, {
       api_host: HOST,
+      // With api_host behind our reverse proxy, ui_host must point at the real
+      // PostHog app or toolbar/debug links would resolve against the proxy domain.
+      ui_host: 'https://us.posthog.com',
       persistence: 'localStorage',
       person_profiles: 'identified_only',
       // Safe to capture the initial pageview here: init only runs post-consent,
