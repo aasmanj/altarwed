@@ -107,6 +107,100 @@ export function parseRows(rawRows: Record<string, string>[]): ParsedRow[] {
   return rows
 }
 
+// Per-import row cap the backend enforces (CreateGuestBulkRequest @Size(max=500)).
+// We check it client-side too so a couple with a 600-row sheet gets a specific,
+// actionable message before any network call instead of a generic "Import failed".
+export const MAX_IMPORT_ROWS = 500
+
+// Minimal shape of an already-saved guest the duplicate matcher needs. Kept
+// narrow (not the full Guest type) so this layer stays pure and unit-testable
+// without react-query or the API client.
+export interface ExistingGuestKey {
+  name: string
+  email?: string | null
+}
+
+// Why a parsed row was flagged: it matches a guest already on the list, or an
+// earlier row in the same file. Drives the wording in the preview.
+export type DuplicateReason = 'existing' | 'in-file'
+
+export interface DuplicateReport {
+  // Parallel to the parsed rows: the reason each row was flagged, or null when
+  // the row looks new. Index-aligned so the preview can mark individual rows.
+  reasons: (DuplicateReason | null)[]
+  // Rows that match someone already on the guest list.
+  existingCount: number
+  // Rows that repeat an earlier row inside this same file.
+  inFileCount: number
+}
+
+// Normalize a full name for duplicate comparison: trim the ends, collapse any run
+// of internal whitespace to a single space, and lowercase. So "  Mary   Jane " and
+// "mary jane" compare equal. Deliberately conservative (no accent folding) so we
+// only warn on near-certain matches.
+export function normalizeName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+// Normalize an email for comparison: trim and lowercase. Empty/whitespace-only
+// becomes '' so callers can treat "no email" as never-matching.
+export function normalizeEmail(email?: string | null): string {
+  return (email ?? '').trim().toLowerCase()
+}
+
+// Pure duplicate matcher. A parsed row is a likely duplicate when either:
+//   - its email matches an existing guest's email (case-insensitive, both non-empty), or
+//   - its normalized full name matches an existing guest's normalized name.
+// The same two keys also detect repeats WITHIN the file: an earlier parsed row
+// counts as the "existing" side for the rows that follow it. Empty emails never
+// match each other (only names can match when the email is blank), so a sheet of
+// address-less guests is not collapsed into one.
+export function findDuplicates(rows: ParsedRow[], existing: ExistingGuestKey[]): DuplicateReport {
+  const existingEmails = new Set<string>()
+  const existingNames = new Set<string>()
+  for (const g of existing) {
+    const email = normalizeEmail(g.email)
+    if (email) existingEmails.add(email)
+    const name = normalizeName(g.name)
+    if (name) existingNames.add(name)
+  }
+
+  // Keys seen in earlier rows of this same file, so a later row can match them.
+  const seenEmails = new Set<string>()
+  const seenNames = new Set<string>()
+
+  const reasons: (DuplicateReason | null)[] = []
+  let existingCount = 0
+  let inFileCount = 0
+
+  for (const row of rows) {
+    const email = normalizeEmail(row.email)
+    const name = normalizeName(row.name)
+
+    const matchesExisting =
+      (email !== '' && existingEmails.has(email)) || (name !== '' && existingNames.has(name))
+    const matchesInFile =
+      (email !== '' && seenEmails.has(email)) || (name !== '' && seenNames.has(name))
+
+    let reason: DuplicateReason | null = null
+    if (matchesExisting) {
+      reason = 'existing'
+      existingCount++
+    } else if (matchesInFile) {
+      reason = 'in-file'
+      inFileCount++
+    }
+    reasons.push(reason)
+
+    // Record this row's keys after classifying it, so it can be the match target
+    // for the rows that come after.
+    if (email) seenEmails.add(email)
+    if (name) seenNames.add(name)
+  }
+
+  return { reasons, existingCount, inFileCount }
+}
+
 export async function parseFile(file: File): Promise<ParsedRow[]> {
   const { read, utils } = await import('xlsx')
   const data = new Uint8Array(await file.arrayBuffer())
