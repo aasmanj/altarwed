@@ -53,11 +53,13 @@ const REGISTRIES = [
     name: 'Amazon Wedding Registry',
     description: 'The most flexible option. Millions of products, easy returns, and a universal registry feature that pulls from any store.',
     href: 'https://www.amazon.com/wedding/home?tag=altarwed-20',
+    isAffiliate: true,
   },
   {
     name: 'Target Wedding Registry',
     description: 'Great for everyday home essentials. Couples love the 15% completion discount and wide in-store availability.',
     href: 'https://www.target.com/gift-registry/wedding',
+    isAffiliate: false,
   },
 ]
 
@@ -118,17 +120,20 @@ export default function ResourcesPage() {
 
           {/* Registries */}
           <section>
-            <div className="text-center mb-10">
+            <div className="text-center mb-6">
               <h2 className="font-serif text-3xl font-bold text-[#3b2f2f] mb-2">Wedding Registries</h2>
               <p className="text-sm text-[#8a6a4a]">Set up your registry. You can link up to three on your AltarWed wedding website.</p>
             </div>
+            <p className="text-xs text-center text-[#8a6a4a] mb-8">
+              Some links below, including the Amazon Wedding Registry, are affiliate links. As an Amazon Associate, AltarWed earns from qualifying purchases at no extra cost to you.
+            </p>
             <div className="grid sm:grid-cols-2 gap-4">
               {REGISTRIES.map(r => (
                 <a
                   key={r.name}
                   href={r.href}
                   target="_blank"
-                  rel="noopener noreferrer"
+                  rel={r.isAffiliate ? 'noopener noreferrer sponsored' : 'noopener noreferrer'}
                   className="flex gap-4 rounded-xl border border-[#e8dcc8] bg-white p-5 hover:border-[#d4af6a] hover:shadow-sm transition group"
                 >
                   <ShoppingBag className="w-6 h-6 text-[#d4af6a] shrink-0 mt-0.5" strokeWidth={1.5} />
