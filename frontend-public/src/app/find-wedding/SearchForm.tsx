@@ -27,7 +27,15 @@ export default function SearchForm({ defaultName, defaultYear, yearOptions }: Pr
   return (
     <form
       method="GET"
-      onSubmit={() => setPending(true)}
+      onSubmit={e => {
+        // Guard instead of `disabled` so keyboard focus stays on the button
+        // (disabling a focused element drops focus to <body> mid-navigation).
+        if (pending) {
+          e.preventDefault()
+          return
+        }
+        setPending(true)
+      }}
       aria-busy={pending}
       className="flex flex-col sm:flex-row gap-3"
     >
@@ -52,14 +60,15 @@ export default function SearchForm({ defaultName, defaultYear, yearOptions }: Pr
       </select>
       <button
         type="submit"
-        disabled={pending}
-        className="rounded-xl bg-[#3b2f2f] px-6 py-3 text-sm font-semibold text-white hover:bg-[#5c4033] transition whitespace-nowrap disabled:cursor-wait disabled:opacity-70"
+        aria-disabled={pending}
+        className={`rounded-xl bg-[#3b2f2f] px-6 py-3 text-sm font-semibold text-white hover:bg-[#5c4033] transition whitespace-nowrap ${pending ? 'cursor-wait opacity-70' : ''}`}
       >
         {pending ? 'Searching…' : 'Search'}
       </button>
-      {pending && (
-        <span role="status" className="sr-only">Searching for weddings</span>
-      )}
+      {/* Always mounted: live regions inserted into the DOM with content already
+          present are unreliably announced by NVDA/VoiceOver, so only the text
+          toggles. */}
+      <span role="status" className="sr-only">{pending ? 'Searching for weddings' : ''}</span>
     </form>
   )
 }

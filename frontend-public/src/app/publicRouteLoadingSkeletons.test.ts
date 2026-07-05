@@ -93,17 +93,27 @@ describe('find-wedding Search button shows a pending state on submit (#297)', ()
     expect(form).toContain('method="GET"')
   })
 
-  it('submit flips a pending flag that disables the button and swaps its label', () => {
-    expect(form).toContain('onSubmit={() => setPending(true)}')
-    expect(form).toContain('disabled={pending}')
+  it('submit flips a pending flag that guards re-submit and swaps the label', () => {
+    expect(form).toContain('setPending(true)')
     expect(form).toContain("{pending ? 'Searching…' : 'Search'}")
     expect(form).toContain('aria-busy={pending}')
+    // Re-submit is blocked by an early-return guard, not `disabled`, so
+    // keyboard focus is never dropped from the focused button.
+    expect(form).toContain('e.preventDefault()')
+    expect(form).toContain('aria-disabled={pending}')
+    // Whitespace-anchored so it rejects the bare attribute without matching
+    // the `aria-disabled` occurrence above.
+    expect(form).not.toMatch(/\sdisabled=\{pending\}/)
   })
 
-  it('announces the pending search to screen readers via a live region', () => {
-    const statusIdx = form.indexOf('role="status"')
-    expect(statusIdx).toBeGreaterThan(-1)
-    expect(form).toContain('Searching for weddings')
+  it('announces the pending search via an always-mounted live region', () => {
+    // The span must stay mounted with only its text toggling: live regions
+    // inserted into the DOM with content already present are unreliably
+    // announced by NVDA/VoiceOver.
+    expect(form).toContain(
+      '<span role="status" className="sr-only">{pending ? \'Searching for weddings\' : \'\'}</span>'
+    )
+    expect(form).not.toContain('{pending && (')
   })
 
   it('resets pending on bfcache restore so the back button never strands a disabled form', () => {
