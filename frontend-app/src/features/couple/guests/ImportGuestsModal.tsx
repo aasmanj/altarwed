@@ -1,76 +1,8 @@
 import { useState, useRef } from 'react'
 import { X, Upload } from 'lucide-react'
-import type { GuestSide } from './useGuests'
+import { useModalA11y } from '@/lib/useModalA11y'
+import { parseFile, toCreatePayload, type ParsedRow } from './guestImport'
 import type { CreateGuestPayload } from './useGuests'
-
-interface ParsedRow {
-  name: string
-  email?: string
-  phone?: string
-  side?: GuestSide
-  dietaryRestrictions?: string
-  notes?: string
-}
-
-// Case-insensitive header -> field mapping
-const HEADER_MAP: { patterns: string[]; field: keyof ParsedRow }[] = [
-  { patterns: ['name', 'full name', 'guest name', 'guest name(s)', 'guest names'], field: 'name' },
-  { patterns: ['email', 'email address'], field: 'email' },
-  { patterns: ['phone', 'phone number', 'phone #'], field: 'phone' },
-  { patterns: ['side', 'side (bride or groom)'], field: 'side' },
-  { patterns: ['dietary', 'dietary restrictions', 'dietary restriction'], field: 'dietaryRestrictions' },
-  { patterns: ['notes'], field: 'notes' },
-]
-
-function detectField(header: string): keyof ParsedRow | null {
-  const h = header.trim().toLowerCase()
-  for (const { patterns, field } of HEADER_MAP) {
-    if (patterns.some(p => p === h)) return field
-  }
-  return null
-}
-
-function normalizeSide(raw: string): GuestSide | undefined {
-  const v = raw.trim().toUpperCase()
-  if (v === 'BRIDE' || v === 'GROOM' || v === 'BOTH') return v
-  if (v === 'B') return 'BRIDE'
-  if (v === 'G') return 'GROOM'
-  return undefined
-}
-
-async function parseFile(file: File): Promise<ParsedRow[]> {
-  const { read, utils } = await import('xlsx')
-  const data = new Uint8Array(await file.arrayBuffer())
-  const wb = read(data, { type: 'array' })
-  const sheet = wb.Sheets[wb.SheetNames[0]]
-  const rawRows = utils.sheet_to_json<Record<string, string>>(sheet, { defval: '' })
-
-  if (rawRows.length === 0) return []
-
-  // Build a column index from the first row's keys (the headers SheetJS extracts)
-  const headers = Object.keys(rawRows[0])
-  const colMap: { colKey: string; field: keyof ParsedRow }[] = []
-  for (const colKey of headers) {
-    const field = detectField(colKey)
-    if (field) colMap.push({ colKey, field })
-  }
-
-  const rows: ParsedRow[] = []
-  for (const row of rawRows) {
-    const parsed: Partial<ParsedRow> = {}
-    for (const { colKey, field } of colMap) {
-      const val = String(row[colKey] ?? '').trim()
-      if (!val) continue
-      if (field === 'side') {
-        parsed.side = normalizeSide(val)
-      } else {
-        parsed[field] = val
-      }
-    }
-    if (parsed.name) rows.push(parsed as ParsedRow)
-  }
-  return rows
-}
 
 interface Props {
   coupleId: string
@@ -85,6 +17,9 @@ export default function ImportGuestsModal({ onImport, onClose, isPending }: Prop
   const [parseError, setParseError] = useState('')
   const [parsing, setParsing] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  // Focus in on open, Escape closes, focus restored on close (WCAG 2.4.3 / 2.1.2),
+  // matching AddGuestModal and the budget modal.
+  const dialogRef = useModalA11y<HTMLDivElement>(true, onClose)
 
   const handleFile = async (file: File) => {
     setParseError('')
@@ -112,60 +47,56 @@ export default function ImportGuestsModal({ onImport, onClose, isPending }: Prop
 
   const handleImport = async () => {
     if (!rows || rows.length === 0) return
-    await onImport(rows.map(r => ({
-      name: r.name,
-      email: r.email || undefined,
-      phone: r.phone || undefined,
-      side: r.side,
-      dietaryRestrictions: r.dietaryRestrictions || undefined,
-      notes: r.notes || undefined,
-      plusOneAllowed: false,
-    })))
+    await onImport(rows.map(toCreatePayload))
   }
 
   const preview = rows?.slice(0, 10) ?? []
 
+  // Compact address for the preview so a couple can confirm mailing details survived
+  // the import before committing (postcards filter on mailLine1, so this is the
+  // load-bearing outcome of the column-parity fix). Falls back to city/state when
+  // only a partial address was provided.
+  const previewAddress = (row: ParsedRow): string => {
+    const cityState = [row.mailCity, row.mailState].filter(Boolean).join(', ')
+    return row.mailLine1 || cityState || '-'
+  }
+
   return (
-    <div
-      role="presentation"
-      className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4"
-      onClick={e => e.target === e.currentTarget && onClose()}
-      onKeyDown={e => e.key === 'Escape' && onClose()}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="import-dialog-title"
-        tabIndex={-1}
-        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+        className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gold-light shrink-0">
           <h2 id="import-dialog-title" className="font-serif text-lg font-semibold text-brown">
             Import guests from spreadsheet
           </h2>
-          <button onClick={onClose} aria-label="Close" className="text-brown-light hover:text-brown">
+          <button onClick={onClose} aria-label="Close" className="text-brown-light hover:text-brown focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded">
             <X size={20} />
           </button>
         </div>
 
         {/* Body */}
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
-          {/* Drop zone */}
-          <div
-            role="button"
-            tabIndex={0}
-            className="rounded-xl border-2 border-dashed border-gold/50 bg-ivory/60 hover:border-gold hover:bg-gold/5 transition cursor-pointer p-8 text-center"
-            onClick={() => inputRef.current?.click()}
-            onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && inputRef.current?.click()}
-            onDrop={handleDrop}
-            onDragOver={e => e.preventDefault()}
-          >
-            <Upload size={28} className="mx-auto mb-2 text-gold" />
-            <p className="text-sm font-medium text-brown">
-              {fileName ? fileName : 'Drop a file here, or click to choose'}
-            </p>
-            <p className="text-xs text-brown-light mt-1">Accepts .xlsx, .xls, and .csv</p>
+          {/* Drop zone: the wrapper carries the drag handlers; the click/keyboard
+              affordance is a real <button> so it is operable and announced natively. */}
+          <div onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              className="w-full rounded-xl border-2 border-dashed border-gold/50 bg-ivory/60 hover:border-gold hover:bg-gold/5 transition cursor-pointer p-8 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            >
+              <Upload size={28} className="mx-auto mb-2 text-gold" />
+              <span className="block text-sm font-medium text-brown">
+                {fileName ? fileName : 'Drop a file here, or click to choose'}
+              </span>
+              <span className="block text-xs text-brown-light mt-1">Accepts .xlsx, .xls, and .csv</span>
+            </button>
             <input
               ref={inputRef}
               type="file"
@@ -179,9 +110,11 @@ export default function ImportGuestsModal({ onImport, onClose, isPending }: Prop
           {/* Column hint */}
           {!rows && !parseError && (
             <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800">
-              <span className="font-semibold">Supported columns (case-insensitive):</span>{' '}
-              Name (required), Email, Phone, Side, Dietary Restrictions, Notes.
-              Extra columns are ignored.
+              <span className="font-semibold">Works with the guest list template.</span>{' '}
+              Most columns from the "Copy headers" template import, including party, mailing
+              address, plus-one allowed, side, dietary, and the basics. Headers are matched
+              case-insensitively and only Name is required. A few columns you manage inside
+              AltarWed are skipped: Plus One Name, RSVP Status, and Table #.
             </div>
           )}
 
@@ -210,6 +143,7 @@ export default function ImportGuestsModal({ onImport, onClose, isPending }: Prop
                       <th className="px-3 py-2 text-left text-brown-light font-semibold">Name</th>
                       <th className="px-3 py-2 text-left text-brown-light font-semibold hidden sm:table-cell">Email</th>
                       <th className="px-3 py-2 text-left text-brown-light font-semibold">Side</th>
+                      <th className="px-3 py-2 text-left text-brown-light font-semibold">Address</th>
                       <th className="px-3 py-2 text-left text-brown-light font-semibold hidden md:table-cell">Dietary</th>
                     </tr>
                   </thead>
@@ -219,6 +153,7 @@ export default function ImportGuestsModal({ onImport, onClose, isPending }: Prop
                         <td className="px-3 py-2 text-brown font-medium">{row.name}</td>
                         <td className="px-3 py-2 text-brown-light hidden sm:table-cell">{row.email ?? '-'}</td>
                         <td className="px-3 py-2 text-brown-light capitalize">{row.side?.toLowerCase() ?? '-'}</td>
+                        <td className="px-3 py-2 text-brown-light max-w-[12rem] truncate" title={previewAddress(row)}>{previewAddress(row)}</td>
                         <td className="px-3 py-2 text-brown-light hidden md:table-cell">{row.dietaryRestrictions ?? '-'}</td>
                       </tr>
                     ))}
