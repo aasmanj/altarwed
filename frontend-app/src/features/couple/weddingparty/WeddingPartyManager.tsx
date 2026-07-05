@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { ChevronUp, ChevronDown, Camera } from 'lucide-react'
+import { toast } from 'sonner'
 import { useConfirm } from '@/components/ConfirmDialog'
+import { errorDetail } from '@/lib/apiError'
 import {
   useWeddingParty, useAddMember, useUpdateMember, useDeleteMember, useUploadMemberPhoto, useReorderParty,
   type WeddingPartyMember, type PartySide,
@@ -230,11 +232,18 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
           saving={updateMember.isPending}
           onCancel={() => setRepositioning(null)}
           onSave={async ({ focalX, focalY, zoom }) => {
-            await updateMember.mutateAsync({
-              memberId: repositioning.id,
-              payload: { focalPointX: focalX, focalPointY: focalY, zoom },
-            })
-            setRepositioning(null)
+            // Keep the modal open on failure so the couple can retry; before this
+            // a rejected save showed nothing and escaped as an unhandled promise
+            // rejection (issue #302).
+            try {
+              await updateMember.mutateAsync({
+                memberId: repositioning.id,
+                payload: { focalPointX: focalX, focalPointY: focalY, zoom },
+              })
+              setRepositioning(null)
+            } catch (err) {
+              toast.error(errorDetail(err, 'Could not save the new position. Please try again.'))
+            }
           }}
         />
       )}

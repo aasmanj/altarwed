@@ -6,6 +6,7 @@ import {
   type CustomQuestion, type QuestionType,
 } from './useCustomQuestions'
 import { useConfirm } from '@/components/ConfirmDialog'
+import { errorDetail } from '@/lib/apiError'
 
 const TYPE_LABEL: Record<QuestionType, string> = {
   TEXT: 'Text answer', YES_NO: 'Yes / No', CHOICE: 'Multiple choice',
@@ -94,8 +95,14 @@ export default function CustomQuestionsManager({ coupleId }: { coupleId: string 
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
+                      {/* Per-call onError (not on the hook) so the edit path's
+                          toast.promise does not double-toast. Add/edit/delete
+                          already surface failures; this branch was the gap (issue #302). */}
                       <button
-                        onClick={() => updateQ.mutate({ questionId: q.id, payload: { active: !q.active } })}
+                        onClick={() => updateQ.mutate(
+                          { questionId: q.id, payload: { active: !q.active } },
+                          { onError: (err) => toast.error(errorDetail(err, 'Could not update the question. Please try again.')) },
+                        )}
                         className="text-xs text-brown-light hover:text-brown"
                         title={q.active ? 'Hide from the RSVP form' : 'Show on the RSVP form'}
                       >

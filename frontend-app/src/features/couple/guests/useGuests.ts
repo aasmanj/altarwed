@@ -227,8 +227,19 @@ export function useRemoveGuest(coupleId: string) {
   return useMutation({
     mutationFn: (guestId: string) =>
       apiClient.delete(`/api/v1/guests/couple/${coupleId}/${guestId}`),
-    onSuccess: (_data, guestId) =>
-      qc.setQueryData<Guest[]>(key(coupleId), old => old?.filter(g => g.id !== guestId) ?? []),
+    // Optimistic removal with snapshot rollback (pattern: useReorderPhotos). The
+    // row disappears instantly; if the server rejects, the snapshot is restored
+    // and the couple is told why instead of the row silently staying (issue #302).
+    onMutate: async (guestId) => {
+      await qc.cancelQueries({ queryKey: key(coupleId) })
+      const previous = qc.getQueryData<Guest[]>(key(coupleId))
+      qc.setQueryData<Guest[]>(key(coupleId), old => old?.filter(g => g.id !== guestId) ?? [])
+      return { previous }
+    },
+    onError: (err: unknown, _guestId, ctx) => {
+      if (ctx?.previous) qc.setQueryData(key(coupleId), ctx.previous)
+      toast.error(errorDetail(err, 'Could not remove the guest. Please try again.'))
+    },
   })
 }
 
