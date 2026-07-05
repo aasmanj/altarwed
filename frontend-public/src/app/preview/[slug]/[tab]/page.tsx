@@ -14,6 +14,7 @@ import { notFound } from 'next/navigation'
 import { type WeddingPartyMember, type WeddingPhoto } from '@/components/blocks/BlockRenderer'
 import { getWedding, getBlocks, type BlockTab, parseTabCustomisation } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
+import { safeColor } from '@/lib/safeColor'
 import HeroLive from './HeroLive'
 import BlockListLive from './BlockListLive'
 
@@ -95,9 +96,8 @@ export default async function PreviewPage({
   const countdown = wedding.weddingDate ? daysUntilDate(wedding.weddingDate) : null
   const tabCustom = parseTabCustomisation(wedding)
 
-  const accentColor = /^#[0-9a-fA-F]{3,8}$/.test(wedding.accentColor ?? '')
-    ? wedding.accentColor!
-    : '#d4af6a'
+  const accentColor = safeColor(wedding.accentColor, '#d4af6a')
+  const scriptureBackgroundColor = safeColor(wedding.scriptureBackgroundColor, undefined)
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
@@ -184,8 +184,8 @@ export default async function PreviewPage({
       {/* Scripture banner, same as the public site */}
       {(wedding.scriptureText || wedding.scriptureReference) && (
         <section
-          className={`${wedding.scriptureBackgroundColor ? '' : 'bg-gradient-to-b from-[#3b2f2f] to-[#4a1942]'} py-10 px-6 text-center relative`}
-          style={wedding.scriptureBackgroundColor ? { backgroundColor: wedding.scriptureBackgroundColor } : undefined}
+          className={`${scriptureBackgroundColor ? '' : 'bg-gradient-to-b from-[#3b2f2f] to-[#4a1942]'} py-10 px-6 text-center relative`}
+          style={scriptureBackgroundColor ? { backgroundColor: scriptureBackgroundColor } : undefined}
         >
           <div className="absolute inset-x-0 top-0 h-px bg-[#d4af6a]/40" />
           <div className="absolute inset-x-0 bottom-0 h-px bg-[#d4af6a]/40" />
