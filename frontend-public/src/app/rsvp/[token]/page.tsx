@@ -124,8 +124,26 @@ export default async function RsvpPage(
         </p>
       </div>
 
-      <footer className="text-center text-xs text-[#8a6a4a] pb-10">
-        Powered by <a href="https://www.altarwed.com" className="hover:underline">AltarWed</a>
+      {/* Viral CTA. A guest on a token RSVP link is the highest-intent free lead the
+          platform gets (many are engaged themselves), so replace the bare attribution
+          footer with the same create-your-own block the wedding footer and ComingSoon
+          carry. Distinct utm_campaign=rsvp-thankyou keeps this surface measurable and
+          separate from the wedding-footer (viral-footer) attribution. Kept compact here
+          because the post-submit done state carries its own CTA, so the two should not
+          both shout on the confirmation screen. */}
+      <footer className="border-t border-[#e8dcc8] py-10 px-6 text-center text-sm text-[#8a6a4a] space-y-3">
+        <p className="text-xs uppercase tracking-widest text-[#c4a882] font-medium">
+          Created on AltarWed
+        </p>
+        <p className="text-[#6b5344]">
+          Getting married too? Create your Christian wedding website for free.
+        </p>
+        <a
+          href="https://app.altarwed.com/register?utm_source=wedding-site&utm_medium=referral&utm_campaign=rsvp-thankyou"
+          className="inline-block px-6 py-2.5 rounded-full bg-[#3b2f2f] text-white text-xs font-semibold hover:bg-[#5c4033] transition"
+        >
+          Start for free →
+        </a>
       </footer>
     </div>
   )
