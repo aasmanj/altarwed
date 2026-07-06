@@ -21,6 +21,7 @@ import { MAX_UPLOAD_LABEL } from '@/lib/upload'
 import { toast } from 'sonner'
 import ImageRepositionModal from '@/components/ImageRepositionModal'
 import { framingStyle, apiFraming } from '@/lib/imageFraming'
+import { TOUCH_REVEAL } from '@/lib/touchReveal'
 import { runPhotoBatch, summarizePhotoBatch } from './photoBatchUpload'
 
 interface Photo {
@@ -299,18 +300,22 @@ export default function PhotosPage() {
                     style={framingStyle(apiFraming(photo))}
                   />
                 </button>
-                {/* Overlay controls */}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
+                {/* Overlay controls. TOUCH_REVEAL (src/lib/touchReveal.ts) keeps them
+                    visible on hover-incapable devices; the container itself stays
+                    pointer-events-none forever while each control opts back in with
+                    pointer-events-auto, so a tap on a control hits the control and a
+                    tap between them falls through to the enlarge button (lightbox). */}
+                <div className={`absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-2 pointer-events-none ${TOUCH_REVEAL}`}>
                   <button
                     onClick={() => setRepositioning(photo)}
-                    className="p-2 bg-white rounded-full shadow text-stone-700 hover:text-amber-600"
+                    className="pointer-events-auto p-2 bg-white rounded-full shadow text-stone-700 hover:text-amber-600"
                     title="Reposition photo"
                   >
                     <Crop className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => setEditingCaption({ id: photo.id, value: photo.caption ?? '' })}
-                    className="p-2 bg-white rounded-full shadow text-stone-700 hover:text-amber-600"
+                    className="pointer-events-auto p-2 bg-white rounded-full shadow text-stone-700 hover:text-amber-600"
                     title="Edit caption"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -326,7 +331,7 @@ export default function PhotosPage() {
                         confirmLabel: 'Remove',
                       })) deletePhoto.mutate(photo.id)
                     }}
-                    className="p-2 bg-white rounded-full shadow text-stone-700 hover:text-rose-600"
+                    className="pointer-events-auto p-2 bg-white rounded-full shadow text-stone-700 hover:text-rose-600"
                     title="Delete photo"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

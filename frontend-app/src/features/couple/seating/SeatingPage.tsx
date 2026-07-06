@@ -17,6 +17,7 @@ import {
   useDraggable,
 } from '@dnd-kit/core'
 import { Printer, Users, Search } from 'lucide-react'
+import { TOUCH_REVEAL } from '@/lib/touchReveal'
 import { useGuests, useAssignGuestTable, type Guest } from '@/features/couple/guests/useGuests'
 import {
   useSeatingTables,
@@ -68,7 +69,7 @@ function GuestChip({
           <button
             onPointerDown={stop}
             onClick={e => { stop(e); onUnassign() }}
-            className="opacity-0 group-hover:opacity-100 transition flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-stone-400 hover:text-rose-600 hover:bg-rose-50"
+            className={`${TOUCH_REVEAL} transition flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-stone-400 hover:text-rose-600 hover:bg-rose-50`}
             title="Remove from table"
             aria-label={`Unassign ${guest.name}`}
           >
