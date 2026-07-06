@@ -301,15 +301,20 @@ export default function BudgetPage() {
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         onClick={() => updateItem.mutate({ itemId: item.id, isPaid: !item.isPaid })}
-                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                          item.isPaid ? 'bg-green-500 border-green-500 text-white' : 'border-stone-300 hover:border-green-400'
-                        }`}
+                        aria-label={`Mark "${item.vendorName}" as ${item.isPaid ? 'unpaid' : 'paid'}`}
+                        className="group p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center"
                       >
-                        {item.isPaid && (
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
+                        <span
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                            item.isPaid ? 'bg-green-500 border-green-500 text-white' : 'border-stone-300 group-hover:border-green-400'
+                          }`}
+                        >
+                          {item.isPaid && (
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </span>
                       </button>
                       <button onClick={() => openEditForm(item)} aria-label="Edit item" className="text-stone-400 hover:text-stone-700 p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -372,17 +377,22 @@ export default function BudgetPage() {
                         <td className="px-5 py-3 text-center">
                           <button
                             onClick={() => updateItem.mutate({ itemId: item.id, isPaid: !item.isPaid })}
-                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mx-auto transition-colors ${
-                              item.isPaid
-                                ? 'bg-green-500 border-green-500 text-white'
-                                : 'border-stone-300 hover:border-green-400'
-                            }`}
+                            aria-label={`Mark "${item.vendorName}" as ${item.isPaid ? 'unpaid' : 'paid'}`}
+                            className="group p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center mx-auto"
                           >
-                            {item.isPaid && (
-                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
+                            <span
+                              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                                item.isPaid
+                                  ? 'bg-green-500 border-green-500 text-white'
+                                  : 'border-stone-300 group-hover:border-green-400'
+                              }`}
+                            >
+                              {item.isPaid && (
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </span>
                           </button>
                         </td>
                         <td className="px-5 py-3 text-right">
