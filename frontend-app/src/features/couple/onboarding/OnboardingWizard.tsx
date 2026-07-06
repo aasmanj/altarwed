@@ -100,6 +100,164 @@ export function shouldShowFinishShortcut(step: number): boolean {
   return step >= 2 && step < TOTAL_STEPS
 }
 
+// ── Finish flow state machine (issue #304) ──────────────────────────────────
+//
+// Creating a site is three sequential calls: POST (create), PATCH (optional
+// fields), hero upload. Before #304 a PATCH failure dropped the couple back on
+// the confirm step, and tapping "Create my site" again re-ran the POST against
+// a slug that now exists: a nonsensical "taken" conflict on the couple's own
+// site, with their venue/hotel/scripture answers never saved. The flow is now
+// a small resumable state machine: each attempt records how far it got, and a
+// retry resumes from the first incomplete call instead of restarting.
+//
+// It is a pure function over injected dependencies (no React, no axios) so the
+// retry contract is unit-testable in frontend-app's node-only vitest: create is
+// called at most once across attempts, and a second optional-PATCH failure
+// exits to the editor with a notice instead of stranding the couple.
+
+export interface CreatedSiteRef { id: string; slug: string }
+
+export interface FinishFlowState {
+  createdSite: CreatedSiteRef | null
+  optionalSaved: boolean
+  patchFailureCount: number
+}
+
+export function initialFinishFlowState(): FinishFlowState {
+  return { createdSite: null, optionalSaved: false, patchFailureCount: 0 }
+}
+
+// After this many failed attempts at the optional PATCH we stop retrying and
+// send the couple to the editor. The details are re-enterable there; a created
+// site the couple cannot reach is not.
+export const MAX_OPTIONAL_PATCH_ATTEMPTS = 2
+
+export const OPTIONAL_DETAILS_NOTICE =
+  'Your site was created, but some details did not save. You can add them from the editor.'
+
+export const OPTIONAL_DETAILS_RETRY_ERROR =
+  'Your site was created, but your details could not be saved. Please try again.'
+
+export interface FinishFlowDeps {
+  createSite: () => Promise<CreatedSiteRef>
+  patchOptional: (fields: Record<string, string | null>) => Promise<unknown>
+  uploadHero: (websiteId: string) => Promise<unknown>
+  optionalFields: Record<string, string | null>
+  hasHeroFile: boolean
+  heroErrorReason: (err: unknown) => string
+  trackCompleted: () => void
+  // The slug currently typed in the wizard. After a create-ok / patch-fail
+  // retry the couple can go back and edit it, but the site already exists
+  // under the original slug and the retry skips the POST, so the edit would
+  // be silently discarded. The exit notice tells them explicitly instead.
+  requestedSlug: string
+}
+
+// 'stay' keeps the couple on the wizard with an inline error (retry possible);
+// 'leave' means the site exists and they move on to the editor, optionally
+// with a non-blocking notice about what did not save.
+export type FinishOutcome =
+  | { kind: 'stay'; error: string; state: FinishFlowState }
+  | { kind: 'leave'; notice: string | null; state: FinishFlowState }
+
+function apiErrorDetail(err: unknown): string | undefined {
+  return (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+}
+
+// Composed onto the exit notice when the couple edited the slug after the
+// site was already created on an earlier attempt: the retry skips the POST,
+// so the edited slug never applied and staying silent about it would leave
+// them sharing a URL that does not exist.
+export function slugDriftNotice(createdSlug: string): string {
+  return `Your site address is altarwed.com/wedding/${createdSlug}. The address change you made did not apply because your site was already created; you can change it from the editor.`
+}
+
+function buildExitNotice(patchGaveUp: boolean, heroReason: string | null, driftSlug: string | null): string | null {
+  let base: string | null = null
+  if (patchGaveUp && heroReason) {
+    base = `Your site was created, but some details did not save and the hero photo could not be added: ${heroReason} You can add them from the editor.`
+  } else if (patchGaveUp) {
+    base = OPTIONAL_DETAILS_NOTICE
+  } else if (heroReason) {
+    // The site is created either way; surface the backend's real rejection
+    // detail (size / type / dimensions on a 413/415/400) so the couple knows
+    // what to fix instead of guessing, and reassure them the photo can still
+    // be added from the editor.
+    base = `Your site was created, but the hero photo could not be added: ${heroReason} You can add or replace it from the editor.`
+  }
+  if (!driftSlug) return base
+  const drift = slugDriftNotice(driftSlug)
+  return base ? `${base} ${drift}` : drift
+}
+
+export async function runFinishAttempt(prev: FinishFlowState, deps: FinishFlowDeps): Promise<FinishOutcome> {
+  const state: FinishFlowState = { ...prev }
+
+  // 1. Create the website with the required fields, exactly once across all
+  //    attempts. On a retry after a partial failure the site already exists,
+  //    so creation is skipped and only the incomplete calls below re-run.
+  if (!state.createdSite) {
+    try {
+      state.createdSite = await deps.createSite()
+    } catch (err) {
+      return { kind: 'stay', error: apiErrorDetail(err) ?? 'Something went wrong. Please try again.', state }
+    }
+  }
+
+  // 2. PATCH the optional fields in one round-trip. Only entered fields are
+  //    sent, so a step the couple skipped (whether per-step or via the finish
+  //    shortcut) contributes nothing. First failure stays on the wizard for a
+  //    retry; a repeat failure gives up on the PATCH (the editor can save the
+  //    same fields later) rather than stranding the couple here.
+  let patchGaveUp = false
+  if (state.optionalSaved || Object.keys(deps.optionalFields).length === 0) {
+    state.optionalSaved = true
+  } else {
+    try {
+      await deps.patchOptional(deps.optionalFields)
+      state.optionalSaved = true
+    } catch (err) {
+      state.patchFailureCount += 1
+      if (state.patchFailureCount < MAX_OPTIONAL_PATCH_ATTEMPTS) {
+        return { kind: 'stay', error: apiErrorDetail(err) ?? OPTIONAL_DETAILS_RETRY_ERROR, state }
+      }
+      patchGaveUp = true
+    }
+  }
+
+  // Completion moment (issue #239): the site row now exists and the couple is
+  // leaving the wizard on every path below (clean exit, patch-gave-up exit,
+  // hero-failed exit), so this fires exactly once per created site. A 'stay'
+  // outcome above returns before this line, so a failed attempt never counts.
+  try {
+    deps.trackCompleted()
+  } catch {
+    // Analytics must never break the finish flow; swallow and move on.
+  }
+
+  // 3. Hero file upload. Has to happen AFTER website creation because the
+  //    endpoint is keyed by websiteId. If it fails, the site is still created;
+  //    the couple leaves with an actionable notice instead of an error.
+  let heroReason: string | null = null
+  if (deps.hasHeroFile && state.createdSite) {
+    try {
+      await deps.uploadHero(state.createdSite.id)
+    } catch (uploadErr: unknown) {
+      heroReason = deps.heroErrorReason(uploadErr)
+    }
+  }
+
+  // Slug drift check: only a site created on a PREVIOUS attempt (prev, not
+  // state) can drift, because within one attempt the POST used the slug the
+  // couple has typed right now. A first-attempt clean create can never warn.
+  const driftSlug =
+    prev.createdSite && deps.requestedSlug.trim() !== prev.createdSite.slug
+      ? prev.createdSite.slug
+      : null
+
+  return { kind: 'leave', notice: buildExitNotice(patchGaveUp, heroReason, driftSlug), state }
+}
+
 interface FeaturedRefs { references: string[] }
 interface VerseResult  { reference: string; text: string }
 
@@ -250,74 +408,81 @@ export default function OnboardingWizard() {
   const next = () => { directionRef.current = 1; goto(Math.min(step + 1, TOTAL_STEPS) as Step) }
   const back = () => { directionRef.current = -1; goto(Math.max(step - 1, 1) as Step) }
 
+  // How far the finish flow got across attempts (issue #304). Held in a ref,
+  // not useState, because nothing renders from it and the retry click must read
+  // the exact value the previous attempt wrote, with no stale-closure or
+  // batching window. Once createdSite is set, a retry skips the POST and
+  // resumes at the failed PATCH / pending hero upload.
+  const finishFlowRef = useRef<FinishFlowState>(initialFinishFlowState())
+
   const handleFinish = async () => {
     if (!slug.trim()) { setError('URL slug is required.'); goto(2); return }
     setSubmitting(true)
     setError('')
     try {
-      // 1. Create the website with the required fields. Backend assigns an id
-      //    and seeds the couple-owned rows.
-      const created = await createWebsite.mutateAsync({
-        slug: slug.trim(),
-        partnerOneName: partnerOneName.trim(),
-        partnerTwoName: partnerTwoName.trim(),
-        weddingDate: weddingDate || undefined,
-      })
-
-      // 2. PATCH the optional fields in one round-trip. Only entered fields are
-      //    sent, so a step the couple skipped (whether per-step or via the
-      //    finish shortcut) contributes nothing. Built by a shared pure helper
-      //    so both paths save identical data.
-      const optional = buildOptionalWebsiteFields({
-        venueName, venueAddress, venueCity, venueState, ceremonyTime,
-        hotelName, hotelUrl, hotelDetails,
-        scriptureReference, scriptureText,
-        registryUrl1, registryLabel1,
-        heroPhotoUrl,
-      })
-
-      if (Object.keys(optional).length > 0) {
-        await updateWebsite.mutateAsync(optional)
-      }
-
-      // Completion moment (issue #239): the site row now exists. This is the
-      // distinct funnel-close before website_published (which fires later, in
-      // the editor), and it is fired here so both exit paths below (successful
-      // hero upload and the hero-upload-failed fallback, where the site is still
-      // created) already count as completed. No PII in the payload.
-      trackOnboardingCompleted()
-
-      // 3. Hero file upload. Has to happen AFTER website creation because
-      //    the endpoint is keyed by websiteId. If it fails, site is still
-      //    created -- send the couple to the editor with an actionable notice.
-      if (heroFile) {
-        try {
+      const outcome = await runFinishAttempt(finishFlowRef.current, {
+        // 1. Create the website with the required fields. Backend assigns an
+        //    id and seeds the couple-owned rows. Runs at most once; the state
+        //    machine holds the created id/slug across retries.
+        createSite: async () => {
+          const created = await createWebsite.mutateAsync({
+            slug: slug.trim(),
+            partnerOneName: partnerOneName.trim(),
+            partnerTwoName: partnerTwoName.trim(),
+            weddingDate: weddingDate || undefined,
+          })
+          const ref = { id: created.id, slug: created.slug }
+          // Record the created site into the ref synchronously, not only via
+          // outcome.state after the attempt returns: if anything later in the
+          // attempt throws unexpectedly, the created-site fact must survive
+          // so the retry still skips the POST (never re-create).
+          finishFlowRef.current = { ...finishFlowRef.current, createdSite: ref }
+          return ref
+        },
+        patchOptional: fields => updateWebsite.mutateAsync(fields),
+        uploadHero: async websiteId => {
+          if (!heroFile) return
           const form = new FormData()
           form.append('file', heroFile)
           await apiClient.post(
-            `/api/v1/uploads/wedding-websites/${created.id}/hero`,
+            `/api/v1/uploads/wedding-websites/${websiteId}/hero`,
             form,
             { headers: { 'Content-Type': 'multipart/form-data' } },
           )
-        } catch (uploadErr: unknown) {
-          // The site is created either way; surface the backend's real
-          // rejection detail (size / type / dimensions on a 413/415/400) so the
-          // couple knows what to fix instead of guessing, and reassure them the
-          // photo can still be added from the editor.
-          const reason = uploadErrorMessage(uploadErr, 'The hero photo failed to upload.')
-          const notice = `Your site was created, but the hero photo could not be added: ${reason} You can add or replace it from the editor.`
-          clearPersistentState(ONBOARDING_KEY)
-          navigate('/dashboard/website/editor', { state: { notice } })
-          return
-        }
+        },
+        // Built by a shared pure helper so the tap-through and shortcut paths
+        // save identical data; only entered fields are sent.
+        optionalFields: buildOptionalWebsiteFields({
+          venueName, venueAddress, venueCity, venueState, ceremonyTime,
+          hotelName, hotelUrl, hotelDetails,
+          scriptureReference, scriptureText,
+          registryUrl1, registryLabel1,
+          heroPhotoUrl,
+        }),
+        hasHeroFile: !!heroFile,
+        heroErrorReason: err => uploadErrorMessage(err, 'The hero photo failed to upload.'),
+        // Lets the machine warn when a post-create slug edit did not apply.
+        requestedSlug: slug,
+        // Completion moment (issue #239): fired by the state machine exactly
+        // once, when the site row exists and the couple is actually leaving.
+        trackCompleted: () => trackOnboardingCompleted(),
+      })
+      finishFlowRef.current = outcome.state
+      if (outcome.kind === 'leave') {
+        // The couple is actually leaving for the editor: this is the only
+        // point the persisted wizard draft is cleared, so a failed attempt
+        // (or a refresh mid-retry) keeps their progress.
+        clearPersistentState(ONBOARDING_KEY)
+        navigate('/dashboard/website/editor', outcome.notice ? { state: { notice: outcome.notice } } : undefined)
+      } else {
+        setError(outcome.error)
       }
-
-      // Website created: clear the persisted wizard draft.
-      clearPersistentState(ONBOARDING_KEY)
-      navigate('/dashboard/website/editor')
-    } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      setError(detail ?? 'Something went wrong. Please try again.')
+    } catch {
+      // runFinishAttempt handles every expected rejection itself; this only
+      // catches an unexpected programming error so the button never wedges.
+      // The created-site fact is safe even here: the createSite dep wrote it
+      // into finishFlowRef synchronously, so a retry still skips the POST.
+      setError('Something went wrong. Please try again.')
     } finally {
       setSubmitting(false)
     }
