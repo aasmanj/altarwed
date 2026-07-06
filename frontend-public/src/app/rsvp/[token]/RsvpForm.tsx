@@ -24,6 +24,22 @@ interface CustomQuestion {
 
 type PartyStatus = 'ATTENDING' | 'DECLINING' | 'PENDING'
 
+// Classifies a failed RSVP submit by HTTP status so the error copy can tell the
+// guest the truth instead of a one-size-fits-all retry message (issue #307): a
+// stale or consumed token will never succeed on retry, so that guest needs the
+// find-your-invitation recovery path, not "try again". Pure and exported for
+// unit tests, same pattern as buildFindUrl in FindInvitationWidget. The backend
+// returns 400 for an invalid/consumed token (InvalidRsvpTokenException in
+// GlobalExceptionHandler); 404/410 are defensive equivalents. Bucket4j rate
+// limiting returns 429. A null status means the fetch itself threw (network).
+export type SubmitErrorKind = 'invalidToken' | 'rateLimited' | 'unknown'
+
+export function classifySubmitError(status: number | null): SubmitErrorKind {
+  if (status === 400 || status === 404 || status === 410) return 'invalidToken'
+  if (status === 429) return 'rateLimited'
+  return 'unknown'
+}
+
 export default function RsvpForm({
   token, plusOneAllowed, weddingSlug, hasRegistry, apiUrl, partyMembers,
   currentRsvpStatus, currentPlusOneName, currentDietary, currentSongRequest, currentNoteForCouple,
@@ -75,7 +91,13 @@ export default function RsvpForm({
   const [customAnswers, setCustomAnswers] = useState<Record<string, string>>({})
   const [submitting, setSubmitting]     = useState(false)
   const [done, setDone]                 = useState(false)
-  const [error, setError]               = useState('')
+  const [error, setError]               = useState<SubmitErrorKind | null>(null)
+
+  // Recovery path shared by every error state and the confirmation screen: the
+  // emailed RSVP link is single-use, so the finder (which mints a fresh link) is
+  // the working route back. Wedding-scoped finder when the slug is known,
+  // otherwise the name-search entry point.
+  const findInvitationHref = weddingSlug ? `/wedding/${weddingSlug}/rsvp` : '/find-wedding'
 
   // Required custom questions must be answered, but only when attending (that is the only
   // time they are shown).
@@ -96,7 +118,7 @@ export default function RsvpForm({
     e.preventDefault()
     if (!isReady) return
     setSubmitting(true)
-    setError('')
+    setError(null)
     try {
       // Build party responses for other members. Dietary/song only ride along for members
       // marked attending; a declining member sends just their status.
@@ -140,10 +162,17 @@ export default function RsvpForm({
           customAnswers: customAnswersPayload,
         }),
       })
-      if (!res.ok) throw new Error('Failed')
+      if (!res.ok) {
+        // Branch by status instead of collapsing every failure into one generic
+        // message: a stale/consumed token 400 cannot succeed on retry, and a 429
+        // needs a wait, not a resubmit hammer.
+        setError(classifySubmitError(res.status))
+        return
+      }
       setDone(true)
     } catch {
-      setError('Something went wrong. Please try again or contact the couple directly.')
+      // fetch threw before a response arrived (network/timeout); status unknown.
+      setError(classifySubmitError(null))
     } finally {
       setSubmitting(false)
     }
@@ -151,7 +180,9 @@ export default function RsvpForm({
 
   if (done) {
     return (
-      <div role="status" className="text-center space-y-4 py-4">
+      // rsvp-fade-in gives the form-to-confirmation swap a brief fade under
+      // prefers-reduced-motion: no-preference; reduced-motion users see it instantly.
+      <div role="status" className="rsvp-fade-in text-center space-y-4 py-4">
         <div className="flex justify-center" aria-hidden="true">
           {status === 'ATTENDING'
             ? <PartyPopper className="w-8 h-8 text-[#d4af6a]" />
@@ -192,7 +223,7 @@ export default function RsvpForm({
         <p className="mt-4 text-sm text-[#6b5344]">
           Need to change your response?{' '}
           <a
-            href={weddingSlug ? `/wedding/${weddingSlug}/rsvp` : '/find-wedding'}
+            href={findInvitationHref}
             className="font-medium text-[#4a1942] underline hover:text-[#3b1235]"
           >
             Find your invitation
@@ -264,7 +295,7 @@ export default function RsvpForm({
             Not sure yet? Remind me later
           </button>
           {status === 'PENDING' && (
-            <div className="mt-2 flex gap-2">
+            <div className="rsvp-expand-in mt-2 flex gap-2">
               {([1, 3, 7] as const).map(days => (
                 <button
                   key={days}
@@ -286,7 +317,7 @@ export default function RsvpForm({
 
       {/* +1 name, only show if attending and plusOneAllowed */}
       {status === 'ATTENDING' && plusOneAllowed && (
-        <div>
+        <div className="rsvp-expand-in">
           <label className="block text-sm font-medium text-[#3b2f2f] mb-1.5">
             Guest name <span className="text-[#8a6a4a] font-normal">(optional)</span>
           </label>
@@ -301,9 +332,11 @@ export default function RsvpForm({
         </div>
       )}
 
-      {/* Attending-only fields */}
+      {/* Attending-only fields. The wrapper div (rather than a fragment) carries the
+          motion-safe entry transition; space-y-6 preserves the form's rhythm between
+          the two fields. */}
       {status === 'ATTENDING' && (
-        <>
+        <div className="rsvp-expand-in space-y-6">
           <div>
             <label className="block text-sm font-medium text-[#3b2f2f] mb-1.5">
               Dietary restrictions <span className="text-[#8a6a4a] font-normal">(optional)</span>
@@ -330,12 +363,12 @@ export default function RsvpForm({
               className="w-full rounded-lg border border-[#e8dcc8] px-4 py-2.5 text-[#3b2f2f] text-base sm:text-sm focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
             />
           </div>
-        </>
+        </div>
       )}
 
       {/* Custom questions the couple added, shown when attending. */}
       {status === 'ATTENDING' && customQuestions && customQuestions.length > 0 && (
-        <div className="space-y-4">
+        <div className="rsvp-expand-in space-y-4">
           {customQuestions.map(q => {
             const val = customAnswers[q.id] ?? ''
             const setVal = (v: string) => setCustomAnswers(prev => ({ ...prev, [q.id]: v }))
@@ -400,7 +433,7 @@ export default function RsvpForm({
 
       {/* Note to couple, available regardless of status so declining guests can leave a blessing */}
       {(status === 'ATTENDING' || status === 'DECLINING') && (
-        <div>
+        <div className="rsvp-expand-in">
           <label className="block text-sm font-medium text-[#3b2f2f] mb-1.5">
             Leave a note for the couple <span className="text-[#8a6a4a] font-normal">(private, only they will see it)</span>
           </label>
@@ -417,7 +450,7 @@ export default function RsvpForm({
 
       {/* Party members, show individual toggles when guest is a party contact */}
       {partyMembers && partyMembers.length > 0 && (status === 'ATTENDING' || status === 'DECLINING') && (
-        <div className="border border-[#e8dcc8] rounded-xl p-4 space-y-3">
+        <div className="rsvp-expand-in border border-[#e8dcc8] rounded-xl p-4 space-y-3">
           <p className="text-sm font-medium text-[#3b2f2f]">Other members in your party</p>
           <p className="text-xs text-[#8a6a4a]">Let us know if each person will be attending.</p>
           {partyMembers.map(m => (
@@ -443,7 +476,7 @@ export default function RsvpForm({
               </div>
               {/* Per-member meal details, only when that member is attending. */}
               {partyStatuses[m.guestId] === 'ATTENDING' && (
-                <div className="grid gap-2">
+                <div className="rsvp-expand-in grid gap-2">
                   <input
                     type="text"
                     value={partyDietary[m.guestId] ?? ''}
@@ -470,7 +503,27 @@ export default function RsvpForm({
       )}
 
       {error && (
-        <p role="alert" className="text-sm text-red-600 text-center">{error}</p>
+        <div role="alert" className="text-sm text-center space-y-1">
+          <p className="text-red-600">
+            {error === 'invalidToken'
+              ? 'This RSVP link is no longer valid. It may have expired or already been used.'
+              : error === 'rateLimited'
+              ? 'Too many attempts from your network. Please wait a minute and try again.'
+              : 'Something went wrong. Please try again or contact the couple directly.'}
+          </p>
+          {/* The recovery link rides on EVERY error state: a stale token needs it to
+              get anywhere at all, and even transient failures leave guests who lost
+              the email a working route back. */}
+          <p className="text-[#6b5344]">
+            {error === 'invalidToken' ? 'Get a fresh link: ' : 'Lost your link? '}
+            <a
+              href={findInvitationHref}
+              className="font-medium text-[#4a1942] underline hover:text-[#3b1235]"
+            >
+              Find your invitation
+            </a>
+          </p>
+        </div>
       )}
 
       <button
