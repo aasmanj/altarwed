@@ -127,6 +127,18 @@ export interface UpdateGuestPayload {
 
 const key = (coupleId: string) => ['guests', coupleId]
 
+// The guest PATCH endpoint uses null-means-not-provided merge semantics, and axios
+// drops undefined values from the JSON body, so an undefined field is a no-op on the
+// server. Spreading the raw payload into the cached guest would optimistically blank
+// those fields (undefined overwrites the cached value) and the UI would show a change
+// the server never makes, then silently revert on response (issue #305). Strip
+// undefined keys first so optimistic state only contains fields the PATCH will send.
+export function stripUndefined<T extends object>(payload: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined)
+  ) as Partial<T>
+}
+
 export function useGuests(coupleId: string) {
   return useQuery<Guest[]>({
     queryKey: key(coupleId),
@@ -163,8 +175,9 @@ export function useUpdateGuest(coupleId: string) {
     onMutate: async ({ guestId, payload }) => {
       await qc.cancelQueries({ queryKey: key(coupleId) })
       const previous = qc.getQueryData<Guest[]>(key(coupleId))
+      const defined = stripUndefined(payload)
       qc.setQueryData<Guest[]>(key(coupleId), old =>
-        old?.map(g => g.id === guestId ? { ...g, ...payload } : g) ?? []
+        old?.map(g => g.id === guestId ? { ...g, ...defined } : g) ?? []
       )
       return { previous }
     },

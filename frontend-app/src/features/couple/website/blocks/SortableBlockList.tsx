@@ -9,10 +9,12 @@ interface Props {
   onReorder: (orderedIds: string[]) => void
   onUpdate: (blockId: string, contentJson: string) => void
   onDelete: (blockId: string) => void
+  // True while a reorder mutation is in flight; gates the arrows (issue #305).
+  busy: boolean
   defaultExpandedId?: string | null
 }
 
-export default function SortableBlockList({ blocks, onReorder, onUpdate, onDelete, defaultExpandedId }: Props) {
+export default function SortableBlockList({ blocks, onReorder, onUpdate, onDelete, busy, defaultExpandedId }: Props) {
   const moveUp = (index: number) => {
     if (index <= 0) return
     const ids = blocks.map(b => b.id)
@@ -43,6 +45,11 @@ export default function SortableBlockList({ blocks, onReorder, onUpdate, onDelet
           block={block}
           isFirst={index === 0}
           isLast={index === blocks.length - 1}
+          // Disable every row's arrows while a reorder is in flight. Combined with the
+          // cancelQueries in useReorderBlocks' onMutate, this serializes clicks so two
+          // PATCHes can't race and have an out-of-order arrival land a stale order
+          // (same fix as the wedding-party reorder, WeddingPartyManager).
+          busy={busy}
           initiallyExpanded={defaultExpandedId === block.id}
           onMoveUp={() => moveUp(index)}
           onMoveDown={() => moveDown(index)}
@@ -58,6 +65,7 @@ function BlockRow({
   block,
   isFirst,
   isLast,
+  busy,
   onMoveUp,
   onMoveDown,
   onUpdate,
@@ -67,6 +75,7 @@ function BlockRow({
   block: WeddingPageBlock
   isFirst: boolean
   isLast: boolean
+  busy: boolean
   onMoveUp: () => void
   onMoveDown: () => void
   onUpdate: (contentJson: string) => void
@@ -88,7 +97,7 @@ function BlockRow({
           <button
             type="button"
             onClick={onMoveUp}
-            disabled={isFirst}
+            disabled={isFirst || busy}
             className="p-0.5 text-stone-400 hover:text-stone-700 disabled:opacity-20 disabled:cursor-default"
             aria-label="Move block up"
           >
@@ -97,7 +106,7 @@ function BlockRow({
           <button
             type="button"
             onClick={onMoveDown}
-            disabled={isLast}
+            disabled={isLast || busy}
             className="p-0.5 text-stone-400 hover:text-stone-700 disabled:opacity-20 disabled:cursor-default"
             aria-label="Move block down"
           >

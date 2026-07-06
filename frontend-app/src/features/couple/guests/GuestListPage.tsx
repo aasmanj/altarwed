@@ -8,9 +8,10 @@ import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import {
   useGuests, useAddGuest, useUpdateGuest, useRemoveGuest,
-  useSendInvite, useBulkAddGuests,
+  useAssignGuestTable, useSendInvite, useBulkAddGuests,
   type Guest, type RsvpStatus, type GuestSide,
 } from './useGuests'
+import { buildGuestSavePlan, type GuestSavePlan } from './guestEditSave'
 import ImportGuestsModal from './ImportGuestsModal'
 import BulkInviteSender from './BulkInviteSender'
 import { computeGuestStats } from '@/features/couple/guests/guestStats'
@@ -126,6 +127,9 @@ export default function GuestListPage() {
   const { data: guests = [], isLoading, isError, refetch } = useGuests(coupleId)
   const addGuest    = useAddGuest(coupleId)
   const updateGuest = useUpdateGuest(coupleId)
+  // Seating changes from the edit row go through the dedicated PUT because the
+  // general PATCH cannot clear tableNumber (see guestEditSave.ts, issue #305).
+  const assignTable = useAssignGuestTable(coupleId)
   const removeGuest = useRemoveGuest(coupleId)
   const sendInvite  = useSendInvite(coupleId)
   const bulkAdd     = useBulkAddGuests(coupleId)
@@ -812,12 +816,18 @@ export default function GuestListPage() {
                       <EditGuestRow
                         key={guest.id}
                         guest={guest}
-                        onSave={async (payload) => {
-                          await updateGuest.mutateAsync({ guestId: guest.id, payload })
+                        onSave={async (plan) => {
+                          await updateGuest.mutateAsync({ guestId: guest.id, payload: plan.patchPayload })
+                          // Sequential on purpose: the PATCH response no longer carries a
+                          // tableNumber change, so the PUT that lands after it is the
+                          // single authority on seating and the cache cannot regress.
+                          if (plan.tableNumber !== undefined) {
+                            await assignTable.mutateAsync({ guestId: guest.id, tableNumber: plan.tableNumber })
+                          }
                           setEditingId(null)
                         }}
                         onCancel={() => setEditingId(null)}
-                        isPending={updateGuest.isPending}
+                        isPending={updateGuest.isPending || assignTable.isPending}
                       />
                     ) : (
                       <GuestRow
@@ -1161,7 +1171,7 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
 // ---------------------------------------------------------------------------
 function EditGuestRow({ guest, onSave, onCancel, isPending }: {
   guest: Guest
-  onSave: (payload: Parameters<ReturnType<typeof useUpdateGuest>['mutateAsync']>[0]['payload']) => Promise<void>
+  onSave: (plan: GuestSavePlan) => Promise<void>
   onCancel: () => void
   isPending: boolean
 }) {
@@ -1184,21 +1194,15 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
-    onSave({
-      name, email,
-      phone,
-      side: side || undefined,
-      partyName: party,
-      rsvpStatus: status,
-      tableNumber: table ? parseInt(table) : undefined,
-      plusOneAllowed: plusOne,
-      songRequest: song,
-      mailLine1,
-      mailCity,
-      mailState,
-      mailZip,
-      mailCountry,
-    })
+    // buildGuestSavePlan splits the save: general fields go on the PATCH, any
+    // table change (including clearing) goes through the seating PUT, because
+    // the PATCH's null-means-not-provided merge can never clear tableNumber
+    // (issue #305). Failures already toast via each mutation's onError, so a
+    // rejection here only means "keep the row open for a retry".
+    onSave(buildGuestSavePlan(guest, {
+      name, email, phone, side, party, status, table, plusOne, song,
+      mailLine1, mailCity, mailState, mailZip, mailCountry,
+    })).catch(() => {})
   }
 
   return (
@@ -1215,8 +1219,13 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
             <input value={phone} onChange={e => setPhone(e.target.value)} className={inputCls} placeholder="Optional" />
           </Field>
           <Field label="Side">
+            {/* Clearing Side is not supported end to end: the PATCH's
+                null-means-not-provided merge cannot clear it and there is no
+                dedicated clear endpoint (decision documented in guestEditSave.ts,
+                issue #305). Only offer the blank option while the guest has no
+                side yet, so the UI never shows a clear the server will ignore. */}
             <select value={side} onChange={e => setSide(e.target.value as GuestSide | '')} className={inputCls}>
-              <option value="">Select a side</option>
+              {guest.side === null && <option value="">Select a side</option>}
               {SIDES.map(s => <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>)}
             </select>
           </Field>

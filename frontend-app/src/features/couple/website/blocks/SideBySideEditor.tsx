@@ -811,6 +811,7 @@ export default function SideBySideEditor() {
               <SortableBlockList
                 blocks={blocksForTab}
                 onReorder={handleReorder}
+                busy={reorder.isPending}
                 onUpdate={handleUpdate}
                 onDelete={handleDelete}
                 defaultExpandedId={lastAddedBlockId}
