@@ -79,6 +79,9 @@ export interface CreateGuestPayload {
   email?: string
   phone?: string
   plusOneAllowed: boolean
+  plusOneName?: string
+  rsvpStatus?: RsvpStatus
+  tableNumber?: number
   side?: GuestSide
   dietaryRestrictions?: string
   notes?: string

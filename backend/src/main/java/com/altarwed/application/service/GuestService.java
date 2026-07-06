@@ -95,9 +95,11 @@ public class GuestService {
     public List<Guest> addGuestsBulk(UUID coupleId, List<com.altarwed.application.dto.CreateGuestRequest> reqs) {
         List<Guest> guests = reqs.stream().map(req -> new Guest(
                 null, coupleId, req.name(), req.email(), req.phone(),
-                GuestRsvpStatus.PENDING, Boolean.TRUE.equals(req.plusOneAllowed()), null,
+                req.rsvpStatus() != null ? req.rsvpStatus() : GuestRsvpStatus.PENDING,
+                Boolean.TRUE.equals(req.plusOneAllowed()),
+                req.plusOneName() != null && !req.plusOneName().isBlank() ? req.plusOneName() : null,
                 req.dietaryRestrictions(), null,
-                null, req.side(), req.notes(),
+                req.tableNumber(), req.side(), req.notes(),
                 req.mailLine1(), req.mailCity(), req.mailState(), req.mailZip(), req.mailCountry(),
                 null, 0,
                 null, null, null, null, LocalDateTime.now(), LocalDateTime.now(),

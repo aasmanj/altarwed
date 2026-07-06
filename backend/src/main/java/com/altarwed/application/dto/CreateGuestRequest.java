@@ -1,5 +1,6 @@
 package com.altarwed.application.dto;
 
+import com.altarwed.domain.model.GuestRsvpStatus;
 import com.altarwed.domain.model.GuestSide;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -10,6 +11,9 @@ public record CreateGuestRequest(
         @Email @Size(max = 300) String email,
         @Size(max = 50) String phone,
         Boolean plusOneAllowed,
+        @Size(max = 200) String plusOneName,
+        GuestRsvpStatus rsvpStatus,
+        Integer tableNumber,
         GuestSide side,
         @Size(max = 500) String dietaryRestrictions,
         String notes,

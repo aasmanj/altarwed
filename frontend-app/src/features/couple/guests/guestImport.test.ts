@@ -18,8 +18,8 @@ import {
 // exported from the app's own 16-column template silently dropped addresses, party,
 // and plus-one. These tests exercise the pure parsing layer directly (no xlsx / no DOM).
 
-// The exact headers the app's own template emits (GUEST_SHEET_COLUMNS in GuestListPage),
-// minus the three the create DTO cannot accept and that therefore cannot round-trip.
+// The exact headers the app's own template emits (GUEST_SHEET_COLUMNS in GuestListPage).
+// All 16 data columns now round-trip through import (#264).
 const MAPPABLE_TEMPLATE_HEADERS: { header: string; field: string }[] = [
   { header: 'Guest Name(s)', field: 'name' },
   { header: 'Party', field: 'partyName' },
@@ -32,13 +32,16 @@ const MAPPABLE_TEMPLATE_HEADERS: { header: string; field: string }[] = [
   { header: 'Zip Code', field: 'mailZip' },
   { header: 'Country', field: 'mailCountry' },
   { header: 'Allowed Plus One?', field: 'plusOneAllowed' },
+  { header: 'Plus One Name', field: 'plusOneName' },
+  { header: 'RSVP Status', field: 'rsvpStatus' },
+  { header: 'Table #', field: 'tableNumber' },
   { header: 'Dietary Restriction', field: 'dietaryRestrictions' },
   { header: 'Notes', field: 'notes' },
 ]
 
-// Columns the template advertises but the bulk create DTO cannot persist, so import
-// must NOT invent a mapping for them (they are ignored, documented in the PR body).
-const NON_ROUNDTRIP_HEADERS = ['Plus One Name', 'RSVP Status', 'Table #', 'AltarWed ID (do not modify)']
+// Only the export-only column has no import mapping (it is a Google-Sheets-sync key,
+// never accepted by the bulk-add DTO).
+const NON_ROUNDTRIP_HEADERS = ['AltarWed ID (do not modify)']
 
 describe('guest import header mapping (#223)', () => {
   it('maps every mappable template header to its field', () => {
@@ -78,7 +81,7 @@ describe('guest import header mapping (#223)', () => {
     }
   })
 
-  it('round-trips a full template row: every mappable column survives into the payload', () => {
+  it('round-trips a full template row: all 16 columns survive into the payload (#264)', () => {
     const rows = parseRows([
       {
         'Guest Name(s)': 'Andrew Smith',
@@ -115,11 +118,14 @@ describe('guest import header mapping (#223)', () => {
       mailZip: '78701',
       mailCountry: 'USA',
       plusOneAllowed: true,
+      plusOneName: 'Jamie',
+      rsvpStatus: 'ATTENDING',
+      tableNumber: 4,
       dietaryRestrictions: 'Vegetarian',
       notes: 'College friend',
     })
-    // The address survives, which is the round-trip that makes an imported guest appear
-    // in the postcard recipient list (CommunicationsPage filters on mailLine1).
+    // The address survives, making an imported guest appear in the postcard recipient list
+    // (CommunicationsPage filters on mailLine1).
     expect(payload.mailLine1).toBe('12 Chapel Lane')
   })
 
@@ -134,12 +140,33 @@ describe('guest import header mapping (#223)', () => {
 
   it('ignores unknown columns without polluting the payload', () => {
     const rows = parseRows([
-      { 'Guest Name(s)': 'Mara', 'Favourite Hymn': 'How Great Thou Art', 'Table #': '9' },
+      { 'Guest Name(s)': 'Mara', 'Favourite Hymn': 'How Great Thou Art' },
     ])
     const payload = toCreatePayload(rows[0])
     expect(payload.name).toBe('Mara')
     expect(Object.keys(payload)).not.toContain('Favourite Hymn')
-    expect(Object.keys(payload)).not.toContain('tableNumber')
+  })
+
+  it('parses Table # as a positive integer and ignores non-numeric or zero values', () => {
+    const withTable = parseRows([{ 'Guest Name(s)': 'Tim', 'Table #': '7' }])
+    expect(toCreatePayload(withTable[0]).tableNumber).toBe(7)
+
+    const zeroTable = parseRows([{ 'Guest Name(s)': 'Tim', 'Table #': '0' }])
+    expect(toCreatePayload(zeroTable[0]).tableNumber).toBeUndefined()
+
+    const badTable = parseRows([{ 'Guest Name(s)': 'Tim', 'Table #': 'window seat' }])
+    expect(toCreatePayload(badTable[0]).tableNumber).toBeUndefined()
+  })
+
+  it('parses RSVP Status case-insensitively and ignores unknown values', () => {
+    const attending = parseRows([{ 'Guest Name(s)': 'Kim', 'RSVP Status': 'attending' }])
+    expect(toCreatePayload(attending[0]).rsvpStatus).toBe('ATTENDING')
+
+    const pending = parseRows([{ 'Guest Name(s)': 'Kim', 'RSVP Status': 'PENDING' }])
+    expect(toCreatePayload(pending[0]).rsvpStatus).toBe('PENDING')
+
+    const unknown = parseRows([{ 'Guest Name(s)': 'Kim', 'RSVP Status': 'maybe later' }])
+    expect(toCreatePayload(unknown[0]).rsvpStatus).toBeUndefined()
   })
 })
 
