@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, useRef, type ReactNode, type CSSProperties } from 'react'
+import { useCallback, useState, useRef, type ReactNode, type CSSProperties } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import { Camera, ExternalLink, X, Crop, GripVertical } from 'lucide-react'
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor, KeyboardSensor,
@@ -12,7 +13,7 @@ import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
 import QueryErrorState from '@/components/QueryErrorState'
-import { useModalA11y } from '@/lib/useModalA11y'
+import { AnimatedModal } from '@/components/AnimatedModal'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
@@ -161,14 +162,6 @@ export default function PhotosPage() {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null)
 
-  // Close lightbox on Escape
-  useEffect(() => {
-    if (!lightboxUrl) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setLightboxUrl(null) }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [lightboxUrl])
-
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     if (!files.length || !websiteId) return
@@ -199,7 +192,6 @@ export default function PhotosPage() {
   }
 
   const closeLightbox = useCallback(() => setLightboxUrl(null), [])
-  const captionModalRef = useModalA11y(!!editingCaption, () => setEditingCaption(null))
 
   if (!websiteId || isLoading) {
     return (
@@ -374,39 +366,40 @@ export default function PhotosPage() {
       </div>
 
       {/* Reposition modal */}
-      {repositioning && (
-        <ImageRepositionModal
-          src={repositioning.url}
-          shape="rect"
-          aspect={1}
-          title="Reposition photo"
-          initial={apiFraming(repositioning)}
-          saving={updateFraming.isPending}
-          onCancel={() => setRepositioning(null)}
-          onSave={async ({ focalX, focalY, zoom }) => {
-            // Keep the modal open on failure so the couple can retry; before this
-            // a rejected save showed nothing and escaped as an unhandled promise
-            // rejection (issue #302).
-            try {
-              await updateFraming.mutateAsync({ photoId: repositioning.id, focalX, focalY, zoom })
-              setRepositioning(null)
-            } catch (err) {
-              toast.error(errorDetail(err, 'Could not save the new position. Please try again.'))
-            }
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {repositioning && (
+          <ImageRepositionModal
+            src={repositioning.url}
+            shape="rect"
+            aspect={1}
+            title="Reposition photo"
+            initial={apiFraming(repositioning)}
+            saving={updateFraming.isPending}
+            onCancel={() => setRepositioning(null)}
+            onSave={async ({ focalX, focalY, zoom }) => {
+              // Keep the modal open on failure so the couple can retry; before this
+              // a rejected save showed nothing and escaped as an unhandled promise
+              // rejection (issue #302).
+              try {
+                await updateFraming.mutateAsync({ photoId: repositioning.id, focalX, focalY, zoom })
+                setRepositioning(null)
+              } catch (err) {
+                toast.error(errorDetail(err, 'Could not save the new position. Please try again.'))
+              }
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Edit caption modal */}
-      {editingCaption && (
-        <div className="fixed inset-0 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setEditingCaption(null)} aria-hidden="true" />
-          <div
-            ref={captionModalRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="caption-modal-title"
-            className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm p-6 max-h-[90vh] overflow-y-auto"
+      <AnimatePresence>
+        {editingCaption && (
+          <AnimatedModal
+            onClose={() => setEditingCaption(null)}
+            containerClassName="items-end sm:items-center justify-center p-0 sm:p-4"
+            backdropClassName="bg-black/50"
+            ariaLabelledBy="caption-modal-title"
+            panelClassName="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm p-6 max-h-[90vh] overflow-y-auto"
           >
             <h2 id="caption-modal-title" className="text-lg font-semibold text-stone-900 mb-4">Edit Caption</h2>
             <textarea
@@ -444,28 +437,19 @@ export default function PhotosPage() {
                 {updateCaption.isPending ? 'Saving…' : 'Save'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </AnimatedModal>
+        )}
+      </AnimatePresence>
 
       {/* Lightbox */}
-      {lightboxUrl && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Photo enlarged view"
-        >
-          {/* Backdrop -- full-screen button so mouse and keyboard are both valid */}
-          <button
-            type="button"
-            className="absolute inset-0 w-full h-full bg-black/90 cursor-default"
-            onClick={closeLightbox}
-            onKeyDown={e => { if (e.key === 'Escape') closeLightbox() }}
-            aria-label="Close photo viewer"
-            tabIndex={-1}
-          />
-          <div className="relative z-10 flex items-center justify-center w-full h-full">
+      <AnimatePresence>
+        {lightboxUrl && (
+          <AnimatedModal
+            onClose={closeLightbox}
+            backdropClassName="bg-black/90"
+            ariaLabel="Photo enlarged view"
+            panelClassName="z-10 flex items-center justify-center w-full h-full"
+          >
             <button
               type="button"
               onClick={closeLightbox}
@@ -479,9 +463,9 @@ export default function PhotosPage() {
               alt="Enlarged view"
               className="max-w-full max-h-full object-contain rounded-lg"
             />
-          </div>
-        </div>
-      )}
+          </AnimatedModal>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

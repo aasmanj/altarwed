@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import { Wallet } from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
@@ -15,7 +16,7 @@ import { useWeddingWebsite, useUpdateWeddingWebsite } from '@/features/couple/we
 import TipCallout from '@/components/TipCallout'
 import { useConfirm } from '@/components/ConfirmDialog'
 import QueryErrorState from '@/components/QueryErrorState'
-import { useModalA11y } from '@/lib/useModalA11y'
+import { AnimatedModal } from '@/components/AnimatedModal'
 import { TIPS } from '@/lib/tips'
 
 const CATEGORIES = Object.keys(CATEGORY_LABELS) as BudgetCategory[]
@@ -110,8 +111,6 @@ export default function BudgetPage() {
     setEditingId(null)
     setForm(emptyForm())
   }
-
-  const modalRef = useModalA11y(showForm, closeForm)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -437,15 +436,14 @@ export default function BudgetPage() {
       </div>
 
       {/* Add/Edit modal */}
-      {showForm && (
-        <div className="fixed inset-0 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={closeForm} aria-hidden="true" />
-          <div
-            ref={modalRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="budget-modal-title"
-            className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg p-6 max-h-[90vh] overflow-y-auto"
+      <AnimatePresence>
+        {showForm && (
+          <AnimatedModal
+            onClose={closeForm}
+            containerClassName="items-end sm:items-center justify-center p-0 sm:p-4"
+            backdropClassName="bg-black/50"
+            ariaLabelledBy="budget-modal-title"
+            panelClassName="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg p-6 max-h-[90vh] overflow-y-auto"
           >
             <h2 id="budget-modal-title" className="text-lg font-semibold text-stone-900 mb-5">
               {editingId ? 'Edit Budget Item' : 'Add Budget Item'}
@@ -541,9 +539,9 @@ export default function BudgetPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </AnimatedModal>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

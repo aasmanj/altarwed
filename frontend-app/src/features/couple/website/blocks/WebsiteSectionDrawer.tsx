@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { X, ImagePlus, Loader2 } from 'lucide-react'
+import { AnimatedDrawer } from '@/components/AnimatedModal'
 import { useUpdateWeddingWebsite, type WeddingWebsite } from '../useWeddingWebsite'
 import { apiClient } from '@/core/api/client'
 import { normalizeImageFile, isAllowedImageType, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
@@ -42,95 +43,36 @@ const DRESS_CODE_OPTIONS = [
   'Casual',
 ]
 
+// Focus moves into the drawer on open, Escape closes, focus returns to the
+// trigger on close (useModalA11y, folded into AnimatedDrawer), and Tab is
+// trapped within the panel so focus never leaks to the editor behind it
+// (per the project Accessibility Rules). This drawer already trapped Tab
+// before AnimatedDrawer existed, so trapFocus is turned on here to avoid a
+// real accessibility regression (AnimatedDrawer's own copy of the trap logic
+// is opt-in and off by default for every other modal migrated in issue #301).
 export default function WebsiteSectionDrawer({ section, website, coupleId, onClose }: Props) {
-  const panelRef = useRef<HTMLDivElement>(null)
-  const previouslyFocused = useRef<HTMLElement | null>(null)
-  // onClose is an inline closure recreated on every parent render. Hold it in a
-  // ref so the focus effect below can be mount-only (`[]`) without going stale;
-  // otherwise the effect would tear down on each parent re-render and yank focus
-  // out of whatever input the couple is typing in.
-  const onCloseRef = useRef(onClose)
-  useEffect(() => { onCloseRef.current = onClose })
-
-  // Focus the panel on open; restore focus to the trigger on close. Escape and
-  // backdrop click both close. Tab is trapped within the panel so focus never
-  // leaks to the editor behind the modal (per the project Accessibility Rules).
-  // Mount-only: the drawer is conditionally mounted per section, so a new
-  // section is a fresh mount and this effect re-runs anyway.
-  useEffect(() => {
-    previouslyFocused.current = document.activeElement as HTMLElement | null
-    panelRef.current?.focus()
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onCloseRef.current()
-        return
-      }
-      if (e.key === 'Tab') trapFocus(e, panelRef.current)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      previouslyFocused.current?.focus?.()
-    }
-  }, [])
-
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div
-        className="absolute inset-0 bg-black/30"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <div
-        ref={panelRef}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-label={SECTION_TITLES[section]}
-        className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col outline-none"
-      >
-        <header className="flex items-center justify-between px-5 py-4 border-b border-gold-light flex-shrink-0">
-          <h2 className="font-serif text-lg font-bold text-brown">{SECTION_TITLES[section]}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-brown-light hover:text-brown p-1 rounded hover:bg-ivory transition"
-            aria-label="Close"
-          >
-            <X size={18} />
-          </button>
-        </header>
+    <AnimatedDrawer onClose={onClose} ariaLabel={SECTION_TITLES[section]} trapFocus>
+      <header className="flex items-center justify-between px-5 py-4 border-b border-gold-light flex-shrink-0">
+        <h2 className="font-serif text-lg font-bold text-brown">{SECTION_TITLES[section]}</h2>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-brown-light hover:text-brown p-1 rounded hover:bg-ivory transition"
+          aria-label="Close"
+        >
+          <X size={18} />
+        </button>
+      </header>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5">
-          {section === 'details' && <DetailsSection website={website} coupleId={coupleId} onSaved={onClose} />}
-          {section === 'registry' && <RegistrySection website={website} coupleId={coupleId} onSaved={onClose} />}
-          {section === 'travel' && <TravelSection websiteId={website.id} />}
-          {section === 'weddingParty' && <WeddingPartyManager websiteId={website.id} />}
-        </div>
+      <div className="flex-1 overflow-y-auto px-5 py-5">
+        {section === 'details' && <DetailsSection website={website} coupleId={coupleId} onSaved={onClose} />}
+        {section === 'registry' && <RegistrySection website={website} coupleId={coupleId} onSaved={onClose} />}
+        {section === 'travel' && <TravelSection websiteId={website.id} />}
+        {section === 'weddingParty' && <WeddingPartyManager websiteId={website.id} />}
       </div>
-    </div>
+    </AnimatedDrawer>
   )
-}
-
-// Keep Tab focus inside the drawer. Cycles from the last focusable element back
-// to the first (and Shift+Tab the other way) so focus never lands on the editor
-// behind the modal while aria-modal is true.
-function trapFocus(e: KeyboardEvent, panel: HTMLElement | null) {
-  if (!panel) return
-  const focusable = panel.querySelectorAll<HTMLElement>(
-    'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
-  )
-  if (focusable.length === 0) return
-  const first = focusable[0]
-  const last = focusable[focusable.length - 1]
-  const active = document.activeElement
-  if (e.shiftKey && (active === first || active === panel)) {
-    e.preventDefault()
-    last.focus()
-  } else if (!e.shiftKey && active === last) {
-    e.preventDefault()
-    first.focus()
-  }
 }
 
 const inputCls =

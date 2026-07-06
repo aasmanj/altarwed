@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
 import QueryErrorState from '@/components/QueryErrorState'
+import { AnimatedModal } from '@/components/AnimatedModal'
 import {
   DndContext,
   DragEndEvent,
@@ -336,9 +338,8 @@ function TableModal({
   const isPending = create.isPending || update.isPending || del.isPending
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 max-h-[90vh] overflow-y-auto">
-        <h2 className="text-lg font-semibold text-stone-900 mb-5">
+    <AnimatedModal onClose={onClose} backdropClassName="bg-black/50" ariaLabelledBy="table-modal-title" panelClassName="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 max-h-[90vh] overflow-y-auto">
+        <h2 id="table-modal-title" className="text-lg font-semibold text-stone-900 mb-5">
           {table ? 'Edit Table' : 'Add Table'}
         </h2>
         <div className="space-y-4">
@@ -389,8 +390,7 @@ function TableModal({
             {isPending ? 'Saving…' : table ? 'Save' : 'Add Table'}
           </button>
         </div>
-      </div>
-    </div>
+    </AnimatedModal>
   )
 }
 
@@ -702,13 +702,15 @@ export default function SeatingPage() {
         </div>
       )}
 
-      {editingTable !== null && (
-        <TableModal
-          table={editingTable === 'new' ? null : editingTable}
-          coupleId={coupleId}
-          onClose={() => setEditingTable(null)}
-        />
-      )}
+      <AnimatePresence>
+        {editingTable !== null && (
+          <TableModal
+            table={editingTable === 'new' ? null : editingTable}
+            coupleId={coupleId}
+            onClose={() => setEditingTable(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

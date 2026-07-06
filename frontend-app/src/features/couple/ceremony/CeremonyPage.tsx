@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
+import { AnimatedModal } from '@/components/AnimatedModal'
 import {
   useCeremonySections,
   useCreateCeremonySection,
@@ -206,10 +208,15 @@ export default function CeremonyPage() {
       </main>
 
       {/* Add / Edit modal */}
-      {modalMode !== null && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 max-h-[90vh] overflow-y-auto">
-            <h3 className="font-serif text-lg font-bold text-brown mb-5">
+      <AnimatePresence>
+        {modalMode !== null && (
+          <AnimatedModal
+            onClose={() => setModalMode(null)}
+            containerClassName="items-end sm:items-center justify-center px-4"
+            ariaLabelledBy="ceremony-modal-title"
+            panelClassName="w-full max-w-lg rounded-2xl bg-white p-6 max-h-[90vh] overflow-y-auto"
+          >
+            <h3 id="ceremony-modal-title" className="font-serif text-lg font-bold text-brown mb-5">
               {modalMode === 'add' ? 'Add section' : 'Edit section'}
             </h3>
 
@@ -281,9 +288,9 @@ export default function CeremonyPage() {
                 Cancel
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </AnimatedModal>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

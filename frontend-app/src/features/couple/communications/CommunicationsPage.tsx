@@ -1,10 +1,12 @@
-import { useEffect, useCallback, useRef, useMemo, useState } from 'react'
+import { useEffect, useCallback, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { AnimatePresence } from 'framer-motion'
 import { Mail, Send, AlertCircle, Loader2, RefreshCw, ShieldCheck, ExternalLink } from 'lucide-react'
 import { QRCodeCanvas } from 'qrcode.react'
 import { useAuth } from '@/core/auth/AuthContext'
 import { useConfirm } from '@/components/ConfirmDialog'
 import PageHeader from '@/components/PageHeader'
+import { AnimatedModal } from '@/components/AnimatedModal'
 import { useGuests } from '@/features/couple/guests/useGuests'
 import {
   usePrintOrders,
@@ -789,7 +791,6 @@ function PostcardPreview({
   returnZip: string
 }) {
   const [enlarged, setEnlarged] = useState(false)
-  const modalRef = useRef<HTMLDivElement>(null)
 
   const isPhoto = templateKey.endsWith('_PHOTO')
   const isSaveTheDate = templateKey.startsWith('SAVE_THE_DATE')
@@ -803,14 +804,6 @@ function PostcardPreview({
   const qrUrl = weddingUrl ?? 'https://altarwed.com'
 
   const close = useCallback(() => setEnlarged(false), [])
-
-  useEffect(() => {
-    if (!enlarged) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
-    document.addEventListener('keydown', onKey)
-    modalRef.current?.focus()
-    return () => document.removeEventListener('keydown', onKey)
-  }, [enlarged, close])
 
   function FrontCard({ large }: { large: boolean }) {
     const fs = large
@@ -953,24 +946,15 @@ function PostcardPreview({
         )}
       </div>
 
-      {enlarged && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Postcard preview enlarged"
-          ref={modalRef}
-          tabIndex={-1}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8"
-        >
-          {/* Backdrop */}
-          <button
-            type="button"
-            aria-label="Close preview"
-            onClick={close}
-            className="absolute inset-0 bg-black/70 w-full border-0 cursor-default"
-          />
-          {/* Content */}
-          <div className="relative z-10 w-full" style={{ maxWidth: 'min(90vw, 880px)' }}>
+      <AnimatePresence>
+        {enlarged && (
+          <AnimatedModal
+            onClose={close}
+            containerClassName="items-center justify-center p-4 sm:p-8"
+            backdropClassName="bg-black/70"
+            ariaLabel="Postcard preview enlarged"
+            panelClassName="z-10 w-full max-w-[min(90vw,880px)]"
+          >
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-semibold text-white">Postcard preview</p>
               <button
@@ -991,9 +975,9 @@ function PostcardPreview({
                 <BackCard large={true} />
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </AnimatedModal>
+        )}
+      </AnimatePresence>
     </>
   )
 }
