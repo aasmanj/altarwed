@@ -1,16 +1,11 @@
-import type { CreateGuestPayload, GuestSide } from './useGuests'
+import type { CreateGuestPayload, GuestSide, RsvpStatus } from './useGuests'
 
 // Spreadsheet import parsing, extracted from ImportGuestsModal so it is unit
 // testable without a DOM, a File, or the xlsx reader. The modal is a thin view
 // over these pure functions.
 //
-// A ParsedRow holds only the fields the bulk-add endpoint (CreateGuestRequest)
-// can actually persist. The app's own template (GUEST_SHEET_COLUMNS in
-// GuestListPage) advertises three more columns that the create DTO does not
-// accept, so they are deliberately NOT parsed here and cannot round-trip:
-//   - Plus One Name  (no plusOneName on CreateGuestRequest)
-//   - RSVP Status    (set by the guest via the public RSVP flow, not on create)
-//   - Table #        (assigned via the dedicated seating endpoint, not on create)
+// ParsedRow holds all fields the bulk-add endpoint (CreateGuestRequest) can persist,
+// including the three that were previously skipped: plusOneName, rsvpStatus, tableNumber.
 export interface ParsedRow {
   name: string
   email?: string
@@ -25,11 +20,14 @@ export interface ParsedRow {
   mailZip?: string
   mailCountry?: string
   plusOneAllowed?: boolean
+  plusOneName?: string
+  rsvpStatus?: RsvpStatus
+  tableNumber?: number
 }
 
-// Fields whose cell value is stored as a plain trimmed string. side and
-// plusOneAllowed are handled separately because they need normalising.
-type StringField = Exclude<keyof ParsedRow, 'side' | 'plusOneAllowed'>
+// Fields whose cell value is stored as a plain trimmed string. side, plusOneAllowed,
+// rsvpStatus, and tableNumber are handled separately (need normalising or parsing).
+type StringField = Exclude<keyof ParsedRow, 'side' | 'plusOneAllowed' | 'rsvpStatus' | 'tableNumber'>
 
 // Case-insensitive, trimmed header -> field mapping. Each pattern list covers the
 // exact header the app's own template emits (so a CSV exported from the guest list
@@ -47,6 +45,9 @@ export const HEADER_MAP: { patterns: string[]; field: keyof ParsedRow }[] = [
   { patterns: ['zip', 'zip code', 'zipcode', 'postal code', 'zip/postal code'], field: 'mailZip' },
   { patterns: ['country'], field: 'mailCountry' },
   { patterns: ['allowed plus one?', 'allowed plus one', 'plus one', 'plus one allowed', 'plus one?', '+1'], field: 'plusOneAllowed' },
+  { patterns: ['plus one name', 'plus-one name', "plus one's name", 'guest plus one name'], field: 'plusOneName' },
+  { patterns: ['rsvp status', 'rsvp', 'status'], field: 'rsvpStatus' },
+  { patterns: ['table #', 'table number', 'table', 'table no', 'table no.'], field: 'tableNumber' },
   { patterns: ['dietary', 'dietary restrictions', 'dietary restriction'], field: 'dietaryRestrictions' },
   { patterns: ['notes'], field: 'notes' },
 ]
@@ -98,6 +99,14 @@ export function parseRows(rawRows: Record<string, string>[]): ParsedRow[] {
         parsed.side = normalizeSide(val)
       } else if (field === 'plusOneAllowed') {
         parsed.plusOneAllowed = parsePlusOne(val)
+      } else if (field === 'rsvpStatus') {
+        const v = val.trim().toUpperCase()
+        if (v === 'PENDING' || v === 'ATTENDING' || v === 'DECLINING') {
+          parsed.rsvpStatus = v as RsvpStatus
+        }
+      } else if (field === 'tableNumber') {
+        const n = parseInt(val, 10)
+        if (!isNaN(n) && n >= 1) parsed.tableNumber = n
       } else {
         parsed[field as StringField] = val
       }
@@ -228,5 +237,8 @@ export function toCreatePayload(row: ParsedRow): CreateGuestPayload {
     mailZip: row.mailZip || undefined,
     mailCountry: row.mailCountry || undefined,
     plusOneAllowed: row.plusOneAllowed ?? false,
+    plusOneName: row.plusOneName || undefined,
+    rsvpStatus: row.rsvpStatus,
+    tableNumber: row.tableNumber,
   }
 }

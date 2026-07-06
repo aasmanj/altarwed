@@ -1,5 +1,6 @@
 package com.altarwed.application.service;
 
+import com.altarwed.application.dto.CreateGuestRequest;
 import com.altarwed.application.dto.SaveTheDateSendResult;
 import com.altarwed.application.dto.SubmitRsvpRequest;
 import com.altarwed.domain.exception.GuestUnsubscribedException;
@@ -853,5 +854,56 @@ class GuestServiceTest {
         // The persisted token expires from the wedding date, not now+30, so a late click still works.
         assertThat(saved.getValue().expiresAt())
                 .isEqualTo(weddingDate.plusDays(3).atTime(LocalTime.MAX));
+    }
+
+    // addGuestsBulk: verifies that the three new optional fields (plusOneName, rsvpStatus,
+    // tableNumber) added to CreateGuestRequest (#264) are mapped into the persisted Guest
+    // record, not silently dropped as they were before the fix.
+
+    private CreateGuestRequest bulkReq(String name, String plusOneName,
+                                       GuestRsvpStatus rsvpStatus, Integer tableNumber) {
+        return new CreateGuestRequest(
+                name, null, null, true,
+                plusOneName, rsvpStatus, tableNumber,
+                null, null, null,
+                null, null, null, null, null,
+                null, null, null);
+    }
+
+    @Test
+    void addGuestsBulk_persistsPlusOneName_rsvpStatus_andTableNumber_whenProvided() {
+        UUID coupleId = UUID.randomUUID();
+        when(guestRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        List<Guest> saved = service().addGuestsBulk(coupleId,
+                List.of(bulkReq("Alice Smith", "Bob Smith", GuestRsvpStatus.ATTENDING, 5)));
+
+        assertThat(saved).hasSize(1);
+        Guest g = saved.get(0);
+        assertThat(g.plusOneName()).isEqualTo("Bob Smith");
+        assertThat(g.rsvpStatus()).isEqualTo(GuestRsvpStatus.ATTENDING);
+        assertThat(g.tableNumber()).isEqualTo(5);
+    }
+
+    @Test
+    void addGuestsBulk_defaultsRsvpStatusToPending_whenNotProvided() {
+        UUID coupleId = UUID.randomUUID();
+        when(guestRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        List<Guest> saved = service().addGuestsBulk(coupleId,
+                List.of(bulkReq("Carol Jones", null, null, null)));
+
+        assertThat(saved.get(0).rsvpStatus()).isEqualTo(GuestRsvpStatus.PENDING);
+    }
+
+    @Test
+    void addGuestsBulk_collapsesBlankPlusOneName_toNull() {
+        UUID coupleId = UUID.randomUUID();
+        when(guestRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        List<Guest> saved = service().addGuestsBulk(coupleId,
+                List.of(bulkReq("Dave Lee", "   ", null, null)));
+
+        assertThat(saved.get(0).plusOneName()).isNull();
     }
 }
