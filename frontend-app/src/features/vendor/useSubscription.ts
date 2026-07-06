@@ -1,5 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { apiClient } from '@/core/api/client'
+import { errorDetail } from '@/lib/apiError'
+
+// Actionable fallbacks for the two money-path mutations (issue #296). When the backend
+// sends an RFC 7807 ProblemDetail we surface its `detail` verbatim; otherwise (5xx,
+// timeout, network blip) the vendor still gets a concrete next step instead of silence.
+export const CHECKOUT_ERROR_MESSAGE = 'Could not open checkout. Please try again.'
+export const PORTAL_ERROR_MESSAGE = 'Could not open billing management. Please try again.'
 
 export interface SubscriptionInfo {
   planTier: 'BASIC' | 'FEATURED' | 'PREMIUM'
@@ -24,6 +32,7 @@ export function useCreateCheckoutSession() {
     mutationFn: (priceId: string) =>
       apiClient.post('/api/v1/stripe/checkout', { priceId }).then(r => r.data as { url: string }),
     onSuccess: ({ url }) => { window.location.href = url },
+    onError: (err: unknown) => toast.error(errorDetail(err, CHECKOUT_ERROR_MESSAGE)),
   })
 }
 
@@ -32,6 +41,7 @@ export function useCreatePortalSession() {
     mutationFn: () =>
       apiClient.post('/api/v1/stripe/portal').then(r => r.data as { url: string }),
     onSuccess: ({ url }) => { window.location.href = url },
+    onError: (err: unknown) => toast.error(errorDetail(err, PORTAL_ERROR_MESSAGE)),
   })
 }
 
