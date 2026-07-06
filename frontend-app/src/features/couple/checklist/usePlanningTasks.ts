@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { apiClient } from '@/core/api/client'
+import { errorDetail } from '@/lib/apiError'
 
 export type TaskCategory =
   | 'FAITH' | 'CEREMONY' | 'VENUE' | 'VENDORS'
@@ -81,6 +82,9 @@ export function useAddTask(coupleId: string) {
       apiClient.post(`/api/v1/planning-tasks/couple/${coupleId}`, payload).then(r => r.data),
     onSuccess: (task: PlanningTask) =>
       qc.setQueryData<PlanningTask[]>(key(coupleId), old => old ? [...old, task] : [task]),
+    // No optimistic update, so nothing to roll back; surface the backend reason
+    // (a ProblemDetail from validation) instead of failing silently (issue #302).
+    onError: (err: unknown) => toast.error(errorDetail(err)),
   })
 }
 
@@ -89,7 +93,17 @@ export function useDeleteTask(coupleId: string) {
   return useMutation({
     mutationFn: (taskId: string) =>
       apiClient.delete(`/api/v1/planning-tasks/couple/${coupleId}/${taskId}`),
-    onSuccess: (_data, taskId) =>
-      qc.setQueryData<PlanningTask[]>(key(coupleId), old => old?.filter(t => t.id !== taskId) ?? []),
+    // Optimistic removal with snapshot rollback, matching useRemoveGuest and
+    // useDeletePhoto so every couple-side delete behaves the same (issue #302).
+    onMutate: async (taskId) => {
+      await qc.cancelQueries({ queryKey: key(coupleId) })
+      const previous = qc.getQueryData<PlanningTask[]>(key(coupleId))
+      qc.setQueryData<PlanningTask[]>(key(coupleId), old => old?.filter(t => t.id !== taskId) ?? [])
+      return { previous }
+    },
+    onError: (err: unknown, _taskId, ctx) => {
+      if (ctx?.previous) qc.setQueryData(key(coupleId), ctx.previous)
+      toast.error(errorDetail(err, 'Could not delete the task. Please try again.'))
+    },
   })
 }

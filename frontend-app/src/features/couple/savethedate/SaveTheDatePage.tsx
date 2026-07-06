@@ -94,6 +94,9 @@ export default function SaveTheDatePage() {
     mutationFn: () =>
       apiClient.delete(`/api/v1/uploads/wedding-websites/${website?.id}/std-image`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['wedding-website', coupleId] }),
+    // Without this a failed removal just flipped the button back with no feedback,
+    // leaving the couple unsure whether the image was still on their emails (issue #302).
+    onError: (err: unknown) => toast.error(errorDetail(err, 'Could not remove the image. Please try again.')),
   })
 
   const emailGuests = guests.filter(g => g.email)

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { apiClient } from '@/core/api/client'
+import { errorDetail } from '@/lib/apiError'
 import { useAuth } from '@/core/auth/AuthContext'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import PageHeader from '@/components/PageHeader'
@@ -39,6 +41,9 @@ function usePinScripture(coupleId: string) {
         })
         .then(() => undefined),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['wedding-website', coupleId] }),
+    // A rejected pin previously just flipped the button back with no feedback,
+    // so the couple could believe the verse was on their website (issue #302).
+    onError: (err: unknown) => toast.error(errorDetail(err, 'Could not pin the verse. Please try again.')),
   })
 }
 
@@ -54,6 +59,9 @@ function useSaveCustomVerse(coupleId: string) {
         })
         .then(() => undefined),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['wedding-website', coupleId] }),
+    // Same silent-failure gap as usePinScripture: the form kept the input but
+    // gave no reason why nothing was saved (issue #302).
+    onError: (err: unknown) => toast.error(errorDetail(err, 'Could not save your verse. Please try again.')),
   })
 }
 

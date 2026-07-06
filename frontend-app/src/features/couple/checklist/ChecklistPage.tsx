@@ -179,8 +179,13 @@ export default function ChecklistPage() {
   })
 
   const handleAdd = useCallback(async (title: string, category: TaskCategory) => {
-    await addTask.mutateAsync({ title, category })
-    setShowAdd(false)
+    // Close only on success: a rejected add keeps the modal (and the typed title)
+    // open while useAddTask's onError toast explains why. The catch also stops the
+    // rejection from escaping as an unhandled promise rejection (issue #302).
+    try {
+      await addTask.mutateAsync({ title, category })
+      setShowAdd(false)
+    } catch { /* useAddTask onError shows the toast */ }
   }, [addTask])
 
   // Timeline view only makes sense once we know the wedding date. Without it,

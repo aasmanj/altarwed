@@ -23,6 +23,8 @@ import ImageRepositionModal from '@/components/ImageRepositionModal'
 import { framingStyle, apiFraming } from '@/lib/imageFraming'
 import { TOUCH_REVEAL } from '@/lib/touchReveal'
 import { runPhotoBatch, summarizePhotoBatch } from './photoBatchUpload'
+import { errorDetail } from '@/lib/apiError'
+import { runCaptionSave } from './captionSave'
 
 interface Photo {
   id: string
@@ -58,12 +60,28 @@ function useUploadPhoto(websiteId: string) {
   })
 }
 
-function useDeletePhoto(websiteId: string) {
+// Exported so the delete rollback behavior can be unit-tested (issue #302),
+// like useReorderPhotos below; the component still uses it internally.
+export function useDeletePhoto(websiteId: string) {
   const qc = useQueryClient()
+  const key = ['wedding-photos', websiteId]
   return useMutation({
     mutationFn: (photoId: string) =>
       apiClient.delete(`/api/v1/wedding-photos/website/${websiteId}/${photoId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['wedding-photos', websiteId] }),
+    // Optimistic removal with snapshot rollback (pattern: useReorderPhotos). The
+    // card vanishes instantly; a rejected delete restores it and says why instead
+    // of the photo silently staying in the album (issue #302).
+    onMutate: async (photoId) => {
+      await qc.cancelQueries({ queryKey: key })
+      const prev = qc.getQueryData<Photo[]>(key)
+      qc.setQueryData<Photo[]>(key, old => old?.filter(p => p.id !== photoId))
+      return { prev }
+    },
+    onError: (err: unknown, _photoId, ctx) => {
+      if (ctx?.prev) qc.setQueryData(key, ctx.prev)
+      toast.error(errorDetail(err, 'Could not remove the photo. Please try again.'))
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: key }),
   })
 }
 
@@ -137,6 +155,8 @@ export default function PhotosPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [caption, setCaption] = useState('')
   const [editingCaption, setEditingCaption] = useState<{ id: string; value: string } | null>(null)
+  // In-modal error for a failed caption save (issue #302); cleared on open and retry.
+  const [captionError, setCaptionError] = useState<string | null>(null)
   const [repositioning, setRepositioning] = useState<Photo | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null)
@@ -314,7 +334,7 @@ export default function PhotosPage() {
                     <Crop className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => setEditingCaption({ id: photo.id, value: photo.caption ?? '' })}
+                    onClick={() => { setCaptionError(null); setEditingCaption({ id: photo.id, value: photo.caption ?? '' }) }}
                     className="pointer-events-auto p-2 bg-white rounded-full shadow text-stone-700 hover:text-amber-600"
                     title="Edit caption"
                   >
@@ -364,8 +384,15 @@ export default function PhotosPage() {
           saving={updateFraming.isPending}
           onCancel={() => setRepositioning(null)}
           onSave={async ({ focalX, focalY, zoom }) => {
-            await updateFraming.mutateAsync({ photoId: repositioning.id, focalX, focalY, zoom })
-            setRepositioning(null)
+            // Keep the modal open on failure so the couple can retry; before this
+            // a rejected save showed nothing and escaped as an unhandled promise
+            // rejection (issue #302).
+            try {
+              await updateFraming.mutateAsync({ photoId: repositioning.id, focalX, focalY, zoom })
+              setRepositioning(null)
+            } catch (err) {
+              toast.error(errorDetail(err, 'Could not save the new position. Please try again.'))
+            }
           }}
         />
       )}
@@ -390,6 +417,9 @@ export default function PhotosPage() {
               placeholder="Describe this moment…"
               className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none"
             />
+            {captionError && (
+              <p className="mt-2 text-xs text-red-600" role="alert">{captionError}</p>
+            )}
             <div className="flex gap-3 mt-4">
               <button
                 onClick={() => setEditingCaption(null)}
@@ -399,12 +429,19 @@ export default function PhotosPage() {
               </button>
               <button
                 onClick={() => {
-                  updateCaption.mutate({ photoId: editingCaption.id, caption: editingCaption.value })
-                  setEditingCaption(null)
+                  // Close only on success; a failed save keeps the typed caption
+                  // and shows the reason in the modal (issue #302).
+                  void runCaptionSave({
+                    save: () => updateCaption.mutateAsync({ photoId: editingCaption.id, caption: editingCaption.value }),
+                    close: () => setEditingCaption(null),
+                    showError: setCaptionError,
+                    clearError: () => setCaptionError(null),
+                  })
                 }}
-                className="flex-1 py-2.5 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700"
+                disabled={updateCaption.isPending}
+                className="flex-1 py-2.5 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-60"
               >
-                Save
+                {updateCaption.isPending ? 'Saving…' : 'Save'}
               </button>
             </div>
           </div>
