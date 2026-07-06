@@ -15,7 +15,14 @@ import java.util.UUID;
  * The service applies the skip rules (no email, already responded, cap reached,
  * unsubscribed) per guest and reports the outcome; the caller does not decide
  * eligibility client-side.
+ *
+ * idempotencyKey (issue #295): client-generated per-attempt UUID, kept across
+ * retries of the same selection so a send whose response was lost replays the
+ * stored summary instead of re-emailing the batch. Nullable for backward
+ * compatibility (a keyless request sends without idempotency, same as before);
+ * same contract as the save-the-date send (issue #232).
  */
 public record BulkInviteRequest(
-        @NotEmpty @Size(max = 500) List<UUID> guestIds
+        @NotEmpty @Size(max = 500) List<UUID> guestIds,
+        @Size(max = 64) String idempotencyKey
 ) {}

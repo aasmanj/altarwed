@@ -72,6 +72,9 @@ export interface BulkInviteResult {
   sent: number
   skipped: number
   skippedGuests: { guestId: string; name: string; reason: BulkInviteSkipReason }[]
+  // True when this is an idempotent replay of an earlier send (issue #295): the couple
+  // retried the same attempt, so nothing was re-emailed and skippedGuests is empty.
+  replayed?: boolean
 }
 
 export interface CreateGuestPayload {
@@ -263,9 +266,12 @@ export function useSendAllInvites(coupleId: string) {
 export function useSendBulkInvites(coupleId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (guestIds: string[]) =>
+    // idempotencyKey (issue #295): per-attempt UUID the caller keeps across retries of
+    // the same selection, so a send whose response was lost replays the stored summary
+    // server-side instead of re-emailing every guest. Same contract as save-the-dates.
+    mutationFn: ({ guestIds, idempotencyKey }: { guestIds: string[]; idempotencyKey: string }) =>
       apiClient
-        .post(`/api/v1/guests/couple/${coupleId}/invite-bulk`, { guestIds })
+        .post(`/api/v1/guests/couple/${coupleId}/invite-bulk`, { guestIds, idempotencyKey })
         .then(r => r.data as BulkInviteResult),
     onSuccess: () => qc.invalidateQueries({ queryKey: key(coupleId) }),
     onError: () => toast.error('Could not send the RSVP invites. Please try again.'),

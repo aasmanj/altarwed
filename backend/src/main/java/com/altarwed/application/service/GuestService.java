@@ -68,6 +68,7 @@ public class GuestService {
     private final CustomRsvpQuestionService customRsvpQuestionService;
     private final CaptchaVerificationPort captchaVerificationPort;
     private final SaveTheDateSendRepository saveTheDateSendRepository;
+    private final RsvpInviteBulkSendRepository rsvpInviteBulkSendRepository;
 
     public GuestService(
             GuestRepository guestRepository,
@@ -78,7 +79,8 @@ public class GuestService {
             EmailSuppressionService suppressionService,
             CustomRsvpQuestionService customRsvpQuestionService,
             CaptchaVerificationPort captchaVerificationPort,
-            SaveTheDateSendRepository saveTheDateSendRepository
+            SaveTheDateSendRepository saveTheDateSendRepository,
+            RsvpInviteBulkSendRepository rsvpInviteBulkSendRepository
     ) {
         this.guestRepository = guestRepository;
         this.tokenRepository = tokenRepository;
@@ -89,6 +91,7 @@ public class GuestService {
         this.customRsvpQuestionService = customRsvpQuestionService;
         this.captchaVerificationPort = captchaVerificationPort;
         this.saveTheDateSendRepository = saveTheDateSendRepository;
+        this.rsvpInviteBulkSendRepository = rsvpInviteBulkSendRepository;
     }
 
     @Transactional
@@ -484,8 +487,24 @@ public class GuestService {
      * issuance, cap increment, and email queuing stay in one place.
      */
     @Transactional
-    public BulkInviteResult sendInvitesBulk(UUID coupleId, List<UUID> guestIds) {
+    public BulkInviteResult sendInvitesBulk(UUID coupleId, List<UUID> guestIds, String idempotencyKey) {
         log.info("bulk invite send batch started, coupleId={}, targetCount={}", coupleId, guestIds.size());
+
+        // Idempotency guard (issue #295): a send whose HTTP response was lost gets retried by
+        // the couple carrying the same client-generated key. If a receipt already exists for
+        // this key, return its stored summary instead of emailing and re-incrementing send
+        // counts a second time. Same mechanism as sendSaveDates (issue #232); see that method
+        // and RsvpInviteBulkSendJpaAdapter for why the claim below is REQUIRES_NEW + flush.
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<RsvpInviteBulkSend> replay =
+                    rsvpInviteBulkSendRepository.findByCoupleIdAndIdempotencyKey(coupleId, idempotencyKey);
+            if (replay.isPresent()) {
+                RsvpInviteBulkSend r = replay.get();
+                log.info("bulk invite send idempotent replay, returning existing, coupleId={}, sendId={}",
+                        coupleId, r.id());
+                return new BulkInviteResult(r.sentCount(), r.skippedCount(), List.of(), true);
+            }
+        }
 
         Map<UUID, Guest> byId = new HashMap<>();
         for (Guest g : guestRepository.findAllByCoupleId(coupleId)) {
@@ -537,6 +556,27 @@ public class GuestService {
         // Preload the couple + website once (identical for every guest) and pass them into
         // issueInvite so a large batch is two extra queries, not two per guest (N+1). Guarded
         // on a non-empty list so a send with nothing to invite issues no queries at all.
+        // Claim the idempotency key BEFORE the invite fan-out (issue #295): two concurrent
+        // submits with the same key both pass the replay check above, but the unique index
+        // lets exactly one insert win; the loser catches the collision here and replays the
+        // winner's summary rather than mailing the batch twice. The adapter forces the claim
+        // into its own flushed transaction (REQUIRES_NEW + saveAndFlush) for the same reasons
+        // documented on sendSaveDates: the collision must surface here as a catchable
+        // DataIntegrityViolationException, and it must not doom this ambient transaction.
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            try {
+                rsvpInviteBulkSendRepository.save(new RsvpInviteBulkSend(
+                        null, coupleId, idempotencyKey,
+                        toInvite.size(), skipped.size(), LocalDateTime.now()));
+            } catch (DataIntegrityViolationException race) {
+                log.warn("bulk invite send idempotency race, returning concurrent summary, coupleId={}", coupleId);
+                RsvpInviteBulkSend r = rsvpInviteBulkSendRepository
+                        .findByCoupleIdAndIdempotencyKey(coupleId, idempotencyKey)
+                        .orElseThrow(() -> race);
+                return new BulkInviteResult(r.sentCount(), r.skippedCount(), List.of(), true);
+            }
+        }
+
         //
         // Rollback window: the invites are queued on the emailExecutor (@Async) and are NOT
         // enrolled in this @Transactional method. If the transaction aborts partway through the
@@ -554,7 +594,7 @@ public class GuestService {
 
         log.info("bulk invite send batch queued, coupleId={}, sent={}, skipped={}",
                  coupleId, toInvite.size(), skipped.size());
-        return new BulkInviteResult(toInvite.size(), skipped.size(), skipped);
+        return new BulkInviteResult(toInvite.size(), skipped.size(), skipped, false);
     }
 
     /**

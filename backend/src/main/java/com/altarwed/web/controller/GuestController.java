@@ -153,7 +153,8 @@ public class GuestController {
             @AuthenticationPrincipal String email
     ) {
         accessGuard.assertOwns(coupleId, email);
-        return ResponseEntity.ok(guestService.sendInvitesBulk(coupleId, request.guestIds()));
+        return ResponseEntity.ok(
+                guestService.sendInvitesBulk(coupleId, request.guestIds(), request.idempotencyKey()));
     }
 
     // Public endpoints, no auth, used by the Next.js RSVP page. NO ownership guard,
