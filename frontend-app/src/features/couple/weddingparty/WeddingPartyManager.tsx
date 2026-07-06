@@ -7,6 +7,7 @@ import {
   useWeddingParty, useAddMember, useUpdateMember, useDeleteMember, useUploadMemberPhoto, useReorderParty,
   type WeddingPartyMember, type PartySide,
 } from './useWeddingParty'
+import { runAddMemberSubmit, PHOTO_UPLOAD_RETRY_MESSAGE } from './addMemberSubmit'
 import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, PHOTO_TOO_LARGE_MESSAGE, runImageUpload, uploadErrorMessage } from '@/lib/upload'
 import { cropToSquare } from '@/lib/imageCrop'
@@ -114,8 +115,13 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
           key={member.id}
           initial={member}
           onSubmit={async (data) => {
-            await updateMember.mutateAsync({ memberId: member.id, payload: data })
-            setEditingId(null)
+            try {
+              await updateMember.mutateAsync({ memberId: member.id, payload: data })
+              setEditingId(null)
+            } catch {
+              // useUpdateMember's onError already toasted the reason; keep the
+              // form open so the couple can correct and retry (issue #303).
+            }
           }}
           onCancel={() => setEditingId(null)}
           isPending={updateMember.isPending}
@@ -157,12 +163,25 @@ export default function WeddingPartyManager({ websiteId }: { websiteId: string }
         <MemberForm
           onSubmit={async (data, file) => {
             setPhotoError(null)
-            // Append new members at the end of the current order.
-            const created = await addMember.mutateAsync({ ...data, sortOrder: ordered.length })
-            if (file && created?.id) {
-              await uploadPhoto.mutateAsync({ memberId: created.id, file })
-            }
-            setShowAdd(false)
+            // Extracted flow (issue #303): if the create succeeds but the photo
+            // upload fails, the form still closes (the member already exists in
+            // the cache, so leaving it open invited a duplicate re-submit) and a
+            // toast points at the hover-the-avatar retry path. A failed create
+            // keeps the form open; useAddMember's onError explains why.
+            await runAddMemberSubmit({
+              // Append new members at the end of the current order.
+              createMember: () => addMember.mutateAsync({ ...data, sortOrder: ordered.length }),
+              uploadPhoto: file
+                ? memberId => uploadPhoto.mutateAsync({ memberId, file })
+                : null,
+              closeForm: () => setShowAdd(false),
+              onPhotoUploadFailed: () => {
+                // The toast carries the retry guidance; reset the mutation so the
+                // stale inline upload-error banner does not also linger.
+                uploadPhoto.reset()
+                toast.error(PHOTO_UPLOAD_RETRY_MESSAGE)
+              },
+            })
           }}
           onCancel={() => setShowAdd(false)}
           isPending={addMember.isPending || uploadPhoto.isPending}
