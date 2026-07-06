@@ -36,6 +36,17 @@ vi.mock('@tanstack/react-query', async (importOriginal) => {
 import { QueryClient } from '@tanstack/react-query'
 import { useAddGuest } from './guests/useGuests'
 import { useCreateBudgetItem, useUpdateBudgetItem, useDeleteBudgetItem } from './budget/useBudget'
+import {
+  useCreateCeremonySection,
+  useUpdateCeremonySection,
+  useDeleteCeremonySection,
+} from './ceremony/useCeremonySections'
+import {
+  useCreateSeatingTable,
+  useUpdateSeatingTable,
+  useDeleteSeatingTable,
+} from './seating/useSeatingTables'
+import { useAddHotel, useUpdateHotel, useDeleteHotel } from './website/useHotels'
 import { errorDetail, DEFAULT_ERROR_MESSAGE } from '../../lib/apiError'
 
 // A Spring ProblemDetail rejection, shaped like the axios error the hooks read.
@@ -109,5 +120,98 @@ describe('core mutation error toasts (issue #222)', () => {
       problemDetailError('Budget item not found'),
     )
     expect(toastError).toHaveBeenCalledWith('Budget item not found')
+  })
+})
+
+describe('ceremony section mutation error toasts (issue #262)', () => {
+  it('useCreateCeremonySection: toasts the backend reason on failure', () => {
+    runMutationError(
+      () => useCreateCeremonySection('couple-1'),
+      problemDetailError('Title must not be blank'),
+    )
+    expect(toastError).toHaveBeenCalledWith('Title must not be blank')
+  })
+
+  it('useCreateCeremonySection: falls back to the generic message with no ProblemDetail', () => {
+    runMutationError(() => useCreateCeremonySection('couple-1'), new Error('network error'))
+    expect(toastError).toHaveBeenCalledWith(DEFAULT_ERROR_MESSAGE)
+  })
+
+  it('useUpdateCeremonySection: toasts the backend reason on failure', () => {
+    runMutationError(
+      () => useUpdateCeremonySection('couple-1'),
+      problemDetailError('Ceremony section not found'),
+    )
+    expect(toastError).toHaveBeenCalledWith('Ceremony section not found')
+  })
+
+  it('useDeleteCeremonySection: toasts the backend reason on failure', () => {
+    runMutationError(
+      () => useDeleteCeremonySection('couple-1'),
+      problemDetailError('Ceremony section not found'),
+    )
+    expect(toastError).toHaveBeenCalledWith('Ceremony section not found')
+  })
+})
+
+describe('seating table mutation error toasts (issue #262)', () => {
+  it('useCreateSeatingTable: toasts the backend reason on failure', () => {
+    runMutationError(
+      () => useCreateSeatingTable('couple-1'),
+      problemDetailError('Table name must not be blank'),
+    )
+    expect(toastError).toHaveBeenCalledWith('Table name must not be blank')
+  })
+
+  it('useCreateSeatingTable: falls back to the generic message with no ProblemDetail', () => {
+    runMutationError(() => useCreateSeatingTable('couple-1'), new Error('network error'))
+    expect(toastError).toHaveBeenCalledWith(DEFAULT_ERROR_MESSAGE)
+  })
+
+  it('useUpdateSeatingTable: toasts the backend reason on failure', () => {
+    runMutationError(
+      () => useUpdateSeatingTable('couple-1'),
+      problemDetailError('Seating table not found'),
+    )
+    expect(toastError).toHaveBeenCalledWith('Seating table not found')
+  })
+
+  it('useDeleteSeatingTable: toasts the backend reason on failure', () => {
+    runMutationError(
+      () => useDeleteSeatingTable('couple-1'),
+      problemDetailError('Seating table not found'),
+    )
+    expect(toastError).toHaveBeenCalledWith('Seating table not found')
+  })
+})
+
+describe('hotel mutation error toasts (issue #262)', () => {
+  it('useAddHotel: toasts the backend reason on failure', () => {
+    runMutationError(
+      () => useAddHotel('website-1'),
+      problemDetailError('Hotel name must not be blank'),
+    )
+    expect(toastError).toHaveBeenCalledWith('Hotel name must not be blank')
+  })
+
+  it('useAddHotel: falls back to the generic message with no ProblemDetail', () => {
+    runMutationError(() => useAddHotel('website-1'), new Error('network error'))
+    expect(toastError).toHaveBeenCalledWith(DEFAULT_ERROR_MESSAGE)
+  })
+
+  it('useUpdateHotel: toasts the backend reason on failure', () => {
+    runMutationError(
+      () => useUpdateHotel('website-1'),
+      problemDetailError('Hotel not found'),
+    )
+    expect(toastError).toHaveBeenCalledWith('Hotel not found')
+  })
+
+  it('useDeleteHotel: toasts the backend reason on failure', () => {
+    runMutationError(
+      () => useDeleteHotel('website-1'),
+      problemDetailError('Hotel not found'),
+    )
+    expect(toastError).toHaveBeenCalledWith('Hotel not found')
   })
 })

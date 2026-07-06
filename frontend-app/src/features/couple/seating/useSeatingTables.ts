@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { apiClient } from '@/core/api/client'
+import { errorDetail } from '@/lib/apiError'
 
 export interface SeatingTable {
   id: string
@@ -25,6 +27,7 @@ export function useCreateSeatingTable(coupleId: string) {
     mutationFn: (payload: { name: string; capacity: number }) =>
       apiClient.post(`/api/v1/seating-tables/couple/${coupleId}`, payload).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: key(coupleId) }),
+    onError: (err: unknown) => toast.error(errorDetail(err)),
   })
 }
 
@@ -34,6 +37,7 @@ export function useUpdateSeatingTable(coupleId: string) {
     mutationFn: ({ tableId, ...payload }: { tableId: string; name?: string; capacity?: number }) =>
       apiClient.patch(`/api/v1/seating-tables/couple/${coupleId}/${tableId}`, payload).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: key(coupleId) }),
+    onError: (err: unknown) => toast.error(errorDetail(err)),
   })
 }
 
@@ -43,5 +47,6 @@ export function useDeleteSeatingTable(coupleId: string) {
     mutationFn: (tableId: string) =>
       apiClient.delete(`/api/v1/seating-tables/couple/${coupleId}/${tableId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: key(coupleId) }),
+    onError: (err: unknown) => toast.error(errorDetail(err)),
   })
 }

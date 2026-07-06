@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { apiClient } from '@/core/api/client'
+import { errorDetail } from '@/lib/apiError'
 
 export interface CeremonySection {
   id: string
@@ -33,6 +35,7 @@ export function useCreateCeremonySection(coupleId: string) {
     mutationFn: (payload: CeremonySectionPayload) =>
       apiClient.post(`/api/v1/ceremony-sections/couple/${coupleId}`, payload).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ceremony-sections', coupleId] }),
+    onError: (err: unknown) => toast.error(errorDetail(err)),
   })
 }
 
@@ -42,6 +45,7 @@ export function useUpdateCeremonySection(coupleId: string) {
     mutationFn: ({ id, payload }: { id: string; payload: CeremonySectionPayload }) =>
       apiClient.put(`/api/v1/ceremony-sections/${id}`, payload).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ceremony-sections', coupleId] }),
+    onError: (err: unknown) => toast.error(errorDetail(err)),
   })
 }
 
@@ -51,5 +55,6 @@ export function useDeleteCeremonySection(coupleId: string) {
     mutationFn: (id: string) =>
       apiClient.delete(`/api/v1/ceremony-sections/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ceremony-sections', coupleId] }),
+    onError: (err: unknown) => toast.error(errorDetail(err)),
   })
 }

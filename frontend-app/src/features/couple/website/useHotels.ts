@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { apiClient } from '@/core/api/client'
+import { errorDetail } from '@/lib/apiError'
 
 export interface WeddingHotel {
   id: string
@@ -39,6 +41,7 @@ export function useAddHotel(websiteId: string) {
     mutationFn: (payload: WeddingHotelPayload) =>
       apiClient.post(`/api/v1/wedding-websites/${websiteId}/hotels`, payload).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: key(websiteId) }),
+    onError: (err: unknown) => toast.error(errorDetail(err)),
   })
 }
 
@@ -48,6 +51,7 @@ export function useUpdateHotel(websiteId: string) {
     mutationFn: ({ hotelId, payload }: { hotelId: string; payload: WeddingHotelPayload }) =>
       apiClient.patch(`/api/v1/wedding-websites/${websiteId}/hotels/${hotelId}`, payload).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: key(websiteId) }),
+    onError: (err: unknown) => toast.error(errorDetail(err)),
   })
 }
 
@@ -57,5 +61,6 @@ export function useDeleteHotel(websiteId: string) {
     mutationFn: (hotelId: string) =>
       apiClient.delete(`/api/v1/wedding-websites/${websiteId}/hotels/${hotelId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: key(websiteId) }),
+    onError: (err: unknown) => toast.error(errorDetail(err)),
   })
 }
