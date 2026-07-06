@@ -62,7 +62,9 @@ describe('RSVP mobile UX (issue #69)', () => {
     expect(src).toContain('formatShortDate(r.weddingDate)')
     // The off-by-one timezone parse must be gone.
     expect(src).not.toContain("new Date(dateStr + 'T00:00:00')")
-    // Search controls also avoid sub-16px font on mobile.
-    expect(src).toContain('text-base sm:text-sm')
+    // Search controls also avoid sub-16px font on mobile. The form markup
+    // moved into the client SearchForm component for the pending state (#297).
+    const form = read('app/find-wedding/SearchForm.tsx')
+    expect(form).toContain('text-base sm:text-sm')
   })
 })
