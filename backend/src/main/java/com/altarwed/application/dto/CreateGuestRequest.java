@@ -3,6 +3,7 @@ package com.altarwed.application.dto;
 import com.altarwed.domain.model.GuestRsvpStatus;
 import com.altarwed.domain.model.GuestSide;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -13,7 +14,7 @@ public record CreateGuestRequest(
         Boolean plusOneAllowed,
         @Size(max = 200) String plusOneName,
         GuestRsvpStatus rsvpStatus,
-        Integer tableNumber,
+        @Min(1) Integer tableNumber,
         GuestSide side,
         @Size(max = 500) String dietaryRestrictions,
         String notes,

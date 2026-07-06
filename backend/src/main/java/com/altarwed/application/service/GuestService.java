@@ -107,7 +107,9 @@ public class GuestService {
                 req.partyContact() != null ? req.partyContact() : false,
                 null, false  // sheetSyncId, syncedFromSheet: manually added guest
         )).toList();
-        return guestRepository.saveAll(guests);
+        List<Guest> saved = guestRepository.saveAll(guests);
+        log.info("guest bulk import saved, coupleId={}, count={}", coupleId, saved.size());
+        return saved;
     }
 
     @Transactional
@@ -115,9 +117,11 @@ public class GuestService {
         PartyResolution party = resolveParty(coupleId, req.partyId(), req.partyName());
         Guest guest = new Guest(
                 null, coupleId, req.name(), req.email(), req.phone(),
-                GuestRsvpStatus.PENDING, Boolean.TRUE.equals(req.plusOneAllowed()), null,
+                req.rsvpStatus() != null ? req.rsvpStatus() : GuestRsvpStatus.PENDING,
+                Boolean.TRUE.equals(req.plusOneAllowed()),
+                req.plusOneName() != null && !req.plusOneName().isBlank() ? req.plusOneName() : null,
                 req.dietaryRestrictions(), null,
-                null, req.side(), req.notes(),
+                req.tableNumber(), req.side(), req.notes(),
                 req.mailLine1(), req.mailCity(), req.mailState(), req.mailZip(), req.mailCountry(),
                 null, 0,
                 null, null, null, null, LocalDateTime.now(), LocalDateTime.now(),
@@ -145,9 +149,11 @@ public class GuestService {
             boolean isContact = (i == 0);
             members.add(new Guest(
                     null, coupleId, m.name(), m.email(), m.phone(),
-                    GuestRsvpStatus.PENDING, Boolean.TRUE.equals(m.plusOneAllowed()), null,
+                    m.rsvpStatus() != null ? m.rsvpStatus() : GuestRsvpStatus.PENDING,
+                    Boolean.TRUE.equals(m.plusOneAllowed()),
+                    m.plusOneName() != null && !m.plusOneName().isBlank() ? m.plusOneName() : null,
                     m.dietaryRestrictions(), null,
-                    null, m.side(), m.notes(),
+                    m.tableNumber(), m.side(), m.notes(),
                     m.mailLine1(), m.mailCity(), m.mailState(), m.mailZip(), m.mailCountry(),
                     null, 0,
                     null, null, null, null, LocalDateTime.now(), LocalDateTime.now(),
