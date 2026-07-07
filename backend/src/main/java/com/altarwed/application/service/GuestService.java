@@ -704,6 +704,12 @@ public class GuestService {
         String weddingDate = (website != null && website.weddingDate() != null)
                 ? website.weddingDate().format(DateTimeFormatter.ofPattern("MMMM d, yyyy"))
                 : null;
+        // Raw ISO date (yyyy-MM-dd from LocalDate.toString()) exposed alongside the display
+        // string so the frontend can build a calendar event without re-parsing the localized
+        // "MMMM d, yyyy" form. Null-safe: no website or no date yields null.
+        String weddingDateIso = (website != null && website.weddingDate() != null)
+                ? website.weddingDate().toString()
+                : null;
 
         // If guest belongs to a party, load other members so the RSVP page can
         // show per-member toggles. Exclude the token holder from this list.
@@ -733,7 +739,10 @@ public class GuestService {
 
         return new RsvpPageDataResponse(
                 guest.name(), coupleNames, weddingDate,
+                weddingDateIso,
+                website != null ? website.ceremonyTime() : null,
                 website != null ? website.venueName() : null,
+                website != null ? website.venueAddress() : null,
                 website != null ? website.venueCity()  : null,
                 website != null ? website.venueState() : null,
                 guest.plusOneAllowed(),

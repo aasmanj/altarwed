@@ -30,7 +30,13 @@ export interface RsvpPageData {
   guestName: string
   coupleNames: string
   weddingDate: string | null
+  // Raw ISO date (yyyy-MM-dd) + free-form ceremony time + full street address, all added
+  // for the "add to calendar" .ics builder on the confirmation screen (issue #330). The
+  // formatted `weddingDate` display string above is unchanged.
+  weddingDateIso: string | null
+  ceremonyTime: string | null
   venueName: string | null
+  venueAddress: string | null
   venueCity: string | null
   venueState: string | null
   plusOneAllowed: boolean
