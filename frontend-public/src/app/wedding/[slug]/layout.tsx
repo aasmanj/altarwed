@@ -84,17 +84,20 @@ export default async function WeddingLayout({
   ])
   const tabsWithContent = computeTabsWithContent(allBlocks, wedding, hasPartyMembers, hasPhotosPresent)
 
-  // OUR_STORY / DETAILS / REGISTRY pages render blocks (via TabBlocks), so a tab the
-  // couple filled only via the block editor must show even with the scalar field empty.
+  // OUR_STORY / DETAILS / REGISTRY / PHOTOS pages render blocks (via TabBlocks), so a
+  // tab the couple filled only via the block editor must show even with the scalar
+  // field empty. The Photos page (#332) now flows through TabBlocks too, so a couple
+  // whose only Photos content is a HEADING/TEXT block (no uploaded photos) still gets
+  // a visible, reachable nav link instead of a dead tab.
   const hasStory    = !!wedding.ourStory || tabsWithContent.has('OUR_STORY')
   const hasDetails  = !!(wedding.venueName || wedding.ceremonyTime || wedding.dressCode) || tabsWithContent.has('DETAILS')
   const hasRegistry = !!(wedding.registryUrl1 || wedding.registryUrl2 || wedding.registryUrl3) || tabsWithContent.has('REGISTRY')
-  // Travel / Wedding Party / Photos pages render from their own hotels/party/photos
-  // tables, NOT from blocks, so gate them on that content only. ORing in block content
-  // here would reveal the tab while the page renders "coming soon" (a dead tab).
+  const hasPhotos   = hasPhotosPresent || tabsWithContent.has('PHOTOS')
+  // Travel / Wedding Party pages render from their own hotels/party tables, NOT from
+  // blocks, so gate them on that content only. ORing in block content here would
+  // reveal the tab while the page renders "coming soon" (a dead tab).
   const hasTravel   = !!(wedding.hotelName)
   const hasParty    = hasPartyMembers
-  const hasPhotos   = hasPhotosPresent
 
   // Parse the couple's tab customisations (hidden tabs + relabeled tabs).
   // Done on every layout render so changes from the editor show up after the
