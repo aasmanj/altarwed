@@ -40,6 +40,19 @@ const STATUS_COLOR: Record<RsvpStatus, string> = {
 }
 const SIDES: GuestSide[] = ['BRIDE', 'GROOM', 'BOTH']
 
+// The four RSVP summary cards. Kept as a module-level constant so the loading
+// skeleton renders the same four cards (same labels, same order) as the real
+// row, avoiding a layout shift when the numbers arrive.
+const GUEST_STAT_LABELS = ['Total', 'Attending', 'Declined', 'Pending'] as const
+
+// Issue #309(B): computeGuestStats runs against the `guests = []` default while
+// the query is still in flight, so every card would read a real-looking 0 and
+// then pop to the true count. Gate the numbers on the loading state and show a
+// pulse skeleton instead. Exposed for the vitest guard (node env, no jsdom).
+export function shouldSkeletonGuestStats(isLoading: boolean): boolean {
+  return isLoading
+}
+
 // Words the unsubscribe badge by why the address is suppressed, and the inline hint
 // shown where the Invite button would be (which is hidden for any suppressed guest).
 // There is no couple-side resubscribe: a guest comes back by RSVPing on the wedding
@@ -603,19 +616,26 @@ export default function GuestListPage() {
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: 'Total', value: total,     color: 'text-brown',       sub: confirmedPlusOnes > 0 ? `incl. ${confirmedPlusOnes} plus one${confirmedPlusOnes === 1 ? '' : 's'}` : undefined },
-            { label: 'Attending', value: attending, color: 'text-green-700', sub: undefined },
-            { label: 'Declined',  value: declining, color: 'text-red-600',   sub: undefined },
-            { label: 'Pending',   value: pending,   color: 'text-yellow-600', sub: undefined },
-          ].map(s => (
-            <div key={s.label} className="rounded-xl border border-gold-light bg-white p-5 text-center">
-              <p className={`font-serif text-3xl font-bold ${s.color}`}>{s.value}</p>
-              <p className="text-xs text-brown-light mt-1 uppercase tracking-wide">{s.label}</p>
-              {s.sub && <p className="text-[10px] text-stone-400 mt-0.5">{s.sub}</p>}
-            </div>
-          ))}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8" aria-busy={shouldSkeletonGuestStats(isLoading)}>
+          {shouldSkeletonGuestStats(isLoading)
+            ? GUEST_STAT_LABELS.map(label => (
+                <div key={label} className="rounded-xl border border-gold-light bg-white p-5 text-center" aria-hidden="true">
+                  <div className="mx-auto h-9 w-12 rounded bg-gray-200 motion-safe:animate-pulse" />
+                  <p className="text-xs text-brown-light mt-1 uppercase tracking-wide">{label}</p>
+                </div>
+              ))
+            : [
+                { label: 'Total', value: total,     color: 'text-brown',       sub: confirmedPlusOnes > 0 ? `incl. ${confirmedPlusOnes} plus one${confirmedPlusOnes === 1 ? '' : 's'}` : undefined },
+                { label: 'Attending', value: attending, color: 'text-green-700', sub: undefined },
+                { label: 'Declined',  value: declining, color: 'text-red-600',   sub: undefined },
+                { label: 'Pending',   value: pending,   color: 'text-yellow-600', sub: undefined },
+              ].map(s => (
+                <div key={s.label} className="rounded-xl border border-gold-light bg-white p-5 text-center">
+                  <p className={`font-serif text-3xl font-bold ${s.color}`}>{s.value}</p>
+                  <p className="text-xs text-brown-light mt-1 uppercase tracking-wide">{s.label}</p>
+                  {s.sub && <p className="text-[10px] text-stone-400 mt-0.5">{s.sub}</p>}
+                </div>
+              ))}
         </div>
 
         {/* Analytics toggle + low-emphasis export. Export lives here, not next to

@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef, type ReactNode, type CSSProperties } from 'react'
+import { useCallback, useEffect, useState, useRef, type ReactNode, type CSSProperties } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { Camera, ExternalLink, X, Crop, GripVertical } from 'lucide-react'
 import {
@@ -36,6 +36,17 @@ interface Photo {
   focalPointX: number | null
   focalPointY: number | null
   zoom: number | null
+}
+
+// Issue #309(A): opening the lightbox swapped `src` with no loading state, so on
+// a slow connection the enlarged image area stayed blank for seconds. Model the
+// spinner as a tiny state machine: opening a photo shows the spinner; the
+// image's own onLoad (or onError, so a failed fetch never leaves it stuck)
+// hides it. Pure + exported so the node-env vitest guard can assert the switch
+// without a DOM.
+export type LightboxLoadEvent = 'open' | 'loaded' | 'error'
+export function lightboxSpinnerVisibleAfter(event: LightboxLoadEvent): boolean {
+  return event === 'open'
 }
 
 function usePhotos(websiteId: string) {
@@ -160,7 +171,22 @@ export default function PhotosPage() {
   const [captionError, setCaptionError] = useState<string | null>(null)
   const [repositioning, setRepositioning] = useState<Photo | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [lightboxLoading, setLightboxLoading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null)
+  const lightboxImgRef = useRef<HTMLImageElement>(null)
+
+  // Cache-hit path for the lightbox spinner: the enlarged <img> reuses the same
+  // `photo.url` as the thumbnail, so the image is usually already in the browser
+  // cache and its load completes before React binds onLoad. React does not fire
+  // onLoad for an already-complete image, so the spinner would hang forever.
+  // Reading `img.complete` after mount clears it for the cached case; onLoad /
+  // onError still cover the genuine cache-miss fetch. (Escape-to-close is handled
+  // by AnimatedModal's useModalA11y, not duplicated here.)
+  useEffect(() => {
+    if (lightboxImgRef.current?.complete) {
+      setLightboxLoading(false)
+    }
+  }, [lightboxUrl])
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
@@ -191,6 +217,10 @@ export default function PhotosPage() {
     else toast.error(summary.message)
   }
 
+  const openLightbox = useCallback((url: string) => {
+    setLightboxUrl(url)
+    setLightboxLoading(lightboxSpinnerVisibleAfter('open'))
+  }, [])
   const closeLightbox = useCallback(() => setLightboxUrl(null), [])
 
   if (!websiteId || isLoading) {
@@ -303,7 +333,7 @@ export default function PhotosPage() {
                   type="button"
                   className="block w-full aspect-square overflow-hidden focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none"
                   aria-label={photo.caption ? `Enlarge photo: ${photo.caption}` : 'Enlarge photo'}
-                  onClick={() => setLightboxUrl(photo.url)}
+                  onClick={() => openLightbox(photo.url)}
                 >
                   <img
                     src={photo.url}
@@ -459,10 +489,21 @@ export default function PhotosPage() {
               <X size={24} />
             </button>
             <img
+              ref={lightboxImgRef}
               src={lightboxUrl}
               alt="Enlarged view"
               className="max-w-full max-h-full object-contain rounded-lg"
+              onLoad={() => setLightboxLoading(lightboxSpinnerVisibleAfter('loaded'))}
+              onError={() => setLightboxLoading(lightboxSpinnerVisibleAfter('error'))}
             />
+            {lightboxLoading && (
+              <div
+                className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                aria-hidden="true"
+              >
+                <div className="animate-spin h-8 w-8 border-2 border-white border-t-transparent rounded-full" />
+              </div>
+            )}
           </AnimatedModal>
         )}
       </AnimatePresence>
