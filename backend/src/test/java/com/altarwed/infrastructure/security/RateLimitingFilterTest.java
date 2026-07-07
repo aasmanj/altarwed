@@ -117,4 +117,124 @@ class RateLimitingFilterTest {
         assertThat(allowed).isEqualTo(10);
         assertThat(throttled).isEqualTo(2);
     }
+
+    // ---- issue #255: extend coverage to the RSVP token-resolution + submit paths ----
+
+    private static final String TOKEN_PATH =
+            "/api/v1/guests/rsvp/a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+    private static final String SUBMIT_PATH = "/api/v1/guests/rsvp";
+
+    @Test
+    void filtersTheRsvpTokenResolutionAndSubmitPaths() {
+        // The root cause of issue #255: shouldNotFilter previously only whitelisted
+        // /rsvp/find, so the filter was skipped entirely for the token and submit
+        // paths. shouldNotFilter must now return false (i.e. DO filter) for both,
+        // while still filtering /find and leaving unrelated read paths alone.
+        RateLimitingFilter filter = new RateLimitingFilter();
+
+        assertThat(filter.shouldNotFilter(new MockHttpServletRequest("GET", TOKEN_PATH))).isFalse();
+        assertThat(filter.shouldNotFilter(new MockHttpServletRequest("POST", SUBMIT_PATH))).isFalse();
+        assertThat(filter.shouldNotFilter(new MockHttpServletRequest("GET", PATH))).isFalse();
+        // A couple-scoped, JWT-protected guest read is not in scope and stays unfiltered.
+        assertThat(filter.shouldNotFilter(
+                new MockHttpServletRequest("GET", "/api/v1/guests/couple/abc"))).isTrue();
+    }
+
+    @Test
+    void rateLimitsTheRsvpTokenResolutionPath() throws Exception {
+        // Before issue #255 the filter's shouldNotFilter only covered /rsvp/find,
+        // so GET /rsvp/{token} was never throttled and this loop would let all 22
+        // requests through. The RSVP tier bucket capacity is 20, so exactly 20 of
+        // the same-IP requests succeed and the rest are throttled.
+        RateLimitingFilter filter = new RateLimitingFilter();
+        FilterChain chain = mock(FilterChain.class);
+        String ip = "203.0.113.30";
+
+        int allowed = 0;
+        int throttled = 0;
+        for (int i = 0; i < 22; i++) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", TOKEN_PATH);
+            request.addHeader("X-Forwarded-For", ip + ":" + (50000 + i));
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilterInternal(request, response, chain);
+            if (response.getStatus() == 200) allowed++; else throttled++;
+        }
+
+        assertThat(allowed).isEqualTo(20);
+        assertThat(throttled).isEqualTo(2);
+    }
+
+    @Test
+    void rateLimitsTheRsvpSubmitPath() throws Exception {
+        // POST /rsvp (the submit path) must also be throttled. Capacity 20, same
+        // as the GET token path, since both share the RSVP tier.
+        RateLimitingFilter filter = new RateLimitingFilter();
+        FilterChain chain = mock(FilterChain.class);
+        String ip = "203.0.113.31";
+
+        int allowed = 0;
+        int throttled = 0;
+        for (int i = 0; i < 22; i++) {
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", SUBMIT_PATH);
+            request.addHeader("X-Forwarded-For", ip + ":" + (50000 + i));
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilterInternal(request, response, chain);
+            if (response.getStatus() == 200) allowed++; else throttled++;
+        }
+
+        assertThat(allowed).isEqualTo(20);
+        assertThat(throttled).isEqualTo(2);
+    }
+
+    @Test
+    void tokenResolutionAndSubmitShareOneRsvpBucketPerIp() throws Exception {
+        // The GET token path and POST submit path draw from the SAME per-IP RSVP
+        // bucket, so a client cannot double its allowance by alternating verbs.
+        // Drain the bucket with 20 GETs, then a POST from the same IP is throttled.
+        RateLimitingFilter filter = new RateLimitingFilter();
+        FilterChain chain = mock(FilterChain.class);
+        String ip = "203.0.113.32";
+
+        for (int i = 0; i < 20; i++) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", TOKEN_PATH);
+            request.addHeader("X-Forwarded-For", ip + ":" + (50000 + i));
+            filter.doFilterInternal(request, new MockHttpServletResponse(), chain);
+        }
+
+        MockHttpServletRequest submit = new MockHttpServletRequest("POST", SUBMIT_PATH);
+        submit.addHeader("X-Forwarded-For", ip + ":60123");
+        MockHttpServletResponse submitResponse = new MockHttpServletResponse();
+        filter.doFilterInternal(submit, submitResponse, chain);
+
+        assertThat(submitResponse.getStatus()).isEqualTo(429);
+    }
+
+    @Test
+    void theStricterFindBucketIsUnchangedAndSeparateFromTheRsvpBucket() throws Exception {
+        // The /find bucket keeps its stricter 10-token limit and is a distinct
+        // bucket from the generous RSVP tier: exhausting /find for an IP must not
+        // consume any of that IP's RSVP token-resolution allowance.
+        RateLimitingFilter filter = new RateLimitingFilter();
+        FilterChain chain = mock(FilterChain.class);
+        String ip = "203.0.113.33";
+
+        int findAllowed = 0;
+        for (int i = 0; i < 12; i++) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", PATH);
+            request.addHeader("X-Forwarded-For", ip + ":" + (50000 + i));
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilterInternal(request, response, chain);
+            if (response.getStatus() == 200) findAllowed++;
+        }
+        // /find limit is unchanged at 10.
+        assertThat(findAllowed).isEqualTo(10);
+
+        // The same IP still has its full, separate 20-token RSVP bucket.
+        MockHttpServletRequest token = new MockHttpServletRequest("GET", TOKEN_PATH);
+        token.addHeader("X-Forwarded-For", ip + ":61000");
+        MockHttpServletResponse tokenResponse = new MockHttpServletResponse();
+        filter.doFilterInternal(token, tokenResponse, chain);
+
+        assertThat(tokenResponse.getStatus()).isEqualTo(200);
+    }
 }
