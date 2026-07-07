@@ -172,6 +172,87 @@ public class GuestService {
         return guestRepository.findAllByCoupleId(coupleId);
     }
 
+    // Canonical guest-export column order (issue #253). This is the SAME header set and order
+    // the frontend import template emits (GuestListPage.tsx GUEST_SHEET_COLUMNS) so a downloaded
+    // CSV round-trips straight back through the spreadsheet importer (guestImport.ts HEADER_MAP
+    // matches these headers case-insensitively) and the Google Sheet sync. Keep this in lockstep
+    // with that list: renaming a header here without renaming it there breaks the round-trip.
+    // The three columns AltarWed manages internally (Plus One Name, RSVP Status, Table #) are
+    // included so the export is a complete snapshot; the importer intentionally ignores them.
+    static final String[] GUEST_EXPORT_HEADERS = {
+            "Guest Name(s)", "Party", "Side (Bride or Groom)", "Phone Number", "Email Address",
+            "Street Address", "City", "State", "Zip Code", "Country",
+            "Allowed Plus One?", "Plus One Name", "RSVP Status", "Table #",
+            "Dietary Restriction", "Notes"
+    };
+
+    // RFC 4180 record separator. SheetJS (the importer) and Excel both accept CRLF.
+    private static final String CSV_NEWLINE = "\r\n";
+
+    /**
+     * Serializes this couple's full guest list to a CSV string for the self-serve data export
+     * (issue #253). Columns mirror the import template exactly (see {@link #GUEST_EXPORT_HEADERS})
+     * so what a couple exports they can re-import. A UTF-8 BOM is prepended so Excel opens
+     * non-ASCII names and international addresses correctly, matching the frontend's own export.
+     *
+     * Read-only and couple-scoped: the caller (CoupleExportController) has already asserted
+     * ownership via CoupleAccessGuard, and this only ever reads guests belonging to {@code coupleId}.
+     */
+    @Transactional(readOnly = true)
+    public String exportGuestsCsv(UUID coupleId) {
+        List<Guest> guests = guestRepository.findAllByCoupleId(coupleId);
+        StringBuilder sb = new StringBuilder();
+        sb.append('\uFEFF'); // UTF-8 BOM so Excel detects UTF-8 (matches the frontend export)
+
+        sb.append(csvRow(GUEST_EXPORT_HEADERS));
+        for (Guest g : guests) {
+            sb.append(csvRow(new String[]{
+                    g.name(),
+                    g.partyName(),
+                    g.side() != null ? g.side().name() : null,
+                    g.phone(),
+                    g.email(),
+                    g.mailLine1(),
+                    g.mailCity(),
+                    g.mailState(),
+                    g.mailZip(),
+                    g.mailCountry(),
+                    g.plusOneAllowed() ? "Yes" : "No",
+                    g.plusOneName(),
+                    g.rsvpStatus() != null ? g.rsvpStatus().name() : null,
+                    g.tableNumber() != null ? String.valueOf(g.tableNumber()) : null,
+                    g.dietaryRestrictions(),
+                    g.notes()
+            }));
+        }
+        // Aggregate audit line (no PII): supports the GDPR/CCPA access-request trail without
+        // logging any guest field. One line per export, not per guest (observability rule 9).
+        log.info("guest list exported, coupleId={}, guestCount={}", coupleId, guests.size());
+        return sb.toString();
+    }
+
+    // Builds one CSV record (fields joined by commas, terminated by CRLF), escaping each field
+    // per RFC 4180: a field containing a comma, double-quote, or newline is wrapped in quotes and
+    // its inner quotes are doubled. Null fields render as empty.
+    private static String csvRow(String[] fields) {
+        StringBuilder row = new StringBuilder();
+        for (int i = 0; i < fields.length; i++) {
+            if (i > 0) row.append(',');
+            row.append(csvEscape(fields[i]));
+        }
+        row.append(CSV_NEWLINE);
+        return row.toString();
+    }
+
+    private static String csvEscape(String value) {
+        if (value == null || value.isEmpty()) return "";
+        if (value.indexOf(',') >= 0 || value.indexOf('"') >= 0
+                || value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0) {
+            return '"' + value.replace("\"", "\"\"") + '"';
+        }
+        return value;
+    }
+
     @Transactional
     public Guest updateGuest(UUID coupleId, UUID guestId, UpdateGuestRequest req) {
         Guest existing = getGuest(coupleId, guestId);
