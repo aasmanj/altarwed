@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
-import confetti from 'canvas-confetti'
+import { fireConfetti } from '@/lib/fireConfetti'
 import Papa from 'papaparse'
 import { AnimatePresence } from 'framer-motion'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
@@ -327,7 +327,7 @@ export default function GuestListPage() {
     if (hasResponse) {
       window.localStorage.setItem(storageKey, '1')
       firstRsvpFiredRef.current = true
-      confetti({
+      fireConfetti({
         particleCount: 150,
         spread: 80,
         origin: { y: 0.4 },
@@ -774,7 +774,7 @@ export default function GuestListPage() {
               setShowAdd(false)
               if (wasFirstGuest) {
                 // First guest added, celebrate the milestone.
-                confetti({
+                fireConfetti({
                   particleCount: 120,
                   spread: 70,
                   origin: { y: 0.4 },

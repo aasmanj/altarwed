@@ -3,7 +3,7 @@ import ImageDropzone from '@/components/ImageDropzone'
 import { normalizeImageFile, IMAGE_ACCEPT } from '@/lib/normalizeImageFile'
 import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, uploadErrorMessage } from '@/lib/upload'
 import { Link } from 'react-router-dom'
-import confetti from 'canvas-confetti'
+import { fireConfetti } from '@/lib/fireConfetti'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
@@ -152,7 +152,7 @@ export default function SaveTheDatePage() {
       // Only celebrate (and show "Sent!") when something was actually queued.
       if (data.queued > 0) {
         setSent(true)
-        confetti({
+        fireConfetti({
           particleCount: 180,
           spread: 90,
           origin: { y: 0.5 },

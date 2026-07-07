@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import confetti from 'canvas-confetti'
+import { fireConfetti } from '@/lib/fireConfetti'
 import { useQuery } from '@tanstack/react-query'
 import {
   Camera, Landmark, Flower2, UtensilsCrossed, CakeSlice, Music, Scissors,
@@ -95,9 +95,9 @@ export default function RegisterVendorPage() {
         businessName, category, city, state: vendorState, email, password, isChristianOwned,
       })
       setRegistered(true)
-      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#d4af6a', '#fff', '#3b2f2f', '#f0e8d8'] })
-      setTimeout(() => confetti({ particleCount: 50, spread: 110, origin: { y: 0.5 }, angle: 60,  colors: ['#d4af6a', '#f0e8d8'] }), 250)
-      setTimeout(() => confetti({ particleCount: 50, spread: 110, origin: { y: 0.5 }, angle: 120, colors: ['#3b2f2f', '#d4af6a'] }), 400)
+      fireConfetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#d4af6a', '#fff', '#3b2f2f', '#f0e8d8'] })
+      setTimeout(() => fireConfetti({ particleCount: 50, spread: 110, origin: { y: 0.5 }, angle: 60,  colors: ['#d4af6a', '#f0e8d8'] }), 250)
+      setTimeout(() => fireConfetti({ particleCount: 50, spread: 110, origin: { y: 0.5 }, angle: 120, colors: ['#3b2f2f', '#d4af6a'] }), 400)
       advance()
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
