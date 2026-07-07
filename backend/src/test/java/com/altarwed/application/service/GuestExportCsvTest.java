@@ -112,6 +112,80 @@ class GuestExportCsvTest {
     }
 
     @Test
+    void exportGuestsCsv_neutralizesLeadingFormulaCharacters() {
+        UUID coupleId = UUID.randomUUID();
+        // A guest controls dietary/notes free text via the public RSVP endpoint. Values beginning
+        // with a spreadsheet formula trigger must be prefixed with a single quote so Excel/Sheets
+        // treat them as literal text, not a live formula (CSV/formula injection, OWASP-class).
+        // dietary is the 15th column, notes the 16th (last).
+        Guest guest = guest(coupleId, "Jordan Aasman", "GROOM", GuestRsvpStatus.ATTENDING,
+                true, "Alex Aasman", 5, "=SUM(A1:A2)", "@cmd");
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(guest));
+
+        String csv = stripBom(service().exportGuestsCsv(coupleId));
+        String[] lines = csv.split("\r\n", -1);
+
+        // No comma/quote/newline in either value, so only the leading-quote prefix applies.
+        assertThat(lines[1]).endsWith(",'=SUM(A1:A2),'@cmd");
+    }
+
+    @Test
+    void exportGuestsCsv_neutralizesEachDangerousLeadingChar() {
+        UUID coupleId = UUID.randomUUID();
+        // Every trigger character (= + - @) must be neutralized, not just '='.
+        assertThat(exportSingleNoteValue(coupleId, "=danger")).isEqualTo("'=danger");
+        assertThat(exportSingleNoteValue(coupleId, "+danger")).isEqualTo("'+danger");
+        assertThat(exportSingleNoteValue(coupleId, "-danger")).isEqualTo("'-danger");
+        assertThat(exportSingleNoteValue(coupleId, "@danger")).isEqualTo("'@danger");
+    }
+
+    @Test
+    void exportGuestsCsv_leavesNormalValuesUnaffected() {
+        UUID coupleId = UUID.randomUUID();
+        // A legitimate value not starting with a trigger char is untouched (no leading quote). The
+        // guest() helper uses phone 555-0100, which starts with a digit, not '-'.
+        Guest guest = guest(coupleId, "Jordan Aasman", "GROOM", GuestRsvpStatus.ATTENDING,
+                true, "Alex Aasman", 5, "Nut allergy", "See you there");
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(guest));
+
+        String csv = stripBom(service().exportGuestsCsv(coupleId));
+        String[] lines = csv.split("\r\n", -1);
+
+        // Phone (4th col) stays 555-0100, and the free-text tail is unchanged: no stray apostrophe.
+        assertThat(lines[1]).isEqualTo(
+                "Jordan Aasman,Smiths,GROOM,555-0100,jordan@example.com,"
+                + "12 Main St,Austin,TX,78701,US,"
+                + "Yes,Alex Aasman,ATTENDING,5,"
+                + "Nut allergy,See you there");
+    }
+
+    @Test
+    void exportGuestsCsv_combinesLeadingQuotePrefixWithRfc4180Escaping() {
+        UUID coupleId = UUID.randomUUID();
+        // A value that both starts with '=' AND contains a comma must get the leading-quote prefix
+        // first, then the whole thing wrapped in RFC-4180 quotes: =1,2 -> '=1,2 -> "'=1,2".
+        Guest guest = guest(coupleId, "Jordan Aasman", "GROOM", GuestRsvpStatus.ATTENDING,
+                true, "Alex Aasman", 5, "Nut allergy", "=1,2");
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(guest));
+
+        String csv = stripBom(service().exportGuestsCsv(coupleId));
+        String[] lines = csv.split("\r\n", -1);
+
+        assertThat(lines[1]).endsWith(",\"'=1,2\"");
+    }
+
+    private String exportSingleNoteValue(UUID coupleId, String noteValue) {
+        Guest guest = guest(coupleId, "Jordan Aasman", "GROOM", GuestRsvpStatus.ATTENDING,
+                true, "Alex Aasman", 5, "Nut allergy", noteValue);
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(guest));
+        String csv = stripBom(service().exportGuestsCsv(coupleId));
+        String[] lines = csv.split("\r\n", -1);
+        String row = lines[1];
+        // Notes is the last column; return just that field.
+        return row.substring(row.lastIndexOf(',') + 1);
+    }
+
+    @Test
     void exportGuestsCsv_prependsUtf8Bom() {
         UUID coupleId = UUID.randomUUID();
         when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of());

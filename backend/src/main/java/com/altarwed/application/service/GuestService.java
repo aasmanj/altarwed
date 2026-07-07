@@ -246,11 +246,23 @@ public class GuestService {
 
     private static String csvEscape(String value) {
         if (value == null || value.isEmpty()) return "";
-        if (value.indexOf(',') >= 0 || value.indexOf('"') >= 0
-                || value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0) {
-            return '"' + value.replace("\"", "\"\"") + '"';
+        String s = value;
+        // Neutralize CSV/formula injection before RFC-4180 quoting. A guest controls free-text
+        // fields (dietary, notes, plus-one name) via the public RSVP endpoint; a value beginning
+        // with a formula trigger (= + - @ tab CR) would execute in Excel/Sheets when the couple
+        // opens the export, enabling local code exec (legacy DDE) or exfiltration of adjacent
+        // cells. Prefixing a single quote forces spreadsheet apps to treat it as literal text.
+        // One-way on export only (issue #253 scope excludes the import path), so a re-imported
+        // cell keeps a literal leading apostrophe -- an accepted security-over-round-trip trade.
+        char c0 = s.charAt(0);
+        if (c0 == '=' || c0 == '+' || c0 == '-' || c0 == '@' || c0 == '\t' || c0 == '\r') {
+            s = "'" + s;
         }
-        return value;
+        if (s.indexOf(',') >= 0 || s.indexOf('"') >= 0
+                || s.indexOf('\n') >= 0 || s.indexOf('\r') >= 0) {
+            return '"' + s.replace("\"", "\"\"") + '"';
+        }
+        return s;
     }
 
     @Transactional
