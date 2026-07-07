@@ -29,15 +29,23 @@ export interface IcsParams {
 }
 
 // Parses the couple's free-form ceremony time into 24-hour {hour, minute}, or null when it
-// does not look like a clock time. Accepts "4:00 PM", "4 PM", "4pm", "4:30pm", and 24-hour
-// "16:00". Anything else (empty, "TBD", "afternoon") returns null so the caller falls back
-// to an all-day event.
+// does not look like a clock time (or is dangerously ambiguous). Accepts "4:00 PM", "4 PM",
+// "4pm", "4:30pm", and 24-hour "16:00" / "04:00". Anything else (empty, "TBD", "afternoon")
+// returns null so the caller falls back to an all-day event.
+//
+// Ambiguity guard (issue #330 review): a bare hour with no AM/PM in the 1-11 range could mean
+// either morning or afternoon. Couples routinely type "4:00" meaning 4 PM for an afternoon
+// ceremony, so silently reading it as 04:00 (4 AM) would emit a valid-looking but wrong VEVENT
+// that is worse than the honest all-day fallback. We therefore only trust a meridiem-less hour
+// when it is unambiguous: 0 or 12-23 (already 24-hour / midnight / noon), or written in explicit
+// zero-padded 24-hour form ("04:00"). A single-digit "4:00" falls through to null.
 export function parseCeremonyTime(raw: string | null | undefined): { hour: number; minute: number } | null {
   if (!raw) return null
   const m = raw.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i)
   if (!m) return null
 
-  let hour = parseInt(m[1], 10)
+  const hourText = m[1]
+  let hour = parseInt(hourText, 10)
   const minute = m[2] ? parseInt(m[2], 10) : 0
   const meridiem = m[3] ? m[3].toLowerCase() : null
 
@@ -49,8 +57,11 @@ export function parseCeremonyTime(raw: string | null | undefined): { hour: numbe
     if (meridiem === 'pm' && hour !== 12) hour += 12
     if (meridiem === 'am' && hour === 12) hour = 0
   } else {
-    // No meridiem: treat as a 24-hour clock.
+    // No meridiem: only trust an unambiguous 24-hour reading.
     if (hour > 23) return null
+    const explicit24Hour = hourText.length === 2 && hourText[0] === '0'
+    const unambiguous = hour === 0 || hour >= 12 || explicit24Hour
+    if (!unambiguous) return null
   }
 
   return { hour, minute }
@@ -63,6 +74,38 @@ function escapeText(value: string): string {
     .replace(/;/g, '\\;')
     .replace(/,/g, '\\,')
     .replace(/\r?\n/g, '\\n')
+}
+
+// Folds a single content line per RFC 5545 section 3.1: no physical line may exceed 75 octets
+// (excluding the CRLF), and a long line is split into a first line plus continuation lines that
+// each begin with a single leading space. Un-folding (stripping "CRLF space") reconstructs the
+// original. We measure in UTF-8 octets, not characters, and iterate whole code points so a
+// multi-byte character (accented couple/venue names) is never split across a fold boundary. A
+// continuation line's leading space counts toward its own 75-octet budget.
+function foldLine(line: string): string {
+  const MAX_OCTETS = 75
+  const encoder = new TextEncoder()
+  const pieces: string[] = []
+  let current = ''
+  let currentOctets = 0
+  let first = true
+
+  for (const ch of Array.from(line)) {
+    const chOctets = encoder.encode(ch).length
+    // Continuation lines spend one octet on the leading space before any content.
+    const overhead = first ? 0 : 1
+    if (current !== '' && currentOctets + chOctets + overhead > MAX_OCTETS) {
+      pieces.push(first ? current : ' ' + current)
+      first = false
+      current = ''
+      currentOctets = 0
+    }
+    current += ch
+    currentOctets += chOctets
+  }
+  pieces.push(first ? current : ' ' + current)
+
+  return pieces.join('\r\n')
 }
 
 function pad(n: number): string {
@@ -146,7 +189,8 @@ export function buildWeddingIcs(params: IcsParams): string | null {
   if (location) lines.push(`LOCATION:${escapeText(location)}`)
   lines.push('END:VEVENT', 'END:VCALENDAR')
 
-  return lines.join('\r\n')
+  // Fold every content line to <=75 octets before joining (RFC 5545 section 3.1).
+  return lines.map(foldLine).join('\r\n')
 }
 
 // A filesystem-safe filename for the download, e.g. "jordan-and-eden-wedding.ics".
