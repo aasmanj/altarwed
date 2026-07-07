@@ -88,3 +88,20 @@ describe('FindInvitationWidget wiring (issue #89)', () => {
     expect(src).toContain('if (!everReceivedTokenRef.current) setTurnstileGaveUp(true)')
   })
 })
+
+describe('no-match copy (issue #331)', () => {
+  const src = read('app/wedding/[slug]/rsvp/FindInvitationWidget.tsx')
+
+  it('shows the softer single-sentence not-found copy inside a role=status box', () => {
+    expect(src).toContain(
+      'Oops! We&apos;re having trouble finding your invite. Please try another spelling of your name or contact the couple',
+    )
+  })
+
+  it('no longer shows either of the old two-paragraph strings', () => {
+    expect(src).not.toContain('No invitation found')
+    expect(src).not.toContain(
+      'Try a different spelling, or contact the couple directly to make sure you&apos;re on the guest list.',
+    )
+  })
+})
