@@ -263,7 +263,12 @@ export default async function WeddingLayout({
       />
 
       {/* ── Tab content ── */}
-      <main id="main" className="max-w-3xl mx-auto px-6 py-14">
+      {/* scroll-mt-14 (56px) clears the ~51px sticky nav so any scrollIntoView
+          targeting <main>, e.g. Next's fallback scroll for tab links rendered
+          OUTSIDE WeddingNav (Explore cards etc.), lands the content below the
+          pinned nav instead of underneath it. The nav's own tab links position
+          explicitly with the measured nav height; see WeddingNav. */}
+      <main id="main" className="max-w-3xl mx-auto px-6 py-14 scroll-mt-14">
         {children}
       </main>
 
