@@ -19,9 +19,11 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.time.Duration;
 
-// Protects abuse-sensitive public endpoints (auth, RSVP find-by-name, vendor
-// inquiry) against brute force and spam. Token bucket per IP: 5 requests/minute
-// with a 10-request burst ceiling.
+// Protects abuse-sensitive public endpoints (auth, RSVP, vendor inquiry) against
+// brute force and spam. Token bucket per client IP, tiered by path (see Tier):
+// the DEFAULT tier is 5 requests/minute with a 10-request burst ceiling; the RSVP
+// tier is a more generous 20 requests/minute for the token-resolution and submit
+// paths a single household legitimately hits several times.
 @Component
 public class RateLimitingFilter extends OncePerRequestFilter {
 
@@ -31,19 +33,54 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     // an OOM/DoS vector on its own, independent of the XFF-spoofing fix below.
     // 10 minutes is comfortably longer than the 1-minute refill window, so a
     // bucket never evicts mid-throttle; maximumSize is a hard backstop against a
-    // single burst of unique IPs outrunning eviction.
+    // single burst of unique IPs outrunning eviction. Keyed by "tier|ip" so each
+    // tier is an independent bucket and never lends tokens across path families.
     private final Cache<String, Bucket> buckets = Caffeine.newBuilder()
             .maximumSize(100_000)
             .expireAfterAccess(Duration.ofMinutes(10))
             .build();
 
-    private Bucket newBucket() {
-        // Refill 5 tokens per 60 seconds, steady rate, no burst beyond 10
-        Bandwidth limit = Bandwidth.builder()
-                .capacity(10)
-                .refillGreedy(5, Duration.ofMinutes(1))
-                .build();
+    // A rate-limit tier: an independent token-bucket configuration selected per
+    // request from the URI. Keeping the strict and generous limits as separate
+    // buckets (not one shared bucket) means the generous RSVP allowance can never
+    // relax the stricter enumeration guard on /find (issue #255).
+    private enum Tier {
+        // Auth, RSVP find-by-name, inquiries, promo redemption, unsubscribe:
+        // 5 req/min steady, 10-request burst ceiling.
+        DEFAULT,
+        // RSVP token resolution (GET /rsvp/{token}) and submit (POST /rsvp):
+        // 20 req/min per IP, generous enough for a household but still bounded so
+        // the token path cannot be hammered at line speed (issue #255).
+        RSVP
+    }
+
+    private Bucket newBucket(Tier tier) {
+        Bandwidth limit = switch (tier) {
+            // Refill 5 tokens per 60 seconds, steady rate, no burst beyond 10.
+            case DEFAULT -> Bandwidth.builder()
+                    .capacity(10)
+                    .refillGreedy(5, Duration.ofMinutes(1))
+                    .build();
+            // Refill 20 tokens per 60 seconds, generous for legitimate household use.
+            case RSVP -> Bandwidth.builder()
+                    .capacity(20)
+                    .refillGreedy(20, Duration.ofMinutes(1))
+                    .build();
+        };
         return Bucket.builder().addLimit(limit).build();
+    }
+
+    // Selects the tier for a URI. Order matters: /rsvp/find is a sub-path of the
+    // general /rsvp prefix but keeps the stricter DEFAULT bucket (name-enumeration
+    // is the higher-value attack), so it must be matched before the RSVP prefix.
+    private Tier tierFor(String uri) {
+        if (uri.startsWith("/api/v1/guests/rsvp/find")) {
+            return Tier.DEFAULT;
+        }
+        if (uri.startsWith("/api/v1/guests/rsvp")) {
+            return Tier.RSVP;
+        }
+        return Tier.DEFAULT;
     }
 
     // Paths that are unauthenticated AND have abuse potential (credential
@@ -55,7 +92,10 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         String uri = request.getRequestURI();
         boolean rateLimited =
                 uri.startsWith("/api/v1/auth/") ||
-                uri.startsWith("/api/v1/guests/rsvp/find") ||
+                // Covers RSVP find-by-name (GET /rsvp/find), token resolution
+                // (GET /rsvp/{token}) and submit (POST /rsvp); tierFor picks the
+                // strict vs generous bucket per path (issue #255).
+                uri.startsWith("/api/v1/guests/rsvp") ||
                 uri.startsWith("/api/v1/inquiries") ||
                 // Authenticated, but the comp promo code is low-entropy and reusable, so throttle
                 // redemption attempts to stop a logged-in vendor from brute-forcing the code.
@@ -71,7 +111,8 @@ public class RateLimitingFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
         String ip = ClientIpResolver.resolve(request);
-        Bucket bucket = buckets.get(ip, k -> newBucket());
+        Tier tier = tierFor(request.getRequestURI());
+        Bucket bucket = buckets.get(tier + "|" + ip, k -> newBucket(tier));
 
         if (bucket.tryConsume(1)) {
             chain.doFilter(request, response);
