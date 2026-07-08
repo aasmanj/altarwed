@@ -9,6 +9,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -22,10 +24,16 @@ public class WeddingPartyMemberService {
 
     private static final Logger log = LoggerFactory.getLogger(WeddingPartyMemberService.class);
 
-    private final WeddingPartyMemberRepository repository;
+    // Non-PII structured field tag for the shared blob-cleanup logs (App Insights indexes it).
+    private static final String BLOB_FIELD = "party-member";
 
-    public WeddingPartyMemberService(WeddingPartyMemberRepository repository) {
+    private final WeddingPartyMemberRepository repository;
+    private final MediaUploadService mediaUploadService;
+
+    public WeddingPartyMemberService(WeddingPartyMemberRepository repository,
+                                     MediaUploadService mediaUploadService) {
         this.repository = repository;
+        this.mediaUploadService = mediaUploadService;
     }
 
     @Transactional(readOnly = true)
@@ -98,10 +106,15 @@ public class WeddingPartyMemberService {
 
     @Transactional
     public void deleteMember(UUID weddingWebsiteId, UUID memberId) {
-        if (!repository.existsByIdAndWeddingWebsiteId(memberId, weddingWebsiteId)) {
-            throw new WeddingPartyMemberNotFoundException(memberId.toString());
-        }
+        // Load the row (getMember also enforces website ownership) so we can capture its photo blob
+        // URL before the row is gone. The blob lives in Azure Storage, not the database, so deleting
+        // only the row would orphan the blob in storage forever (issue #101).
+        WeddingPartyMember member = getMember(weddingWebsiteId, memberId);
         repository.deleteById(memberId);
+        log.info("wedding party member deleted, websiteId={}, memberId={}", weddingWebsiteId, memberId);
+        // Delete the member's blob only AFTER the row delete commits (see updatePhotoUrl for the
+        // ordering rationale). A null/blank photoUrl triggers no delete.
+        deleteOldBlobAfterCommit(weddingWebsiteId, member.photoUrl());
     }
 
     public WeddingPartyMember getMemberForUpload(UUID weddingWebsiteId, UUID memberId) {
@@ -111,6 +124,10 @@ public class WeddingPartyMemberService {
     @Transactional
     public void updatePhotoUrl(UUID weddingWebsiteId, UUID memberId, String photoUrl) {
         WeddingPartyMember existing = getMember(weddingWebsiteId, memberId);
+        // Capture the prior blob URL before overwriting it so the replaced blob can be cleaned up
+        // once the new URL is durably persisted (issue #101: a re-upload otherwise leaks the old
+        // blob in storage forever, growing cost unbounded at scale).
+        String oldPhotoUrl = existing.photoUrl();
         // A new photo invalidates the old framing, so reset to centered/no-zoom; the
         // couple repositions the new image from a clean default.
         WeddingPartyMember updated = new WeddingPartyMember(
@@ -122,6 +139,30 @@ public class WeddingPartyMemberService {
         );
         repository.save(updated);
         log.info("wedding party member photo updated, websiteId={}, memberId={}", weddingWebsiteId, memberId);
+        // Delete the replaced blob only AFTER this transaction commits. A null/blank prior URL (the
+        // member had no photo) triggers no delete.
+        deleteOldBlobAfterCommit(weddingWebsiteId, oldPhotoUrl);
+    }
+
+    // Shared after-commit blob cleanup for the replace and delete paths. Registers the delete to run
+    // after the surrounding transaction commits, so a commit-time failure that rolls the write back
+    // leaves the old blob intact (the row would still reference it), mirroring the vendor-logo and
+    // hero/venue/std paths. With no active transaction (a direct Mockito unit-test call) it runs
+    // inline. Delegates to the shared MediaUploadService.deleteBlobBestEffort helper, which no-ops on
+    // a null/blank URL and never throws, so a storage failure leaves a logged, recoverable orphan
+    // rather than failing an already-committed request.
+    private void deleteOldBlobAfterCommit(UUID weddingWebsiteId, String oldUrl) {
+        if (oldUrl == null || oldUrl.isBlank()) return;
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    mediaUploadService.deleteBlobBestEffort(oldUrl, BLOB_FIELD, weddingWebsiteId);
+                }
+            });
+        } else {
+            mediaUploadService.deleteBlobBestEffort(oldUrl, BLOB_FIELD, weddingWebsiteId);
+        }
     }
 
     private WeddingPartyMember getMember(UUID weddingWebsiteId, UUID memberId) {
