@@ -5,6 +5,22 @@ import { useAuth } from '@/core/auth/AuthContext'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { apiClient } from '@/core/api/client'
 
+// Downloadable exports the couple can pull themselves (issue #253). Each maps to a
+// couple-scoped, ownership-guarded backend endpoint that streams a file attachment.
+type ExportKind = 'guests' | 'website'
+const EXPORTS: Record<ExportKind, { path: string; fallbackName: string; label: string }> = {
+  guests: {
+    path: 'export/guests',
+    fallbackName: 'guest-list.csv',
+    label: 'Download guest list',
+  },
+  website: {
+    path: 'export/website',
+    fallbackName: 'wedding-website.json',
+    label: 'Download website data',
+  },
+}
+
 export default function SettingsPage() {
   const { user, logout } = useAuth()
   const confirm = useConfirm()
@@ -12,6 +28,7 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false)
   const [sendingReset, setSendingReset] = useState(false)
   const [resetSent, setResetSent] = useState(false)
+  const [exporting, setExporting] = useState<ExportKind | null>(null)
 
   // Password changes reuse the existing forgot-password flow: we email the
   // signed-in couple a one-time reset link instead of accepting a new password
@@ -33,6 +50,35 @@ export default function SettingsPage() {
       }
     } finally {
       setSendingReset(false)
+    }
+  }
+
+  // Fetch the export as a blob (so the JWT is attached by the api client's interceptor, which a
+  // plain anchor download could not do) and hand it to the browser as a file download. The server
+  // sets the real filename via Content-Disposition; we honour it and fall back to a sensible name.
+  async function handleExport(kind: ExportKind) {
+    if (!user) return
+    const { path, fallbackName } = EXPORTS[kind]
+    setExporting(kind)
+    try {
+      const res = await apiClient.get(`/api/v1/couples/${user.id}/${path}`, { responseType: 'blob' })
+      const disposition = res.headers['content-disposition'] as string | undefined
+      const match = disposition?.match(/filename="?([^"]+)"?/)
+      const filename = match?.[1] ?? fallbackName
+
+      const url = URL.createObjectURL(res.data as Blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      // Delay the revoke so the download has time to start before the object URL is released.
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch {
+      toast.error('Could not prepare your download. Please try again or email hello@altarwed.com.')
+    } finally {
+      setExporting(null)
     }
   }
 
@@ -116,6 +162,32 @@ export default function SettingsPage() {
                 ? 'Resend reset email'
                 : 'Send password reset email'}
           </button>
+        </section>
+
+        {/* Your data */}
+        <section className="bg-white rounded-2xl border border-gold-light p-6 space-y-4">
+          <h2 className="font-serif text-lg font-semibold text-brown">Your data</h2>
+          <p className="text-sm text-brown-light">
+            Download a copy of your wedding data any time. Your guest list comes as a spreadsheet
+            (CSV) using the same columns as the import template, so you can re-import it later. Your
+            website content comes as a JSON file.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => handleExport('guests')}
+              disabled={exporting !== null}
+              className="px-4 py-2 rounded-lg bg-gold text-brown text-sm font-medium hover:bg-gold-dark disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {exporting === 'guests' ? 'Preparing...' : EXPORTS.guests.label}
+            </button>
+            <button
+              onClick={() => handleExport('website')}
+              disabled={exporting !== null}
+              className="px-4 py-2 rounded-lg border border-gold-light text-brown text-sm font-medium hover:bg-ivory disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {exporting === 'website' ? 'Preparing...' : EXPORTS.website.label}
+            </button>
+          </div>
         </section>
 
         {/* Danger zone */}
