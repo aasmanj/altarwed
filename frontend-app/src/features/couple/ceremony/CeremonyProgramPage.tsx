@@ -20,9 +20,9 @@ import { formatWeddingDate } from '@/lib/date'
 export default function CeremonyProgramPage() {
   const { user } = useAuth()
   const coupleId = user?.id ?? ''
-  const { data: website } = useWeddingWebsite(coupleId)
-  const { data: sections = [] } = useCeremonySections(coupleId)
-  const { data: members = [] } = useWeddingParty(website?.id ?? '')
+  const { data: website, isLoading: websiteLoading, isError: websiteError, refetch: refetchWebsite } = useWeddingWebsite(coupleId)
+  const { data: sections = [], isLoading: sectionsLoading, isError: sectionsError, refetch: refetchSections } = useCeremonySections(coupleId)
+  const { data: members = [], isError: membersError } = useWeddingParty(website?.id ?? '')
 
   const brideParty   = members.filter(m => m.side === 'BRIDE')
   const groomParty   = members.filter(m => m.side === 'GROOM')
@@ -36,6 +36,12 @@ export default function CeremonyProgramPage() {
   const venueCityLine = [website?.venueCity, website?.venueState].filter(Boolean).join(', ')
 
   const hasContent = sections.length > 0 || members.length > 0 || website
+  // Gate the Print button on a fully-loaded, error-free program so a couple can't print (or
+  // "Save as PDF") a program showing placeholder names because a source query failed silently.
+  const anyLoading = websiteLoading || sectionsLoading
+  const anyError = websiteError || sectionsError || membersError
+  const canPrint = hasContent && !anyLoading && !anyError
+  const retry = () => { refetchWebsite(); refetchSections() }
 
   return (
     <div className="min-h-screen bg-stone-100 print:bg-white">
@@ -50,7 +56,7 @@ export default function CeremonyProgramPage() {
           </Link>
           <button
             onClick={() => window.print()}
-            disabled={!hasContent}
+            disabled={!canPrint}
             className="inline-flex items-center gap-2 rounded-lg bg-brown px-4 py-2 text-sm font-semibold text-white hover:bg-brown/90 disabled:opacity-60 transition"
           >
             <Printer size={16} />
@@ -59,7 +65,21 @@ export default function CeremonyProgramPage() {
         </div>
       </div>
 
+      {/* Screen-only load/error states so a failed source never prints as placeholder text */}
+      {anyError && (
+        <div className="mx-auto my-6 max-w-2xl px-4 print:hidden">
+          <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+            We couldn&apos;t load your full program, so some details may be missing.{' '}
+            <button onClick={retry} className="underline font-medium">Try again</button>
+          </div>
+        </div>
+      )}
+      {anyLoading && !anyError && (
+        <p className="text-center text-sm text-stone-500 py-16 print:hidden">Loading your program…</p>
+      )}
+
       {/* Program, letter-sized canvas */}
+      {!anyLoading && (
       <article className="mx-auto my-6 print:my-0 bg-white text-stone-900 shadow-lg print:shadow-none w-[8.5in] max-w-full min-h-[11in] px-12 py-14 print:px-10 print:py-12 program-page">
 
         {/* Cover header */}
@@ -111,7 +131,7 @@ export default function CeremonyProgramPage() {
                     <div className="flex items-baseline justify-between gap-3">
                       <p className="font-serif font-semibold text-stone-800 text-sm">{s.title}</p>
                       {s.content && (
-                        <p className="text-xs text-stone-500 italic text-right truncate max-w-[55%]">{s.content}</p>
+                        <p className="text-xs text-stone-500 italic text-right max-w-[55%] whitespace-normal break-words">{s.content}</p>
                       )}
                     </div>
                   </div>
@@ -195,6 +215,7 @@ export default function CeremonyProgramPage() {
           </div>
         )}
       </article>
+      )}
 
       {/* Print-specific styles: hide everything but the program, kill margins */}
       <style>{`
