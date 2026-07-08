@@ -237,4 +237,72 @@ class RateLimitingFilterTest {
 
         assertThat(tokenResponse.getStatus()).isEqualTo(200);
     }
+
+    // ---- issue #335: throttle the couple data-export endpoints ----
+
+    private static final String EXPORT_GUESTS =
+            "/api/v1/couples/11111111-1111-1111-1111-111111111111/export/guests";
+    private static final String EXPORT_WEBSITE =
+            "/api/v1/couples/11111111-1111-1111-1111-111111111111/export/website";
+
+    @Test
+    void throttlesCoupleExportDumpsAfterTheExportCapacity() throws Exception {
+        // Issue #335: a stolen access token (or a hammered session) must not be
+        // able to repeatedly dump a couple's full guest list. The EXPORT tier is
+        // 6 req/min per IP, so exactly 6 export requests from one real IP succeed
+        // and the 7th is throttled with a 429.
+        RateLimitingFilter filter = new RateLimitingFilter();
+        FilterChain chain = mock(FilterChain.class);
+        String ip = "203.0.113.77";
+
+        int allowed = 0;
+        int throttled = 0;
+        for (int i = 0; i < 8; i++) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", EXPORT_GUESTS);
+            request.addHeader("X-Forwarded-For", ip + ":" + (50000 + i));
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilterInternal(request, response, chain);
+            if (response.getStatus() == 200) allowed++; else throttled++;
+        }
+
+        assertThat(allowed).isEqualTo(6);
+        assertThat(throttled).isEqualTo(2);
+    }
+
+    @Test
+    void exportTierBucketIsIndependentFromTheDefaultTier() throws Exception {
+        // The export limit lives in its own "tier|ip" bucket, so exhausting the
+        // DEFAULT tier (e.g. auth brute force) from an IP must NOT pre-consume the
+        // export allowance for that same IP, and vice versa. Drain DEFAULT to
+        // empty, then prove a first export from the same IP still succeeds.
+        RateLimitingFilter filter = new RateLimitingFilter();
+        FilterChain chain = mock(FilterChain.class);
+        String ip = "203.0.113.88";
+
+        for (int i = 0; i < 12; i++) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", PATH);
+            request.addHeader("X-Forwarded-For", ip + ":" + (40000 + i));
+            filter.doFilterInternal(request, new MockHttpServletResponse(), chain);
+        }
+
+        MockHttpServletRequest export = new MockHttpServletRequest("GET", EXPORT_WEBSITE);
+        export.addHeader("X-Forwarded-For", ip + ":60000");
+        MockHttpServletResponse exportResponse = new MockHttpServletResponse();
+        filter.doFilterInternal(export, exportResponse, chain);
+
+        assertThat(exportResponse.getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    void coupleExportPathsAreNotSkippedByTheFilter() {
+        // shouldNotFilter must return false for export paths, or doFilterInternal
+        // never runs and the throttle above is dead code (issue #335 regression).
+        RateLimitingFilter filter = new RateLimitingFilter();
+
+        MockHttpServletRequest guests = new MockHttpServletRequest("GET", EXPORT_GUESTS);
+        MockHttpServletRequest website = new MockHttpServletRequest("GET", EXPORT_WEBSITE);
+
+        assertThat(filter.shouldNotFilter(guests)).isFalse();
+        assertThat(filter.shouldNotFilter(website)).isFalse();
+    }
 }
