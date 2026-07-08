@@ -14,7 +14,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
@@ -68,8 +67,8 @@ class PublishedWeddingWebsiteProjectionTest {
             coupleUnpublished = seedCouple();
             coupleDeleted = seedCouple();
 
-            WeddingWebsiteEntity publishedA = jpaRepository.save(site(coupleA, MARKER + "published-a", true, false));
-            WeddingWebsiteEntity publishedB = jpaRepository.save(site(coupleB, MARKER + "published-b", true, false));
+            jpaRepository.save(site(coupleA, MARKER + "published-a", true, false));
+            jpaRepository.save(site(coupleB, MARKER + "published-b", true, false));
             jpaRepository.save(site(coupleUnpublished, MARKER + "unpublished", false, false));
             jpaRepository.save(site(coupleDeleted, MARKER + "deleted", true, true));
 
@@ -88,17 +87,27 @@ class PublishedWeddingWebsiteProjectionTest {
                     .as("only published, non-deleted sites are returned")
                     .extracting(WeddingWebsiteSummary::slug)
                     .containsExactlyInAnyOrder(MARKER + "published-a", MARKER + "published-b");
-            // Truncate both sides to microseconds before comparing: the in-memory LocalDateTime set
-            // by @PrePersist keeps full nanosecond precision on a Linux CI JVM, while the value read
-            // back through the projection is rounded by SQL Server's DATETIME2 (100ns) column. Exact
-            // equality can intermittently mismatch on those sub-microsecond digits; truncating to
-            // MICROS still proves the persisted timestamp round-trips without the flake.
+            // Compare against the values the database actually stored, never the in-memory
+            // LocalDateTime that @PrePersist assigned. The column is DATETIME2, which SQL Server
+            // ROUNDS to its 100ns tick on insert, while the JVM clock carries full nanosecond
+            // precision; truncating both sides (the previous approach) still mismatched by 1us
+            // whenever rounding carried into the next microsecond (~5% of timestamps, the CI
+            // flake behind issues #277/#293). Reading the persisted value back over JDBC makes
+            // both sides of the assertion come from the same stored DATETIME2, so equality is
+            // exact and deterministic, and it still proves the projection surfaces the
+            // persisted updatedAt rather than fabricating one.
+            java.util.Map<String, java.time.LocalDateTime> storedUpdatedAt = new java.util.HashMap<>();
+            jdbcTemplate.query(
+                    "SELECT slug, updated_at FROM wedding_websites WHERE slug LIKE ?",
+                    rs -> {
+                        storedUpdatedAt.put(rs.getString("slug"), rs.getTimestamp("updated_at").toLocalDateTime());
+                    },
+                    MARKER + "%");
             assertThat(seeded)
                     .as("each summary carries the persisted updatedAt")
-                    .extracting(s -> s.updatedAt().truncatedTo(ChronoUnit.MICROS))
-                    .containsExactlyInAnyOrder(
-                            publishedA.getUpdatedAt().truncatedTo(ChronoUnit.MICROS),
-                            publishedB.getUpdatedAt().truncatedTo(ChronoUnit.MICROS));
+                    .allSatisfy(s -> assertThat(s.updatedAt())
+                            .as("summary updatedAt for slug=%s matches the stored column", s.slug())
+                            .isEqualTo(storedUpdatedAt.get(s.slug())));
 
             // (2) No full entity was loaded: the projection selected only slug + updated_at. The old
             // findAll...() returning full entities would push this counter to the published-row count.
