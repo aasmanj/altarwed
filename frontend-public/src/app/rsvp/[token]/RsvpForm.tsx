@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { PartyPopper, Clock, Mail, Check, X } from 'lucide-react'
+import { PartyPopper, Clock, Mail, Check, X, CalendarPlus } from 'lucide-react'
+import { buildWeddingIcs, downloadIcs, icsFilename } from '@/lib/ics'
 
 // PENDING is the "remind me" path, status stays PENDING, remindInDays is sent.
 type Status = 'ATTENDING' | 'DECLINING' | 'PENDING'
@@ -41,7 +42,9 @@ export function classifySubmitError(status: number | null): SubmitErrorKind {
 }
 
 export default function RsvpForm({
-  token, plusOneAllowed, weddingSlug, hasRegistry, apiUrl, partyMembers,
+  token, plusOneAllowed, weddingSlug, hasRegistry, apiUrl,
+  coupleNames, weddingDateIso, ceremonyTime, venueName, venueAddress, venueCity, venueState,
+  partyMembers,
   currentRsvpStatus, currentPlusOneName, currentDietary, currentSongRequest, currentNoteForCouple,
   customQuestions,
 }: {
@@ -50,6 +53,13 @@ export default function RsvpForm({
   weddingSlug: string | null
   hasRegistry: boolean
   apiUrl: string
+  coupleNames?: string
+  weddingDateIso?: string | null
+  ceremonyTime?: string | null
+  venueName?: string | null
+  venueAddress?: string | null
+  venueCity?: string | null
+  venueState?: string | null
   partyMembers?: PartyMemberInfo[]
   currentRsvpStatus?: string
   currentPlusOneName?: string
@@ -98,6 +108,19 @@ export default function RsvpForm({
   // the working route back. Wedding-scoped finder when the slug is known,
   // otherwise the name-search entry point.
   const findInvitationHref = weddingSlug ? `/wedding/${weddingSlug}/rsvp` : '/find-wedding'
+
+  // "Add to calendar" is offered only on an attending confirmation and only when the couple
+  // set a wedding date (no date, no event to anchor). Builds a portable .ics client-side and
+  // triggers a download; a parseable ceremonyTime yields a timed floating-local event, else
+  // an all-day event. See src/lib/ics.ts for the timezone rationale.
+  const canAddToCalendar = Boolean(coupleNames) && Boolean(weddingDateIso)
+  const handleAddToCalendar = () => {
+    if (!coupleNames || !weddingDateIso) return
+    const ics = buildWeddingIcs({
+      coupleNames, weddingDateIso, ceremonyTime, venueName, venueAddress, venueCity, venueState,
+    })
+    if (ics) downloadIcs(icsFilename(coupleNames), ics)
+  }
 
   // Required custom questions must be answered, but only when attending (that is the only
   // time they are shown).
@@ -202,6 +225,21 @@ export default function RsvpForm({
             ? `We'll send you a reminder in ${remindInDays} day${remindInDays === 1 ? '' : 's'}.`
             : "We'll miss you and appreciate you responding."}
         </p>
+        {/* Add-to-calendar: attending-only so declining/remind-me confirmations never see it,
+            and hidden when no wedding date is set (nothing to add). Downloads a portable .ics
+            that imports into Google/Apple/Outlook without any provider deep link or OAuth. */}
+        {status === 'ATTENDING' && canAddToCalendar && (
+          <div>
+            <button
+              type="button"
+              onClick={handleAddToCalendar}
+              className="inline-flex items-center gap-2 mt-2 rounded-xl border border-[#d4af6a] px-5 py-3 text-sm font-semibold text-[#3b2f2f] hover:bg-[#d4af6a]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af6a] transition"
+            >
+              <CalendarPlus className="w-4 h-4" aria-hidden="true" />
+              Add to calendar
+            </button>
+          </div>
+        )}
         {status === 'ATTENDING' && weddingSlug && (
           hasRegistry ? (
             <a

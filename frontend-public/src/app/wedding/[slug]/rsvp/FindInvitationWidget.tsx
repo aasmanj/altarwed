@@ -197,9 +197,8 @@ export default function FindInvitationWidget({ slug }: Props) {
 
       {results !== null && results.length === 0 && (
         <div role="status" className="rounded-xl border border-[#d4af6a]/30 bg-amber-50 p-6 text-center">
-          <p className="font-medium text-[#3b2f2f]">No invitation found</p>
-          <p className="mt-1 text-sm text-[#6b5344]">
-            Try a different spelling, or contact the couple directly to make sure you&apos;re on the guest list.
+          <p className="text-sm text-[#6b5344]">
+            Oops! We&apos;re having trouble finding your invite. Please try another spelling of your name or contact the couple
           </p>
         </div>
       )}

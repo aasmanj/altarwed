@@ -19,12 +19,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.time.Duration;
 
-// Protects abuse-sensitive endpoints (auth, RSVP find-by-name, vendor inquiry,
-// couple data-export) against brute force, spam, and bulk exfiltration. Token
-// bucket per client IP, tiered by path (see Tier): the DEFAULT tier is 5
-// requests/minute with a 10-request burst ceiling; the EXPORT tier is a tighter
-// 6 requests/minute for the couple data-export endpoints, which are heavy
-// full-serialization reads of a couple's guest list and website data.
+// Protects abuse-sensitive endpoints (auth, RSVP, vendor inquiry, couple
+// data-export) against brute force, spam, and bulk exfiltration. Token bucket
+// per client IP, tiered by path (see Tier): the DEFAULT tier is 5 requests/minute
+// with a 10-request burst ceiling; the RSVP tier is a more generous 20
+// requests/minute for the token-resolution and submit paths a single household
+// legitimately hits several times; the EXPORT tier is a tighter 6 requests/minute
+// for the couple data-export endpoints, which are heavy full-serialization reads
+// of a couple's guest list and website data.
 @Component
 public class RateLimitingFilter extends OncePerRequestFilter {
 
@@ -42,14 +44,20 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             .build();
 
     // A rate-limit tier: an independent token-bucket configuration selected per
-    // request from the URI. Keeping the export limit as a separate bucket (not
-    // the shared DEFAULT bucket) means a legitimate single-click export can never
-    // be starved by unrelated auth traffic from the same NAT/office IP, and the
-    // tighter export ceiling can never be relaxed by DEFAULT tokens (issue #335).
+    // request from the URI. Keeping each limit as a separate bucket (not one
+    // shared bucket) means the generous RSVP allowance can never relax the
+    // stricter enumeration guard on /find (issue #255), a legitimate single-click
+    // export can never be starved by unrelated auth traffic from the same
+    // NAT/office IP, and the tighter export ceiling can never be relaxed by
+    // DEFAULT tokens (issue #335).
     private enum Tier {
         // Auth, RSVP find-by-name, inquiries, promo redemption, unsubscribe:
         // 5 req/min steady, 10-request burst ceiling.
         DEFAULT,
+        // RSVP token resolution (GET /rsvp/{token}) and submit (POST /rsvp):
+        // 20 req/min per IP, generous enough for a household but still bounded so
+        // the token path cannot be hammered at line speed (issue #255).
+        RSVP,
         // Couple data-export (GET /couples/{id}/export/guests and /export/website):
         // 6 req/min per IP. Generous enough for a legitimate single-click export
         // (which fetches at most the two export endpoints, plus a retry or two),
@@ -65,6 +73,11 @@ public class RateLimitingFilter extends OncePerRequestFilter {
                     .capacity(10)
                     .refillGreedy(5, Duration.ofMinutes(1))
                     .build();
+            // Refill 20 tokens per 60 seconds, generous for legitimate household use.
+            case RSVP -> Bandwidth.builder()
+                    .capacity(20)
+                    .refillGreedy(20, Duration.ofMinutes(1))
+                    .build();
             // Refill 6 tokens per 60 seconds, steady rate, no burst beyond 6.
             case EXPORT -> Bandwidth.builder()
                     .capacity(6)
@@ -74,9 +87,18 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         return Bucket.builder().addLimit(limit).build();
     }
 
-    // Selects the tier for a URI. The couple data-export paths get the tighter
-    // EXPORT bucket; everything else in the throttled set uses DEFAULT.
+    // Selects the tier for a URI. Order matters: /rsvp/find is a sub-path of the
+    // general /rsvp prefix but keeps the stricter DEFAULT bucket (name-enumeration
+    // is the higher-value attack), so it must be matched before the RSVP prefix.
+    // The couple data-export paths get the tighter EXPORT bucket; everything else
+    // in the throttled set uses DEFAULT.
     private Tier tierFor(String uri) {
+        if (uri.startsWith("/api/v1/guests/rsvp/find")) {
+            return Tier.DEFAULT;
+        }
+        if (uri.startsWith("/api/v1/guests/rsvp")) {
+            return Tier.RSVP;
+        }
         if (isCoupleExportPath(uri)) {
             return Tier.EXPORT;
         }
@@ -99,7 +121,10 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         String uri = request.getRequestURI();
         boolean rateLimited =
                 uri.startsWith("/api/v1/auth/") ||
-                uri.startsWith("/api/v1/guests/rsvp/find") ||
+                // Covers RSVP find-by-name (GET /rsvp/find), token resolution
+                // (GET /rsvp/{token}) and submit (POST /rsvp); tierFor picks the
+                // strict vs generous bucket per path (issue #255).
+                uri.startsWith("/api/v1/guests/rsvp") ||
                 uri.startsWith("/api/v1/inquiries") ||
                 // Authenticated, but the comp promo code is low-entropy and reusable, so throttle
                 // redemption attempts to stop a logged-in vendor from brute-forcing the code.

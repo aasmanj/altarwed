@@ -2,6 +2,7 @@ package com.altarwed.web.mapper;
 
 import com.altarwed.application.dto.PublicWeddingWebsiteResponse;
 import com.altarwed.application.dto.WeddingWebsiteResponse;
+import com.altarwed.application.mapper.WeddingWebsiteResponseMapper;
 import com.altarwed.domain.model.WeddingWebsite;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -55,6 +56,18 @@ class WeddingWebsiteMapperTest {
 
         assertThat(response.coupleId()).isEqualTo(w.coupleId());
         assertThat(response.goalBudget()).isEqualByComparingTo(w.goalBudget());
+    }
+
+    @Test
+    void toResponseDelegatesToTheCanonicalMapping() {
+        WeddingWebsite w = website();
+
+        // Issue #336: the web endpoint's mapper must produce field-for-field identical output to the
+        // single canonical mapping in the application layer, proving the delegation changed nothing.
+        WeddingWebsiteResponse viaWebMapper = mapper.toResponse(w);
+        WeddingWebsiteResponse viaCanonical = WeddingWebsiteResponseMapper.toResponse(w);
+
+        assertThat(viaWebMapper).isEqualTo(viaCanonical);
     }
 
     @Test

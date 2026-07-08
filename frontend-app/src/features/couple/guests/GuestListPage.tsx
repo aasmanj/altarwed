@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import { fireConfetti } from '@/lib/fireConfetti'
 import Papa from 'papaparse'
@@ -13,6 +13,7 @@ import {
   type Guest, type RsvpStatus, type GuestSide,
 } from './useGuests'
 import { buildGuestSavePlan, type GuestSavePlan } from './guestEditSave'
+import { distinctPartyNames } from './partyNames'
 import ImportGuestsModal from './ImportGuestsModal'
 import BulkInviteSender from './BulkInviteSender'
 import { computeGuestStats } from '@/features/couple/guests/guestStats'
@@ -139,6 +140,10 @@ export default function GuestListPage() {
   const coupleId = user?.id ?? ''
 
   const { data: guests = [], isLoading, isError, refetch } = useGuests(coupleId)
+  // Distinct households already on the roster, offered as <datalist> suggestions
+  // on the Party / household inputs so couples reuse an existing household
+  // instead of typing a near-miss string that silently splits it (issue #238).
+  const partyOptions = useMemo(() => distinctPartyNames(guests), [guests])
   const addGuest    = useAddGuest(coupleId)
   const updateGuest = useUpdateGuest(coupleId)
   // Seating changes from the edit row go through the dedicated PUT because the
@@ -804,6 +809,7 @@ export default function GuestListPage() {
             }}
             onCancel={() => setShowAdd(false)}
             isPending={addGuest.isPending}
+            partyOptions={partyOptions}
           />
         )}
 
@@ -853,6 +859,7 @@ export default function GuestListPage() {
                         }}
                         onCancel={() => setEditingId(null)}
                         isPending={updateGuest.isPending || assignTable.isPending}
+                        partyOptions={partyOptions}
                       />
                     ) : (
                       <GuestRow
@@ -1076,12 +1083,29 @@ function addressLabels(country: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Party / household suggestions (issue #238)
+// ---------------------------------------------------------------------------
+// A native <datalist> renders the existing households as type-ahead options on
+// the party input. It is a suggestion layer only: the paired <input> stays free
+// text, so a brand-new household can still be typed. Surfacing what already
+// exists makes near-miss typos ("Smith Family" vs "The Smith Family") visible
+// so the couple picks the existing one instead of splitting the household.
+function PartyOptionsDatalist({ id, options }: { id: string; options: string[] }) {
+  return (
+    <datalist id={id}>
+      {options.map(name => <option key={name} value={name} />)}
+    </datalist>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Add guest form
 // ---------------------------------------------------------------------------
-function AddGuestForm({ onSubmit, onCancel, isPending }: {
+function AddGuestForm({ onSubmit, onCancel, isPending, partyOptions }: {
   onSubmit: (data: Parameters<ReturnType<typeof useAddGuest>['mutateAsync']>[0]) => Promise<void>
   onCancel: () => void
   isPending: boolean
+  partyOptions: string[]
 }) {
   const [name, setName]           = useState('')
   const [email, setEmail]         = useState('')
@@ -1139,7 +1163,9 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
         </Field>
         <Field label="Party / household">
           <input value={party} onChange={e => setParty(e.target.value)}
+            list="party-household-options-add" autoComplete="off"
             className={inputCls} placeholder="e.g. The Smith Family (groups them to RSVP together)" />
+          <PartyOptionsDatalist id="party-household-options-add" options={partyOptions} />
         </Field>
         <Field label="Address line 1">
           <input value={mailLine1} onChange={e => setMailLine1(e.target.value)}
@@ -1184,11 +1210,12 @@ function AddGuestForm({ onSubmit, onCancel, isPending }: {
 // ---------------------------------------------------------------------------
 // Inline edit row
 // ---------------------------------------------------------------------------
-function EditGuestRow({ guest, onSave, onCancel, isPending }: {
+function EditGuestRow({ guest, onSave, onCancel, isPending, partyOptions }: {
   guest: Guest
   onSave: (plan: GuestSavePlan) => Promise<void>
   onCancel: () => void
   isPending: boolean
+  partyOptions: string[]
 }) {
   const [name, setName]               = useState(guest.name)
   const [email, setEmail]             = useState(guest.email ?? '')
@@ -1246,7 +1273,9 @@ function EditGuestRow({ guest, onSave, onCancel, isPending }: {
           </Field>
           <Field label="Party / household">
             <input value={party} onChange={e => setParty(e.target.value)}
+              list="party-household-options-edit" autoComplete="off"
               placeholder="e.g. The Smith Family" className={inputCls} />
+            <PartyOptionsDatalist id="party-household-options-edit" options={partyOptions} />
           </Field>
           <Field label="RSVP Status">
             <select value={status} onChange={e => setStatus(e.target.value as RsvpStatus)} className={inputCls}>

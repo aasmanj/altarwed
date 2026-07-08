@@ -906,4 +906,66 @@ class GuestServiceTest {
 
         assertThat(saved.get(0).plusOneName()).isNull();
     }
+
+    // ---------------------------------------------------------------------------
+    // Issue #330: the RSVP page payload additionally carries the raw ISO wedding date,
+    // the free-form ceremony time, and the full venue street address, so the public
+    // confirmation screen can build an "add to calendar" .ics client-side. The existing
+    // formatted display string and city/state fields are unchanged.
+    // ---------------------------------------------------------------------------
+
+    @Test
+    void getRsvpPageData_exposesRawIsoDate_ceremonyTime_andVenueAddress_forCalendarDownload() {
+        UUID coupleId = UUID.randomUUID();
+        Guest g = guest(coupleId, "Anna", "anna@example.com");
+        RsvpInviteToken token = new RsvpInviteToken(
+                UUID.randomUUID(), "tokenhash", g.id(),
+                LocalDateTime.now().plusDays(1), false, null, RsvpInviteToken.SOURCE_INVITE);
+
+        WeddingWebsite website = mock(WeddingWebsite.class);
+        when(website.weddingDate()).thenReturn(LocalDate.of(2026, 6, 20));
+        when(website.ceremonyTime()).thenReturn("4:00 PM");
+        when(website.venueAddress()).thenReturn("123 Chapel Lane");
+        lenient().when(website.venueName()).thenReturn("Grace Chapel");
+
+        when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(token));
+        when(guestRepository.findById(g.id())).thenReturn(Optional.of(g));
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.of(website));
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
+
+        var response = service().getRsvpPageData("raw-token");
+
+        // Raw ISO date is LocalDate.toString() (yyyy-MM-dd), distinct from the localized display
+        // string, so the client can build the .ics DTSTART without re-parsing "MMMM d, yyyy".
+        assertThat(response.weddingDateIso()).isEqualTo("2026-06-20");
+        assertThat(response.weddingDate()).isEqualTo("June 20, 2026");
+        // Ceremony time is passed through verbatim; parsing/fallback is the client's concern.
+        assertThat(response.ceremonyTime()).isEqualTo("4:00 PM");
+        // Full street address now rides on the payload for the calendar LOCATION field.
+        assertThat(response.venueAddress()).isEqualTo("123 Chapel Lane");
+    }
+
+    @Test
+    void getRsvpPageData_nullsCalendarFields_whenWeddingHasNoDateOrTime() {
+        UUID coupleId = UUID.randomUUID();
+        Guest g = guest(coupleId, "Anna", "anna@example.com");
+        RsvpInviteToken token = new RsvpInviteToken(
+                UUID.randomUUID(), "tokenhash", g.id(),
+                LocalDateTime.now().plusDays(1), false, null, RsvpInviteToken.SOURCE_INVITE);
+
+        WeddingWebsite website = mock(WeddingWebsite.class);
+        // weddingDate/ceremonyTime/venueAddress all unset (mock returns null) -> the client
+        // hides the button (no date) and there is no crash building the payload.
+
+        when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(token));
+        when(guestRepository.findById(g.id())).thenReturn(Optional.of(g));
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.of(website));
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
+
+        var response = service().getRsvpPageData("raw-token");
+
+        assertThat(response.weddingDateIso()).isNull();
+        assertThat(response.ceremonyTime()).isNull();
+        assertThat(response.venueAddress()).isNull();
+    }
 }

@@ -84,7 +84,12 @@ export const BLOCK_TYPE_DESCRIPTIONS: Record<BlockType, string> = {
 // Which block types each tab is allowed to add. Keeps the editor coherent  
 // e.g. you can't drop a HOTEL_CARD on the RSVP tab.
 export const ALLOWED_TYPES_PER_TAB: Record<BlockTab, BlockType[]> = {
-  HOME: ['HEADING', 'TEXT', 'IMAGE', 'SCRIPTURE', 'DIVIDER', 'COUNTDOWN', 'RSVP_CTA'],
+  // Issue #329: the Home landing view is trimmed to functional/venue blocks only.
+  // Generic content primitives (HEADING, TEXT, SCRIPTURE, DIVIDER) belong on
+  // Our Story / Details, not the landing view. VENUE_CARD surfaces the date/venue
+  // summary to guests by default. This gates ADDING blocks only; existing Home
+  // blocks of the dropped types on already-built sites still render.
+  HOME: ['IMAGE', 'VENUE_CARD', 'COUNTDOWN', 'RSVP_CTA'],
   OUR_STORY: ['STORY_ENTRY', 'HEADING', 'TEXT', 'IMAGE', 'SCRIPTURE', 'DIVIDER'],
   DETAILS: ['HEADING', 'TEXT', 'IMAGE', 'SCRIPTURE', 'DIVIDER', 'VENUE_CARD'],
   WEDDING_PARTY: ['HEADING', 'TEXT', 'DIVIDER', 'WEDDING_PARTY_GRID'],

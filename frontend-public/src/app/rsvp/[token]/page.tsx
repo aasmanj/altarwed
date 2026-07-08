@@ -101,6 +101,13 @@ export default async function RsvpPage(
             weddingSlug={data.weddingSlug}
             hasRegistry={data.hasRegistry}
             apiUrl={API}
+            coupleNames={data.coupleNames}
+            weddingDateIso={data.weddingDateIso}
+            ceremonyTime={data.ceremonyTime}
+            venueName={data.venueName}
+            venueAddress={data.venueAddress}
+            venueCity={data.venueCity}
+            venueState={data.venueState}
             partyMembers={data.partyMembers ?? undefined}
             currentRsvpStatus={data.currentRsvpStatus ?? undefined}
             currentPlusOneName={data.currentPlusOneName ?? undefined}

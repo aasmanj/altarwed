@@ -101,6 +101,11 @@ public class BlockBackfillService {
 
     private List<WeddingPageBlock> buildHomeBlocks(WeddingWebsite w) {
         List<WeddingPageBlock> out = new ArrayList<>();
+        // Issue #329: seed a VENUE_CARD on Home so a brand-new site surfaces the
+        // date/venue summary to guests without the couple adding it by hand. This
+        // runs only when the Home tab has no blocks yet (per-tab idempotency in
+        // backfill), so it never touches an existing couple's arranged Home page.
+        out.add(block(w.id(), BlockTab.HOME, BlockType.VENUE_CARD, nextOrder(out), "{}"));
         out.add(block(w.id(), BlockTab.HOME, BlockType.COUNTDOWN, nextOrder(out), "{}"));
         // Do NOT seed a SCRIPTURE block from the pinned verse: the wedding layout
         // already renders scriptureText as a site-wide banner, so a HOME SCRIPTURE

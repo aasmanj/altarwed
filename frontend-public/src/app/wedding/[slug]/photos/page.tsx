@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { Camera } from 'lucide-react'
 import { getWedding } from '@/app/wedding/[slug]/data'
+import TabBlocks from '@/components/blocks/TabBlocks'
 import PhotoGalleryClient, { type WeddingPhoto } from './PhotoGalleryClient'
 
 async function getPhotos(slug: string): Promise<WeddingPhoto[]> {
@@ -21,7 +22,13 @@ export default async function PhotosPage(
   const [wedding, photos] = await Promise.all([getWedding(slug), getPhotos(slug)])
   if (!wedding) notFound()
 
-  return (
+  // Legacy scalar render (the existing photo grid + "coming soon" empty state).
+  // This becomes the zero-block fallback so a couple who uploaded photos but has
+  // not added any Photos-tab blocks yet renders byte-for-byte unchanged. When the
+  // couple DOES add content-bearing blocks on the Photos tab (HEADING, TEXT,
+  // DIVIDER, PHOTO_ALBUM_GRID), TabBlocks renders those instead, matching how
+  // Home/Story/Details/Registry already flow through the block pipeline (#332).
+  const fallback = (
     <div className="space-y-10">
       <div className="text-center">
         <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#3b2f2f]">Photos</h2>
@@ -48,4 +55,6 @@ export default async function PhotosPage(
       )}
     </div>
   )
+
+  return <TabBlocks slug={slug} tab="PHOTOS" wedding={wedding} fallback={fallback} />
 }

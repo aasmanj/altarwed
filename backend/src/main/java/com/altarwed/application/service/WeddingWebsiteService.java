@@ -2,16 +2,23 @@ package com.altarwed.application.service;
 
 import com.altarwed.application.dto.CreateWeddingWebsiteRequest;
 import com.altarwed.application.dto.UpdateWeddingWebsiteRequest;
+import com.altarwed.application.dto.WeddingPageBlockResponse;
+import com.altarwed.application.dto.WeddingWebsiteExport;
+import com.altarwed.application.dto.WeddingWebsiteResponse;
 import com.altarwed.application.dto.WeddingWebsiteSearchResultResponse;
 import com.altarwed.domain.exception.SlugAlreadyTakenException;
 import com.altarwed.domain.exception.WeddingWebsiteAlreadyExistsException;
 import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
+import com.altarwed.domain.model.WeddingPageBlock;
 import com.altarwed.domain.model.WeddingWebsite;
 import com.altarwed.domain.model.WeddingWebsiteSummary;
 import com.altarwed.domain.port.ConversionEventPort;
 import com.altarwed.domain.port.CoupleRepository;
 import com.altarwed.domain.port.RevalidationPort;
+import com.altarwed.domain.port.WeddingPageBlockRepository;
 import com.altarwed.domain.port.WeddingWebsiteRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -54,19 +61,25 @@ public class WeddingWebsiteService {
     private final CoupleRepository coupleRepository;
     private final ConversionEventPort conversionEventPort;
     private final AsyncEmailService asyncEmailService;
+    private final WeddingPageBlockRepository blockRepository;
+    private final ObjectMapper objectMapper;
 
     public WeddingWebsiteService(
             WeddingWebsiteRepository websiteRepository,
             RevalidationPort revalidationPort,
             CoupleRepository coupleRepository,
             ConversionEventPort conversionEventPort,
-            AsyncEmailService asyncEmailService
+            AsyncEmailService asyncEmailService,
+            WeddingPageBlockRepository blockRepository,
+            ObjectMapper objectMapper
     ) {
         this.websiteRepository = websiteRepository;
         this.revalidationPort = revalidationPort;
         this.coupleRepository = coupleRepository;
         this.conversionEventPort = conversionEventPort;
         this.asyncEmailService = asyncEmailService;
+        this.blockRepository = blockRepository;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -117,6 +130,60 @@ public class WeddingWebsiteService {
     public WeddingWebsite getByCoupleId(UUID coupleId) {
         return websiteRepository.findByCoupleId(coupleId)
                 .orElseThrow(() -> new WeddingWebsiteNotFoundException("couple:" + coupleId));
+    }
+
+    /**
+     * Serializes this couple's wedding website to a portable JSON string for the self-serve data
+     * export (issue #253): the scalar site fields plus every page-builder block in sort order.
+     * Read-only and couple-scoped; the caller (CoupleExportController) has already asserted
+     * ownership via CoupleAccessGuard, and this reads only the couple's own site and its blocks.
+     *
+     * Pretty-printed for human readability (a couple opening the file should be able to read it).
+     * Throws {@link WeddingWebsiteNotFoundException} when the couple has no site yet, consistent
+     * with the rest of this service.
+     */
+    @Transactional(readOnly = true)
+    public String exportWebsiteJson(UUID coupleId) {
+        WeddingWebsite site = getByCoupleId(coupleId);
+        List<WeddingPageBlockResponse> blocks = blockRepository.findAllByWebsiteId(site.id()).stream()
+                .map(WeddingWebsiteService::toBlockResponse)
+                .toList();
+        WeddingWebsiteExport export = new WeddingWebsiteExport(toWebsiteResponse(site), blocks);
+        try {
+            String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(export);
+            log.info("wedding website exported, coupleId={}, websiteId={}, blockCount={}",
+                     coupleId, site.id(), blocks.size());
+            return json;
+        } catch (JsonProcessingException e) {
+            log.error("wedding website export failed, coupleId={}, websiteId={}", coupleId, site.id(), e);
+            throw new IllegalStateException("Failed to serialize wedding website export", e);
+        }
+    }
+
+    // Domain -> export DTO mappers. Kept private/static here (not the web WeddingWebsiteMapper)
+    // so the application layer builds its own export payload without depending on the web layer.
+    private static WeddingWebsiteResponse toWebsiteResponse(WeddingWebsite w) {
+        return new WeddingWebsiteResponse(
+                w.id(), w.coupleId(), w.slug(), w.isPublished(),
+                w.partnerOneName(), w.partnerTwoName(), w.weddingDate(), w.engagementDate(),
+                w.heroPhotoUrl(), w.heroTagline(), w.heroFocalPointX(), w.heroFocalPointY(), w.heroTaglineColor(),
+                w.ourStory(), w.scriptureReference(), w.scriptureText(), w.scriptureTranslation(),
+                w.venueName(), w.venueAddress(), w.venueCity(), w.venueState(), w.ceremonyTime(), w.dressCode(),
+                w.venuePhotoUrl(), w.venueAdditionalInfo(),
+                w.hotelName(), w.hotelUrl(), w.hotelDetails(),
+                w.registryUrl1(), w.registryLabel1(), w.registryUrl2(), w.registryLabel2(),
+                w.registryUrl3(), w.registryLabel3(),
+                w.rsvpDeadline(), w.partnerOneVows(), w.partnerTwoVows(), w.goalBudget(),
+                w.hiddenTabs(), w.customTabLabels(), w.accentColor(), w.scriptureBackgroundColor(),
+                w.stdImageUrl(), w.createdAt(), w.updatedAt()
+        );
+    }
+
+    private static WeddingPageBlockResponse toBlockResponse(WeddingPageBlock b) {
+        return new WeddingPageBlockResponse(
+                b.id(), b.weddingWebsiteId(), b.tab(), b.type(),
+                b.sortOrder(), b.contentJson(), b.createdAt(), b.updatedAt()
+        );
     }
 
     // Public path (SEO surface, /wedding/[slug] and friends). Slugs are low-entropy and
