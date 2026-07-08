@@ -72,14 +72,14 @@ class PrintOrderServiceTest {
     private CreatePrintOrderRequest requestFor(List<UUID> guestIds) {
         return new CreatePrintOrderRequest(
                 "SAVE_THE_DATE", "SAVE_THE_DATE_CLASSIC", guestIds,
-                "The Couple", "1 Return Way", null, "Chicago", "il", "60601", "idem-1");
+                "The Couple", "1 Return Way", null, "Chicago", "il", "60601", "idem-1", null);
     }
 
     private PrintOrder orderWith(List<PrintOrderRecipient> recipients) {
         LocalDateTime now = LocalDateTime.now();
         return new PrintOrder(orderId, coupleId, PrintOrderType.SAVE_THE_DATE, PrintOrderStatus.SUBMITTED,
                 "SAVE_THE_DATE_CLASSIC", recipients.size(), recipients.size() * 200, null, now, now,
-                recipients, "idem-1", null, null, null, 0, null, null, null, null, null, null);
+                recipients, "idem-1", null, null, null, 0, null, null, null, null, null, null, null);
     }
 
     private PrintOrderRecipient recipient(String lobId, String status) {
@@ -146,7 +146,7 @@ class PrintOrderServiceTest {
     void refresh_rejects_an_order_not_owned_by_the_couple() {
         var othersOrder = new PrintOrder(orderId, UUID.randomUUID(), PrintOrderType.SAVE_THE_DATE,
                 PrintOrderStatus.SUBMITTED, "k", 0, 0, null, LocalDateTime.now(), null, List.of(), "i",
-                null, null, null, 0, null, null, null, null, null, null);
+                null, null, null, 0, null, null, null, null, null, null, null);
         when(printOrderRepository.findById(orderId)).thenReturn(Optional.of(othersOrder));
 
         assertThatThrownBy(() -> service.refreshDeliveryStatuses(coupleId, orderId))
@@ -317,7 +317,7 @@ class PrintOrderServiceTest {
                     o.recipientCount(), o.costCents(), o.errorMessage(), o.createdAt(), o.submittedAt(),
                     o.recipients(), o.idempotencyKey(), o.stripeCheckoutSessionId(), o.stripePaymentIntentId(),
                     o.amountChargedCents(), o.amountRefundedCents(), o.returnName(), o.returnAddressLine1(),
-                    o.returnAddressLine2(), o.returnCity(), o.returnState(), o.returnZip());
+                    o.returnAddressLine2(), o.returnCity(), o.returnState(), o.returnZip(), o.cardSize());
         });
         when(printOrderRepository.findById(orderId)).thenReturn(Optional.of(orderWith(List.of())));
     }
@@ -328,7 +328,7 @@ class PrintOrderServiceTest {
         return new PrintOrder(orderId, coupleId, PrintOrderType.SAVE_THE_DATE, PrintOrderStatus.PROCESSING,
                 "SAVE_THE_DATE_CLASSIC", recipients.size(), 0, null, LocalDateTime.now(), null,
                 recipients, "idem-1", "cs_1", "pi_1", amountChargedCents, 0,
-                "Name", "1 Way", null, "City", "IL", "60601");
+                "Name", "1 Way", null, "City", "IL", "60601", null);
     }
 
     @Test
@@ -344,7 +344,7 @@ class PrintOrderServiceTest {
     void submitBatchAsync_skipsWhenOrderNotInProcessingStatus() {
         PrintOrder pending = new PrintOrder(orderId, coupleId, PrintOrderType.SAVE_THE_DATE,
                 PrintOrderStatus.PENDING_PAYMENT, "k", 0, 0, null, LocalDateTime.now(), null, List.of(), "i",
-                null, null, null, 0, null, null, null, null, null, null);
+                null, null, null, 0, null, null, null, null, null, null, null);
         when(printOrderRepository.findById(orderId)).thenReturn(Optional.of(pending));
 
         service.submitBatchAsync(orderId);
@@ -403,7 +403,7 @@ class PrintOrderServiceTest {
         PrintOrder alreadyRefunded = new PrintOrder(orderId, coupleId, PrintOrderType.SAVE_THE_DATE, PrintOrderStatus.PROCESSING,
                 "SAVE_THE_DATE_CLASSIC", 1, 0, null, LocalDateTime.now(), null,
                 List.of(pendingRecipient), "idem-1", "cs_1", "pi_1", 400, 400,
-                "Name", "1 Way", null, "City", "IL", "60601");
+                "Name", "1 Way", null, "City", "IL", "60601", null);
         when(printOrderRepository.findById(orderId)).thenReturn(Optional.of(alreadyRefunded));
         when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple()));
         when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());

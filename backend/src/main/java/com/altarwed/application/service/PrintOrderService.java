@@ -131,7 +131,7 @@ public class PrintOrderService {
                 order.stripeCheckoutSessionId(), order.stripePaymentIntentId(),
                 order.amountChargedCents(), order.amountRefundedCents(),
                 order.returnName(), order.returnAddressLine1(), order.returnAddressLine2(),
-                order.returnCity(), order.returnState(), order.returnZip());
+                order.returnCity(), order.returnState(), order.returnZip(), order.cardSize());
         return printOrderRepository.save(refreshed);
     }
 
@@ -260,7 +260,8 @@ public class PrintOrderService {
                     req.guestIds().size(), 0, null, LocalDateTime.now(), null, List.of(), idempotencyKey,
                     null, null, amountChargedCents, 0,
                     req.returnName(), req.returnAddressLine1(), req.returnAddressLine2(),
-                    req.returnCity(), req.returnState().toUpperCase(Locale.ROOT), req.returnZip()
+                    req.returnCity(), req.returnState().toUpperCase(Locale.ROOT), req.returnZip(),
+                    normalizeCardSize(req.cardSize())
             ));
         } catch (DataIntegrityViolationException race) {
             log.warn("print order idempotency race, returning concurrent order, coupleId={}", coupleId);
@@ -330,6 +331,19 @@ public class PrintOrderService {
 
     private static String normalize(String s) {
         return s == null ? "" : s.trim().toLowerCase(Locale.ROOT);
+    }
+
+    // The DB has a CHECK constraint on card_size (V89), so persist only a recognized value.
+    // Anything else (null, empty, an unknown value from a stale/rogue client) collapses to the
+    // proven 6x11 landscape rather than failing the whole order at insert time -- the card shape
+    // is a cosmetic preference and must never be the thing that blocks a couple's mail send.
+    private static final java.util.Set<String> VALID_CARD_SIZES =
+            java.util.Set.of("LANDSCAPE_6X11", "PORTRAIT_6X9", "PORTRAIT_5X7");
+
+    private static String normalizeCardSize(String cardSize) {
+        if (cardSize == null) return "LANDSCAPE_6X11";
+        String v = cardSize.trim().toUpperCase(Locale.ROOT);
+        return VALID_CARD_SIZES.contains(v) ? v : "LANDSCAPE_6X11";
     }
 
     // ── Issue #53: async Lob batch, triggered by StripeService once payment is confirmed ────────
@@ -410,6 +424,10 @@ public class PrintOrderService {
             if (w.venueState() != null && !w.venueState().isBlank()) sb.append(", ").append(w.venueState());
             return sb.toString();
         }).orElse(null);
+        // Print the couple's OWN chosen scripture (from their website) on the card, not a generic
+        // hardcoded verse. The adapter falls back to an AltarWed default when both are blank.
+        String verseText = websiteOpt.map(WeddingWebsite::scriptureText).orElse(null);
+        String verseReference = websiteOpt.map(WeddingWebsite::scriptureReference).orElse(null);
 
         FromAddress from = new FromAddress(
                 order.returnName(), order.returnAddressLine1(), order.returnAddressLine2(),
@@ -439,7 +457,8 @@ public class PrintOrderService {
                     guest.mailCity(), guest.mailState(), guest.mailZip(), guest.mailCountry()
             );
             PostcardRequest postcard = new PostcardRequest(
-                    order.templateKey(), coupleNames, weddingDate, weddingUrl, heroPhotoUrl, venueLine, from, to
+                    order.templateKey(), coupleNames, weddingDate, weddingUrl, heroPhotoUrl, venueLine, from, to,
+                    order.cardSize(), verseText, verseReference
             );
             try {
                 String lobId = printMailPort.sendPostcard(postcard);

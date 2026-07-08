@@ -2,6 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 
 export type PrintOrderType = 'SAVE_THE_DATE' | 'INVITATION'
+// Printed-card shape/size the couple can choose. LANDSCAPE_6X11 is the original default; the two
+// PORTRAIT options are the fiancee-requested upright cards. Kept in sync with the backend
+// card_size CHECK constraint (V89) and the Lob adapter's dimsFor().
+export type CardSize = 'LANDSCAPE_6X11' | 'PORTRAIT_6X9' | 'PORTRAIT_5X7'
 // PENDING_PAYMENT/PROCESSING are new (issue #59/#53): the order is created before the couple
 // pays, then the Lob batch runs asynchronously once Stripe confirms the charge. DRAFT is legacy
 // (pre-payment-gate orders only, kept so old rows still render).
@@ -40,6 +44,7 @@ export interface PrintOrder {
   recipients: PrintOrderRecipient[]
   amountChargedCents: number | null
   amountRefundedCents: number | null
+  cardSize: CardSize | null
 }
 
 export interface CreatePrintOrderPayload {
@@ -55,6 +60,8 @@ export interface CreatePrintOrderPayload {
   // Per-submit dedup token. The backend returns the original order if it sees
   // the same key again, so a retry can never mail/charge the batch twice.
   idempotencyKey: string
+  // Printed-card shape/size. Omitted/null renders the original 6x11 landscape.
+  cardSize: CardSize
 }
 
 export interface ExcludedGuest {
