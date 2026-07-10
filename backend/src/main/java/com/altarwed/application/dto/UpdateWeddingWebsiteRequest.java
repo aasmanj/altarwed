@@ -15,6 +15,15 @@ public record UpdateWeddingWebsiteRequest(
         LocalDate weddingDate,
         LocalDate engagementDate,
 
+        // Security (issue #351): heroPhotoUrl is interpolated into the Lob postcard HTML as a
+        // background-image URL that Lob's server-side renderer fetches, and it is the next/image
+        // src on the public site, so an attacker-controlled scheme/host is an SSRF vector
+        // (file:///..., http://169.254.169.254/..., etc.). Require the https scheme: this is set
+        // only from our Azure Blob upload (always https), so it blocks file:// and plain-http
+        // fetch targets without a functional change. Null/empty stay valid (clearing the hero).
+        // A stricter blob-host allowlist (which would also block https-to-internal-IP) is the
+        // follow-up; it needs a product call on whether an external hero URL is ever legitimate.
+        @Pattern(regexp = "^(https://\\S+)?$", message = "Hero photo URL must be an https link")
         @Size(max = 500) String heroPhotoUrl,
         @Size(max = 200) String heroTagline,
         // V57: hero focal point (0.0–1.0 range). null = no change.
