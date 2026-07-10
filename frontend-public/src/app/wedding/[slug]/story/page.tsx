@@ -14,7 +14,7 @@ export default async function StoryPage(
       <SectionHeading>Our Story</SectionHeading>
 
       <div>
-        <h3 className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] mb-6">How we met</h3>
+        <h3 className="text-xs uppercase tracking-[0.2em] text-[var(--accent-on-light)] mb-6">How we met</h3>
         <Prose text={wedding.ourStory} />
       </div>
     </div>

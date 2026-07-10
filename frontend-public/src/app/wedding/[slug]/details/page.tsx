@@ -36,7 +36,7 @@ export default async function DetailsPage(
 
       {wedding.rsvpDeadline && (
         <div className="rounded-2xl bg-[#3b2f2f] text-white px-8 py-8 text-center">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] mb-2">RSVP Deadline</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--accent-on-dark)] mb-2">RSVP Deadline</p>
           <p className="font-serif text-2xl font-bold">{formatDate(wedding.rsvpDeadline)}</p>
           <p className="mt-2 text-sm text-white/60">Check your email for your personal RSVP link.</p>
         </div>

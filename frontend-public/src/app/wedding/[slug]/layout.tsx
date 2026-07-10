@@ -7,6 +7,7 @@ import { parseTabCustomisation, hasWeddingPartyMembers, hasWeddingPhotos, getAll
 import { getWedding } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
 import { safeColor } from '@/lib/safeColor'
+import { accentColorTokens } from '@/lib/accentColorTokens'
 
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
@@ -147,12 +148,16 @@ export default async function WeddingLayout({
   // backend enforces @Pattern but this guards the SSR path against any future
   // direct DB writes or bugs. See src/lib/safeColor.ts for the shared rule.
   const accentColor = safeColor(wedding.accentColor, '#d4af6a')
+  // Contrast guard (issue #350): derive readable per-surface tokens from the accent so accent
+  // TEXT stays legible on the dark panels and the light page, and button labels stay legible on
+  // an accent fill, for ANY accent the couple picks. Decorative fills/dividers keep raw --accent.
+  const accentTokens = accentColorTokens(accentColor)
   const heroTaglineColor = safeColor(wedding.heroTaglineColor, 'rgba(255,255,255,0.7)')
   const scriptureBackgroundColor = safeColor(wedding.scriptureBackgroundColor, undefined)
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
-      <style>{`:root { --accent: ${accentColor}; }`}</style>
+      <style>{`:root { --accent: ${accentColor}; --accent-on-dark: ${accentTokens.onDark}; --accent-on-light: ${accentTokens.onLight}; --on-accent: ${accentTokens.onAccent}; }`}</style>
 
       {eventJsonLd && (
         <script
@@ -201,7 +206,7 @@ export default async function WeddingLayout({
           </h1>
           <div className="my-4 flex items-center justify-center gap-4">
             <div className="h-px w-16 bg-[color-mix(in_srgb,var(--accent)_60%,transparent)]" />
-            <span className="font-serif text-2xl text-[var(--accent)]" aria-hidden="true">&amp;</span>
+            <span className="font-serif text-2xl text-[var(--accent-on-dark)]" aria-hidden="true">&amp;</span>
             <div className="h-px w-16 bg-[color-mix(in_srgb,var(--accent)_60%,transparent)]" />
           </div>
           <p className="font-serif text-4xl sm:text-6xl md:text-7xl font-bold text-white leading-tight break-words text-balance">
@@ -214,14 +219,14 @@ export default async function WeddingLayout({
           )}
           {countdown !== null && countdown > 0 && (
             <p
-              className="mt-2 text-[var(--accent)] text-sm tracking-widest uppercase"
+              className="mt-2 text-[var(--accent-on-dark)] text-sm tracking-widest uppercase"
               aria-label={`${countdown} days until the wedding`}
             >
               {countdown} days away
             </p>
           )}
           {countdown !== null && countdown <= 0 && (
-            <p className="mt-2 text-[var(--accent)] text-sm tracking-widest uppercase">Married!</p>
+            <p className="mt-2 text-[var(--accent-on-dark)] text-sm tracking-widest uppercase">Married!</p>
           )}
         </div>
       </section>
@@ -242,7 +247,7 @@ export default async function WeddingLayout({
             </blockquote>
           )}
           {wedding.scriptureReference && (
-            <p className="mt-6 text-[var(--accent)] text-sm sm:text-base tracking-[0.25em] uppercase font-medium">
+            <p className="mt-6 text-[var(--accent-on-dark)] text-sm sm:text-base tracking-[0.25em] uppercase font-medium">
               {wedding.scriptureReference}
               {wedding.scriptureTranslation && (
                 <span className="text-white/40 ml-2 normal-case tracking-normal text-sm">({wedding.scriptureTranslation})</span>

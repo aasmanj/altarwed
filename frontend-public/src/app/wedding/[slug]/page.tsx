@@ -59,14 +59,14 @@ export default async function WeddingHomePage(
       {/* Countdown */}
       {countdown !== null && countdown > 0 && (
         <div className="rounded-2xl bg-[#3b2f2f] text-white text-center py-10 px-6">
-          <p className="text-xs uppercase tracking-[0.3em] text-[color-mix(in_srgb,var(--accent)_80%,transparent)] mb-2">Counting down</p>
-          <p className="font-serif text-7xl font-bold text-[var(--accent)]">{countdown}</p>
+          <p className="text-xs uppercase tracking-[0.3em] text-[var(--accent-on-dark)] mb-2">Counting down</p>
+          <p className="font-serif text-7xl font-bold text-[var(--accent-on-dark)]">{countdown}</p>
           <p className="mt-1 text-white/70 text-sm uppercase tracking-widest">days</p>
         </div>
       )}
       {countdown !== null && countdown <= 0 && (
         <div className="rounded-2xl bg-[#3b2f2f] text-white text-center py-10 px-6">
-          <p className="font-serif text-3xl font-bold text-[var(--accent)]">We&rsquo;re married!</p>
+          <p className="font-serif text-3xl font-bold text-[var(--accent-on-dark)]">We&rsquo;re married!</p>
           <p className="mt-2 text-white/70 text-sm">Thank you for being part of our covenant celebration.</p>
         </div>
       )}
