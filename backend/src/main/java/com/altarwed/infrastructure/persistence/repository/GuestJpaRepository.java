@@ -41,4 +41,18 @@ public interface GuestJpaRepository extends JpaRepository<GuestEntity, UUID> {
     @Modifying(clearAutomatically = true)
     @Query("UPDATE GuestEntity g SET g.saveTheDateSentAt = :sentAt, g.updatedAt = :sentAt WHERE g.id IN :ids")
     void markSaveTheDatesSent(@Param("ids") Collection<UUID> ids, @Param("sentAt") LocalDateTime sentAt);
+
+    // Seating table delete reindex (bulk, no entity hydration). The guest seat is a 1-based
+    // position into the couple's sortOrder-ordered table list, so deleting a table at `position`
+    // must unassign the guests seated there and shift later guests down one. Two targeted UPDATEs
+    // keep the write lock to only the affected rows. ORDER MATTERS: the caller must run the
+    // unassign BEFORE the shift, or the shift would move a row into `position` that the unassign
+    // then wrongly nulls. clearAutomatically so the persistence context can't serve stale rows.
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE GuestEntity g SET g.tableNumber = NULL WHERE g.coupleId = :coupleId AND g.tableNumber = :position")
+    int unassignGuestsAtTablePosition(@Param("coupleId") UUID coupleId, @Param("position") int position);
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE GuestEntity g SET g.tableNumber = g.tableNumber - 1 WHERE g.coupleId = :coupleId AND g.tableNumber > :position")
+    int shiftGuestsAfterTablePosition(@Param("coupleId") UUID coupleId, @Param("position") int position);
 }

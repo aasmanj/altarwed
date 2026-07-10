@@ -3,7 +3,6 @@ package com.altarwed.application.service;
 import com.altarwed.application.dto.CreateSeatingTableRequest;
 import com.altarwed.application.dto.UpdateSeatingTableRequest;
 import com.altarwed.domain.exception.SeatingTableNotFoundException;
-import com.altarwed.domain.model.Guest;
 import com.altarwed.domain.model.SeatingTable;
 import com.altarwed.domain.port.GuestRepository;
 import com.altarwed.domain.port.SeatingTableRepository;
@@ -13,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -94,42 +92,15 @@ public class SeatingTableService {
 
         repository.deleteById(tableId);
 
-        List<Guest> guests = guestRepository.findAllByCoupleId(coupleId);
-        List<Guest> reseated = new ArrayList<>();
-        int unassigned = 0;
-        int shifted = 0;
-        for (Guest g : guests) {
-            Integer tn = g.tableNumber();
-            if (tn == null) continue;
-            if (tn == position) {
-                reseated.add(withTableNumber(g, null));
-                unassigned++;
-            } else if (tn > position) {
-                reseated.add(withTableNumber(g, tn - 1));
-                shifted++;
-            }
-            // tn < position: unaffected by the compaction, leave as-is.
-        }
-        if (!reseated.isEmpty()) {
-            guestRepository.saveAll(reseated);
-        }
+        // Reindex with two targeted bulk UPDATEs (no roster hydration; write lock scoped to only
+        // the affected rows). ORDER IS LOAD-BEARING: unassign the guests seated AT the deleted
+        // position FIRST, then shift the later guests down one. Reversed, the shift would move a
+        // guest into `position` and the unassign would then wrongly null them.
+        int unassigned = guestRepository.unassignGuestsAtTablePosition(coupleId, position);
+        int shifted = guestRepository.shiftGuestsAfterTablePosition(coupleId, position);
 
         log.info("seating table deleted, coupleId={}, tableId={}, position={}, guestsUnassigned={}, guestsShifted={}",
                 coupleId, tableId, position, unassigned, shifted);
-    }
-
-    // Copy of a guest with only tableNumber changed. Guest is an immutable record with no wither,
-    // so every field is threaded through; keep in sync if the record gains fields.
-    private static Guest withTableNumber(Guest g, Integer tableNumber) {
-        return new Guest(
-                g.id(), g.coupleId(), g.name(), g.email(), g.phone(), g.rsvpStatus(),
-                g.plusOneAllowed(), g.plusOneName(), g.dietaryRestrictions(), g.songRequest(),
-                tableNumber, g.side(), g.notes(),
-                g.mailLine1(), g.mailCity(), g.mailState(), g.mailZip(), g.mailCountry(),
-                g.noteForCouple(), g.inviteSendCount(), g.inviteSentAt(), g.saveTheDateSentAt(),
-                g.respondedAt(), g.remindAt(), g.createdAt(), g.updatedAt(),
-                g.partyId(), g.partyName(), g.partyContact(), g.sheetSyncId(), g.syncedFromSheet()
-        );
     }
 
     private SeatingTable get(UUID coupleId, UUID tableId) {

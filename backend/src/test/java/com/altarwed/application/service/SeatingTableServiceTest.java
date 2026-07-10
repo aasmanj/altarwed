@@ -2,24 +2,24 @@ package com.altarwed.application.service;
 
 import com.altarwed.application.dto.CreateSeatingTableRequest;
 import com.altarwed.domain.exception.SeatingTableNotFoundException;
-import com.altarwed.domain.model.Guest;
-import com.altarwed.domain.model.GuestRsvpStatus;
 import com.altarwed.domain.model.SeatingTable;
 import com.altarwed.domain.port.GuestRepository;
 import com.altarwed.domain.port.SeatingTableRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,15 +36,6 @@ class SeatingTableServiceTest {
 
     private SeatingTable table(UUID coupleId, int sortOrder) {
         return new SeatingTable(UUID.randomUUID(), coupleId, "Table", 8, sortOrder, null, null);
-    }
-
-    // Guest with only the fields the seating reindex touches; everything else defaulted.
-    private Guest guestAtTable(UUID coupleId, String name, Integer tableNumber) {
-        return new Guest(
-                UUID.randomUUID(), coupleId, name, null, null, GuestRsvpStatus.PENDING,
-                false, null, null, null, tableNumber, null, null,
-                null, null, null, null, null, null, 0, null, null, null, null, null, null,
-                null, null, null, null, false);
     }
 
     @Test
@@ -74,10 +65,10 @@ class SeatingTableServiceTest {
         assertThat(saved.getValue().sortOrder()).isZero();
     }
 
-    // ── delete: reindex guests so a mid-list delete never scrambles the seating board ──
+    // ── delete: reindex guests (two bulk UPDATEs) so a mid-list delete never scrambles the board ──
 
     @Test
-    void delete_reindexesGuests_afterMiddleTableRemoved() {
+    void delete_reindexesGuests_atTheDeletedPosition_unassignBeforeShift() {
         UUID coupleId = UUID.randomUUID();
         // Tables at positions 1, 2, 3 (sortOrder asc). Delete the middle one (position 2).
         SeatingTable t1 = table(coupleId, 0);
@@ -85,42 +76,31 @@ class SeatingTableServiceTest {
         SeatingTable t3 = table(coupleId, 2);
         when(repository.findAllByCoupleId(coupleId)).thenReturn(List.of(t1, t2, t3));
 
-        Guest atT1 = guestAtTable(coupleId, "Anna", 1);   // before deleted -> unchanged
-        Guest atT2 = guestAtTable(coupleId, "Ben", 2);    // at deleted     -> unassigned (null)
-        Guest atT3 = guestAtTable(coupleId, "Cara", 3);   // after deleted  -> shifts to 2
-        Guest unseated = guestAtTable(coupleId, "Dan", null); // untouched
-        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(atT1, atT2, atT3, unseated));
-
         service().delete(coupleId, t2.id());
 
-        verify(repository).deleteById(t2.id());
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<Guest>> captor = ArgumentCaptor.forClass(List.class);
-        verify(guestRepository).saveAll(captor.capture());
-        // Build the map manually: Collectors.toMap rejects null values, and a null tableNumber
-        // (the unassigned guest) is exactly what we need to assert on.
-        Map<String, Integer> byName = new java.util.HashMap<>();
-        captor.getValue().forEach(g -> byName.put(g.name(), g.tableNumber()));
-        // Only the affected guests are written; the before-guest and the unseated guest are not.
-        assertThat(byName).containsOnlyKeys("Ben", "Cara");
-        assertThat(byName.get("Ben")).isNull();   // was at the deleted table -> unassigned
-        assertThat(byName.get("Cara")).isEqualTo(2); // shifted down from 3 to 2
+        // Delete the row, then reindex at position 2. The unassign MUST precede the shift: reversed,
+        // the shift would move a guest into position 2 that the unassign then wrongly nulls.
+        InOrder ordered = inOrder(repository, guestRepository);
+        ordered.verify(repository).deleteById(t2.id());
+        ordered.verify(guestRepository).unassignGuestsAtTablePosition(coupleId, 2);
+        ordered.verify(guestRepository).shiftGuestsAfterTablePosition(coupleId, 2);
     }
 
     @Test
-    void delete_writesNoGuests_whenNoneAreSeatedAtOrAfterTheDeletedTable() {
+    void delete_usesTheCorrectPosition_forFirstAndLastTable() {
         UUID coupleId = UUID.randomUUID();
         SeatingTable t1 = table(coupleId, 0);
         SeatingTable t2 = table(coupleId, 1);
-        when(repository.findAllByCoupleId(coupleId)).thenReturn(List.of(t1, t2));
-        // Delete the LAST table (position 2); only a guest before it and an unseated guest exist.
-        when(guestRepository.findAllByCoupleId(coupleId))
-                .thenReturn(List.of(guestAtTable(coupleId, "Anna", 1), guestAtTable(coupleId, "Dan", null)));
+        SeatingTable t3 = table(coupleId, 2);
+        when(repository.findAllByCoupleId(coupleId)).thenReturn(List.of(t1, t2, t3));
 
-        service().delete(coupleId, t2.id());
+        service().delete(coupleId, t1.id()); // first table -> position 1
+        verify(guestRepository).unassignGuestsAtTablePosition(coupleId, 1);
+        verify(guestRepository).shiftGuestsAfterTablePosition(coupleId, 1);
 
-        verify(repository).deleteById(t2.id());
-        verify(guestRepository, never()).saveAll(any());
+        service().delete(coupleId, t3.id()); // last table -> position 3 (nothing after it to shift)
+        verify(guestRepository).unassignGuestsAtTablePosition(coupleId, 3);
+        verify(guestRepository).shiftGuestsAfterTablePosition(coupleId, 3);
     }
 
     @Test
@@ -131,6 +111,7 @@ class SeatingTableServiceTest {
         assertThatThrownBy(() -> service().delete(coupleId, UUID.randomUUID()))
                 .isInstanceOf(SeatingTableNotFoundException.class);
         verify(repository, never()).deleteById(any());
-        verify(guestRepository, never()).saveAll(any());
+        verify(guestRepository, never()).unassignGuestsAtTablePosition(any(), anyInt());
+        verify(guestRepository, never()).shiftGuestsAfterTablePosition(any(), anyInt());
     }
 }
