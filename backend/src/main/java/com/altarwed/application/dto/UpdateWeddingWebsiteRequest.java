@@ -23,7 +23,10 @@ public record UpdateWeddingWebsiteRequest(
         // fetch targets without a functional change. Null/empty stay valid (clearing the hero).
         // A stricter blob-host allowlist (which would also block https-to-internal-IP) is the
         // follow-up; it needs a product call on whether an external hero URL is ever legitimate.
-        @Pattern(regexp = "^(https://\\S+)?$", message = "Hero photo URL must be an https link")
+        // Anchored \A...\z, not ^...$: Hibernate Validator uses Matcher.matches(), and in Java
+        // (non-MULTILINE) $ matches before a final line terminator, so ^(https://\S+)?$ would
+        // accept "https://evil/x\n". \z anchors the true end of input and closes that bypass.
+        @Pattern(regexp = "\\A(https://\\S+)?\\z", message = "Hero photo URL must be an https link")
         @Size(max = 500) String heroPhotoUrl,
         @Size(max = 200) String heroTagline,
         // V57: hero focal point (0.0–1.0 range). null = no change.

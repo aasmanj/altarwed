@@ -69,4 +69,11 @@ class UpdateWeddingWebsiteRequestHeroUrlValidationTest {
         // \\S+ requirement forbids it in addition to the escaping already done in the Lob adapter.
         assertThat(validateHeroUrl("https://a.example/x.jpg') url(http://evil")).isNotEmpty();
     }
+
+    @Test
+    void rejectsTrailingNewline_whichJavaDollarAnchorWouldOtherwiseAllow() {
+        // Regression for the \A...\z anchoring: with ^...$ + Matcher.matches(), Java's $ matches
+        // before a final line terminator, so a trailing newline would have slipped through.
+        assertThat(validateHeroUrl("https://a.example/x.jpg\n")).isNotEmpty();
+    }
 }
