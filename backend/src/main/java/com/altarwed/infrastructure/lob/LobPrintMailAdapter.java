@@ -470,17 +470,34 @@ public class LobPrintMailAdapter implements PrintMailPort {
                         headline, escape(req.coupleNames()), escape(req.weddingDate()), verse);
     }
 
+    // Longest verse we render on the front scrim band. Couples routinely enter long verses (the
+    // public site even has a font-size branch for >300 chars), but the card's scrim band is fixed
+    // height (tightest on PORTRAIT_5X7: 3.0in) so an unbounded verse overflows/clips the band.
+    // Lob still accepts it (dimensions stay valid) -- it just prints ugly -- so cap it here.
+    private static final int MAX_VERSE_CHARS = 120;
+
     // The couple's own verse when they picked one on their wedding website, else an AltarWed
     // default so a card never ships without scripture. Returns already-escaped, HTML-safe text.
     private static String verseLine(PostcardRequest req) {
         String text = req.verseText();
         if (text != null && !text.isBlank()) {
-            String line = "\"" + escape(text.trim()) + "\"";
+            String line = "\"" + escape(truncateVerse(text.trim())) + "\"";
             String ref = req.verseReference();
             if (ref != null && !ref.isBlank()) line += " - " + escape(ref.trim());
             return line;
         }
         return "\"Above all, love each other deeply.\" - 1 Peter 4:8";
+    }
+
+    // Trim an over-long verse to MAX_VERSE_CHARS at a word boundary with an ellipsis, so it fits
+    // the scrim band. Truncation happens BEFORE escape() so the char budget counts real characters,
+    // not entity-expanded ones (e.g. "&amp;amp;" would otherwise eat 5 chars of budget for one "&amp;").
+    private static String truncateVerse(String verse) {
+        if (verse.length() <= MAX_VERSE_CHARS) return verse;
+        String cut = verse.substring(0, MAX_VERSE_CHARS);
+        int lastSpace = cut.lastIndexOf(' ');
+        if (lastSpace > MAX_VERSE_CHARS - 20) cut = cut.substring(0, lastSpace);
+        return cut.stripTrailing() + "…";
     }
 
     String renderBack(PostcardRequest req, String qrBase64) {

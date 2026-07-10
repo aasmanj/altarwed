@@ -133,6 +133,22 @@ class LobPrintMailAdapterTest {
         assertThat(front).contains("1 Peter 4:8");
     }
 
+    // A long verse must be truncated so it can't overflow the fixed-height front scrim band
+    // (tightest on PORTRAIT_5X7). Lob would still accept it (dimensions stay valid) but print ugly.
+    @Test
+    void front_truncates_an_over_long_verse_with_an_ellipsis() {
+        String longVerse = "Love is patient, love is kind. It does not envy, it does not boast, "
+                + "it is not proud. It does not dishonor others, it is not self-seeking.";
+        String front = adapter.renderFront(
+                request("SAVE_THE_DATE_PHOTO", US_RECIPIENT, "PORTRAIT_5X7", longVerse, "1 Corinthians 13:4-5"));
+        assertThat(front).contains("…");
+        // The head of the verse is kept; the tail past the cap is dropped.
+        assertThat(front).contains("Love is patient, love is kind.");
+        assertThat(front).doesNotContain("self-seeking");
+        // The reference is never truncated.
+        assertThat(front).contains("1 Corinthians 13:4-5");
+    }
+
     // The photo front must put text in a bottom scrim band and NOT darken the whole photo, so the
     // couple's faces stay clear (family feedback: "words aren't over your beautiful faces").
     @Test

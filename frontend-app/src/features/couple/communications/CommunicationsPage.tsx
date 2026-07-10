@@ -872,7 +872,12 @@ function PostcardPreview({
   const portrait = size.portrait
 
   // The couple's own verse (matching the printed card); AltarWed default when they haven't set one.
-  const verseBody = scriptureText?.trim() || DEFAULT_VERSE_TEXT
+  // Truncate long verses at a word boundary to mirror the backend Lob renderer (MAX_VERSE_CHARS
+  // = 120), so the preview shows the same text that will fit the card's fixed-height scrim band.
+  const rawVerse = scriptureText?.trim() || DEFAULT_VERSE_TEXT
+  const verseBody = rawVerse.length > 120
+    ? rawVerse.slice(0, 120).replace(/\s+\S*$/, '').trimEnd() + '…'
+    : rawVerse
   const verseRef = (scriptureText?.trim() ? scriptureReference?.trim() : DEFAULT_VERSE_REF) || ''
   const verseLine = `"${verseBody}"${verseRef ? ` - ${verseRef}` : ''}`
 
@@ -946,9 +951,9 @@ function PostcardPreview({
         <div style={{ fontSize: fs.body, color: '#8a6a4a', marginTop: large ? '7px' : '4px' }}>
           {isSaveTheDate ? 'Formal invitation to follow' : 'Please join us as we celebrate our marriage ceremony'}
         </div>
-        <div style={{ fontSize: fs.bodySmall, fontStyle: 'italic', color: '#9c7434', marginTop: large ? '5px' : '3px', lineHeight: 1.35 }}>
-          {verseLine}
-        </div>
+        {/* The verse prints on the FRONT of the card, not the back (see the Lob back templates,
+            which render no scripture). Keep it off the back preview so the preview matches the
+            mailed card. */}
         <div style={{ marginTop: large ? '9px' : '5px' }}>
           <QRCodeCanvas value={qrUrl} size={qrSize} fgColor="#3b2f2f" bgColor="#fdfaf6" level="M" />
           <div style={{ fontSize: fs.qrLabel, color: '#a08060', marginTop: large ? '4px' : '2px' }}>Scan to visit our site</div>
