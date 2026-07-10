@@ -85,9 +85,9 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
     <div className="text-center">
       <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#3b2f2f]">{children}</h2>
       <div className="mt-3 flex items-center justify-center gap-3">
-        <div className="h-px w-10 bg-[#d4af6a]/40" />
-        <div className="h-1.5 w-1.5 rounded-full bg-[#d4af6a]" />
-        <div className="h-px w-10 bg-[#d4af6a]/40" />
+        <div className="h-px w-10 bg-[color-mix(in_srgb,var(--accent)_40%,transparent)]" />
+        <div className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+        <div className="h-px w-10 bg-[color-mix(in_srgb,var(--accent)_40%,transparent)]" />
       </div>
     </div>
   )

@@ -14,7 +14,7 @@ export default async function RsvpTabPage(
     <div className="space-y-10">
       <SectionHeading>RSVP</SectionHeading>
 
-      <div className="rounded-2xl border-2 border-[#d4af6a] bg-[#d4af6a]/5 p-6 sm:p-10 space-y-8">
+      <div className="rounded-2xl border-2 border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_5%,transparent)] p-6 sm:p-10 space-y-8">
         {/* Heading row */}
         <div className="text-center">
           <p className="font-serif text-2xl sm:text-3xl font-bold text-[#3b2f2f] mb-2">Will you join us?</p>
@@ -27,9 +27,9 @@ export default async function RsvpTabPage(
 
         {/* Divider */}
         <div className="flex items-center gap-3">
-          <div className="h-px flex-1 bg-[#d4af6a]/30" />
-          <div className="h-1.5 w-1.5 rounded-full bg-[#d4af6a]" />
-          <div className="h-px flex-1 bg-[#d4af6a]/30" />
+          <div className="h-px flex-1 bg-[color-mix(in_srgb,var(--accent)_30%,transparent)]" />
+          <div className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+          <div className="h-px flex-1 bg-[color-mix(in_srgb,var(--accent)_30%,transparent)]" />
         </div>
 
         {/* Search section */}
@@ -59,9 +59,9 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
     <div className="text-center">
       <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#3b2f2f]">{children}</h2>
       <div className="mt-3 flex items-center justify-center gap-3">
-        <div className="h-px w-10 bg-[#d4af6a]/40" />
-        <div className="h-1.5 w-1.5 rounded-full bg-[#d4af6a]" />
-        <div className="h-px w-10 bg-[#d4af6a]/40" />
+        <div className="h-px w-10 bg-[color-mix(in_srgb,var(--accent)_40%,transparent)]" />
+        <div className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+        <div className="h-px w-10 bg-[color-mix(in_srgb,var(--accent)_40%,transparent)]" />
       </div>
     </div>
   )
