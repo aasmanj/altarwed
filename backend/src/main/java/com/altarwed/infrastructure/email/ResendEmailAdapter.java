@@ -994,7 +994,7 @@ public class ResendEmailAdapter implements EmailPort {
                     Hi %s and %s,
                   </p>
                   <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
-                    We have permanently deleted your AltarWed account and all of its data, including your wedding website, guest list, and planning details. Nothing was retained, and this cannot be undone.
+                    We have permanently deleted your AltarWed account, wedding website, guest list, uploaded photos, and planning details. We keep only the minimum records the law requires and an anonymized record of your unsubscribe preference, so we never email you again. This cannot be undone.
                   </p>
                   <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
                     Thank you for letting us be part of your story. If your plans bring you back, you are always welcome to start fresh.
@@ -1016,7 +1016,7 @@ public class ResendEmailAdapter implements EmailPort {
 
                 Hi %s and %s,
 
-                We have permanently deleted your AltarWed account and all of its data, including your wedding website, guest list, and planning details. Nothing was retained, and this cannot be undone.
+                We have permanently deleted your AltarWed account, wedding website, guest list, uploaded photos, and planning details. We keep only the minimum records the law requires and an anonymized record of your unsubscribe preference, so we never email you again. This cannot be undone.
 
                 Thank you for letting us be part of your story. If your plans bring you back, you are always welcome to start fresh:
                 %s
