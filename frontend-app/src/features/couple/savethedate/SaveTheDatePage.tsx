@@ -64,6 +64,10 @@ export default function SaveTheDatePage() {
     setIdempotencyKey(crypto.randomUUID())
   }, [selectedIds])
   const qrRef = useRef<HTMLCanvasElement>(null)
+  // Separate off-screen canvas rendered at print resolution. The visible QR stays 160px for
+  // layout, but 160px is too coarse to print ("high-resolution ready for print" was a false
+  // claim); we download from this 1024px canvas instead so a printed card scans cleanly.
+  const qrHiResRef = useRef<HTMLCanvasElement>(null)
   const confirm = useConfirm()
 
   const uploadStdImage = useMutation({
@@ -462,12 +466,27 @@ export default function SaveTheDatePage() {
                   bgColor="#ffffff"
                   level="M"
                 />
+                {/* Off-screen print-resolution copy used only for the download. A quiet-zone
+                    margin and level "Q" error correction make it scan reliably off a printed card. */}
+                <QRCodeCanvas
+                  ref={qrHiResRef}
+                  value={weddingUrl}
+                  size={1024}
+                  fgColor="#3b2f2f"
+                  bgColor="#ffffff"
+                  level="Q"
+                  marginSize={4}
+                  style={{ display: 'none' }}
+                />
               </div>
               <div className="space-y-3 text-center sm:text-left">
                 <p className="text-xs text-stone-500 font-mono break-all">{weddingUrl}</p>
                 <button
                   onClick={() => {
-                    const canvas = qrRef.current
+                    // Download the 1024px canvas, not the 160px on-screen one, so the PNG is
+                    // genuinely print-ready. Fall back to the visible canvas if the hi-res one
+                    // has not mounted for any reason.
+                    const canvas = qrHiResRef.current ?? qrRef.current
                     if (!canvas) return
                     const link = document.createElement('a')
                     link.download = `${website.slug}-qr-code.png`
@@ -481,7 +500,7 @@ export default function SaveTheDatePage() {
                   </svg>
                   Download PNG
                 </button>
-                <p className="text-xs text-stone-500">Downloads as a high-resolution PNG ready for print.</p>
+                <p className="text-xs text-stone-500">Downloads as a 1024px print-resolution PNG.</p>
               </div>
             </div>
           </div>
