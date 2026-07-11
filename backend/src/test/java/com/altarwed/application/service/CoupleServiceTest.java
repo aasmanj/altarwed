@@ -1,7 +1,9 @@
 package com.altarwed.application.service;
 
 import com.altarwed.domain.model.AcquisitionSource;
+import com.altarwed.domain.model.BlockType;
 import com.altarwed.domain.model.Couple;
+import com.altarwed.domain.model.WeddingPageBlock;
 import com.altarwed.domain.model.WeddingPartyMember;
 import com.altarwed.domain.model.WeddingPhoto;
 import com.altarwed.domain.model.WeddingWebsite;
@@ -12,9 +14,11 @@ import com.altarwed.domain.port.GoogleOAuthTokenRepository;
 import com.altarwed.domain.port.PasswordResetTokenRepository;
 import com.altarwed.domain.port.PrintOrderRepository;
 import com.altarwed.domain.port.RefreshTokenRepository;
+import com.altarwed.domain.port.WeddingPageBlockRepository;
 import com.altarwed.domain.port.WeddingPartyMemberRepository;
 import com.altarwed.domain.port.WeddingPhotoRepository;
 import com.altarwed.domain.port.WeddingWebsiteRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -34,7 +38,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Issue #384: deleting a couple must also purge their uploaded photos from Blob storage (which the
+ * Issue #383: deleting a couple must also purge their uploaded photos from Blob storage (which the
  * DB cascade cannot reach). Mockito, no Spring context. With no active transaction the service runs
  * the blob cleanup inline (its afterCommit fallback), so these tests can assert on blobStorage.delete
  * directly.
@@ -51,6 +55,7 @@ class CoupleServiceTest {
     @Mock private WeddingWebsiteRepository weddingWebsiteRepository;
     @Mock private WeddingPhotoRepository weddingPhotoRepository;
     @Mock private WeddingPartyMemberRepository weddingPartyMemberRepository;
+    @Mock private WeddingPageBlockRepository weddingPageBlockRepository;
     @Mock private BlobStoragePort blobStorage;
     @Mock private AsyncEmailService asyncEmailService;
 
@@ -59,7 +64,7 @@ class CoupleServiceTest {
                 coupleRepository, printOrderRepository, ceremonySectionRepository,
                 refreshTokenRepository, passwordResetTokenRepository, googleOAuthTokenRepository,
                 weddingWebsiteRepository, weddingPhotoRepository, weddingPartyMemberRepository,
-                blobStorage, asyncEmailService);
+                weddingPageBlockRepository, blobStorage, new ObjectMapper(), asyncEmailService);
     }
 
     private final UUID coupleId = UUID.randomUUID();
@@ -90,30 +95,42 @@ class CoupleServiceTest {
         return new WeddingPhoto(UUID.randomUUID(), siteId, url, null, 0, LocalDateTime.now(), null, null, null);
     }
 
-    private WeddingPartyMember member(String photoUrl) {
-        return new WeddingPartyMember(UUID.randomUUID(), siteId, "Name", "Role", null, null,
+    private WeddingPartyMember member(UUID memberId, String photoUrl) {
+        return new WeddingPartyMember(memberId, siteId, "Name", "Role", null, null,
                 photoUrl, 0, LocalDateTime.now(), LocalDateTime.now(), null, null, null);
+    }
+
+    private WeddingPageBlock block(BlockType type, String contentJson) {
+        return new WeddingPageBlock(UUID.randomUUID(), siteId, null, type, 0, contentJson,
+                LocalDateTime.now(), LocalDateTime.now());
+    }
+
+    // URLs include siteId so the ownership check in addIfOwned passes.
+    private String siteUrl(String name) {
+        return "https://cdn/" + siteId + "/" + name + ".jpg";
     }
 
     @Test
     void deleteAccount_purgesEveryCoupleBlob_thenDeletesTheAccount() {
+        UUID memberId = UUID.randomUUID();
+        String memberPhotoUrl = "https://cdn/" + memberId + "/party1.jpg";
         when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple()));
         when(weddingWebsiteRepository.findByCoupleId(coupleId))
-                .thenReturn(Optional.of(website("https://blob/hero.jpg", "https://blob/venue.jpg", "https://blob/std.jpg")));
+                .thenReturn(Optional.of(website(siteUrl("hero"), siteUrl("venue"), siteUrl("std"))));
         when(weddingPhotoRepository.findAllByWeddingWebsiteId(siteId))
-                .thenReturn(List.of(photo("https://blob/album1.jpg"), photo("https://blob/album2.jpg")));
+                .thenReturn(List.of(photo(siteUrl("album1")), photo(siteUrl("album2"))));
         when(weddingPartyMemberRepository.findAllByWeddingWebsiteId(siteId))
-                .thenReturn(List.of(member("https://blob/party1.jpg")));
+                .thenReturn(List.of(member(memberId, memberPhotoUrl)));
 
         service().deleteAccount(coupleId);
 
         // Every uploaded image is purged from blob storage.
-        verify(blobStorage).delete("https://blob/hero.jpg");
-        verify(blobStorage).delete("https://blob/venue.jpg");
-        verify(blobStorage).delete("https://blob/std.jpg");
-        verify(blobStorage).delete("https://blob/album1.jpg");
-        verify(blobStorage).delete("https://blob/album2.jpg");
-        verify(blobStorage).delete("https://blob/party1.jpg");
+        verify(blobStorage).delete(siteUrl("hero"));
+        verify(blobStorage).delete(siteUrl("venue"));
+        verify(blobStorage).delete(siteUrl("std"));
+        verify(blobStorage).delete(siteUrl("album1"));
+        verify(blobStorage).delete(siteUrl("album2"));
+        verify(blobStorage).delete(memberPhotoUrl);
         // And the account itself is deleted, and the confirmation email queued.
         verify(coupleRepository).deleteById(coupleId);
         verify(asyncEmailService).sendAccountDeletedEmail("couple@example.test", "Jordan", "Eden");
@@ -123,16 +140,16 @@ class CoupleServiceTest {
     void deleteAccount_skipsNullAndBlankPhotoUrls() {
         when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple()));
         when(weddingWebsiteRepository.findByCoupleId(coupleId))
-                .thenReturn(Optional.of(website("https://blob/hero.jpg", null, "  ")));
+                .thenReturn(Optional.of(website(siteUrl("hero"), null, "  ")));
         when(weddingPhotoRepository.findAllByWeddingWebsiteId(siteId))
-                .thenReturn(List.of(photo(null), photo("https://blob/album1.jpg")));
+                .thenReturn(List.of(photo(null), photo(siteUrl("album1"))));
         when(weddingPartyMemberRepository.findAllByWeddingWebsiteId(siteId))
-                .thenReturn(List.of(member(null)));
+                .thenReturn(List.of(member(UUID.randomUUID(), null)));
 
         service().deleteAccount(coupleId);
 
-        verify(blobStorage).delete("https://blob/hero.jpg");
-        verify(blobStorage).delete("https://blob/album1.jpg");
+        verify(blobStorage).delete(siteUrl("hero"));
+        verify(blobStorage).delete(siteUrl("album1"));
         // Null/blank urls never reach blob storage.
         verify(blobStorage, never()).delete(null);
         verify(blobStorage, never()).delete("  ");
@@ -143,16 +160,16 @@ class CoupleServiceTest {
     void deleteAccount_isBestEffort_oneFailingBlobDoesNotStopTheOthersOrThrow() {
         when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple()));
         when(weddingWebsiteRepository.findByCoupleId(coupleId))
-                .thenReturn(Optional.of(website("https://blob/hero.jpg", "https://blob/venue.jpg", null)));
+                .thenReturn(Optional.of(website(siteUrl("hero"), siteUrl("venue"), null)));
         when(weddingPhotoRepository.findAllByWeddingWebsiteId(siteId)).thenReturn(List.of());
         when(weddingPartyMemberRepository.findAllByWeddingWebsiteId(siteId)).thenReturn(List.of());
-        doThrow(new RuntimeException("azure 500")).when(blobStorage).delete("https://blob/hero.jpg");
+        doThrow(new RuntimeException("azure 500")).when(blobStorage).delete(siteUrl("hero"));
 
         service().deleteAccount(coupleId); // must not throw
 
         // The failing blob was attempted, and the next one still ran.
-        verify(blobStorage).delete("https://blob/hero.jpg");
-        verify(blobStorage).delete("https://blob/venue.jpg");
+        verify(blobStorage).delete(siteUrl("hero"));
+        verify(blobStorage).delete(siteUrl("venue"));
         verify(coupleRepository).deleteById(coupleId);
     }
 
@@ -165,7 +182,59 @@ class CoupleServiceTest {
 
         verify(blobStorage, never()).delete(anyString());
         verify(weddingPhotoRepository, never()).findAllByWeddingWebsiteId(any());
+        verify(weddingPageBlockRepository, never()).findAllByWebsiteId(any());
         verify(coupleRepository).deleteById(coupleId);
         verify(asyncEmailService).sendAccountDeletedEmail(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void deleteAccount_purgesImageBlockUrls() {
+        String blockImgUrl = siteUrl("block");
+        String contentJson = "{\"url\":\"" + blockImgUrl + "\",\"caption\":\"\",\"alt\":\"\"}";
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple()));
+        when(weddingWebsiteRepository.findByCoupleId(coupleId))
+                .thenReturn(Optional.of(website(null, null, null)));
+        when(weddingPhotoRepository.findAllByWeddingWebsiteId(siteId)).thenReturn(List.of());
+        when(weddingPartyMemberRepository.findAllByWeddingWebsiteId(siteId)).thenReturn(List.of());
+        when(weddingPageBlockRepository.findAllByWebsiteId(siteId))
+                .thenReturn(List.of(block(BlockType.IMAGE, contentJson)));
+
+        service().deleteAccount(coupleId);
+
+        verify(blobStorage).delete(blockImgUrl);
+    }
+
+    @Test
+    void deleteAccount_purgesStoryEntryBlockImageUrls() {
+        String storyImgUrl = siteUrl("story");
+        String contentJson = "{\"dateLabel\":\"2025\",\"body\":\"text\",\"imageUrl\":\"" + storyImgUrl + "\",\"imagePosition\":\"right\"}";
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple()));
+        when(weddingWebsiteRepository.findByCoupleId(coupleId))
+                .thenReturn(Optional.of(website(null, null, null)));
+        when(weddingPhotoRepository.findAllByWeddingWebsiteId(siteId)).thenReturn(List.of());
+        when(weddingPartyMemberRepository.findAllByWeddingWebsiteId(siteId)).thenReturn(List.of());
+        when(weddingPageBlockRepository.findAllByWebsiteId(siteId))
+                .thenReturn(List.of(block(BlockType.STORY_ENTRY, contentJson)));
+
+        service().deleteAccount(coupleId);
+
+        verify(blobStorage).delete(storyImgUrl);
+    }
+
+    @Test
+    void deleteAccount_rejectsCrossTenantBlobUrl() {
+        UUID otherSiteId = UUID.randomUUID();
+        String crossTenantUrl = "https://cdn/" + otherSiteId + "/victim-hero.jpg";
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple()));
+        when(weddingWebsiteRepository.findByCoupleId(coupleId))
+                .thenReturn(Optional.of(website(crossTenantUrl, null, null)));
+        when(weddingPhotoRepository.findAllByWeddingWebsiteId(siteId)).thenReturn(List.of());
+        when(weddingPartyMemberRepository.findAllByWeddingWebsiteId(siteId)).thenReturn(List.of());
+
+        service().deleteAccount(coupleId);
+
+        // URL belongs to a different site so it must never reach blob storage.
+        verify(blobStorage, never()).delete(anyString());
+        verify(coupleRepository).deleteById(coupleId);
     }
 }
