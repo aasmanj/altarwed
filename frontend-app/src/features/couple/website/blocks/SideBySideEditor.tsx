@@ -42,6 +42,7 @@ import {
   isTabSwitchAck,
   isPreviewTabReady,
 } from './previewChannel'
+import { ACCENT_PRESETS, isAccentPresetSelected } from './accentPresets'
 
 // The preview URL is on the public marketing domain (frontend-public).
 // In prod it is the real altarwed.com origin; in local dev we fall back to
@@ -1680,33 +1681,63 @@ function TabSettingsPanel({
         })}
       </ul>
       {/* Accent color: immediate-save (no Save button needed) */}
-      <div className="mt-3 flex items-center gap-2 rounded border border-stone-200 bg-white px-2.5 py-2">
-        <label htmlFor="accent-color" className="text-[11px] font-medium text-brown flex-1">
-          Accent color
-        </label>
-        <input
-          id="accent-color"
-          type="color"
-          value={accentColor}
-          onChange={e => {
-            const v = e.target.value
-            setAccentColor(v)
-            scheduleAccentSave(v)
-          }}
-          onBlur={() => onAccentColorSave(accentColor)}
-          className="h-6 w-12 rounded border border-stone-300 cursor-pointer p-0.5"
-        />
-        <button
-          type="button"
-          onClick={() => {
-            setAccentColor('#d4af6a')
-            onAccentColorSave(null)
-          }}
-          className="text-[10px] text-stone-400 hover:text-stone-700 underline"
-          title="Reset to default gold"
-        >
-          Reset
-        </button>
+      <div className="mt-3 rounded border border-stone-200 bg-white px-2.5 py-2">
+        <p className="text-[11px] font-medium text-brown mb-1.5">Accent color</p>
+        {/* Curated preset swatches: one-click, keyboard-accessible choices that
+            keep couples on legible, on-brand colours. The custom picker below
+            still lets them fine-tune any hex. */}
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {ACCENT_PRESETS.map(preset => {
+            const isSelected = isAccentPresetSelected(accentColor, preset.hex)
+            return (
+              <button
+                key={preset.hex}
+                type="button"
+                onClick={() => {
+                  setAccentColor(preset.hex)
+                  onAccentColorSave(preset.hex)
+                }}
+                aria-label={`Use ${preset.name} accent color`}
+                aria-pressed={isSelected}
+                title={preset.name}
+                style={{ backgroundColor: preset.hex }}
+                className={`h-6 w-6 rounded-full border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-amber-500 ${
+                  isSelected
+                    ? 'border-brown ring-2 ring-offset-1 ring-brown'
+                    : 'border-stone-300 hover:scale-110'
+                }`}
+              />
+            )
+          })}
+        </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="accent-color" className="text-[11px] text-stone-500 flex-1">
+            Or pick a custom color
+          </label>
+          <input
+            id="accent-color"
+            type="color"
+            value={accentColor}
+            onChange={e => {
+              const v = e.target.value
+              setAccentColor(v)
+              scheduleAccentSave(v)
+            }}
+            onBlur={() => onAccentColorSave(accentColor)}
+            className="h-6 w-12 rounded border border-stone-300 cursor-pointer p-0.5"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setAccentColor('#d4af6a')
+              onAccentColorSave(null)
+            }}
+            className="text-[10px] text-stone-400 hover:text-stone-700 underline"
+            title="Reset to default gold"
+          >
+            Reset
+          </button>
+        </div>
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-2">
