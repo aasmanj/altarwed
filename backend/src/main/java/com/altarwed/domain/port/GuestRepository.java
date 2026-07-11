@@ -28,4 +28,11 @@ public interface GuestRepository {
     // Stamps save_the_date_sent_at = sentAt for the given guests in a single bulk
     // UPDATE, so a 200-guest send is one statement rather than 200 row saves.
     void markSaveTheDatesSent(Collection<UUID> guestIds, LocalDateTime sentAt);
+
+    // Seating-table delete reindex (bulk, no entity hydration). A guest's seat is a 1-based
+    // position into the couple's sortOrder-ordered table list; deleting a table at `position`
+    // unassigns guests seated there and shifts later guests down one. Callers MUST invoke
+    // unassign before shift (see the JPA query note). Each returns the affected row count.
+    int unassignGuestsAtTablePosition(UUID coupleId, int position);
+    int shiftGuestsAfterTablePosition(UUID coupleId, int position);
 }
