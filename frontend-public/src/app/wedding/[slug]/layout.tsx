@@ -7,6 +7,7 @@ import { parseTabCustomisation, hasWeddingPartyMembers, hasWeddingPhotos, getAll
 import { getWedding } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
 import { safeColor } from '@/lib/safeColor'
+import { accentColorTokens } from '@/lib/accentColorTokens'
 
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
@@ -147,12 +148,16 @@ export default async function WeddingLayout({
   // backend enforces @Pattern but this guards the SSR path against any future
   // direct DB writes or bugs. See src/lib/safeColor.ts for the shared rule.
   const accentColor = safeColor(wedding.accentColor, '#d4af6a')
+  // Contrast guard (issue #350): derive readable per-surface tokens from the accent so accent
+  // TEXT stays legible on the dark panels and the light page, and button labels stay legible on
+  // an accent fill, for ANY accent the couple picks. Decorative fills/dividers keep raw --accent.
+  const accentTokens = accentColorTokens(accentColor)
   const heroTaglineColor = safeColor(wedding.heroTaglineColor, 'rgba(255,255,255,0.7)')
   const scriptureBackgroundColor = safeColor(wedding.scriptureBackgroundColor, undefined)
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
-      <style>{`:root { --accent: ${accentColor}; }`}</style>
+      <style>{`:root { --accent: ${accentColor}; --accent-on-dark: ${accentTokens.onDark}; --accent-on-light: ${accentTokens.onLight}; --on-accent: ${accentTokens.onAccent}; }`}</style>
 
       {eventJsonLd && (
         <script
@@ -200,9 +205,9 @@ export default async function WeddingLayout({
             {wedding.partnerTwoName}
           </h1>
           <div className="my-4 flex items-center justify-center gap-4">
-            <div className="h-px w-16 bg-[#d4af6a]/60" />
-            <span className="font-serif text-2xl text-[#d4af6a]" aria-hidden="true">&amp;</span>
-            <div className="h-px w-16 bg-[#d4af6a]/60" />
+            <div className="h-px w-16 bg-[color-mix(in_srgb,var(--accent)_60%,transparent)]" />
+            <span className="font-serif text-2xl text-[var(--accent-on-dark)]" aria-hidden="true">&amp;</span>
+            <div className="h-px w-16 bg-[color-mix(in_srgb,var(--accent)_60%,transparent)]" />
           </div>
           <p className="font-serif text-4xl sm:text-6xl md:text-7xl font-bold text-white leading-tight break-words text-balance">
             {wedding.partnerOneName}
@@ -214,14 +219,14 @@ export default async function WeddingLayout({
           )}
           {countdown !== null && countdown > 0 && (
             <p
-              className="mt-2 text-[#d4af6a] text-sm tracking-widest uppercase"
+              className="mt-2 text-[var(--accent-on-dark)] text-sm tracking-widest uppercase"
               aria-label={`${countdown} days until the wedding`}
             >
               {countdown} days away
             </p>
           )}
           {countdown !== null && countdown <= 0 && (
-            <p className="mt-2 text-[#d4af6a] text-sm tracking-widest uppercase">Married!</p>
+            <p className="mt-2 text-[var(--accent-on-dark)] text-sm tracking-widest uppercase">Married!</p>
           )}
         </div>
       </section>
@@ -232,8 +237,8 @@ export default async function WeddingLayout({
           className={`${scriptureBackgroundColor ? '' : 'bg-gradient-to-b from-[#3b2f2f] to-[#4a1942]'} py-20 px-6 text-center relative`}
           style={scriptureBackgroundColor ? { backgroundColor: scriptureBackgroundColor } : undefined}
         >
-          <div className="absolute inset-x-0 top-0 h-px bg-[#d4af6a]/40" />
-          <div className="absolute inset-x-0 bottom-0 h-px bg-[#d4af6a]/40" />
+          <div className="absolute inset-x-0 top-0 h-px bg-[color-mix(in_srgb,var(--accent)_40%,transparent)]" />
+          <div className="absolute inset-x-0 bottom-0 h-px bg-[color-mix(in_srgb,var(--accent)_40%,transparent)]" />
           {wedding.scriptureText && (
             <blockquote className={`font-serif italic text-[#fdfaf6] max-w-3xl mx-auto leading-relaxed drop-shadow-sm ${
               wedding.scriptureText.length > 300 ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl md:text-4xl'
@@ -242,7 +247,7 @@ export default async function WeddingLayout({
             </blockquote>
           )}
           {wedding.scriptureReference && (
-            <p className="mt-6 text-[#d4af6a] text-sm sm:text-base tracking-[0.25em] uppercase font-medium">
+            <p className="mt-6 text-[var(--accent-on-dark)] text-sm sm:text-base tracking-[0.25em] uppercase font-medium">
               {wedding.scriptureReference}
               {wedding.scriptureTranslation && (
                 <span className="text-white/40 ml-2 normal-case tracking-normal text-sm">({wedding.scriptureTranslation})</span>

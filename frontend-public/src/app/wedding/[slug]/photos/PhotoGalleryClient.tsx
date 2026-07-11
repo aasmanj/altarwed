@@ -35,7 +35,7 @@ export default function PhotoGalleryClient({ photos, coupleNames }: Props) {
           <div key={photo.id} className="rounded-xl overflow-hidden shadow-sm border border-[#e8dcc8] bg-white">
             <button
               onClick={e => open(idx, e.currentTarget)}
-              className="block w-full aspect-square overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af6a]"
+              className="block w-full aspect-square overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               aria-label={photo.caption ?? `View photo ${idx + 1} of ${coupleNames}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}

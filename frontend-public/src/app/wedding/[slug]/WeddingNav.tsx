@@ -119,9 +119,9 @@ export default function WeddingNav({
               scroll={false}
               onClick={handleTabClick}
               aria-current={active ? 'page' : undefined}
-              className={`shrink-0 sm:flex-1 text-center px-4 sm:px-1 py-4 text-xs font-medium border-b-2 transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af6a] focus-visible:ring-inset ${
+              className={`shrink-0 sm:flex-1 text-center px-4 sm:px-1 py-4 text-xs font-medium border-b-2 transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-inset ${
                 active
-                  ? 'border-[#d4af6a] text-[#3b2f2f]'
+                  ? 'border-[var(--accent)] text-[#3b2f2f]'
                   : 'border-transparent text-[#8a6a4a] hover:text-[#3b2f2f]'
               }`}
             >

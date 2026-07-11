@@ -56,7 +56,7 @@ export default async function TravelPage(
           {hotels.map(hotel => (
             <div key={hotel.id} className="rounded-2xl border border-[#e8dcc8] bg-white p-8">
               <div className="flex items-start gap-5">
-                <Hotel className="w-10 h-10 text-[#d4af6a] shrink-0" strokeWidth={1.5} />
+                <Hotel className="w-10 h-10 text-[var(--accent)] shrink-0" strokeWidth={1.5} />
                 <div className="flex-1">
                   <p className="font-serif text-2xl font-semibold text-[#3b2f2f] mb-1">{hotel.name}</p>
                   {hotel.address && (
@@ -65,13 +65,13 @@ export default async function TravelPage(
                   <div className="flex flex-wrap gap-4 mb-4 text-sm">
                     {hotel.distanceFromVenue && (
                       <span className="inline-flex items-center gap-1.5 text-[#6b5344]">
-                        <MapPin className="w-4 h-4 text-[#d4af6a]" strokeWidth={1.5} aria-hidden="true" />
+                        <MapPin className="w-4 h-4 text-[var(--accent)]" strokeWidth={1.5} aria-hidden="true" />
                         {hotel.distanceFromVenue} from venue
                       </span>
                     )}
                     {hotel.blockRate && (
                       <span className="inline-flex items-center gap-1.5 text-[#6b5344]">
-                        <DollarSign className="w-4 h-4 text-[#d4af6a]" strokeWidth={1.5} aria-hidden="true" />
+                        <DollarSign className="w-4 h-4 text-[var(--accent)]" strokeWidth={1.5} aria-hidden="true" />
                         {hotel.blockRate}
                       </span>
                     )}
@@ -97,7 +97,7 @@ export default async function TravelPage(
       {hasLegacyHotel && (
         <div className="rounded-2xl border border-[#e8dcc8] bg-white p-8">
           <div className="flex items-start gap-5">
-            <Hotel className="w-10 h-10 text-[#d4af6a] shrink-0" strokeWidth={1.5} />
+            <Hotel className="w-10 h-10 text-[var(--accent)] shrink-0" strokeWidth={1.5} />
             <div className="flex-1">
               <p className="font-serif text-2xl font-semibold text-[#3b2f2f] mb-3">{wedding.hotelName}</p>
               {wedding.hotelDetails && (
@@ -126,9 +126,9 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
     <div className="text-center">
       <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#3b2f2f]">{children}</h2>
       <div className="mt-3 flex items-center justify-center gap-3">
-        <div className="h-px w-10 bg-[#d4af6a]/40" />
-        <div className="h-1.5 w-1.5 rounded-full bg-[#d4af6a]" />
-        <div className="h-px w-10 bg-[#d4af6a]/40" />
+        <div className="h-px w-10 bg-[color-mix(in_srgb,var(--accent)_40%,transparent)]" />
+        <div className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+        <div className="h-px w-10 bg-[color-mix(in_srgb,var(--accent)_40%,transparent)]" />
       </div>
     </div>
   )
