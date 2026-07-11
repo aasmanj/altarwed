@@ -264,7 +264,7 @@ class StripeServiceTest {
     private PrintOrder pendingOrder() {
         return new PrintOrder(orderId, UUID.randomUUID(), PrintOrderType.SAVE_THE_DATE, PrintOrderStatus.PENDING_PAYMENT,
                 "SAVE_THE_DATE_CLASSIC", 1, 0, null, LocalDateTime.now(), null, List.of(), "idem-1",
-                "cs_1", null, 200, 0, "Name", "1 Way", null, "City", "IL", "60601");
+                "cs_1", null, 200, 0, "Name", "1 Way", null, "City", "IL", "60601", null);
     }
 
     private StripeEventData completedEvent() {

@@ -34,6 +34,13 @@ class LobPrintMailAdapterTest {
     // Overload so tests that only vary the recipient (e.g. international routing) reuse the one
     // canonical fixture instead of re-declaring every field, which would drift over time.
     private static PostcardRequest request(String templateKey, ToAddress to) {
+        return request(templateKey, to, null, null, null);
+    }
+
+    // Full overload for tests that exercise the card shape (cardSize) and the couple's own
+    // scripture (verseText/verseReference).
+    private static PostcardRequest request(String templateKey, ToAddress to,
+                                           String cardSize, String verseText, String verseReference) {
         return new PostcardRequest(
                 templateKey,
                 "Emily & Jordan",
@@ -42,7 +49,10 @@ class LobPrintMailAdapterTest {
                 "https://cdn.altarwed.com/hero.jpg",
                 "Grace Chapel · Austin, TX",
                 new FromAddress("Emily Aasman", "1 Main St", null, "Austin", "TX", "78701"),
-                to
+                to,
+                cardSize,
+                verseText,
+                verseReference
         );
     }
 
@@ -64,6 +74,91 @@ class LobPrintMailAdapterTest {
         assertThat(back).contains("@page { size: 11.25in 6.25in;");
         assertThat(back).contains("width:11.25in; height:6.25in;");
         assertThat(back).doesNotContain("size: 11in 6in");
+    }
+
+    // Same 422-class regression guard as above, now for the portrait shapes couples can choose.
+    // Each MUST render at the exact Lob bleed size documented in dimsFor: 6x9 -> 6.25in x 9.25in,
+    // 5x7 -> 5.25in x 7.25in. A wrong dimension 422s every postcard of that shape.
+    @Test
+    void portrait_6x9_renders_at_lob_bleed_dimensions() {
+        PostcardRequest req = request("SAVE_THE_DATE_CLASSIC", US_RECIPIENT, "PORTRAIT_6X9", null, null);
+        assertThat(adapter.renderFront(req)).contains("@page { size: 6.25in 9.25in;");
+        assertThat(adapter.renderFront(req)).contains("width:6.25in; height:9.25in;");
+        assertThat(adapter.renderBack(req, null)).contains("@page { size: 6.25in 9.25in;");
+        assertThat(adapter.buildRequestBody(req)).containsEntry("size", "6x9");
+    }
+
+    @Test
+    void portrait_5x7_renders_at_lob_bleed_dimensions() {
+        PostcardRequest req = request("INVITATION_CLASSIC", US_RECIPIENT, "PORTRAIT_5X7", null, null);
+        assertThat(adapter.renderFront(req)).contains("@page { size: 5.25in 7.25in;");
+        assertThat(adapter.renderFront(req)).contains("width:5.25in; height:7.25in;");
+        assertThat(adapter.renderBack(req, null)).contains("@page { size: 5.25in 7.25in;");
+        assertThat(adapter.buildRequestBody(req)).containsEntry("size", "5x7");
+    }
+
+    // An unknown or null card_size must collapse to the proven 6x11 landscape, never 422 the order.
+    @Test
+    void unknown_card_size_falls_back_to_landscape_6x11() {
+        PostcardRequest req = request("SAVE_THE_DATE_CLASSIC", US_RECIPIENT, "PORTRAIT_9X12", null, null);
+        assertThat(adapter.buildRequestBody(req)).containsEntry("size", "6x11");
+        assertThat(adapter.renderFront(req)).contains("width:11.25in; height:6.25in;");
+    }
+
+    // Portrait backs reserve the BOTTOM for Lob's address block (a top message band), not the
+    // right half the landscape back uses -- rendering the landscape .left strip on a 6.25in-wide
+    // portrait card would leave no room to address it.
+    @Test
+    void portrait_back_uses_top_message_band_not_landscape_left_strip() {
+        String back = adapter.renderBack(request("SAVE_THE_DATE_CLASSIC", US_RECIPIENT, "PORTRAIT_6X9", null, null), null);
+        assertThat(back).contains(".top {");
+        assertThat(back).doesNotContain("width:5.5in");
+    }
+
+    // Family feedback: the couple's OWN scripture must print, and it must be visually distinct.
+    @Test
+    void front_prints_couples_own_verse_when_present() {
+        String front = adapter.renderFront(
+                request("SAVE_THE_DATE_PHOTO", US_RECIPIENT, null, "Two are better than one.", "Ecclesiastes 4:9"));
+        assertThat(front).contains("Two are better than one.");
+        assertThat(front).contains("Ecclesiastes 4:9");
+        // Distinct verse color so it doesn't blend into the names on the photo scrim.
+        assertThat(front).contains(".verse { font-size:11pt; color:#f0c674;");
+    }
+
+    @Test
+    void front_falls_back_to_default_verse_when_couple_has_none() {
+        String front = adapter.renderFront(request("SAVE_THE_DATE_CLASSIC", US_RECIPIENT, null, "  ", null));
+        assertThat(front).contains("Above all, love each other deeply.");
+        assertThat(front).contains("1 Peter 4:8");
+    }
+
+    // A long verse must be truncated so it can't overflow the fixed-height front scrim band
+    // (tightest on PORTRAIT_5X7). Lob would still accept it (dimensions stay valid) but print ugly.
+    @Test
+    void front_truncates_an_over_long_verse_with_an_ellipsis() {
+        String longVerse = "Love is patient, love is kind. It does not envy, it does not boast, "
+                + "it is not proud. It does not dishonor others, it is not self-seeking.";
+        String front = adapter.renderFront(
+                request("SAVE_THE_DATE_PHOTO", US_RECIPIENT, "PORTRAIT_5X7", longVerse, "1 Corinthians 13:4-5"));
+        assertThat(front).contains("…");
+        // The head of the verse is kept; the tail past the cap is dropped.
+        assertThat(front).contains("Love is patient, love is kind.");
+        assertThat(front).doesNotContain("self-seeking");
+        // The reference is never truncated.
+        assertThat(front).contains("1 Corinthians 13:4-5");
+    }
+
+    // The photo front must put text in a bottom scrim band and NOT darken the whole photo, so the
+    // couple's faces stay clear (family feedback: "words aren't over your beautiful faces").
+    @Test
+    void photo_front_anchors_text_to_a_bottom_scrim_band() {
+        String front = adapter.renderFront(request("SAVE_THE_DATE_PHOTO", US_RECIPIENT, null, null, null));
+        assertThat(front).contains(".scrim {");
+        // The old full-card darkening overlay is gone: the faces above the band are no longer dimmed.
+        assertThat(front).doesNotContain(".overlay {");
+        // Content is anchored to the bottom of the card, not vertically centered over the photo.
+        assertThat(front).contains(".content { position:absolute; left:0; right:0; bottom:0;");
     }
 
     // Lob requires use_type on every mail piece and 422s without it (the bug this guards against).
