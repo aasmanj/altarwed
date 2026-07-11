@@ -52,6 +52,7 @@ export default function CeremonyPage() {
 
   const [modalMode, setModalMode] = useState<'add' | 'edit' | null>(null)
   const [editTarget, setEditTarget] = useState<CeremonySection | null>(null)
+  const [seedError, setSeedError] = useState<string | null>(null)
   const [form, setForm] = useState<CeremonySectionPayload>({
     title: '', sectionType: 'CUSTOM', content: '', sortOrder: 0,
   })
@@ -69,8 +70,23 @@ export default function CeremonyPage() {
   }
 
   const handleSeed = async () => {
-    for (const s of DEFAULT_SECTIONS) {
-      await createSection.mutateAsync(s)
+    setSeedError(null)
+    let created = 0
+    try {
+      for (const s of DEFAULT_SECTIONS) {
+        await createSection.mutateAsync(s)
+        created++
+      }
+    } catch {
+      // A mid-loop failure (flaky network, transient 5xx) used to reject unhandled and leave a
+      // partial order of service with no message, and because the template card only renders when
+      // there are zero sections, it vanished, stranding the couple. Now: keep whatever was created,
+      // tell them exactly what happened, and let them finish manually or retry.
+      setSeedError(
+        created === 0
+          ? "We couldn't load the ceremony template. Please check your connection and try again."
+          : `We added the first ${created} of ${DEFAULT_SECTIONS.length} sections before hitting a snag. Add the rest with "+ Add section", or edit what's there.`
+      )
     }
   }
 
@@ -127,6 +143,12 @@ export default function CeremonyPage() {
 
         {isLoading && (
           <p className="text-center text-sm text-brown-light py-12">Loading…</p>
+        )}
+
+        {seedError && (
+          <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+            {seedError}
+          </div>
         )}
 
         {!isLoading && sections.length === 0 && (
@@ -243,6 +265,7 @@ export default function CeremonyPage() {
                   type="text"
                   value={form.title}
                   onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                  maxLength={200}
                   placeholder="e.g. Opening Prayer"
                   className="w-full rounded-xl border border-gold-light px-3 py-2.5 text-sm text-brown focus:border-gold focus:outline-none"
                 />
