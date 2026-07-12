@@ -66,11 +66,16 @@ export default function SeatingBoardPage() {
       inputRef.current?.focus()
       inputRef.current?.select()
     }
-  }, [editing, website?.seatingBoardTitle])
+    // Intentionally omit website?.seatingBoardTitle: a background refetch must not
+    // overwrite a draft the couple is actively typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing])
 
   function commitTitle() {
-    const trimmed = draft.trim()
-    updateWebsite.mutate({ seatingBoardTitle: trimmed || null })
+    // Send the raw trimmed value. Backend blankToNull semantics: "" clears to null
+    // (reverts to "Welcome"); non-empty sets the title; null would mean "no change"
+    // and would prevent clearing a custom title back to the default.
+    updateWebsite.mutate({ seatingBoardTitle: draft.trim() })
     setEditing(false)
   }
 
