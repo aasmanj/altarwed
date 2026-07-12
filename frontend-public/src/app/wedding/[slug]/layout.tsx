@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import WeddingNav from './WeddingNav'
 import ComingSoon from './ComingSoon'
+import PinterestShareButton from './PinterestShareButton'
 import { parseTabCustomisation, hasWeddingPartyMembers, hasWeddingPhotos, getAllBlocks, computeTabsWithContent } from './data'
 import { getWedding } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
@@ -55,13 +56,26 @@ export async function generateMetadata(
   // rather than independent duplicate pages.
   const canonicalUrl = `https://www.altarwed.com/wedding/${slug}`
 
+  // Couple's display name used as the pin/article author. It is already public
+  // (it is the og:title and the page's <h1>), so this exposes nothing new.
+  const coupleNames = `${wedding.partnerTwoName} & ${wedding.partnerOneName}`
+
+  // Rich-pin-compatible Open Graph (issue #374). Pinterest builds an "Article" rich
+  // pin from Open Graph metadata: og:type=article plus og:site_name and article:author
+  // render the couple's names and the AltarWed attribution directly under the pin,
+  // which the plain og:type=website could not. The large og:image (>=600px wide, the
+  // dimension Pinterest requires) is the couple's chosen hero, so the pin carries the
+  // real wedding photo. Next also emits these tags for Facebook, which treats an
+  // unknown-but-valid type as a link share, so nothing regresses there.
   return {
     title,
     description,
     alternates: { canonical: canonicalUrl },
     openGraph: {
-      title, description, type: 'website',
+      title, description, type: 'article',
       url: canonicalUrl,
+      siteName: 'AltarWed',
+      authors: [coupleNames],
       images: [{ url: image, width: 1200, height: 800, alt: title }],
     },
     twitter: { card: 'summary_large_image', title, description, images: [image] },
@@ -309,6 +323,17 @@ export default async function WeddingLayout({
 
       {/* Footer */}
       <footer className="border-t border-[#e8dcc8] py-12 text-center text-sm text-[#8a6a4a] space-y-4">
+        {/* Pinterest share closes the organic loop for the paid Pinterest channel
+            (issue #374): a guest pins the site with the couple's hero image and the
+            Article rich-pin meta above carries names + AltarWed attribution back. */}
+        <div>
+          <p className="text-[#6b5344] mb-3">Love this wedding? Save it to Pinterest.</p>
+          <PinterestShareButton
+            url={`https://www.altarwed.com/wedding/${slug}`}
+            media={heroImageAbsolute}
+            description={`${wedding.partnerTwoName} & ${wedding.partnerOneName}'s Christian wedding on AltarWed`}
+          />
+        </div>
         <p className="text-xs uppercase tracking-widest text-[#c4a882] font-medium">
           Created on AltarWed
         </p>
