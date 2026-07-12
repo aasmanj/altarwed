@@ -6,6 +6,8 @@ import {
   parseTabLabels,
   readFontThemeKey,
   serializeTabLabels,
+  withFontTheme,
+  withTabLabels,
 } from './fontThemes'
 
 // Issue #358: the font-pairing theme is persisted inside the existing opaque
@@ -60,5 +62,60 @@ describe('fontThemes storage (issue #358)', () => {
     expect(readFontThemeKey(reset)).toBe('classic')
     expect(reset).not.toContain(FONT_THEME_STORAGE_KEY)
     expect(parseTabLabels(reset)).toEqual({ TRAVEL: 'Trips' })
+  })
+})
+
+// Issue #359: the font theme is now edited in the Design panel while the tab labels stay in
+// the Tabs panel, but both still write the single opaque customTabLabels column. withFontTheme
+// (Design panel writer) and withTabLabels (Tabs panel writer) are the two slice-preserving
+// writers. These tests pin that the two panels never clobber each other's slice, which is the
+// whole persistence contract for the split.
+describe('design/tabs split writers (issue #359)', () => {
+  it('withFontTheme changes only the theme and round-trips', () => {
+    for (const option of FONT_THEME_OPTIONS) {
+      const serialized = withFontTheme(null, option.key)
+      expect(readFontThemeKey(serialized)).toBe(option.key)
+    }
+  })
+
+  it('withFontTheme preserves any tab labels already stored', () => {
+    // Tabs panel saved a custom label first.
+    const afterLabels = withTabLabels(null, { TRAVEL: 'Hotels & flights' })
+    // Design panel then picks a theme.
+    const afterTheme = withFontTheme(afterLabels, 'editorial')
+    expect(readFontThemeKey(afterTheme)).toBe('editorial')
+    expect(parseTabLabels(afterTheme)).toEqual({ TRAVEL: 'Hotels & flights' })
+  })
+
+  it('withTabLabels preserves the theme the Design panel already chose', () => {
+    // Design panel saved a theme first.
+    const afterTheme = withFontTheme(null, 'modern')
+    // Tabs panel then renames a tab.
+    const afterLabels = withTabLabels(afterTheme, { REGISTRY: 'Gifts' })
+    expect(readFontThemeKey(afterLabels)).toBe('modern')
+    expect(parseTabLabels(afterLabels)).toEqual({ REGISTRY: 'Gifts' })
+  })
+
+  it('interleaved edits from both panels never clobber each other', () => {
+    let column: string | null = null
+    // Couple picks a theme in the Design panel.
+    column = withFontTheme(column, 'romantic')
+    // Renames a tab in the Tabs panel.
+    column = withTabLabels(column, { TRAVEL: 'Getting there' })
+    // Switches the theme again in the Design panel.
+    column = withFontTheme(column, 'editorial')
+    // Renames another tab in the Tabs panel.
+    column = withTabLabels(column, { TRAVEL: 'Getting there', REGISTRY: 'Registry' })
+    // Both slices survive the interleaving.
+    expect(readFontThemeKey(column)).toBe('editorial')
+    expect(parseTabLabels(column)).toEqual({ TRAVEL: 'Getting there', REGISTRY: 'Registry' })
+  })
+
+  it('resetting the theme to default via the Design panel keeps the labels clean', () => {
+    const withBoth = withFontTheme(withTabLabels(null, { PHOTOS: 'Gallery' }), 'modern')
+    const resetTheme = withFontTheme(withBoth, DEFAULT_FONT_THEME)
+    expect(readFontThemeKey(resetTheme)).toBe(DEFAULT_FONT_THEME)
+    expect(resetTheme).not.toContain(FONT_THEME_STORAGE_KEY)
+    expect(parseTabLabels(resetTheme)).toEqual({ PHOTOS: 'Gallery' })
   })
 })

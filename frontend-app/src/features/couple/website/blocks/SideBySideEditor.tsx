@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
-import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2, AlertCircle, ImagePlus, Smartphone, Monitor, Settings2, Pencil, ChevronUp, ChevronDown, X } from 'lucide-react'
+import { ExternalLink, Plus, RefreshCw, Loader2, Eye, CheckCircle2, AlertCircle, ImagePlus, Smartphone, Monitor, Settings2, Palette, Pencil, ChevronUp, ChevronDown, X } from 'lucide-react'
 import { apiClient } from '@/core/api/client'
 import { captureEvent } from '@/core/analytics/analytics'
 import { fireConfetti } from '@/lib/fireConfetti'
@@ -43,7 +43,7 @@ import {
   isPreviewTabReady,
 } from './previewChannel'
 import { ACCENT_PRESETS, isAccentPresetSelected } from './accentPresets'
-import { FONT_THEME_OPTIONS, parseTabLabels, readFontThemeKey, serializeTabLabels } from './fontThemes'
+import { FONT_THEME_OPTIONS, parseTabLabels, readFontThemeKey, withFontTheme, withTabLabels } from './fontThemes'
 
 // The preview URL is on the public marketing domain (frontend-public).
 // In prod it is the real altarwed.com origin; in local dev we fall back to
@@ -123,6 +123,11 @@ export default function SideBySideEditor() {
   const [lastAddedBlockId, setLastAddedBlockId] = useState<string | null>(null)
   // Settings drawer (per-tab visibility + custom labels).
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // Design drawer (issue #359): the couple-facing theme controls (accent/palette,
+  // font theme, hero overlay color, scripture banner color) split out of the tabs
+  // drawer and the hero editor into one clearly labeled place. Only one of the two
+  // drawers is open at a time so they never stack under the tab bar.
+  const [designOpen, setDesignOpen] = useState(false)
   // Share modal shown after the draft -> live publish transition (issue #94).
   // Publishing is the bottom-of-funnel viral moment, so the primary editor must
   // prompt the couple to share immediately, mirroring the classic editor.
@@ -801,13 +806,6 @@ export default function SideBySideEditor() {
               // after a manual refresh or tab switch (issue #182).
               updateWebsite.mutate({ heroFocalPointX: x, heroFocalPointY: y }, { onSuccess: bumpPreview })
             }}
-            onTaglineColorSave={(color) => {
-              updateWebsite.mutate({ heroTaglineColor: color })
-            }}
-            onTaglineColorLive={(color) => sendPreviewUpdate('heroTaglineColor', color)}
-            onScriptureBgColorSave={(color) => {
-              updateWebsite.mutate({ scriptureBackgroundColor: color }, { onSuccess: bumpPreview })
-            }}
             onNameFontSave={(font) => {
               // No bumpPreview: the live postMessage below updates the preview hero
               // instantly (same pattern as the tagline color), so the couple sees the
@@ -859,10 +857,25 @@ export default function SideBySideEditor() {
                 )
               })}
             </div>
+            {/* Design drawer toggle (issue #359): the single, clearly labeled entry point
+                for every theme control (accent/palette, font theme, hero overlay color,
+                scripture banner color). Opening it closes the tabs drawer so only one panel
+                sits under the tab bar at a time. */}
+            <button
+              onClick={() => { setDesignOpen(o => !o); setSettingsOpen(false) }}
+              className={`px-3 border-l border-stone-200 inline-flex items-center gap-1 text-xs transition ${
+                designOpen ? 'bg-stone-100 text-brown' : 'text-stone-500 hover:text-brown hover:bg-stone-50'
+              }`}
+              title="Colors, palette, and fonts"
+              aria-expanded={designOpen}
+            >
+              <Palette size={12} />
+              <span className="hidden sm:inline">Design</span>
+            </button>
             {/* Settings drawer toggle: exposes per-tab hide/rename controls.
                 Positioned on the right so it doesn't crowd the tabs themselves. */}
             <button
-              onClick={() => setSettingsOpen(s => !s)}
+              onClick={() => { setSettingsOpen(s => !s); setDesignOpen(false) }}
               className={`px-3 border-l border-stone-200 inline-flex items-center gap-1 text-xs transition ${
                 settingsOpen ? 'bg-stone-100 text-brown' : 'text-stone-500 hover:text-brown hover:bg-stone-50'
               }`}
@@ -874,6 +887,29 @@ export default function SideBySideEditor() {
             </button>
           </div>
 
+          {/* Design drawer (issue #359): all theme controls in one place. Reuses the
+              existing persistence path (updateWebsite.mutate) so nothing about what gets
+              saved changes; this is a pure reorganization of where the controls live. */}
+          {designOpen && (
+            <DesignPanel
+              website={website}
+              onClose={() => setDesignOpen(false)}
+              onAccentColorSave={(color) => updateWebsite.mutate({ accentColor: color }, { onSuccess: bumpPreview })}
+              onFontThemeSave={(themeKey) =>
+                updateWebsite.mutate(
+                  { customTabLabels: withFontTheme(website.customTabLabels, themeKey) },
+                  { onSuccess: bumpPreview },
+                )}
+              onTaglineColorSave={(color) => updateWebsite.mutate({ heroTaglineColor: color })}
+              onTaglineColorLive={(color) => sendPreviewUpdate('heroTaglineColor', color)}
+              onScriptureBgColorSave={(color) => {
+                // bumpPreview reloads the iframe so the new banner color renders (the
+                // scripture banner is server-rendered, not patched via postMessage).
+                updateWebsite.mutate({ scriptureBackgroundColor: color }, { onSuccess: bumpPreview })
+              }}
+            />
+          )}
+
           {/* Settings drawer: per-tab visibility + custom labels.
               Slides under the tab bar so it sits in context with the controls it edits. */}
           {settingsOpen && (
@@ -881,7 +917,6 @@ export default function SideBySideEditor() {
               website={website}
               onClose={() => setSettingsOpen(false)}
               onSave={(payload) => updateWebsite.mutate(payload, { onSuccess: bumpPreview })}
-              onAccentColorSave={(color) => updateWebsite.mutate({ accentColor: color }, { onSuccess: bumpPreview })}
             />
           )}
 
@@ -1143,9 +1178,6 @@ function HeroSettings({
   onDefaultPhotoSelect,
   onScriptureClear,
   onFocalPointSave,
-  onTaglineColorSave,
-  onTaglineColorLive,
-  onScriptureBgColorSave,
   onNameFontSave,
   onNameFontLive,
 }: {
@@ -1154,12 +1186,10 @@ function HeroSettings({
     heroTagline?: string | null
     heroFocalPointX?: number | null
     heroFocalPointY?: number | null
-    heroTaglineColor?: string | null
     partnerOneName?: string
     partnerTwoName?: string
     scriptureReference?: string | null
     scriptureText?: string | null
-    scriptureBackgroundColor?: string | null
     nameFont?: string | null
   }
   websiteId: string
@@ -1175,16 +1205,12 @@ function HeroSettings({
   onDefaultPhotoSelect: (url: string) => void
   onScriptureClear: () => void
   onFocalPointSave: (x: number, y: number) => void
-  onTaglineColorSave: (color: string | null) => void
-  onTaglineColorLive: (color: string) => void
-  onScriptureBgColorSave: (color: string) => void
   onNameFontSave: (font: string | null) => void
   onNameFontLive: (font: string) => void
 }) {
   const DEFAULT_TAGLINE = 'Together in covenant'
   const [expanded, setExpanded] = useState(false)
   const [tagline, setTagline] = useState(website.heroTagline ?? DEFAULT_TAGLINE)
-  const [taglineColor, setTaglineColor] = useState<string>(website.heroTaglineColor ?? '#ffffff')
   const [focalPointX, setFocalPointX] = useState<number>(website.heroFocalPointX ?? 0.5)
   const [focalPointY, setFocalPointY] = useState<number>(website.heroFocalPointY ?? 0.5)
   const [brideName, setBrideName] = useState(website.partnerTwoName ?? '')
@@ -1195,7 +1221,6 @@ function HeroSettings({
 
   // Sync local state if the website record refreshes (e.g. another tab edited it)
   useEffect(() => { setTagline(website.heroTagline ?? DEFAULT_TAGLINE) }, [website.heroTagline])
-  useEffect(() => { setTaglineColor(website.heroTaglineColor ?? '#ffffff') }, [website.heroTaglineColor])
   useEffect(() => { setFocalPointX(website.heroFocalPointX ?? 0.5) }, [website.heroFocalPointX])
   useEffect(() => { setFocalPointY(website.heroFocalPointY ?? 0.5) }, [website.heroFocalPointY])
   useEffect(() => { setBrideName(website.partnerTwoName ?? '') }, [website.partnerTwoName])
@@ -1205,11 +1230,6 @@ function HeroSettings({
   const scheduleTaglineSave = useDebouncedSave(onTaglineSave)
   const scheduleBrideSave   = useDebouncedSave((v: string) => onNameSave('partnerTwoName', v))
   const scheduleGroomSave   = useDebouncedSave((v: string) => onNameSave('partnerOneName', v))
-  const scheduleTaglineColorSave = useDebouncedSave((v: string) => onTaglineColorSave(v))
-
-  const [scriptureBgColor, setScriptureBgColor] = useState<string>(website.scriptureBackgroundColor ?? '')
-  useEffect(() => { setScriptureBgColor(website.scriptureBackgroundColor ?? '') }, [website.scriptureBackgroundColor])
-  const scheduleScriptureBgColorSave = useDebouncedSave((v: string) => onScriptureBgColorSave(v))
 
   return (
     <div className="border-b-2 border-gold-light flex-shrink-0 bg-gradient-to-r from-ivory via-white to-ivory">
@@ -1291,36 +1311,8 @@ function HeroSettings({
             </div>
           </div>
 
-          {/* Tagline color */}
-          <div className="flex items-center gap-2">
-            <label htmlFor="hero-tagline-color" className="text-[10px] font-semibold text-stone-500 uppercase tracking-wide flex-1">
-              Tagline color
-            </label>
-            <input
-              id="hero-tagline-color"
-              type="color"
-              value={taglineColor}
-              onChange={e => {
-                const v = e.target.value
-                setTaglineColor(v)
-                onTaglineColorLive(v)
-                scheduleTaglineColorSave(v)
-              }}
-              onBlur={() => onTaglineColorSave(taglineColor)}
-              className="h-6 w-12 rounded border border-stone-300 cursor-pointer p-0.5"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                setTaglineColor('#ffffff')
-                onTaglineColorSave(null)
-              }}
-              className="text-[10px] text-stone-400 hover:text-stone-700 underline"
-              title="Reset to default white"
-            >
-              Reset
-            </button>
-          </div>
+          {/* Tagline color, hero overlay, scripture banner color and the site palette
+              now live together in the Design panel (issue #359). */}
 
           {/* Bride + Groom names: bride first per display convention */}
           <div className="grid grid-cols-2 gap-2">
@@ -1575,37 +1567,254 @@ function HeroSettings({
               </p>
             )}
             {(website.scriptureReference || website.scriptureText) && (
-              <div className="mt-2">
-                <label className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-1">
-                  Banner background color
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="scripture-bg-color"
-                    type="color"
-                    value={scriptureBgColor || '#3b2f2f'}
-                    onChange={e => {
-                      const v = e.target.value
-                      setScriptureBgColor(v)
-                      scheduleScriptureBgColorSave(v)
-                    }}
-                    onBlur={() => { if (scriptureBgColor !== (website.scriptureBackgroundColor ?? '')) onScriptureBgColorSave(scriptureBgColor) }}
-                    className="h-6 w-12 rounded border border-stone-300 cursor-pointer p-0.5"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => { setScriptureBgColor(''); onScriptureBgColorSave('') }}
-                    className="text-xs text-stone-400 hover:text-stone-600"
-                  >
-                    Reset to default
-                  </button>
-                </div>
-                <p className="text-[10px] text-stone-400 mt-1 leading-snug">Default is the dark gradient.</p>
-              </div>
+              <p className="text-[10px] text-stone-400 mt-2 leading-snug">
+                Change the scripture banner color in the{' '}
+                <span className="font-medium text-stone-500">Design</span> panel (the palette
+                button above the block list).
+              </p>
             )}
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── DesignPanel ───────────────────────────────────────────────────────────────
+// Issue #359: one clearly labeled home for every theme control. Before this, the
+// accent/palette and font theme were buried in the "Customise your tabs" drawer and the
+// hero overlay + scripture banner colors were buried inside the hero editor, so couples
+// could not find them. This panel groups all of them; it changes nothing about what gets
+// persisted, it reuses the exact same save callbacks the old controls used:
+//   - accent color        -> updateWebsite.mutate({ accentColor })
+//   - font theme          -> customTabLabels (merged via withFontTheme, preserving labels)
+//   - hero overlay color  -> updateWebsite.mutate({ heroTaglineColor })  (+ live postMessage)
+//   - scripture banner    -> updateWebsite.mutate({ scriptureBackgroundColor })
+// Colors save immediately (debounced), matching their prior behavior; the font theme also
+// saves immediately (it used to require the tabs drawer's Save button, but immediate save
+// is more consistent here and still writes the same column value).
+function DesignPanel({
+  website,
+  onClose,
+  onAccentColorSave,
+  onFontThemeSave,
+  onTaglineColorSave,
+  onTaglineColorLive,
+  onScriptureBgColorSave,
+}: {
+  website: WeddingWebsite
+  onClose: () => void
+  onAccentColorSave: (color: string | null) => void
+  onFontThemeSave: (themeKey: string) => void
+  onTaglineColorSave: (color: string | null) => void
+  onTaglineColorLive: (color: string) => void
+  onScriptureBgColorSave: (color: string) => void
+}) {
+  const [accentColor, setAccentColor] = useState(website.accentColor ?? '#d4af6a')
+  const scheduleAccentSave = useDebouncedSave((v: string) => onAccentColorSave(v))
+  useEffect(() => { setAccentColor(website.accentColor ?? '#d4af6a') }, [website.accentColor])
+
+  // The chosen theme is read straight from the shared customTabLabels column so the radio
+  // reflects whatever the Tabs panel left intact.
+  const themeKey = readFontThemeKey(website.customTabLabels)
+
+  const [taglineColor, setTaglineColor] = useState(website.heroTaglineColor ?? '#ffffff')
+  const scheduleTaglineColorSave = useDebouncedSave((v: string) => onTaglineColorSave(v))
+  useEffect(() => { setTaglineColor(website.heroTaglineColor ?? '#ffffff') }, [website.heroTaglineColor])
+
+  const hasScripture = Boolean(website.scriptureReference || website.scriptureText)
+  const [scriptureBgColor, setScriptureBgColor] = useState(website.scriptureBackgroundColor ?? '')
+  const scheduleScriptureBgColorSave = useDebouncedSave((v: string) => onScriptureBgColorSave(v))
+  useEffect(() => { setScriptureBgColor(website.scriptureBackgroundColor ?? '') }, [website.scriptureBackgroundColor])
+
+  return (
+    <div className="border-b border-stone-200 bg-stone-50 px-4 py-3 max-h-80 overflow-y-auto">
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div>
+          <p className="text-xs font-semibold text-brown">Design</p>
+          <p className="text-[11px] text-stone-500 leading-snug">
+            Colors, palette, and fonts for your whole public site, all in one place.
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="text-stone-400 hover:text-stone-700 text-lg leading-none -mt-0.5"
+          aria-label="Close design panel"
+        >
+          <X size={18} />
+        </button>
+      </div>
+
+      {/* Palette / accent color: immediate-save (no Save button needed) */}
+      <div className="mt-1 rounded border border-stone-200 bg-white px-2.5 py-2">
+        <p className="text-[11px] font-medium text-brown mb-1.5">Accent color and palette</p>
+        {/* Curated preset swatches: one-click, keyboard-accessible choices that
+            keep couples on legible, on-brand colours. The custom picker below
+            still lets them fine-tune any hex. */}
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {ACCENT_PRESETS.map(preset => {
+            const isSelected = isAccentPresetSelected(accentColor, preset.hex)
+            return (
+              <button
+                key={preset.hex}
+                type="button"
+                onClick={() => {
+                  setAccentColor(preset.hex)
+                  onAccentColorSave(preset.hex)
+                }}
+                aria-label={`Use ${preset.name} accent color`}
+                aria-pressed={isSelected}
+                title={preset.name}
+                style={{ backgroundColor: preset.hex }}
+                className={`h-6 w-6 rounded-full border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-amber-500 ${
+                  isSelected
+                    ? 'border-brown ring-2 ring-offset-1 ring-brown'
+                    : 'border-stone-300 hover:scale-110'
+                }`}
+              />
+            )
+          })}
+        </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="design-accent-color" className="text-[11px] text-stone-500 flex-1">
+            Or pick a custom color
+          </label>
+          <input
+            id="design-accent-color"
+            type="color"
+            value={accentColor}
+            onChange={e => {
+              const v = e.target.value
+              setAccentColor(v)
+              scheduleAccentSave(v)
+            }}
+            onBlur={() => onAccentColorSave(accentColor)}
+            className="h-6 w-12 rounded border border-stone-300 cursor-pointer p-0.5"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setAccentColor('#d4af6a')
+              onAccentColorSave(null)
+            }}
+            className="text-[10px] text-stone-400 hover:text-stone-700 underline"
+            title="Reset to default gold"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
+      {/* Font-pairing theme (issue #358): a curated heading + body pairing for the
+          whole public site. Saves immediately; the preview reloads to apply it because
+          the fonts are rendered server-side in the wedding layout. */}
+      <fieldset className="mt-3 rounded border border-stone-200 bg-white px-2.5 py-2">
+        <legend className="text-[11px] font-medium text-brown px-1">Font theme</legend>
+        <div className="space-y-1">
+          {FONT_THEME_OPTIONS.map(option => {
+            const isSelected = themeKey === option.key
+            return (
+              <label
+                key={option.key}
+                className={`flex items-start gap-2 rounded border px-2 py-1.5 cursor-pointer transition ${
+                  isSelected ? 'border-brown bg-stone-50' : 'border-stone-200 hover:border-stone-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="design-font-theme"
+                  value={option.key}
+                  checked={isSelected}
+                  onChange={() => onFontThemeSave(option.key)}
+                  className="mt-0.5 accent-amber-600"
+                />
+                <span className="min-w-0">
+                  <span className="block text-[11px] font-medium text-brown leading-tight">{option.label}</span>
+                  <span className="block text-[10px] text-stone-500 leading-snug">{option.description}</span>
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      </fieldset>
+
+      {/* Hero overlay color: the color of the tagline text sitting over the hero photo.
+          Live-previews via postMessage and debounce-saves, same as before the split. */}
+      <div className="mt-3 rounded border border-stone-200 bg-white px-2.5 py-2">
+        <div className="flex items-center gap-2">
+          <label htmlFor="design-tagline-color" className="text-[11px] font-medium text-brown flex-1">
+            Hero overlay color
+          </label>
+          <input
+            id="design-tagline-color"
+            type="color"
+            value={taglineColor}
+            onChange={e => {
+              const v = e.target.value
+              setTaglineColor(v)
+              onTaglineColorLive(v)
+              scheduleTaglineColorSave(v)
+            }}
+            onBlur={() => onTaglineColorSave(taglineColor)}
+            className="h-6 w-12 rounded border border-stone-300 cursor-pointer p-0.5"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setTaglineColor('#ffffff')
+              onTaglineColorLive('#ffffff')
+              onTaglineColorSave(null)
+            }}
+            className="text-[10px] text-stone-400 hover:text-stone-700 underline"
+            title="Reset to default white"
+          >
+            Reset
+          </button>
+        </div>
+        <p className="text-[10px] text-stone-400 mt-1 leading-snug">
+          Sets the color of the tagline text over your hero photo.
+        </p>
+      </div>
+
+      {/* Scripture banner color: only meaningful once a verse is set, so mirror the old
+          conditional. When no verse is set we show a hint instead of a dead control. */}
+      <div className="mt-3 rounded border border-stone-200 bg-white px-2.5 py-2">
+        <p className="text-[11px] font-medium text-brown mb-1.5">Scripture banner color</p>
+        {hasScripture ? (
+          <>
+            <div className="flex items-center gap-2">
+              <input
+                id="design-scripture-bg-color"
+                type="color"
+                value={scriptureBgColor || '#3b2f2f'}
+                onChange={e => {
+                  const v = e.target.value
+                  setScriptureBgColor(v)
+                  scheduleScriptureBgColorSave(v)
+                }}
+                onBlur={() => { if (scriptureBgColor !== (website.scriptureBackgroundColor ?? '')) onScriptureBgColorSave(scriptureBgColor) }}
+                className="h-6 w-12 rounded border border-stone-300 cursor-pointer p-0.5"
+              />
+              <button
+                type="button"
+                onClick={() => { setScriptureBgColor(''); onScriptureBgColorSave('') }}
+                className="text-xs text-stone-400 hover:text-stone-600"
+              >
+                Reset to default
+              </button>
+            </div>
+            <p className="text-[10px] text-stone-400 mt-1 leading-snug">Default is the dark gradient.</p>
+          </>
+        ) : (
+          <p className="text-[10px] text-stone-400 leading-snug">
+            Pick a wedding scripture in the hero editor first, then choose its banner color here.
+          </p>
+        )}
+      </div>
+
+      <p className="mt-3 text-[10px] text-stone-400 leading-snug">
+        Changes save automatically. The preview reloads to apply theme and banner changes.
+      </p>
     </div>
   )
 }
@@ -1631,30 +1840,24 @@ function TabSettingsPanel({
   website,
   onClose,
   onSave,
-  onAccentColorSave,
 }: {
   website: WeddingWebsite
   onClose: () => void
   onSave: (payload: { hiddenTabs: string; customTabLabels: string }) => void
-  onAccentColorSave: (color: string | null) => void
 }) {
   const [saving, setSaving] = useState(false)
-  const [accentColor, setAccentColor] = useState(website.accentColor ?? '#d4af6a')
-  const scheduleAccentSave = useDebouncedSave((v: string) => onAccentColorSave(v))
   // Parse the opaque server fields on open. Re-derived from props rather than
   // memoised because the panel is short-lived and re-parsing is trivially cheap.
   const initialHidden = new Set<BlockTab>(
     (website.hiddenTabs ?? '').split(',').map(s => s.trim()).filter(Boolean) as BlockTab[]
   )
   // parseTabLabels strips the reserved __theme key so the tab-label editor only manages
-  // real tab labels; the theme is tracked separately in themeKey below.
+  // real tab labels; the font theme is owned by the Design panel (issue #359) and stays
+  // untouched here.
   const initialLabels = parseTabLabels(website.customTabLabels) as Partial<Record<BlockTab, string>>
 
   const [hidden, setHidden] = useState<Set<BlockTab>>(initialHidden)
   const [labels, setLabels] = useState<Partial<Record<BlockTab, string>>>(initialLabels)
-  // Font-pairing theme (issue #358), stored alongside the tab labels in the same opaque
-  // customTabLabels column under the reserved __theme key.
-  const [themeKey, setThemeKey] = useState<string>(readFontThemeKey(website.customTabLabels))
 
   const toggleHidden = (tab: BlockTab) => {
     setHidden(prev => {
@@ -1678,9 +1881,10 @@ function TabSettingsPanel({
     // Sort the hidden CSV deterministically so two equivalent saves produce
     // identical strings (cleaner audit logs, predictable cache keys).
     const hiddenCsv = Array.from(hidden).sort().join(',')
-    // serializeTabLabels merges the tab labels and the chosen font theme back into the
-    // single opaque customTabLabels string so neither clobbers the other.
-    const labelsJson = serializeTabLabels(labels as Record<string, string>, themeKey)
+    // withTabLabels rewrites the tab labels while preserving whatever font theme is
+    // currently stored (owned by the Design panel), so the two panels that share the
+    // opaque customTabLabels column never clobber each other (issue #359).
+    const labelsJson = withTabLabels(website.customTabLabels, labels as Record<string, string>)
     onSave({ hiddenTabs: hiddenCsv, customTabLabels: labelsJson })
     onClose()
   }
@@ -1733,98 +1937,8 @@ function TabSettingsPanel({
           )
         })}
       </ul>
-      {/* Accent color: immediate-save (no Save button needed) */}
-      <div className="mt-3 rounded border border-stone-200 bg-white px-2.5 py-2">
-        <p className="text-[11px] font-medium text-brown mb-1.5">Accent color</p>
-        {/* Curated preset swatches: one-click, keyboard-accessible choices that
-            keep couples on legible, on-brand colours. The custom picker below
-            still lets them fine-tune any hex. */}
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {ACCENT_PRESETS.map(preset => {
-            const isSelected = isAccentPresetSelected(accentColor, preset.hex)
-            return (
-              <button
-                key={preset.hex}
-                type="button"
-                onClick={() => {
-                  setAccentColor(preset.hex)
-                  onAccentColorSave(preset.hex)
-                }}
-                aria-label={`Use ${preset.name} accent color`}
-                aria-pressed={isSelected}
-                title={preset.name}
-                style={{ backgroundColor: preset.hex }}
-                className={`h-6 w-6 rounded-full border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-amber-500 ${
-                  isSelected
-                    ? 'border-brown ring-2 ring-offset-1 ring-brown'
-                    : 'border-stone-300 hover:scale-110'
-                }`}
-              />
-            )
-          })}
-        </div>
-        <div className="flex items-center gap-2">
-          <label htmlFor="accent-color" className="text-[11px] text-stone-500 flex-1">
-            Or pick a custom color
-          </label>
-          <input
-            id="accent-color"
-            type="color"
-            value={accentColor}
-            onChange={e => {
-              const v = e.target.value
-              setAccentColor(v)
-              scheduleAccentSave(v)
-            }}
-            onBlur={() => onAccentColorSave(accentColor)}
-            className="h-6 w-12 rounded border border-stone-300 cursor-pointer p-0.5"
-          />
-          <button
-            type="button"
-            onClick={() => {
-              setAccentColor('#d4af6a')
-              onAccentColorSave(null)
-            }}
-            className="text-[10px] text-stone-400 hover:text-stone-700 underline"
-            title="Reset to default gold"
-          >
-            Reset
-          </button>
-        </div>
-      </div>
-
-      {/* Font-pairing theme (issue #358): a curated heading + body pairing for the
-          whole public site. Applied after Save (like the tab labels) because the
-          fonts are rendered server-side in the wedding layout. */}
-      <fieldset className="mt-3 rounded border border-stone-200 bg-white px-2.5 py-2">
-        <legend className="text-[11px] font-medium text-brown px-1">Font theme</legend>
-        <div className="space-y-1">
-          {FONT_THEME_OPTIONS.map(option => {
-            const isSelected = themeKey === option.key
-            return (
-              <label
-                key={option.key}
-                className={`flex items-start gap-2 rounded border px-2 py-1.5 cursor-pointer transition ${
-                  isSelected ? 'border-brown bg-stone-50' : 'border-stone-200 hover:border-stone-300'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="font-theme"
-                  value={option.key}
-                  checked={isSelected}
-                  onChange={() => setThemeKey(option.key)}
-                  className="mt-0.5 accent-amber-600"
-                />
-                <span className="min-w-0">
-                  <span className="block text-[11px] font-medium text-brown leading-tight">{option.label}</span>
-                  <span className="block text-[10px] text-stone-500 leading-snug">{option.description}</span>
-                </span>
-              </label>
-            )
-          })}
-        </div>
-      </fieldset>
+      {/* Accent/palette, font theme, hero overlay color and the scripture banner color all
+          moved into the Design panel (issue #359). This panel is now strictly hide/rename. */}
 
       <div className="mt-3 flex items-center justify-between gap-2">
         <p className="text-[10px] text-stone-400 leading-snug">

@@ -72,3 +72,21 @@ export function serializeTabLabels(labels: Record<string, string>, themeKey: str
   }
   return Object.keys(out).length === 0 ? '' : JSON.stringify(out)
 }
+
+// Issue #359: the font theme (Design panel) and the tab labels (Tabs panel) are now edited
+// in two separate panels but still share the single opaque customTabLabels column. These
+// two merge helpers are how each panel writes only its own slice without clobbering the
+// other: each reads the current column, keeps the half it does not own, and rewrites both.
+
+// Change only the theme, preserving whatever tab labels are already stored.
+export function withFontTheme(customTabLabels: string | null | undefined, themeKey: string): string {
+  return serializeTabLabels(parseTabLabels(customTabLabels), themeKey)
+}
+
+// Change only the tab labels, preserving whatever theme is already stored.
+export function withTabLabels(
+  customTabLabels: string | null | undefined,
+  labels: Record<string, string>,
+): string {
+  return serializeTabLabels(labels, readFontThemeKey(customTabLabels))
+}
