@@ -1105,10 +1105,10 @@ const DEFAULT_HERO_PHOTOS = [
 // allowlist; `label` is only what the couple sees in this picker.
 const NAME_FONT_OPTIONS: { key: string; label: string }[] = [
   { key: 'playfair', label: 'Playfair (classic serif, default)' },
-  { key: 'cormorant', label: 'Cormorant (elegant serif)' },
-  { key: 'lora', label: 'Lora (readable serif)' },
+  { key: 'cinzel', label: 'Cinzel (engraved caps)' },
+  { key: 'greatvibes', label: 'Great Vibes (formal script)' },
+  { key: 'dancingscript', label: 'Dancing Script (handwritten)' },
   { key: 'montserrat', label: 'Montserrat (modern sans)' },
-  { key: 'greatvibes', label: 'Great Vibes (script)' },
 ]
 
 function useDebouncedSave<T>(persistedSave: (value: T) => void) {

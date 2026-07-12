@@ -46,7 +46,7 @@ class WeddingWebsiteResponseMapperTest {
                 "https://cdn/std.jpg",
                 "The Grand Hall", "500 River Rd", "Round Rock", "TX", "6:00 PM", "Dinner and dancing to follow",
                 "The Ceremony", "The Reception",
-                "cormorant",
+                "cinzel",
                 false, null,
                 LocalDateTime.of(2026, 1, 1, 0, 0), LocalDateTime.of(2026, 1, 2, 0, 0)
         );

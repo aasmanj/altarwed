@@ -1,6 +1,6 @@
 // Couple-selectable display fonts for the wedding-hero names (the `nameFont` feature).
 //
-// A couple picks a short KEY ("cormorant", "greatvibes", ...) in the dashboard; the
+// A couple picks a short KEY ("cinzel", "greatvibes", ...) in the dashboard; the
 // backend stores that key and its @Pattern rejects anything off this list. This helper
 // maps a stored key to a full CSS font-family stack built on the next/font variables
 // declared in app/layout.tsx. It is the render-path counterpart to safeColor: the value
@@ -12,10 +12,10 @@
 // UpdateWeddingWebsiteRequest.nameFont and the dashboard picker.
 const NAME_FONT_STACKS: Record<string, string> = {
   playfair: 'var(--font-playfair), Georgia, serif',
-  cormorant: 'var(--font-cormorant), Georgia, serif',
+  cinzel: 'var(--font-cinzel), Georgia, serif',
   greatvibes: 'var(--font-great-vibes), cursive',
+  dancingscript: 'var(--font-dancing-script), cursive',
   montserrat: 'var(--font-montserrat), system-ui, sans-serif',
-  lora: 'var(--font-lora), Georgia, serif',
 }
 
 // Hero-name font-weight per key. Most families ship a bold weight; Great Vibes is a
@@ -23,10 +23,10 @@ const NAME_FONT_STACKS: Record<string, string> = {
 // faux-bold on the hero (the highest-visibility surface). Render it at its real 400.
 const NAME_FONT_WEIGHTS: Record<string, string> = {
   playfair: '700',
-  cormorant: '700',
+  cinzel: '700',
   greatvibes: '400',
+  dancingscript: '700',
   montserrat: '700',
-  lora: '700',
 }
 
 // The default when the couple has not chosen a font (null) or the stored key is unknown.

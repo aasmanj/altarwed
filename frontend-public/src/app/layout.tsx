@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter, Playfair_Display, Cormorant_Garamond, Great_Vibes, Montserrat, Lora } from 'next/font/google'
+import { Inter, Playfair_Display, Cinzel, Great_Vibes, Montserrat, Dancing_Script } from 'next/font/google'
 import './globals.css'
 import FacebookPixel from '@/components/FacebookPixel'
 import CookieConsentBanner from '@/components/CookieConsentBanner'
@@ -22,13 +22,15 @@ const playfair = Playfair_Display({
 // font-family, so non-wedding pages (homepage, blog, vendors) pay nothing for these.
 // The keys here are the source of truth mirrored by safeNameFont() and the backend
 // @Pattern on UpdateWeddingWebsiteRequest.nameFont.
-const cormorant = Cormorant_Garamond({
+// Cinzel: engraved Roman all-caps serif (very distinct from Playfair's high-contrast serif).
+const cinzel = Cinzel({
   subsets: ['latin'],
-  weight: ['400', '600', '700'],
-  variable: '--font-cormorant',
+  weight: ['400', '700'],
+  variable: '--font-cinzel',
   display: 'swap',
 })
 
+// Great Vibes: formal single-weight (400) script.
 const greatVibes = Great_Vibes({
   subsets: ['latin'],
   weight: '400',
@@ -36,15 +38,18 @@ const greatVibes = Great_Vibes({
   display: 'swap',
 })
 
+// Montserrat: clean geometric sans-serif (the one non-serif option).
 const montserrat = Montserrat({
   subsets: ['latin'],
   variable: '--font-montserrat',
   display: 'swap',
 })
 
-const lora = Lora({
+// Dancing Script: casual handwritten script (distinct from the formal Great Vibes).
+const dancingScript = Dancing_Script({
   subsets: ['latin'],
-  variable: '--font-lora',
+  weight: ['400', '700'],
+  variable: '--font-dancing-script',
   display: 'swap',
 })
 
@@ -119,7 +124,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${playfair.variable} ${cormorant.variable} ${greatVibes.variable} ${montserrat.variable} ${lora.variable}`}
+      className={`${inter.variable} ${playfair.variable} ${cinzel.variable} ${greatVibes.variable} ${montserrat.variable} ${dancingScript.variable}`}
     >
       <body>
         <script

@@ -36,7 +36,8 @@ describe('safeNameFontWeight', () => {
 
   it('uses bold for the multi-weight families and the default', () => {
     expect(safeNameFontWeight('playfair')).toBe('700')
-    expect(safeNameFontWeight('cormorant')).toBe('700')
+    expect(safeNameFontWeight('cinzel')).toBe('700')
+    expect(safeNameFontWeight('dancingscript')).toBe('700')
     expect(safeNameFontWeight(null)).toBe('700')
     expect(safeNameFontWeight('__proto__')).toBe('700')
   })
