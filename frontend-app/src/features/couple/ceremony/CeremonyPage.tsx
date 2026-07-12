@@ -1,6 +1,15 @@
-import { useState } from 'react'
+import { useState, type ReactNode, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
+import { GripVertical } from 'lucide-react'
+import {
+  DndContext, closestCenter, PointerSensor, TouchSensor, KeyboardSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext, verticalListSortingStrategy, useSortable, sortableKeyboardCoordinates, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useAuth } from '@/core/auth/AuthContext'
 import PageHeader from '@/components/PageHeader'
 import { useConfirm } from '@/components/ConfirmDialog'
@@ -10,9 +19,11 @@ import {
   useCreateCeremonySection,
   useUpdateCeremonySection,
   useDeleteCeremonySection,
+  useReorderCeremonySections,
   CeremonySection,
   CeremonySectionPayload,
 } from './useCeremonySections'
+import { orderedSections } from './ceremonyReorder'
 
 const SECTION_TYPES = [
   { value: 'PROCESSIONAL', label: 'Processional' },
@@ -48,7 +59,28 @@ export default function CeremonyPage() {
   const createSection = useCreateCeremonySection(coupleId)
   const updateSection = useUpdateCeremonySection(coupleId)
   const deleteSection = useDeleteCeremonySection(coupleId)
+  const reorderSectionsMutation = useReorderCeremonySections(coupleId)
   const confirm = useConfirm()
+
+  // Mouse needs an 8px drag before it counts (so the Edit/Remove buttons still click);
+  // touch waits 250ms (so scrolling the list does not start a drag); keyboard sensor
+  // makes reordering operable without a pointer (a11y).
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  // Single source of truth for display order (drag list + numbering + persistence).
+  const ordered = orderedSections(sections)
+
+  const handleDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const ids = ordered.map(s => s.id)
+    const orderedIds = arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id)))
+    reorderSectionsMutation.mutate({ snapshot: ordered, orderedIds })
+  }
 
   const [modalMode, setModalMode] = useState<'add' | 'edit' | null>(null)
   const [editTarget, setEditTarget] = useState<CeremonySection | null>(null)
@@ -175,37 +207,43 @@ export default function CeremonyPage() {
 
         {!isLoading && sections.length > 0 && (
           <div className="space-y-3">
-            {sections.map((s, i) => (
-              <div
-                key={s.id}
-                className="flex items-start gap-4 rounded-xl border border-gold-light bg-white px-5 py-4"
-              >
-                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gold/10 text-xs font-bold text-gold">
-                  {i + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-brown text-sm">{s.title}</p>
-                  <p className="text-xs text-brown-light mt-0.5">{typeLabel(s.sectionType)}</p>
-                  {s.content && (
-                    <p className="text-xs text-brown-light mt-1.5 leading-relaxed line-clamp-2 font-serif">{s.content}</p>
-                  )}
+            {ordered.length > 1 && (
+              <p className="text-xs text-brown-light -mt-1 mb-1">Drag a section to reorder your order of service.</p>
+            )}
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={ordered.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-3">
+                  {ordered.map((s, i) => (
+                    <SortableSection key={s.id} id={s.id}>
+                      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gold/10 text-xs font-bold text-gold">
+                        {i + 1}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-brown text-sm">{s.title}</p>
+                        <p className="text-xs text-brown-light mt-0.5">{typeLabel(s.sectionType)}</p>
+                        {s.content && (
+                          <p className="text-xs text-brown-light mt-1.5 leading-relaxed line-clamp-2 font-serif">{s.content}</p>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 gap-2">
+                        <button
+                          onClick={() => openEdit(s)}
+                          className="rounded-lg border border-gold-light px-3 py-2 text-xs font-medium text-brown hover:border-gold hover:bg-gold/5 transition min-h-[44px]"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(s.id)}
+                          className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-500 hover:bg-red-50 transition min-h-[44px]"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </SortableSection>
+                  ))}
                 </div>
-                <div className="flex shrink-0 gap-2">
-                  <button
-                    onClick={() => openEdit(s)}
-                    className="rounded-lg border border-gold-light px-3 py-2 text-xs font-medium text-brown hover:border-gold hover:bg-gold/5 transition min-h-[44px]"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(s.id)}
-                    className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-500 hover:bg-red-50 transition min-h-[44px]"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))}
+              </SortableContext>
+            </DndContext>
           </div>
         )}
 
@@ -283,17 +321,6 @@ export default function CeremonyPage() {
                   className="w-full rounded-xl border border-gold-light px-3 py-2.5 text-sm text-brown placeholder-brown-light/60 focus:border-gold focus:outline-none resize-none leading-relaxed"
                 />
               </div>
-
-              <div>
-                <label className="text-xs font-medium text-brown block mb-1">Order position</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={form.sortOrder}
-                  onChange={e => setForm(f => ({ ...f, sortOrder: Number(e.target.value) }))}
-                  className="w-full rounded-xl border border-gold-light px-3 py-2.5 text-sm text-brown focus:border-gold focus:outline-none"
-                />
-              </div>
             </div>
 
             <div className="flex gap-3 mt-6">
@@ -314,6 +341,37 @@ export default function CeremonyPage() {
           </AnimatedModal>
         )}
       </AnimatePresence>
+    </div>
+  )
+}
+
+// One order-of-service row, made sortable. The grip handle (left) carries the dnd
+// listeners so the row's own Edit/Remove buttons keep working; touch-none on the
+// handle stops the browser from scrolling mid-drag.
+function SortableSection({ id, children }: { id: string; children: ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 20 : undefined,
+    opacity: isDragging ? 0.6 : 1,
+  }
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-start gap-3 rounded-xl border border-gold-light bg-white px-4 py-4 sm:px-5"
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label="Drag to reorder section"
+        className="mt-0.5 shrink-0 rounded-md p-1 text-brown-light hover:text-brown cursor-grab active:cursor-grabbing touch-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:outline-none"
+      >
+        <GripVertical className="h-5 w-5" />
+      </button>
+      {children}
     </div>
   )
 }
