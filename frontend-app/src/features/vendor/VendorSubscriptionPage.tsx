@@ -7,6 +7,9 @@ import {
   useCreatePortalSession,
 } from './useSubscription'
 import PromoCodeBox from './PromoCodeBox'
+import { captureEvent } from '@/core/analytics/analytics'
+import { trackSubscribe } from '@/core/analytics/metaPixel'
+import { enableVendorAnalyticsIfConsented } from '@/core/analytics/vendorAnalytics'
 
 // Shown when a Stripe price ID fails to load (config/deploy skew) so a vendor ready
 // to pay is not left at a silent dead-end with only a greyed-out button. See issue #154.
@@ -29,6 +32,12 @@ export default function VendorSubscriptionPage() {
   useEffect(() => {
     if (searchParams.get('session') === 'success') {
       toast.success('Subscription activated! Welcome to AltarWed Pro.')
+      // subscription_activated is the vendor funnel's revenue conversion. Stripe
+      // redirected the browser here, so module-level analytics state was reset;
+      // re-boot for a consenting vendor before capturing, then fire Meta Subscribe.
+      enableVendorAnalyticsIfConsented()
+      captureEvent('subscription_activated')
+      trackSubscribe()
     }
   }, [searchParams])
 

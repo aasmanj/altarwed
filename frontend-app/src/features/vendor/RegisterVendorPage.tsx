@@ -9,6 +9,9 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
 import { apiClient } from '@/core/api/client'
+import { captureEvent, identifyUser } from '@/core/analytics/analytics'
+import { setVendorMarketingConsent } from '@/core/analytics/vendorConsent'
+import { enableVendorAnalyticsIfConsented } from '@/core/analytics/vendorAnalytics'
 import { useCreateCheckoutSession } from './useSubscription'
 import type { SubscriptionInfo } from './useSubscription'
 import PromoCodeBox from './PromoCodeBox'
@@ -62,6 +65,7 @@ export default function RegisterVendorPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [marketingConsent, setMarketingConsent] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -91,10 +95,25 @@ export default function RegisterVendorPage() {
     setSubmitting(true)
     setError('')
     try {
-      await registerVendor({
+      const { user: newVendor } = await registerVendor({
         businessName, category, city, state: vendorState, email, password, isChristianOwned,
       })
       setRegistered(true)
+      // Vendor funnel conversion. When the vendor opted in, persist that choice
+      // (so the post-Stripe-redirect return page can re-boot analytics), boot the
+      // pixel + PostHog, and identify against the fresh vendor id. GPC/DNT and a
+      // missing key/id still keep this inert. captureEvent is gated internally, so
+      // vendor_signed_up only actually transmits for a consenting vendor. No PII in
+      // the payload, only the coarse category and the christian-owned flag.
+      if (marketingConsent) {
+        setVendorMarketingConsent(true)
+        enableVendorAnalyticsIfConsented()
+        identifyUser(newVendor.id, { role: newVendor.role })
+      }
+      captureEvent('vendor_signed_up', {
+        category,
+        is_christian_owned: isChristianOwned,
+      })
       fireConfetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#d4af6a', '#fff', '#3b2f2f', '#f0e8d8'] })
       setTimeout(() => fireConfetti({ particleCount: 50, spread: 110, origin: { y: 0.5 }, angle: 60,  colors: ['#d4af6a', '#f0e8d8'] }), 250)
       setTimeout(() => fireConfetti({ particleCount: 50, spread: 110, origin: { y: 0.5 }, angle: 120, colors: ['#3b2f2f', '#d4af6a'] }), 400)
@@ -175,6 +194,8 @@ export default function RegisterVendorPage() {
                   setPassword={setPassword}
                   confirmPassword={confirmPassword}
                   setConfirmPassword={setConfirmPassword}
+                  marketingConsent={marketingConsent}
+                  setMarketingConsent={setMarketingConsent}
                   error={error}
                   submitting={submitting}
                   onBack={back}
@@ -355,11 +376,13 @@ function AccountStep({
   email, setEmail,
   password, setPassword,
   confirmPassword, setConfirmPassword,
+  marketingConsent, setMarketingConsent,
   error, submitting, onBack, onSubmit,
 }: {
   email: string; setEmail: (v: string) => void
   password: string; setPassword: (v: string) => void
   confirmPassword: string; setConfirmPassword: (v: string) => void
+  marketingConsent: boolean; setMarketingConsent: (v: boolean) => void
   error: string; submitting: boolean
   onBack: () => void; onSubmit: () => void
 }) {
@@ -407,6 +430,18 @@ function AccountStep({
             autoComplete="new-password"
           />
         </div>
+        <label htmlFor="wiz-marketingConsent" className="flex items-start gap-3 cursor-pointer">
+          <input
+            id="wiz-marketingConsent"
+            type="checkbox"
+            checked={marketingConsent}
+            onChange={e => setMarketingConsent(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-[#e8dcc8] accent-[#d4af6a] shrink-0"
+          />
+          <span className="text-xs text-[#6b5344] leading-snug">
+            I agree to analytics tracking and to allow AltarWed to measure ad effectiveness using Meta (Facebook). This helps us reach more couples for you. Optional, defaults to off.
+          </span>
+        </label>
         {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       </div>
 
