@@ -1,18 +1,23 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/core/auth/AuthContext'
-import { useVendorProfile, useVendorStats } from './useVendor'
+import { useVendorProfile, useVendorStats, useVendorAnalytics } from './useVendor'
 import { useVendorInquiries } from './useInquiries'
 import { useVendorSubscription } from './useSubscription'
+import { analyticsCardCopy } from './analyticsCard'
 
 export default function VendorDashboard() {
   const { user, logout } = useAuth()
   const { data: vendor } = useVendorProfile()
   const { data: inquiries = [] } = useVendorInquiries()
   const { data: stats } = useVendorStats()
+  // Inquiry analytics are Pro-only; only fetch them once stats confirms the entitlement so we
+  // never trigger a 403 for a free-tier vendor.
+  const { data: analytics } = useVendorAnalytics(stats?.proAnalytics === true)
   const { data: sub } = useVendorSubscription()
 
   const displayName = vendor?.businessName ?? user?.email ?? ''
   const unreadCount = inquiries.filter(i => !i.isRead).length
+  const analyticsCard = analyticsCardCopy(stats, analytics)
 
   return (
     <div className="min-h-screen bg-[#fdfaf6]">
@@ -68,16 +73,22 @@ export default function VendorDashboard() {
             badge={unreadCount > 0 ? String(unreadCount) : undefined}
           />
           <DashboardCard title="Reviews" description="See what couples are saying" href="#" comingSoon />
-          <DashboardCard
-            title="Analytics"
-            description={
-              stats
-                ? `${stats.viewCount} profile views · ${stats.inquiryCount} total inquiries`
-                : 'No views yet. Share your listing to start tracking.'
-            }
-            href="#"
-            passive
-          />
+          {analyticsCard.upgrade ? (
+            // Non-Pro: the card becomes an upgrade CTA linking to the subscription page.
+            <DashboardCard
+              title="Analytics"
+              description={analyticsCard.description}
+              href="/vendor/subscription"
+              live
+            />
+          ) : (
+            <DashboardCard
+              title="Analytics"
+              description={analyticsCard.description}
+              href="#"
+              passive
+            />
+          )}
           <DashboardCard
             title="Subscription"
             description={

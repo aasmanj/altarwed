@@ -1,5 +1,6 @@
 package com.altarwed.web.exception;
 
+import com.altarwed.domain.exception.AnalyticsNotEntitledException;
 import com.altarwed.domain.exception.BlogPostNotFoundException;
 import com.altarwed.domain.exception.CeremonySectionNotFoundException;
 import com.altarwed.domain.exception.PlanningTaskNotFoundException;
@@ -394,6 +395,19 @@ public class GlobalExceptionHandler {
         pd.setType(URI.create("https://altarwed.com/problems/access-denied"));
         pd.setTitle("Access Denied");
         pd.setDetail("You do not have access to this resource.");
+        return pd;
+    }
+
+    // 403: a vendor without an active Pro subscription asked for the gated analytics. The service
+    // already WARN-logged the rejection; here we translate to a clean 403 that the dashboard reads
+    // as "upgrade required". No resource detail is leaked. This is the server-side backstop for the
+    // paywall (issue #371); the frontend also hides the analytics for non-Pro vendors.
+    @ExceptionHandler(AnalyticsNotEntitledException.class)
+    public ProblemDetail handleAnalyticsNotEntitled(AnalyticsNotEntitledException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.FORBIDDEN);
+        pd.setType(URI.create("https://altarwed.com/problems/analytics-requires-pro"));
+        pd.setTitle("Analytics Requires Pro");
+        pd.setDetail("Upgrade to Pro to see inquiry analytics for your listing.");
         return pd;
     }
 

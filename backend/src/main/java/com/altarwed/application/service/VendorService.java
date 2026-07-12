@@ -1,16 +1,20 @@
 package com.altarwed.application.service;
 
 import com.altarwed.application.dto.UpdateVendorRequest;
+import com.altarwed.application.dto.VendorAnalyticsResponse;
 import com.altarwed.application.dto.VendorPageResult;
 import com.altarwed.application.dto.VendorStatsResponse;
+import com.altarwed.domain.exception.AnalyticsNotEntitledException;
 import com.altarwed.domain.exception.VendorNotFoundException;
 import com.altarwed.domain.model.Vendor;
 import com.altarwed.domain.model.VendorCategory;
+import com.altarwed.domain.model.VendorSubscription;
 import com.altarwed.domain.port.BlobStoragePort;
 import com.altarwed.domain.port.InquiryRepository;
 import com.altarwed.domain.port.RefreshTokenRepository;
 import com.altarwed.domain.port.VendorPortfolioPhotoRepository;
 import com.altarwed.domain.port.VendorRepository;
+import com.altarwed.domain.port.VendorSubscriptionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,6 +38,7 @@ public class VendorService {
     private final InquiryRepository inquiryRepository;
     private final VendorPortfolioPhotoRepository portfolioPhotoRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final VendorSubscriptionRepository subscriptionRepository;
     private final BlobStoragePort blobStorage;
     private final AsyncEmailService asyncEmailService;
     private final String publicBaseUrl;
@@ -43,6 +48,7 @@ public class VendorService {
                          InquiryRepository inquiryRepository,
                          VendorPortfolioPhotoRepository portfolioPhotoRepository,
                          RefreshTokenRepository refreshTokenRepository,
+                         VendorSubscriptionRepository subscriptionRepository,
                          BlobStoragePort blobStorage,
                          AsyncEmailService asyncEmailService,
                          @Value("${altarwed.nextjs.base-url:https://www.altarwed.com}") String publicBaseUrl,
@@ -51,6 +57,7 @@ public class VendorService {
         this.inquiryRepository = inquiryRepository;
         this.portfolioPhotoRepository = portfolioPhotoRepository;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.subscriptionRepository = subscriptionRepository;
         this.blobStorage = blobStorage;
         this.asyncEmailService = asyncEmailService;
         this.publicBaseUrl = publicBaseUrl;
@@ -182,12 +189,42 @@ public class VendorService {
         log.debug("vendor view count incremented, vendorId={}", vendorId);
     }
 
+    // Free-tier stats: the lifetime view count every vendor may see, plus whether this vendor is
+    // entitled to the gated Pro analytics (so the dashboard can render either the real numbers or an
+    // upgrade prompt). Inquiry analytics are deliberately NOT returned here; they were previously
+    // given away free (issue #371) and now live behind getAnalytics.
     @Transactional(readOnly = true)
     public VendorStatsResponse getStats(UUID vendorId) {
         Vendor vendor = getById(vendorId);
+        boolean proAnalytics = hasProAnalyticsAccess(vendorId);
+        return new VendorStatsResponse(vendor.viewCount() != null ? vendor.viewCount() : 0, proAnalytics);
+    }
+
+    // Pro-only analytics: inquiry totals on top of the view count. The entitlement is enforced HERE,
+    // server-side, so a crafted request from a non-Pro vendor cannot read the paid data even if the
+    // frontend gate is bypassed. A non-entitled caller gets AnalyticsNotEntitledException (403).
+    @Transactional(readOnly = true)
+    public VendorAnalyticsResponse getAnalytics(UUID vendorId) {
+        Vendor vendor = getById(vendorId);
+        if (!hasProAnalyticsAccess(vendorId)) {
+            // Expected paywall rejection, not an error: WARN (not ERROR) so it never pages on-call.
+            log.warn("vendor analytics access denied, no active pro subscription, vendorId={}", vendorId);
+            throw new AnalyticsNotEntitledException(vendorId);
+        }
         long totalInquiries = inquiryRepository.countByVendorId(vendorId);
         long unreadInquiries = inquiryRepository.countUnreadByVendorId(vendorId);
-        return new VendorStatsResponse(vendor.viewCount() != null ? vendor.viewCount() : 0, totalInquiries, unreadInquiries);
+        log.info("vendor analytics served, vendorId={}", vendorId);
+        return new VendorAnalyticsResponse(
+                vendor.viewCount() != null ? vendor.viewCount() : 0, totalInquiries, unreadInquiries);
+    }
+
+    // A vendor is entitled to Pro analytics when their subscription is ACTIVE (paid Pro or comped).
+    // No subscription row, or a PENDING/PAST_DUE/CANCELLED/TRIALING one, is not entitled. The
+    // ACTIVE-only rule lives on the domain record (VendorSubscription.hasProAnalyticsAccess).
+    private boolean hasProAnalyticsAccess(UUID vendorId) {
+        return subscriptionRepository.findByVendorId(vendorId)
+                .map(VendorSubscription::hasProAnalyticsAccess)
+                .orElse(false);
     }
 
     @Transactional

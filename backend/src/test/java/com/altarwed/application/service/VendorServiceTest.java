@@ -1,15 +1,22 @@
 package com.altarwed.application.service;
 
+import com.altarwed.application.dto.VendorAnalyticsResponse;
 import com.altarwed.application.dto.VendorPageResult;
+import com.altarwed.application.dto.VendorStatsResponse;
+import com.altarwed.domain.exception.AnalyticsNotEntitledException;
 import com.altarwed.domain.exception.VendorNotFoundException;
+import com.altarwed.domain.model.PlanTier;
+import com.altarwed.domain.model.SubscriptionStatus;
 import com.altarwed.domain.model.Vendor;
 import com.altarwed.domain.model.VendorCategory;
 import com.altarwed.domain.model.VendorPortfolioPhoto;
+import com.altarwed.domain.model.VendorSubscription;
 import com.altarwed.domain.port.BlobStoragePort;
 import com.altarwed.domain.port.InquiryRepository;
 import com.altarwed.domain.port.RefreshTokenRepository;
 import com.altarwed.domain.port.VendorPortfolioPhotoRepository;
 import com.altarwed.domain.port.VendorRepository;
+import com.altarwed.domain.port.VendorSubscriptionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
@@ -48,6 +55,7 @@ class VendorServiceTest {
     @Mock private InquiryRepository inquiryRepository;
     @Mock private VendorPortfolioPhotoRepository portfolioPhotoRepository;
     @Mock private RefreshTokenRepository refreshTokenRepository;
+    @Mock private VendorSubscriptionRepository subscriptionRepository;
     @Mock private BlobStoragePort blobStorage;
 
     @InjectMocks private VendorService vendorService;
@@ -283,6 +291,122 @@ class VendorServiceTest {
 
         assertThat(result.vendors()).hasSize(20);
         assertThat(result.total()).isEqualTo(VendorRepository.MAX_SEARCH_RESULTS);
+    }
+
+    // -------------------------------------------------------------------------
+    // Analytics gating: inquiry analytics are Pro-only (issue #371)
+    //
+    // Before this change /me/stats handed every vendor viewCount + inquiryCount, giving away the
+    // exact thing the Pro upgrade panel sells. getStats now returns only the lifetime view count
+    // plus an entitlement flag, and the inquiry analytics move to getAnalytics, which enforces the
+    // paywall server-side: a non-Pro vendor is denied (AnalyticsNotEntitledException -> 403) and
+    // never reads the inquiry counts, while a Pro (ACTIVE, paid or comped) vendor is allowed.
+    // -------------------------------------------------------------------------
+
+    @Test
+    void getAnalytics_deniesVendorWithNoSubscription() {
+        UUID vendorId = UUID.randomUUID();
+        when(vendorRepository.findById(vendorId)).thenReturn(Optional.of(vendorWithLogo(vendorId, null)));
+        when(subscriptionRepository.findByVendorId(vendorId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> vendorService.getAnalytics(vendorId))
+                .isInstanceOf(AnalyticsNotEntitledException.class);
+
+        // The paid data must never be read for a non-entitled caller.
+        verify(inquiryRepository, never()).countByVendorId(vendorId);
+        verify(inquiryRepository, never()).countUnreadByVendorId(vendorId);
+    }
+
+    @Test
+    void getAnalytics_deniesPastDueVendor() {
+        UUID vendorId = UUID.randomUUID();
+        when(vendorRepository.findById(vendorId)).thenReturn(Optional.of(vendorWithLogo(vendorId, null)));
+        // A lapsed (PAST_DUE) subscription is not entitled: the vendor stopped paying.
+        when(subscriptionRepository.findByVendorId(vendorId))
+                .thenReturn(Optional.of(subscription(vendorId, SubscriptionStatus.PAST_DUE, "sub_123")));
+
+        assertThatThrownBy(() -> vendorService.getAnalytics(vendorId))
+                .isInstanceOf(AnalyticsNotEntitledException.class);
+
+        verify(inquiryRepository, never()).countByVendorId(vendorId);
+    }
+
+    @Test
+    void getAnalytics_allowsPaidProVendorAndReturnsInquiryCounts() {
+        UUID vendorId = UUID.randomUUID();
+        when(vendorRepository.findById(vendorId))
+                .thenReturn(Optional.of(vendorWithViews(vendorId, 42)));
+        when(subscriptionRepository.findByVendorId(vendorId))
+                .thenReturn(Optional.of(subscription(vendorId, SubscriptionStatus.ACTIVE, "sub_123")));
+        when(inquiryRepository.countByVendorId(vendorId)).thenReturn(7L);
+        when(inquiryRepository.countUnreadByVendorId(vendorId)).thenReturn(3L);
+
+        VendorAnalyticsResponse analytics = vendorService.getAnalytics(vendorId);
+
+        assertThat(analytics.viewCount()).isEqualTo(42);
+        assertThat(analytics.inquiryCount()).isEqualTo(7L);
+        assertThat(analytics.unreadInquiryCount()).isEqualTo(3L);
+    }
+
+    @Test
+    void getAnalytics_allowsCompedVendorWithNoStripeSubscription() {
+        UUID vendorId = UUID.randomUUID();
+        when(vendorRepository.findById(vendorId))
+                .thenReturn(Optional.of(vendorWithViews(vendorId, 5)));
+        // Comped: ACTIVE subscription with no Stripe subscription id (granted by promo). Entitled.
+        when(subscriptionRepository.findByVendorId(vendorId))
+                .thenReturn(Optional.of(subscription(vendorId, SubscriptionStatus.ACTIVE, null)));
+        when(inquiryRepository.countByVendorId(vendorId)).thenReturn(2L);
+        when(inquiryRepository.countUnreadByVendorId(vendorId)).thenReturn(0L);
+
+        VendorAnalyticsResponse analytics = vendorService.getAnalytics(vendorId);
+
+        assertThat(analytics.inquiryCount()).isEqualTo(2L);
+        assertThat(analytics.unreadInquiryCount()).isEqualTo(0L);
+    }
+
+    @Test
+    void getStats_returnsLifetimeViewsAndEntitlementFlagWithoutInquiryData() {
+        UUID vendorId = UUID.randomUUID();
+        when(vendorRepository.findById(vendorId))
+                .thenReturn(Optional.of(vendorWithViews(vendorId, 13)));
+        // Non-Pro: no subscription row.
+        when(subscriptionRepository.findByVendorId(vendorId)).thenReturn(Optional.empty());
+
+        VendorStatsResponse stats = vendorService.getStats(vendorId);
+
+        assertThat(stats.viewCount()).isEqualTo(13);
+        assertThat(stats.proAnalytics()).isFalse();
+        // Free-tier stats must never touch the inquiry counts (issue #371).
+        verify(inquiryRepository, never()).countByVendorId(vendorId);
+        verify(inquiryRepository, never()).countUnreadByVendorId(vendorId);
+    }
+
+    @Test
+    void getStats_flagsProAnalyticsTrueForActiveSubscriber() {
+        UUID vendorId = UUID.randomUUID();
+        when(vendorRepository.findById(vendorId))
+                .thenReturn(Optional.of(vendorWithViews(vendorId, 0)));
+        when(subscriptionRepository.findByVendorId(vendorId))
+                .thenReturn(Optional.of(subscription(vendorId, SubscriptionStatus.ACTIVE, "sub_123")));
+
+        VendorStatsResponse stats = vendorService.getStats(vendorId);
+
+        assertThat(stats.proAnalytics()).isTrue();
+    }
+
+    private VendorSubscription subscription(UUID vendorId, SubscriptionStatus status, String stripeSubscriptionId) {
+        LocalDateTime now = LocalDateTime.now();
+        return new VendorSubscription(
+                UUID.randomUUID(), vendorId, PlanTier.FEATURED, status,
+                "cus_123", stripeSubscriptionId, now, now.plusMonths(1),
+                null, now, now, now);
+    }
+
+    private Vendor vendorWithViews(UUID id, int views) {
+        return new Vendor(id, "Biz", null, null, null, "v@example.com", "hash",
+                false, null, true, true, null, null, null, null, null,
+                null, views, null, LocalDateTime.now(), LocalDateTime.now());
     }
 
     private List<Vendor> namedVendors(int count) {
