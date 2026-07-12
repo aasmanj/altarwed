@@ -11,6 +11,7 @@ import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -70,6 +71,13 @@ public class ResendEmailAdapter implements EmailPort {
     // Resend's /emails/batch endpoint accepts up to 100 messages per call.
     private static final int MAX_BATCH_SIZE = 100;
 
+    // @Autowired marks this as THE constructor Spring must use to instantiate the bean. Adding
+    // the package-private test-seam constructor below gave the class two constructors; with no
+    // explicit injection point Spring cannot choose one (it does not treat @Value params as a
+    // tiebreaker) and falls back to a non-existent no-arg constructor, which is the
+    // NoSuchMethodException / UnsatisfiedDependencyException the full-context schema-validate job
+    // hit. Pinning the injection point here keeps the seam invisible to the container.
+    @Autowired
     public ResendEmailAdapter(
             @Value("${altarwed.resend.api-key}") String apiKey,
             @Value("${altarwed.resend.from-email}") String fromEmail,
