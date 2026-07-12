@@ -50,10 +50,13 @@ Authenticated SPA for couples and vendors. SEO does not matter here — everythi
   free). Backend is webhook-verified and idempotent.
 
 ## What's Next
-- Reliability/security hardening backlog (GitHub issues #89-#118 from the 2026-06-29 audit)
-  before the marketing push. Frontend P0/P1s: #90 (page-builder blocks must render on the live
-  public site), #92 (album upload error handling), #93 (unify upload size limit + error
-  surfacing), #94 (share moment on publish).
+- The 2026-06-29 hardening backlog (issues #89-#118) is largely cleared: the frontend P0/P1s
+  from it are all merged -- #90 (page-builder blocks render on the live public site), #92 (album
+  upload error handling), #93 (unified upload size limit + 413 surfacing), #94 (share moment on
+  publish), plus the silent-mutation sweep (#222) and Meta Pixel CompleteRegistration (#221).
+- Remaining frontend work is the open feature PRs awaiting review/merge (website design panel,
+  fonts, seating/print polish) and the pre-launch env-key wiring (#247: Turnstile/PostHog/Meta
+  Pixel keys) before the marketing push.
 
 ## Key Conventions
 - Date parsing: use `formatWeddingDate` / `daysUntilDate` from `src/lib/date.ts` — never
