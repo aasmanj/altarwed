@@ -808,8 +808,12 @@ export default function SideBySideEditor() {
               updateWebsite.mutate({ scriptureBackgroundColor: color }, { onSuccess: bumpPreview })
             }}
             onNameFontSave={(font) => {
-              updateWebsite.mutate({ nameFont: font }, { onSuccess: bumpPreview })
+              // No bumpPreview: the live postMessage below updates the preview hero
+              // instantly (same pattern as the tagline color), so the couple sees the
+              // font in the side-by-side preview without a full iframe reload.
+              updateWebsite.mutate({ nameFont: font })
             }}
+            onNameFontLive={(font) => sendPreviewUpdate('nameFont', font)}
           />
           <input
             ref={heroInputRef}
@@ -1142,6 +1146,7 @@ function HeroSettings({
   onTaglineColorLive,
   onScriptureBgColorSave,
   onNameFontSave,
+  onNameFontLive,
 }: {
   website: {
     heroPhotoUrl?: string | null
@@ -1173,6 +1178,7 @@ function HeroSettings({
   onTaglineColorLive: (color: string) => void
   onScriptureBgColorSave: (color: string) => void
   onNameFontSave: (font: string | null) => void
+  onNameFontLive: (font: string) => void
 }) {
   const DEFAULT_TAGLINE = 'Together in covenant'
   const [expanded, setExpanded] = useState(false)
@@ -1372,6 +1378,7 @@ function HeroSettings({
               onChange={e => {
                 const v = e.target.value
                 setNameFont(v)
+                onNameFontLive(v)   // instant preview update (postMessage to the iframe)
                 // Always send the literal key (incl. "playfair"). Sending null for the default
                 // would hit the backend patch-merge's "null = no change" branch, so a couple
                 // could never switch BACK to Playfair once they picked another font.

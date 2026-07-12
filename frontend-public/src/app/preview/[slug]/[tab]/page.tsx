@@ -178,6 +178,7 @@ export default async function PreviewPage({
         <HeroLive
           initialTagline={wedding.heroTagline}
           initialTaglineColor={wedding.heroTaglineColor}
+          initialNameFont={wedding.nameFont}
           partnerOneName={wedding.partnerOneName}
           partnerTwoName={wedding.partnerTwoName}
         >

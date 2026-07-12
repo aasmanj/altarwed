@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { safeColor } from '@/lib/safeColor'
+import { safeNameFont, safeNameFontWeight } from '@/lib/safeFont'
 
 // Origins allowed to send live-preview messages. The dashboard editor lives at
 // app.altarwed.com in prod and on localhost during dev. Any postMessage from a
@@ -16,6 +17,9 @@ const EDITOR_ORIGINS = [
 interface Props {
   initialTagline: string | null
   initialTaglineColor: string | null
+  // Couple-chosen font KEY for the names (e.g. "cinzel"); mapped through safeNameFont.
+  // null = default serif. Live-updated over postMessage like the tagline/names below.
+  initialNameFont: string | null
   partnerOneName: string
   partnerTwoName: string
   // Wedding date + countdown blocks live under the names; pass them as children
@@ -33,9 +37,10 @@ interface Props {
 //   - empty string  → render NOTHING (user intentionally cleared)
 //   - null          → render the default "Together in covenant"
 //   - any text      → render it as-is
-export default function HeroLive({ initialTagline, initialTaglineColor, partnerOneName, partnerTwoName, children }: Props) {
+export default function HeroLive({ initialTagline, initialTaglineColor, initialNameFont, partnerOneName, partnerTwoName, children }: Props) {
   const [tagline, setTagline] = useState<string | null>(initialTagline)
   const [taglineColor, setTaglineColor] = useState<string | null>(initialTaglineColor)
+  const [nameFont, setNameFont] = useState<string | null>(initialNameFont)
   const [names, setNames] = useState({ one: partnerOneName, two: partnerTwoName })
 
   useEffect(() => {
@@ -48,6 +53,10 @@ export default function HeroLive({ initialTagline, initialTaglineColor, partnerO
         setTagline(typeof data.value === 'string' ? data.value : null)
       } else if (data.field === 'heroTaglineColor') {
         setTaglineColor(typeof data.value === 'string' ? data.value : null)
+      } else if (data.field === 'nameFont') {
+        // The couple picked a font in the editor; reflect it instantly (safeNameFont
+        // maps the key to a font-family, so an unknown value falls back to the serif).
+        setNameFont(typeof data.value === 'string' ? data.value : null)
       } else if (data.field === 'partnerOneName') {
         setNames(n => ({ ...n, one: String(data.value ?? '') }))
       } else if (data.field === 'partnerTwoName') {
@@ -57,6 +66,10 @@ export default function HeroLive({ initialTagline, initialTaglineColor, partnerO
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
   }, [])
+
+  // Same font-family + weight mapping the live public hero uses, so the preview is
+  // true to life. The ampersand takes only the family (its size/weight are fixed).
+  const nameStyle = { fontFamily: safeNameFont(nameFont), fontWeight: safeNameFontWeight(nameFont) }
 
   // Structure mirrors the production hero in frontend-public/src/app/wedding/
   // [slug]/layout.tsx (stacked names with a gold ampersand rule). Font sizes
@@ -73,15 +86,15 @@ export default function HeroLive({ initialTagline, initialTaglineColor, partnerO
           {tagline ?? 'Together in covenant'}
         </p>
       )}
-      <h1 className="font-serif text-3xl sm:text-5xl md:text-6xl font-bold text-white leading-tight break-words text-balance">
+      <h1 className="font-serif text-3xl sm:text-5xl md:text-6xl font-bold text-white leading-tight break-words text-balance" style={nameStyle}>
         {names.two}
       </h1>
       <div className="my-3 flex items-center justify-center gap-3">
         <div className="h-px w-12 bg-[#d4af6a]/60" />
-        <span className="font-serif text-xl text-[#d4af6a]" aria-hidden="true">&amp;</span>
+        <span className="font-serif text-xl text-[#d4af6a]" style={{ fontFamily: nameStyle.fontFamily }} aria-hidden="true">&amp;</span>
         <div className="h-px w-12 bg-[#d4af6a]/60" />
       </div>
-      <p className="font-serif text-3xl sm:text-5xl md:text-6xl font-bold text-white leading-tight break-words text-balance">
+      <p className="font-serif text-3xl sm:text-5xl md:text-6xl font-bold text-white leading-tight break-words text-balance" style={nameStyle}>
         {names.one}
       </p>
       {children}
