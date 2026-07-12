@@ -83,7 +83,16 @@ export default function BlockRenderer({ block, wedding, partyMembers = [], photo
     case 'DIVIDER':
       return <DividerBlock />
     case 'VENUE_CARD':
-      return <VenueCardBlock wedding={wedding} preview={preview} />
+      // venueSlot in the block's contentJson selects which venue this card renders:
+      // "RECEPTION" pulls the reception_* fields, anything else (incl. legacy blocks
+      // with an empty {}) defaults to the ceremony venue.
+      return (
+        <VenueCardBlock
+          wedding={wedding}
+          preview={preview}
+          slot={str(content.venueSlot) === 'RECEPTION' ? 'RECEPTION' : 'CEREMONY'}
+        />
+      )
     case 'HOTEL_CARD':
       return <HotelCardBlock wedding={wedding} preview={preview} />
     case 'REGISTRY_CARD': {
@@ -223,14 +232,34 @@ function EmptyCardPlaceholder({ icon: Icon, title, hint }: { icon: LucideIcon; t
   )
 }
 
-function VenueCardBlock({ wedding, preview = false }: { wedding: WeddingWebsite; preview?: boolean }) {
-  const { venueName, venueAddress, venueCity, venueState, ceremonyTime, weddingDate, dressCode, venuePhotoUrl, venueAdditionalInfo } = wedding
+function VenueCardBlock({ wedding, preview = false, slot = 'CEREMONY' }: { wedding: WeddingWebsite; preview?: boolean; slot?: 'CEREMONY' | 'RECEPTION' }) {
+  const isReception = slot === 'RECEPTION'
+  // Pick the ceremony or reception scalar set. Reception has no photo or dress code
+  // (those belong to the ceremony venue / the couple overall); its photo is deferred.
+  const venueName = isReception ? wedding.receptionVenueName : wedding.venueName
+  const venueAddress = isReception ? wedding.receptionVenueAddress : wedding.venueAddress
+  const venueCity = isReception ? wedding.receptionVenueCity : wedding.venueCity
+  const venueState = isReception ? wedding.receptionVenueState : wedding.venueState
+  const time = isReception ? wedding.receptionTime : wedding.ceremonyTime
+  const additionalInfo = isReception ? wedding.receptionVenueAdditionalInfo : wedding.venueAdditionalInfo
+  const venuePhotoUrl = isReception ? null : wedding.venuePhotoUrl
+  const dressCode = isReception ? null : wedding.dressCode
+  // Card header. Reception always labels ("Reception" default). Ceremony labels only when
+  // a reception venue also exists (so the pair reads symmetrically, matching the details
+  // page); a lone ceremony venue stays unlabeled. Custom titles always win.
+  const title = isReception
+    ? (wedding.receptionVenueTitle || 'Reception')
+    : (wedding.ceremonyVenueTitle || (wedding.receptionVenueName ? 'Ceremony' : null))
+  const { weddingDate } = wedding
+
   if (!venueName) {
     return preview ? (
       <EmptyCardPlaceholder
         icon={MapPin}
-        title="Venue card"
-        hint="Add your venue name, address, time, and dress code in the Event Details tab to fill this in."
+        title={isReception ? 'Reception venue card' : 'Venue card'}
+        hint={isReception
+          ? 'Add your reception venue name, address, and time in the Event Details tab to fill this in.'
+          : 'Add your venue name, address, time, and dress code in the Event Details tab to fill this in.'}
       />
     ) : null
   }
@@ -246,6 +275,9 @@ function VenueCardBlock({ wedding, preview = false }: { wedding: WeddingWebsite;
         />
       )}
       <div className="p-6 space-y-3">
+        {title && (
+          <p className="text-xs uppercase tracking-[0.2em] text-[#8a6a4a]">{title}</p>
+        )}
         <div className="flex items-start gap-3">
           <MapPin className="w-5 h-5 text-[#d4af6a] shrink-0 mt-0.5" strokeWidth={1.5} />
           <div>
@@ -253,21 +285,21 @@ function VenueCardBlock({ wedding, preview = false }: { wedding: WeddingWebsite;
             {address && <p className="text-sm text-[#6b5344] mt-0.5">{address}</p>}
           </div>
         </div>
-        {(weddingDate || ceremonyTime) && (
+        {(weddingDate || time) && (
           <div className="flex items-start gap-3">
             <Calendar className="w-5 h-5 text-[#d4af6a] shrink-0 mt-0.5" strokeWidth={1.5} />
             <div>
               {weddingDate && <p className="text-sm text-[#3b2f2f] font-medium">{formatWeddingDate(weddingDate)}</p>}
-              {ceremonyTime && <p className="text-xs text-[#8a6a4a]">{ceremonyTime}</p>}
+              {time && <p className="text-xs text-[#8a6a4a]">{time}</p>}
             </div>
           </div>
         )}
         {dressCode && (
           <p className="text-xs text-[#8a6a4a] pl-8">Dress code: <span className="font-medium text-[#6b5344]">{dressCode}</span></p>
         )}
-        {venueAdditionalInfo && (
+        {additionalInfo && (
           <div className="border-t border-[#e8dcc8] pt-3 mt-1">
-            <p className="text-sm text-[#6b5344] leading-relaxed whitespace-pre-line">{venueAdditionalInfo}</p>
+            <p className="text-sm text-[#6b5344] leading-relaxed whitespace-pre-line">{additionalInfo}</p>
           </div>
         )}
       </div>

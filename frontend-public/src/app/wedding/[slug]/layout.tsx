@@ -7,7 +7,17 @@ import { parseTabCustomisation, hasWeddingPartyMembers, hasWeddingPhotos, getAll
 import { getWedding } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
 import { safeColor } from '@/lib/safeColor'
+import { safeNameFont, safeNameFontWeight } from '@/lib/safeFont'
 import { accentColorTokens } from '@/lib/accentColorTokens'
+
+// NOTE: intentionally NO generateStaticParams here. Pre-rendering the published catalog
+// at build was considered as a 504 mitigation but rejected: the per-slug prerender calls
+// getWedding(), which THROWS on any backend 5xx/timeout, so a backend hiccup mid-build
+// would fail the whole deploy (or bake a degraded page into the cache), and fanning out
+// ~7 fetches x N tabs x hundreds of slugs against the single backend instance can trigger
+// the very restart it aimed to render around. The 504 is instead handled at request time
+// by the AbortSignal timeouts in data.ts (graceful error page / stale ISR) plus backend
+// graceful shutdown. Wedding pages stay on-demand ISR (revalidate 60).
 
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
@@ -154,10 +164,15 @@ export default async function WeddingLayout({
   const accentTokens = accentColorTokens(accentColor)
   const heroTaglineColor = safeColor(wedding.heroTaglineColor, 'rgba(255,255,255,0.7)')
   const scriptureBackgroundColor = safeColor(wedding.scriptureBackgroundColor, undefined)
+  // Couple-chosen font for the hero names. safeNameFont maps the stored key to an
+  // allowlisted font-family stack (never the raw value) and defaults to the serif;
+  // the paired weight avoids faux-bold on single-weight script faces.
+  const nameFont = safeNameFont(wedding.nameFont)
+  const nameFontWeight = safeNameFontWeight(wedding.nameFont)
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
-      <style>{`:root { --accent: ${accentColor}; --accent-on-dark: ${accentTokens.onDark}; --accent-on-light: ${accentTokens.onLight}; --on-accent: ${accentTokens.onAccent}; }`}</style>
+      <style>{`:root { --accent: ${accentColor}; --accent-on-dark: ${accentTokens.onDark}; --accent-on-light: ${accentTokens.onLight}; --on-accent: ${accentTokens.onAccent}; --name-font: ${nameFont}; --name-font-weight: ${nameFontWeight}; }`}</style>
 
       {eventJsonLd && (
         <script
@@ -201,15 +216,27 @@ export default async function WeddingLayout({
               {wedding.heroTagline ?? 'Together in covenant'}
             </p>
           )}
-          <h1 className="font-serif text-4xl sm:text-6xl md:text-7xl font-bold text-white leading-tight break-words text-balance">
+          <h1
+            className="font-serif text-4xl sm:text-6xl md:text-7xl font-bold text-white leading-tight break-words text-balance"
+            style={{ fontFamily: 'var(--name-font)', fontWeight: 'var(--name-font-weight)' }}
+          >
             {wedding.partnerTwoName}
           </h1>
           <div className="my-4 flex items-center justify-center gap-4">
             <div className="h-px w-16 bg-[color-mix(in_srgb,var(--accent)_60%,transparent)]" />
-            <span className="font-serif text-2xl text-[var(--accent-on-dark)]" aria-hidden="true">&amp;</span>
+            <span
+              className="font-serif text-2xl text-[var(--accent-on-dark)]"
+              style={{ fontFamily: 'var(--name-font)' }}
+              aria-hidden="true"
+            >
+              &amp;
+            </span>
             <div className="h-px w-16 bg-[color-mix(in_srgb,var(--accent)_60%,transparent)]" />
           </div>
-          <p className="font-serif text-4xl sm:text-6xl md:text-7xl font-bold text-white leading-tight break-words text-balance">
+          <p
+            className="font-serif text-4xl sm:text-6xl md:text-7xl font-bold text-white leading-tight break-words text-balance"
+            style={{ fontFamily: 'var(--name-font)', fontWeight: 'var(--name-font-weight)' }}
+          >
             {wedding.partnerOneName}
           </p>
           {wedding.weddingDate && (

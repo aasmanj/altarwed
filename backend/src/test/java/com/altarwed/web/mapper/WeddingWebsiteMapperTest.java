@@ -43,6 +43,9 @@ class WeddingWebsiteMapperTest {
                 "REGISTRY", "{}",
                 "#d4af6a", "#1a1a2e",
                 "https://cdn/std.jpg",
+                "The Grand Hall", "500 River Rd", "Round Rock", "TX", "6:00 PM", "Dinner and dancing to follow",
+                "The Ceremony", "The Reception",
+                "cormorant",
                 false, null,
                 LocalDateTime.of(2026, 1, 1, 0, 0), LocalDateTime.of(2026, 1, 2, 0, 0)
         );
@@ -95,6 +98,17 @@ class WeddingWebsiteMapperTest {
         assertThat(response.weddingDate()).isEqualTo(w.weddingDate());
         assertThat(response.venueName()).isEqualTo(w.venueName());
         assertThat(response.registryUrl1()).isEqualTo(w.registryUrl1());
+        // V90/V91: reception venue + titles + name font must survive the public mapping too.
+        // (Guards a transposition in toPublicResponse, which is not reflection-checked.)
+        assertThat(response.receptionVenueName()).isEqualTo(w.receptionVenueName());
+        assertThat(response.receptionVenueAddress()).isEqualTo(w.receptionVenueAddress());
+        assertThat(response.receptionVenueCity()).isEqualTo(w.receptionVenueCity());
+        assertThat(response.receptionVenueState()).isEqualTo(w.receptionVenueState());
+        assertThat(response.receptionTime()).isEqualTo(w.receptionTime());
+        assertThat(response.receptionVenueAdditionalInfo()).isEqualTo(w.receptionVenueAdditionalInfo());
+        assertThat(response.ceremonyVenueTitle()).isEqualTo(w.ceremonyVenueTitle());
+        assertThat(response.receptionVenueTitle()).isEqualTo(w.receptionVenueTitle());
+        assertThat(response.nameFont()).isEqualTo(w.nameFont());
         assertThat(response.createdAt()).isEqualTo(w.createdAt());
         assertThat(response.updatedAt()).isEqualTo(w.updatedAt());
     }

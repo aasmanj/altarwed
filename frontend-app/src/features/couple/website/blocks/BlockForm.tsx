@@ -340,8 +340,19 @@ function FieldsFor({
       return (
         <>
           <BlockHint>
-            Displays your ceremony venue, address, time, and dress code.
+            Displays a venue with its address and time. Choose which one this card shows,
+            then edit the details in the Event Details tab.
           </BlockHint>
+          <Field label="Which venue to show">
+            <select
+              value={str('venueSlot') || 'CEREMONY'}
+              onChange={e => onChange('venueSlot', e.target.value)}
+              className={inputClass}
+            >
+              <option value="CEREMONY">Ceremony venue</option>
+              <option value="RECEPTION">Reception venue</option>
+            </select>
+          </Field>
           <SectionEditButton section="details" fallbackTab="details">Edit venue details</SectionEditButton>
         </>
       )

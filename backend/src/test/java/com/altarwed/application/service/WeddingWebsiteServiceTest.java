@@ -172,6 +172,18 @@ class WeddingWebsiteServiceTest {
                 .isInstanceOf(WeddingWebsiteNotFoundException.class);
     }
 
+    @Test
+    void blankToNull_clearableMerge_appliesValue_clearsBlank_keepsExistingOnNull() {
+        // The clearable-field merge used for the reception venue + card titles (V90). Bug guard:
+        // a blank must clear (null out) so a couple can REMOVE a reception venue they changed,
+        // while a null request value leaves the existing value untouched (patch semantics).
+        assertThat(WeddingWebsiteService.blankToNull(null, "existing")).isEqualTo("existing"); // omitted -> no change
+        assertThat(WeddingWebsiteService.blankToNull("", "existing")).isNull();                // cleared
+        assertThat(WeddingWebsiteService.blankToNull("   ", "existing")).isNull();             // whitespace -> cleared
+        assertThat(WeddingWebsiteService.blankToNull("The Grand Hall", "existing")).isEqualTo("The Grand Hall"); // applied
+        assertThat(WeddingWebsiteService.blankToNull("New", null)).isEqualTo("New");           // applied over null existing
+    }
+
     private WeddingWebsite websiteWithFlags(boolean published, boolean deleted) {
         return new WeddingWebsite(
                 UUID.randomUUID(), UUID.randomUUID(), "some-slug", published,
@@ -185,6 +197,7 @@ class WeddingWebsiteServiceTest {
                 null, null, null, null,
                 null, null, null, null,
                 null,
+                null, null, null, null, null, null, null, null, null,  // reception venue + titles (V90), nameFont (V91)
                 deleted, null, null, null
         );
     }
@@ -215,6 +228,7 @@ class WeddingWebsiteServiceTest {
                 null, null, null, null,
                 null, null, null, null,
                 null,
+                null, null, null, null, null, null, null, null, null,  // reception venue + titles (V90), nameFont (V91)
                 false, null, null, null
         );
     }

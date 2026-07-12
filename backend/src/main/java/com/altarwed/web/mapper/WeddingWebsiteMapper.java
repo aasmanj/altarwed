@@ -37,6 +37,9 @@ public class WeddingWebsiteMapper {
                 w.hiddenTabs(), w.customTabLabels(),
                 w.accentColor(), w.scriptureBackgroundColor(),
                 w.stdImageUrl(),
+                w.receptionVenueName(), w.receptionVenueAddress(), w.receptionVenueCity(), w.receptionVenueState(),
+                w.receptionTime(), w.receptionVenueAdditionalInfo(), w.ceremonyVenueTitle(), w.receptionVenueTitle(),
+                w.nameFont(),
                 w.createdAt(), w.updatedAt()
         );
     }

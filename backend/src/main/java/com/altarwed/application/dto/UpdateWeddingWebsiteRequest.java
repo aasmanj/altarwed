@@ -77,5 +77,21 @@ public record UpdateWeddingWebsiteRequest(
         @Pattern(regexp = "^#[0-9a-fA-F]{3,8}$") @Size(max = 20) String accentColor,
 
         // V62: CSS hex color string for the scripture banner background. null = no change; empty string = clear (use default gradient).
-        @Pattern(regexp = "^(#[0-9a-fA-F]{3,8})?$") @Size(max = 20) String scriptureBackgroundColor
+        @Pattern(regexp = "^(#[0-9a-fA-F]{3,8})?$") @Size(max = 20) String scriptureBackgroundColor,
+
+        // V90: reception venue (the venue* fields above are the ceremony venue). Sizes match the columns.
+        @Size(max = 200)  String receptionVenueName,
+        @Size(max = 300)  String receptionVenueAddress,
+        @Size(max = 100)  String receptionVenueCity,
+        @Size(max = 50)   String receptionVenueState,
+        @Size(max = 50)   String receptionTime,
+        @Size(max = 10000) String receptionVenueAdditionalInfo,
+        // V90: optional custom headers for the two venue cards. null = no change.
+        @Size(max = 100)  String ceremonyVenueTitle,
+        @Size(max = 100)  String receptionVenueTitle,
+
+        // V91: allowlisted font key for the couple's names on the public hero. null = no change.
+        // Validated against the exact keys safeFont() knows on the frontend; anything else is rejected
+        // so a raw font-family can never reach the public <style> sink.
+        @Pattern(regexp = "^(playfair|cormorant|greatvibes|montserrat|lora)$") @Size(max = 40) String nameFont
 ) {}

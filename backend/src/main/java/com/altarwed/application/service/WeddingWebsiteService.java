@@ -6,6 +6,7 @@ import com.altarwed.application.dto.WeddingPageBlockResponse;
 import com.altarwed.application.dto.WeddingWebsiteExport;
 import com.altarwed.application.dto.WeddingWebsiteResponse;
 import com.altarwed.application.dto.WeddingWebsiteSearchResultResponse;
+import com.altarwed.application.mapper.WeddingWebsiteResponseMapper;
 import com.altarwed.domain.exception.SlugAlreadyTakenException;
 import com.altarwed.domain.exception.WeddingWebsiteAlreadyExistsException;
 import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
@@ -54,6 +55,16 @@ public class WeddingWebsiteService {
                 .sorted()
                 .collect(Collectors.joining(","));
         return cleaned;
+    }
+
+    // Patch-merge for a CLEARABLE optional string field. null request value = field omitted,
+    // keep the existing value; blank ("" / whitespace) = the couple cleared it, store null;
+    // any other value = apply it. Mirrors the scriptureBackgroundColor merge inline above.
+    // Package-private (not private) so WeddingWebsiteServiceTest can exercise this merge rule
+    // directly without constructing the 40+-field UpdateWeddingWebsiteRequest positionally.
+    static String blankToNull(String requested, String existing) {
+        if (requested == null) return existing;
+        return requested.isBlank() ? null : requested;
     }
 
     private final WeddingWebsiteRepository websiteRepository;
@@ -111,6 +122,9 @@ public class WeddingWebsiteService {
                 null,                          // accentColor (V59)
                 null,                          // scriptureBackgroundColor (V62)
                 null,                          // stdImageUrl (V65)
+                null, null, null, null, null, null,  // reception venue name/address/city/state/time/info (V90)
+                null, null,                    // ceremony + reception venue titles (V90)
+                null,                          // nameFont (V91)
                 false, null,
                 LocalDateTime.now(), LocalDateTime.now()
         );
@@ -160,23 +174,11 @@ public class WeddingWebsiteService {
         }
     }
 
-    // Domain -> export DTO mappers. Kept private/static here (not the web WeddingWebsiteMapper)
-    // so the application layer builds its own export payload without depending on the web layer.
+    // Domain -> export DTO mapping. Delegates to the single canonical mapper (issue #336)
+    // so the export payload and the website-detail endpoint share one source of truth and a
+    // new WeddingWebsite field can never be silently dropped from one but not the other.
     private static WeddingWebsiteResponse toWebsiteResponse(WeddingWebsite w) {
-        return new WeddingWebsiteResponse(
-                w.id(), w.coupleId(), w.slug(), w.isPublished(),
-                w.partnerOneName(), w.partnerTwoName(), w.weddingDate(), w.engagementDate(),
-                w.heroPhotoUrl(), w.heroTagline(), w.heroFocalPointX(), w.heroFocalPointY(), w.heroTaglineColor(),
-                w.ourStory(), w.scriptureReference(), w.scriptureText(), w.scriptureTranslation(),
-                w.venueName(), w.venueAddress(), w.venueCity(), w.venueState(), w.ceremonyTime(), w.dressCode(),
-                w.venuePhotoUrl(), w.venueAdditionalInfo(),
-                w.hotelName(), w.hotelUrl(), w.hotelDetails(),
-                w.registryUrl1(), w.registryLabel1(), w.registryUrl2(), w.registryLabel2(),
-                w.registryUrl3(), w.registryLabel3(),
-                w.rsvpDeadline(), w.partnerOneVows(), w.partnerTwoVows(), w.goalBudget(),
-                w.hiddenTabs(), w.customTabLabels(), w.accentColor(), w.scriptureBackgroundColor(),
-                w.stdImageUrl(), w.createdAt(), w.updatedAt()
-        );
+        return WeddingWebsiteResponseMapper.toResponse(w);
     }
 
     private static WeddingPageBlockResponse toBlockResponse(WeddingPageBlock b) {
@@ -336,6 +338,22 @@ public class WeddingWebsiteService {
 
                 existing.stdImageUrl(),
 
+                // Reception venue + titles are CLEARABLE: the editor sends "" to remove a
+                // venue the couple changed, so a blank means "clear to null" (hide the card),
+                // while null still means "field omitted, no change". Same blank-as-null sentinel
+                // as scriptureBackgroundColor above. Without this a couple could never remove a
+                // stale reception venue once set.
+                blankToNull(req.receptionVenueName(),           existing.receptionVenueName()),
+                blankToNull(req.receptionVenueAddress(),        existing.receptionVenueAddress()),
+                blankToNull(req.receptionVenueCity(),           existing.receptionVenueCity()),
+                blankToNull(req.receptionVenueState(),          existing.receptionVenueState()),
+                blankToNull(req.receptionTime(),                existing.receptionTime()),
+                blankToNull(req.receptionVenueAdditionalInfo(), existing.receptionVenueAdditionalInfo()),
+                blankToNull(req.ceremonyVenueTitle(),           existing.ceremonyVenueTitle()),
+                blankToNull(req.receptionVenueTitle(),          existing.receptionVenueTitle()),
+
+                req.nameFont()                     != null ? req.nameFont()                     : existing.nameFont(),
+
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(),
                 LocalDateTime.now()
@@ -370,6 +388,9 @@ public class WeddingWebsiteService {
                 existing.hiddenTabs(), existing.customTabLabels(),
                 existing.accentColor(), existing.scriptureBackgroundColor(),
                 existing.stdImageUrl(),
+                existing.receptionVenueName(), existing.receptionVenueAddress(), existing.receptionVenueCity(), existing.receptionVenueState(),
+                existing.receptionTime(), existing.receptionVenueAdditionalInfo(), existing.ceremonyVenueTitle(), existing.receptionVenueTitle(),
+                existing.nameFont(),
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );
@@ -403,6 +424,9 @@ public class WeddingWebsiteService {
                 existing.hiddenTabs(), existing.customTabLabels(),
                 existing.accentColor(), existing.scriptureBackgroundColor(),
                 existing.stdImageUrl(),
+                existing.receptionVenueName(), existing.receptionVenueAddress(), existing.receptionVenueCity(), existing.receptionVenueState(),
+                existing.receptionTime(), existing.receptionVenueAdditionalInfo(), existing.ceremonyVenueTitle(), existing.receptionVenueTitle(),
+                existing.nameFont(),
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );
@@ -437,6 +461,9 @@ public class WeddingWebsiteService {
                 existing.hiddenTabs(), existing.customTabLabels(),
                 existing.accentColor(), existing.scriptureBackgroundColor(),
                 imageUrl,
+                existing.receptionVenueName(), existing.receptionVenueAddress(), existing.receptionVenueCity(), existing.receptionVenueState(),
+                existing.receptionTime(), existing.receptionVenueAdditionalInfo(), existing.ceremonyVenueTitle(), existing.receptionVenueTitle(),
+                existing.nameFont(),
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );

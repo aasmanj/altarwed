@@ -15,6 +15,7 @@ import { type WeddingPartyMember, type WeddingPhoto } from '@/components/blocks/
 import { getWedding, getBlocks, type BlockTab, parseTabCustomisation } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
 import { safeColor } from '@/lib/safeColor'
+import { safeNameFont, safeNameFontWeight } from '@/lib/safeFont'
 import HeroLive from './HeroLive'
 import BlockListLive from './BlockListLive'
 import TabSwitchListener from './TabSwitchListener'
@@ -102,10 +103,13 @@ export default async function PreviewPage({
 
   const accentColor = safeColor(wedding.accentColor, '#d4af6a')
   const scriptureBackgroundColor = safeColor(wedding.scriptureBackgroundColor, undefined)
+  // Mirror the live layout's font vars so the dashboard preview reflects the chosen font.
+  const nameFont = safeNameFont(wedding.nameFont)
+  const nameFontWeight = safeNameFontWeight(wedding.nameFont)
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
-      <style>{`:root { --accent: ${accentColor}; }`}</style>
+      <style>{`:root { --accent: ${accentColor}; --name-font: ${nameFont}; --name-font-weight: ${nameFontWeight}; }`}</style>
 
       {/* Handles the editor's tab-switch postMessage with a client-side (RSC)
           navigation instead of the iframe reload this route used to require

@@ -70,6 +70,15 @@ function bareWedding(overrides: Partial<WeddingWebsite> = {}): WeddingWebsite {
     customTabLabels: null,
     accentColor: null,
     scriptureBackgroundColor: null,
+    receptionVenueName: null,
+    receptionVenueAddress: null,
+    receptionVenueCity: null,
+    receptionVenueState: null,
+    receptionTime: null,
+    receptionVenueAdditionalInfo: null,
+    ceremonyVenueTitle: null,
+    receptionVenueTitle: null,
+    nameFont: null,
     ...overrides,
   }
 }

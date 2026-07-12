@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter, Playfair_Display } from 'next/font/google'
+import { Inter, Playfair_Display, Cormorant_Garamond, Great_Vibes, Montserrat, Lora } from 'next/font/google'
 import './globals.css'
 import FacebookPixel from '@/components/FacebookPixel'
 import CookieConsentBanner from '@/components/CookieConsentBanner'
@@ -13,6 +13,38 @@ const inter = Inter({
 const playfair = Playfair_Display({
   subsets: ['latin'],
   variable: '--font-playfair',
+  display: 'swap',
+})
+
+// Couple-selectable display fonts for the wedding-hero names (the `nameFont` feature).
+// Declared on the root <html> so their CSS variables exist site-wide, but next/font
+// only makes the browser DOWNLOAD each family when an element actually references its
+// font-family, so non-wedding pages (homepage, blog, vendors) pay nothing for these.
+// The keys here are the source of truth mirrored by safeNameFont() and the backend
+// @Pattern on UpdateWeddingWebsiteRequest.nameFont.
+const cormorant = Cormorant_Garamond({
+  subsets: ['latin'],
+  weight: ['400', '600', '700'],
+  variable: '--font-cormorant',
+  display: 'swap',
+})
+
+const greatVibes = Great_Vibes({
+  subsets: ['latin'],
+  weight: '400',
+  variable: '--font-great-vibes',
+  display: 'swap',
+})
+
+const montserrat = Montserrat({
+  subsets: ['latin'],
+  variable: '--font-montserrat',
+  display: 'swap',
+})
+
+const lora = Lora({
+  subsets: ['latin'],
+  variable: '--font-lora',
   display: 'swap',
 })
 
@@ -85,7 +117,10 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
+    <html
+      lang="en"
+      className={`${inter.variable} ${playfair.variable} ${cormorant.variable} ${greatVibes.variable} ${montserrat.variable} ${lora.variable}`}
+    >
       <body>
         <script
           type="application/ld+json"

@@ -1,9 +1,22 @@
 server:
   port: 8080
+  # Drain in-flight requests on SIGTERM instead of dropping them. Ungraceful restarts
+  # were tearing the container down mid-request, spraying NoClassDefFoundError across
+  # Tomcat/Spring/JDBC and 504-ing the public wedding site during each ~30s boot window.
+  # Graceful shutdown only engages on a clean SIGTERM (deploy, scale-in), NOT a SIGKILL
+  # /OOM-kill. The platform must wait for the drain: WEBSITES_CONTAINER_STOP_TIME_LIMIT
+  # in app-service.bicep is set above timeout-per-shutdown-phase below.
+  shutdown: graceful
 
 spring:
   application:
     name: altarwed-backend
+
+  lifecycle:
+    # Max time to let in-flight requests finish before the context forces shutdown.
+    # Kept under the platform's container stop grace period so Spring drains first and
+    # the platform does not SIGKILL mid-drain.
+    timeout-per-shutdown-phase: 20s
 
   servlet:
     multipart:

@@ -140,6 +140,15 @@ function DetailsSection({ website, coupleId, onSaved }: { website: WeddingWebsit
     engagementDate: website.engagementDate ?? '',
     rsvpDeadline: website.rsvpDeadline ?? '',
     venueAdditionalInfo: website.venueAdditionalInfo ?? '',
+    // V90: optional custom card titles + a genuinely separate reception venue.
+    ceremonyVenueTitle: website.ceremonyVenueTitle ?? '',
+    receptionVenueTitle: website.receptionVenueTitle ?? '',
+    receptionVenueName: website.receptionVenueName ?? '',
+    receptionVenueAddress: website.receptionVenueAddress ?? '',
+    receptionVenueCity: website.receptionVenueCity ?? '',
+    receptionVenueState: website.receptionVenueState ?? '',
+    receptionTime: website.receptionTime ?? '',
+    receptionVenueAdditionalInfo: website.receptionVenueAdditionalInfo ?? '',
   })
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(prev => ({ ...prev, [k]: e.target.value }))
@@ -183,6 +192,10 @@ function DetailsSection({ website, coupleId, onSaved }: { website: WeddingWebsit
       engagementDate: form.engagementDate || null,
       rsvpDeadline: form.rsvpDeadline || null,
       venueAdditionalInfo: form.venueAdditionalInfo || null,
+      // Reception venue + titles are sent RAW (blank "" included, via ...form above),
+      // not coerced to null here: the backend treats a blank as "clear this field" so a
+      // couple can actually remove a reception venue they changed. Coercing to null here
+      // would make the backend's patch-merge skip it and the stale venue would persist.
     } as Parameters<typeof update.mutateAsync>[0])
     onSaved()
   }
@@ -191,6 +204,9 @@ function DetailsSection({ website, coupleId, onSaved }: { website: WeddingWebsit
     <>
       <LabeledField label="Ceremony time" hint='e.g. "3:00 PM"'>
         <input value={form.ceremonyTime} onChange={set('ceremonyTime')} className={inputCls} />
+      </LabeledField>
+      <LabeledField label="Ceremony card title" hint='Optional label shown above this venue, e.g. "Ceremony". Leave blank for the default.'>
+        <input value={form.ceremonyVenueTitle} onChange={set('ceremonyVenueTitle')} className={inputCls} placeholder="Ceremony" />
       </LabeledField>
       <LabeledField label="Venue name">
         <input value={form.venueName} onChange={set('venueName')} className={inputCls} />
@@ -274,6 +290,44 @@ function DetailsSection({ website, coupleId, onSaved }: { website: WeddingWebsit
         <textarea
           value={form.venueAdditionalInfo}
           onChange={set('venueAdditionalInfo')}
+          rows={4}
+          className={inputCls}
+        />
+      </LabeledField>
+
+      {/* Reception venue: a genuinely separate location. Leave the name blank if the
+          reception is at the same place as the ceremony; the reception card then
+          simply does not appear on the public site. */}
+      <div className="mt-6 border-t border-gold-light pt-5">
+        <p className="text-sm font-semibold text-brown">Reception venue</p>
+        <p className="mt-0.5 mb-3 text-xs text-brown-light">
+          Optional. Fill this in only if your reception is at a different place than your ceremony.
+        </p>
+      </div>
+      <LabeledField label="Reception card title" hint='Optional label shown above this venue, e.g. "Reception". Leave blank for the default.'>
+        <input value={form.receptionVenueTitle} onChange={set('receptionVenueTitle')} className={inputCls} placeholder="Reception" />
+      </LabeledField>
+      <LabeledField label="Reception venue name" hint="The reception card only appears on your site once this has a name.">
+        <input value={form.receptionVenueName} onChange={set('receptionVenueName')} className={inputCls} />
+      </LabeledField>
+      <LabeledField label="Street address">
+        <input value={form.receptionVenueAddress} onChange={set('receptionVenueAddress')} className={inputCls} />
+      </LabeledField>
+      <div className="grid grid-cols-2 gap-3">
+        <LabeledField label="City">
+          <input value={form.receptionVenueCity} onChange={set('receptionVenueCity')} className={inputCls} />
+        </LabeledField>
+        <LabeledField label="State">
+          <input value={form.receptionVenueState} onChange={set('receptionVenueState')} className={inputCls} />
+        </LabeledField>
+      </div>
+      <LabeledField label="Reception time" hint='e.g. "6:00 PM"'>
+        <input value={form.receptionTime} onChange={set('receptionTime')} className={inputCls} />
+      </LabeledField>
+      <LabeledField label="Reception details" hint="Dinner, dancing, directions, etc.">
+        <textarea
+          value={form.receptionVenueAdditionalInfo}
+          onChange={set('receptionVenueAdditionalInfo')}
           rows={4}
           className={inputCls}
         />

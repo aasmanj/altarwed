@@ -94,6 +94,9 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 e.getHiddenTabs(), e.getCustomTabLabels(),
                 e.getAccentColor(), e.getScriptureBackgroundColor(),
                 e.getStdImageUrl(),
+                e.getReceptionVenueName(), e.getReceptionVenueAddress(), e.getReceptionVenueCity(), e.getReceptionVenueState(),
+                e.getReceptionTime(), e.getReceptionVenueAdditionalInfo(), e.getCeremonyVenueTitle(), e.getReceptionVenueTitle(),
+                e.getNameFont(),
                 e.isDeleted(), e.getDeletedAt(),
                 e.getCreatedAt(), e.getUpdatedAt()
         );
@@ -144,6 +147,15 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 .accentColor(w.accentColor())
                 .scriptureBackgroundColor(w.scriptureBackgroundColor())
                 .stdImageUrl(w.stdImageUrl())
+                .receptionVenueName(w.receptionVenueName())
+                .receptionVenueAddress(w.receptionVenueAddress())
+                .receptionVenueCity(w.receptionVenueCity())
+                .receptionVenueState(w.receptionVenueState())
+                .receptionTime(w.receptionTime())
+                .receptionVenueAdditionalInfo(w.receptionVenueAdditionalInfo())
+                .ceremonyVenueTitle(w.ceremonyVenueTitle())
+                .receptionVenueTitle(w.receptionVenueTitle())
+                .nameFont(w.nameFont())
                 .isDeleted(w.isDeleted())
                 .deletedAt(w.deletedAt())
                 .createdAt(w.createdAt())
