@@ -174,14 +174,14 @@ export default function FindInvitationWidget({ slug }: Props) {
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder="Type your first and last name..."
-          className="flex-1 rounded-xl border border-[#d4af6a]/50 bg-white px-4 py-3 text-[#3b2f2f] placeholder-[#8a6a4a] shadow-sm focus:border-[#d4af6a] focus:outline-none focus:ring-2 focus:ring-[#d4af6a]/30"
+          className="flex-1 rounded-xl border border-[color-mix(in_srgb,var(--accent)_50%,transparent)] bg-white px-4 py-3 text-[#3b2f2f] placeholder-[#8a6a4a] shadow-sm focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[color-mix(in_srgb,var(--accent)_30%,transparent)]"
           autoComplete="off"
           aria-label="Your name"
         />
         <button
           type="submit"
           disabled={loading || query.trim().length < MIN_QUERY_LENGTH || waitingOnCaptcha}
-          className="w-full sm:w-auto rounded-xl bg-[#d4af6a] px-6 py-3 font-semibold text-[#3b2f2f] shadow transition hover:bg-[#b8963e] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full sm:w-auto rounded-xl bg-[var(--accent)] px-6 py-3 font-semibold text-[var(--on-accent)] shadow transition hover:bg-[color-mix(in_srgb,var(--accent)_88%,black)] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? 'Searching...' : 'Find Me'}
         </button>
@@ -196,7 +196,7 @@ export default function FindInvitationWidget({ slug }: Props) {
       )}
 
       {results !== null && results.length === 0 && (
-        <div role="status" className="rounded-xl border border-[#d4af6a]/30 bg-amber-50 p-6 text-center">
+        <div role="status" className="rounded-xl border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-amber-50 p-6 text-center">
           <p className="text-sm text-[#6b5344]">
             Oops! We&apos;re having trouble finding your invite. Please try another spelling of your name or contact the couple
           </p>
@@ -211,12 +211,12 @@ export default function FindInvitationWidget({ slug }: Props) {
           {results.map((r, i) => (
             <div
               key={i}
-              className="flex items-center justify-between rounded-xl border border-[#d4af6a]/40 bg-white px-5 py-4 shadow-sm"
+              className="flex items-center justify-between rounded-xl border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-white px-5 py-4 shadow-sm"
             >
               <span className="font-serif text-lg font-semibold text-[#3b2f2f]">{r.maskedName}</span>
               <a
                 href={`/rsvp/${r.token}`}
-                className="shrink-0 rounded-lg bg-[#d4af6a] px-5 py-3 text-sm font-semibold text-[#3b2f2f] shadow transition hover:bg-[#b8963e]"
+                className="shrink-0 rounded-lg bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-[var(--on-accent)] shadow transition hover:bg-[color-mix(in_srgb,var(--accent)_88%,black)]"
               >
                 RSVP Now
               </a>

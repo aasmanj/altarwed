@@ -30,9 +30,9 @@ export default async function WeddingHomePage(
           We&rsquo;re getting married!
         </h2>
         <div className="mt-3 flex items-center justify-center gap-3">
-          <div className="h-px w-10 bg-[#d4af6a]/40" />
-          <div className="h-1.5 w-1.5 rounded-full bg-[#d4af6a]" />
-          <div className="h-px w-10 bg-[#d4af6a]/40" />
+          <div className="h-px w-10 bg-[color-mix(in_srgb,var(--accent)_40%,transparent)]" />
+          <div className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+          <div className="h-px w-10 bg-[color-mix(in_srgb,var(--accent)_40%,transparent)]" />
         </div>
       </div>
 
@@ -59,14 +59,14 @@ export default async function WeddingHomePage(
       {/* Countdown */}
       {countdown !== null && countdown > 0 && (
         <div className="rounded-2xl bg-[#3b2f2f] text-white text-center py-10 px-6">
-          <p className="text-xs uppercase tracking-[0.3em] text-[#d4af6a]/80 mb-2">Counting down</p>
-          <p className="font-serif text-7xl font-bold text-[#d4af6a]">{countdown}</p>
+          <p className="text-xs uppercase tracking-[0.3em] text-[var(--accent-on-dark)] mb-2">Counting down</p>
+          <p className="font-serif text-7xl font-bold text-[var(--accent-on-dark)]">{countdown}</p>
           <p className="mt-1 text-white/70 text-sm uppercase tracking-widest">days</p>
         </div>
       )}
       {countdown !== null && countdown <= 0 && (
         <div className="rounded-2xl bg-[#3b2f2f] text-white text-center py-10 px-6">
-          <p className="font-serif text-3xl font-bold text-[#d4af6a]">We&rsquo;re married!</p>
+          <p className="font-serif text-3xl font-bold text-[var(--accent-on-dark)]">We&rsquo;re married!</p>
           <p className="mt-2 text-white/70 text-sm">Thank you for being part of our covenant celebration.</p>
         </div>
       )}
@@ -87,9 +87,9 @@ export default async function WeddingHomePage(
             <Link
               key={link.href}
               href={link.href}
-              className="rounded-xl border border-[#e8dcc8] bg-white p-4 text-center hover:border-[#d4af6a] hover:shadow-sm transition group"
+              className="rounded-xl border border-[#e8dcc8] bg-white p-4 text-center hover:border-[var(--accent)] hover:shadow-sm transition group"
             >
-              <div className="flex justify-center mb-2 text-[#d4af6a]">
+              <div className="flex justify-center mb-2 text-[var(--accent)]">
                 <link.Icon className="w-6 h-6" strokeWidth={1.5} />
               </div>
               <p className="text-xs font-medium text-[#6b5344] group-hover:text-[#3b2f2f] transition">{link.label}</p>
@@ -106,7 +106,7 @@ export default async function WeddingHomePage(
 function QuickCard({ Icon, label, value }: { Icon: React.ElementType; label: string; value: string }) {
   return (
     <div className="rounded-xl border border-[#e8dcc8] bg-white p-5 flex gap-4 items-start">
-      <Icon className="w-5 h-5 text-[#d4af6a] shrink-0 mt-0.5" strokeWidth={1.5} />
+      <Icon className="w-5 h-5 text-[var(--accent)] shrink-0 mt-0.5" strokeWidth={1.5} />
       <div>
         <p className="text-xs uppercase tracking-widest text-[#8a6a4a] mb-1">{label}</p>
         <p className="font-medium text-[#3b2f2f] text-sm leading-snug">{value}</p>

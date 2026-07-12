@@ -76,6 +76,16 @@ public class GuestRepositoryAdapter implements GuestRepository {
         jpa.markSaveTheDatesSent(guestIds, sentAt);
     }
 
+    @Override
+    public int unassignGuestsAtTablePosition(UUID coupleId, int position) {
+        return jpa.unassignGuestsAtTablePosition(coupleId, position);
+    }
+
+    @Override
+    public int shiftGuestsAfterTablePosition(UUID coupleId, int position) {
+        return jpa.shiftGuestsAfterTablePosition(coupleId, position);
+    }
+
     private Guest toDomain(GuestEntity e) {
         return new Guest(
                 e.getId(), e.getCoupleId(), e.getName(), e.getEmail(), e.getPhone(),

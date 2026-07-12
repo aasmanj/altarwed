@@ -16,6 +16,7 @@ import {
   type CreatePrintOrderResult,
   type PrintOrder,
   type PrintOrderType,
+  type CardSize,
 } from './usePrintOrders'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { coupleDisplayName } from '@/lib/coupleName'
@@ -46,6 +47,20 @@ const TEMPLATE_LABELS: Record<TemplateKey, string> = {
   INVITATION_PHOTO: 'Invitation - Photo',
 }
 
+// Card shape/size options. `aspect` drives the live preview; `portrait` flips the preview layout
+// (bottom text band + full-height photo) and must stay in sync with the backend Lob adapter's
+// dimsFor(): LANDSCAPE_6X11 -> 6x11 landscape, PORTRAIT_6X9 -> 6x9 upright, PORTRAIT_5X7 -> 5x7 upright.
+const CARD_SIZES: { key: CardSize; label: string; sub: string; aspect: string; portrait: boolean }[] = [
+  { key: 'LANDSCAPE_6X11', label: 'Landscape', sub: '6" x 11" postcard', aspect: '11 / 6', portrait: false },
+  { key: 'PORTRAIT_6X9', label: 'Portrait', sub: '6" x 9" postcard', aspect: '6 / 9', portrait: true },
+  { key: 'PORTRAIT_5X7', label: 'Portrait petite', sub: '5" x 7" card', aspect: '5 / 7', portrait: true },
+]
+
+// AltarWed fallback verse, mirrored from the backend Lob adapter, shown when the couple hasn't
+// chosen a scripture on their wedding website yet.
+const DEFAULT_VERSE_TEXT = 'Above all, love each other deeply.'
+const DEFAULT_VERSE_REF = '1 Peter 4:8'
+
 // Mirrors backend COST_PER_POSTCARD_CENTS = 200 in PrintOrderService (issue #59).
 const COST_PER_POSTCARD_CENTS = 200
 
@@ -61,6 +76,7 @@ export default function CommunicationsPage() {
 
   const [orderType, setOrderType] = useState<PrintOrderType>('SAVE_THE_DATE')
   const [templateKey, setTemplateKey] = useState<TemplateKey>('SAVE_THE_DATE_CLASSIC')
+  const [cardSize, setCardSize] = useState<CardSize>('LANDSCAPE_6X11')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [returnName, setReturnName] = useState(
     user?.partnerOneName && user?.partnerTwoName
@@ -88,7 +104,7 @@ export default function CommunicationsPage() {
   // server-side. Clearing the selection after a success also rotates the key.
   useEffect(() => {
     setIdempotencyKey(crypto.randomUUID())
-  }, [orderType, templateKey, selectedIds])
+  }, [orderType, templateKey, cardSize, selectedIds])
 
   // Issue #59: the couple lands back here after Stripe Checkout via successUrl/cancelUrl. Show
   // what happened, refetch orders (once immediately, once after a short delay to catch the async
@@ -150,6 +166,11 @@ export default function CommunicationsPage() {
   // Single source of truth for submit readiness. `canSubmit` is derived from
   // the hint so the validation rules can't drift between the two.
   function submitBlockerHint(): string | null {
+    // Don't let a couple pay for a photo card with no photo: the async Lob batch would build a
+    // blank-hero card (or Lob rejects it) only after the charge. Block it before checkout.
+    if (templateKey.endsWith('_PHOTO') && !websiteLoading && !website?.heroPhotoUrl) {
+      return 'Upload a couple photo on your wedding website to use a Photo card, or pick a Classic template'
+    }
     if (eligibleSelected.length === 0) return 'Select at least one recipient above'
     if (!returnName.trim()) return 'Enter a name for the return address'
     if (!returnAddressLine1.trim()) return 'Enter address line 1'
@@ -183,6 +204,7 @@ export default function CommunicationsPage() {
       returnState: returnState.trim().toUpperCase(),
       returnZip: returnZip.trim(),
       idempotencyKey,
+      cardSize,
     }
     try {
       const result = await createOrder.mutateAsync(payload)
@@ -336,12 +358,46 @@ export default function CommunicationsPage() {
                 </button>
               ))}
             </div>
+            {/* Shape / orientation picker */}
+            <div className="mt-4" role="group" aria-labelledby="cardsize-label">
+              <p id="cardsize-label" className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-2">Shape &amp; size</p>
+              <div className="flex flex-wrap gap-2">
+                {CARD_SIZES.map(s => (
+                  <button
+                    key={s.key}
+                    onClick={() => setCardSize(s.key)}
+                    aria-pressed={cardSize === s.key}
+                    className={`text-left px-3 py-2 rounded-lg border ${
+                      cardSize === s.key
+                        ? 'border-amber-600 bg-amber-50'
+                        : 'border-stone-200 bg-white hover:bg-stone-50'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span
+                        aria-hidden="true"
+                        className={`inline-block rounded-sm border ${cardSize === s.key ? 'border-amber-500 bg-amber-200' : 'border-stone-300 bg-stone-100'}`}
+                        style={s.portrait ? { width: 12, height: 16 } : { width: 18, height: 11 }}
+                      />
+                      <span>
+                        <span className="block text-sm font-medium text-stone-800">{s.label}</span>
+                        <span className="block text-xs text-stone-500">{s.sub}</span>
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <PostcardPreview
               templateKey={templateKey}
+              cardSize={cardSize}
               user={user!}
               heroPhotoUrl={website?.heroPhotoUrl ?? null}
               websiteLoading={websiteLoading}
               weddingUrl={website ? `https://www.altarwed.com/wedding/${website.slug}` : null}
+              scriptureText={website?.scriptureText ?? null}
+              scriptureReference={website?.scriptureReference ?? null}
               returnName={returnName}
               returnAddressLine1={returnAddressLine1}
               returnAddressLine2={returnAddressLine2}
@@ -767,10 +823,13 @@ export function deliveryStatusStyle(status: string | null): { label: string; cls
 
 function PostcardPreview({
   templateKey,
+  cardSize,
   user,
   heroPhotoUrl,
   websiteLoading,
   weddingUrl,
+  scriptureText,
+  scriptureReference,
   returnName,
   returnAddressLine1,
   returnAddressLine2,
@@ -779,10 +838,13 @@ function PostcardPreview({
   returnZip,
 }: {
   templateKey: TemplateKey
+  cardSize: CardSize
   user: { partnerOneName: string | null; partnerTwoName: string | null; weddingDate: string | null }
   heroPhotoUrl: string | null
   websiteLoading: boolean
   weddingUrl: string | null
+  scriptureText: string | null
+  scriptureReference: string | null
   returnName: string
   returnAddressLine1: string
   returnAddressLine2: string
@@ -803,44 +865,68 @@ function PostcardPreview({
   const hasPhoto = isPhoto && !!heroPhotoUrl
   const qrUrl = weddingUrl ?? 'https://altarwed.com'
 
+  // Shape drives the preview aspect ratio and (for portrait) a stacked layout, mirroring the
+  // backend Lob adapter's dimsFor().
+  const size = CARD_SIZES.find(s => s.key === cardSize) ?? CARD_SIZES[0]
+  const aspect = size.aspect
+  const portrait = size.portrait
+
+  // The couple's own verse (matching the printed card); AltarWed default when they haven't set one.
+  // Truncate long verses at a word boundary to mirror the backend Lob renderer (MAX_VERSE_CHARS
+  // = 120), so the preview shows the same text that will fit the card's fixed-height scrim band.
+  const rawVerse = scriptureText?.trim() || DEFAULT_VERSE_TEXT
+  const verseBody = rawVerse.length > 120
+    ? rawVerse.slice(0, 120).replace(/\s+\S*$/, '').trimEnd() + '…'
+    : rawVerse
+  const verseRef = (scriptureText?.trim() ? scriptureReference?.trim() : DEFAULT_VERSE_REF) || ''
+  const verseLine = `"${verseBody}"${verseRef ? ` - ${verseRef}` : ''}`
+
   const close = useCallback(() => setEnlarged(false), [])
 
   function FrontCard({ large }: { large: boolean }) {
-    const fs = large
-      ? { label: '14px', names: names.length > 24 ? '22px' : '28px', date: '18px' }
-      : { label: '9px',  names: names.length > 24 ? '13px' : '16px', date: '11px' }
-    const pad = large ? '28px' : '16px'
-    return (
-      <div
-        style={{
-          width: '100%', aspectRatio: '11 / 6', position: 'relative', borderRadius: '6px',
-          overflow: 'hidden', border: '1px solid #e5e0d8', boxSizing: 'border-box',
-          background: isPhoto ? 'linear-gradient(135deg, #4a3f35, #2a2018)' : 'linear-gradient(135deg, #fdfaf6, #f5e9d4)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          padding: pad, textAlign: 'center', fontFamily: 'Georgia, serif',
-          color: isPhoto ? '#fff' : '#3b2f2f',
-        }}
-      >
-        {isPhoto && (
-          <>
-            {hasPhoto ? (
-              <img src={heroPhotoUrl!} alt="" aria-hidden="true"
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <span style={{ position: 'absolute', fontSize: large ? '16px' : '11px', color: 'rgba(255,255,255,0.35)', fontFamily: 'system-ui', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', whiteSpace: 'nowrap' }}>
-                Your couple photo
-              </span>
-            )}
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.55))' }} />
-          </>
-        )}
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ fontSize: fs.label, letterSpacing: '0.35em', textTransform: 'uppercase', color: isPhoto ? '#f5e9d4' : '#a08060', marginBottom: large ? '10px' : '6px' }}>
-            {headline}
+    // One scale factor so the small thumbnail and the enlarged modal share one set of sizes.
+    const k = large ? 1 : 0.58
+    const px = (v: number) => `${Math.round(v * k)}px`
+    const namesPx = px(names.length > 22 ? (portrait ? 20 : 22) : (portrait ? 24 : 26))
+    const pad = large ? (portrait ? '22px' : '26px') : '13px'
+    const frame = {
+      width: '100%', aspectRatio: aspect, position: 'relative' as const, borderRadius: '6px',
+      overflow: 'hidden', border: '1px solid #e5e0d8', boxSizing: 'border-box' as const,
+      fontFamily: 'Georgia, serif',
+    }
+    if (isPhoto) {
+      // Text lives in a bottom scrim band so the couple's faces (upper part of the photo) stay
+      // clear -- family feedback: "the words aren't over your beautiful faces". The verse gets a
+      // distinct warm gold so it reads as its own line ("a different color for the bible verse").
+      return (
+        <div style={{ ...frame, background: 'linear-gradient(135deg, #4a3f35, #2a2018)', color: '#fff' }}>
+          {hasPhoto ? (
+            <img src={heroPhotoUrl!} alt="" aria-hidden="true"
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <span style={{ position: 'absolute', top: '34%', left: '50%', transform: 'translate(-50%,-50%)', fontSize: px(14), color: 'rgba(255,255,255,0.4)', fontFamily: 'system-ui', whiteSpace: 'nowrap' }}>
+              Your couple photo
+            </span>
+          )}
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: portrait ? '52%' : '64%', background: 'linear-gradient(to top, rgba(0,0,0,0.82), rgba(0,0,0,0))' }} />
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: pad, textAlign: 'center', textShadow: '0 1px 5px rgba(0,0,0,0.6)' }}>
+            <div style={{ fontSize: px(11), letterSpacing: '0.3em', textTransform: 'uppercase', color: '#f5e9d4', marginBottom: px(6) }}>{headline}</div>
+            <div style={{ fontSize: namesPx, fontWeight: 'bold', lineHeight: 1.12 }}>{names}</div>
+            {dateLabel && <div style={{ fontSize: px(15), marginTop: px(5), opacity: 0.92 }}>{dateLabel}</div>}
+            <div style={{ fontSize: px(10), fontStyle: 'italic', color: '#f0c674', marginTop: px(7), lineHeight: 1.3 }}>{verseLine}</div>
           </div>
-          <div style={{ fontSize: fs.names, fontWeight: 'bold', lineHeight: 1.25 }}>{names}</div>
-          {dateLabel && <div style={{ fontSize: fs.date, marginTop: large ? '12px' : '8px', opacity: 0.85 }}>{dateLabel}</div>}
         </div>
+      )
+    }
+    // Classic: centered cream + gold, verse as a distinct deeper-gold footer line.
+    return (
+      <div style={{ ...frame, background: 'linear-gradient(135deg, #fdfaf6, #f5e9d4)', color: '#3b2f2f' }}>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: pad, textAlign: 'center' }}>
+          <div style={{ fontSize: px(12), letterSpacing: '0.32em', textTransform: 'uppercase', color: '#a08060', marginBottom: px(8) }}>{headline}</div>
+          <div style={{ fontSize: namesPx, fontWeight: 'bold', lineHeight: 1.12 }}>{names}</div>
+          {dateLabel && <div style={{ fontSize: px(16), marginTop: px(8), color: '#6a5a45' }}>{dateLabel}</div>}
+        </div>
+        <div style={{ position: 'absolute', bottom: px(13), left: 0, right: 0, textAlign: 'center', fontSize: px(10), fontStyle: 'italic', color: '#9c7434', padding: '0 8%' }}>{verseLine}</div>
       </div>
     )
   }
@@ -849,70 +935,81 @@ function PostcardPreview({
     const fs = large
       ? { label: '10px', names: names.length > 24 ? '15px' : '18px', date: '11px', body: '9px', bodySmall: '8px', meta: '7px', qrLabel: '7px' }
       : { label: '6px',  names: names.length > 24 ? '9px' : '11px',  date: '7px',  body: '5.5px', bodySmall: '5px', meta: '4.5px', qrLabel: '4.5px' }
-    const qrSize = large ? 72 : 32
+    const qrSize = large ? 68 : 30
     const pad = large ? '18px 18px 18px 20px' : '10px 10px 10px 12px'
     const stampW = large ? 30 : 18
     const stampH = large ? 36 : 22
     const hasReturnAddress = !!(returnName.trim() && returnAddressLine1.trim() && returnCity.trim())
-    return (
-      <div style={{
-        width: '100%', aspectRatio: '11 / 6', position: 'relative', borderRadius: '6px',
-        overflow: 'hidden', border: '1px solid #e5e0d8', boxSizing: 'border-box',
-        background: '#fdfaf6', display: 'flex', fontFamily: 'Georgia, serif', color: '#3b2f2f',
-      }}>
-        {/* Message area */}
-        <div style={{ flex: '0 0 54%', padding: pad, borderRight: '1px solid #e5e0d8', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: large ? '5px' : '3px' }}>
-          <div style={{ fontSize: fs.label, letterSpacing: '0.3em', textTransform: 'uppercase', color: '#a08060' }}>{headline}</div>
-          <div style={{ fontSize: fs.names, fontWeight: 'bold', lineHeight: 1.2 }}>{names}</div>
-          {dateLabel && <div style={{ fontSize: fs.date, color: '#8a6a4a', marginTop: '1px' }}>{dateLabel}</div>}
-          {isSaveTheDate ? (
-            <>
-              <div style={{ fontSize: fs.body, color: '#8a6a4a', marginTop: large ? '8px' : '5px' }}>Formal invitation to follow</div>
-              <div style={{ fontSize: fs.bodySmall, fontStyle: 'italic', color: '#a08060', marginTop: large ? '6px' : '4px', lineHeight: 1.35 }}>
-                "And over all these virtues put on love, which binds them all together in perfect unity." Col 3:14
-              </div>
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize: fs.body, color: '#8a6a4a', marginTop: large ? '8px' : '5px' }}>Please join us as we celebrate our marriage ceremony</div>
-              <div style={{ fontSize: fs.body, fontStyle: 'italic', color: '#a08060', marginTop: large ? '5px' : '3px' }}>Venue · City, State</div>
-              <div style={{ fontSize: fs.bodySmall, color: '#a08060', marginTop: '2px' }}>Kindly RSVP</div>
-            </>
-          )}
-          {/* QR code */}
-          <div style={{ marginTop: large ? '10px' : '5px' }}>
-            <QRCodeCanvas value={qrUrl} size={qrSize} fgColor="#3b2f2f" bgColor="#fdfaf6" level="M" />
-            <div style={{ fontSize: fs.qrLabel, color: '#a08060', marginTop: large ? '4px' : '2px' }}>Scan to visit our site</div>
-          </div>
-          <div style={{ fontSize: fs.meta, color: '#c0b0a0', marginTop: 'auto', paddingTop: large ? '8px' : '5px' }}>altarwed.com</div>
-        </div>
 
-        {/* Mailing area */}
-        <div style={{ flex: 1, padding: large ? '12px' : '8px', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: large ? '8px' : '4px' }}>
-            <div style={{ fontSize: fs.meta, color: hasReturnAddress ? '#5a4a3a' : '#a08060', lineHeight: 1.6, fontFamily: 'system-ui', opacity: hasReturnAddress ? 1 : 0.6 }}>
-              {hasReturnAddress ? (
-                <>
-                  <div>{returnName.trim()}</div>
-                  <div>{returnAddressLine1.trim()}{returnAddressLine2.trim() ? `, ${returnAddressLine2.trim()}` : ''}</div>
-                  <div>{returnCity.trim()}, {returnState.trim() || 'ST'} {returnZip.trim() || '00000'}</div>
-                </>
-              ) : (
-                <>
-                  <div>Your Name</div>
-                  <div>Your Address</div>
-                  <div>City, ST 00000</div>
-                </>
-              )}
-            </div>
-            <div style={{ width: `${stampW}px`, height: `${stampH}px`, border: '1px solid #d0c8b8', borderRadius: '1px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: large ? '5px' : '3px', color: '#d0c8b8', fontFamily: 'system-ui', textAlign: 'center' }}>STAMP</span>
-            </div>
+    // Message content (couple's own verse; distinct gold so it stands out), reused in both the
+    // landscape (left column) and portrait (top band) layouts.
+    const messageContent = (
+      <>
+        <div style={{ fontSize: fs.label, letterSpacing: '0.3em', textTransform: 'uppercase', color: '#a08060' }}>{headline}</div>
+        <div style={{ fontSize: fs.names, fontWeight: 'bold', lineHeight: 1.2 }}>{names}</div>
+        {dateLabel && <div style={{ fontSize: fs.date, color: '#8a6a4a', marginTop: '1px' }}>{dateLabel}</div>}
+        <div style={{ fontSize: fs.body, color: '#8a6a4a', marginTop: large ? '7px' : '4px' }}>
+          {isSaveTheDate ? 'Formal invitation to follow' : 'Please join us as we celebrate our marriage ceremony'}
+        </div>
+        {/* The verse prints on the FRONT of the card, not the back (see the Lob back templates,
+            which render no scripture). Keep it off the back preview so the preview matches the
+            mailed card. */}
+        <div style={{ marginTop: large ? '9px' : '5px' }}>
+          <QRCodeCanvas value={qrUrl} size={qrSize} fgColor="#3b2f2f" bgColor="#fdfaf6" level="M" />
+          <div style={{ fontSize: fs.qrLabel, color: '#a08060', marginTop: large ? '4px' : '2px' }}>Scan to visit our site</div>
+        </div>
+      </>
+    )
+
+    // Mailing side: return address, stamp box, and the recipient address lines Lob prints.
+    const mailingContent = (
+      <>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: large ? '8px' : '4px' }}>
+          <div style={{ fontSize: fs.meta, color: hasReturnAddress ? '#5a4a3a' : '#a08060', lineHeight: 1.6, fontFamily: 'system-ui', opacity: hasReturnAddress ? 1 : 0.6 }}>
+            {hasReturnAddress ? (
+              <>
+                <div>{returnName.trim()}</div>
+                <div>{returnAddressLine1.trim()}{returnAddressLine2.trim() ? `, ${returnAddressLine2.trim()}` : ''}</div>
+                <div>{returnCity.trim()}, {returnState.trim() || 'ST'} {returnZip.trim() || '00000'}</div>
+              </>
+            ) : (
+              <>
+                <div>Your Name</div>
+                <div>Your Address</div>
+                <div>City, ST 00000</div>
+              </>
+            )}
           </div>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: large ? '12px' : '7px', paddingTop: '2px' }}>
-            {[0, 1, 2].map(i => <div key={i} style={{ borderBottom: '0.5px solid #d0c8b8' }} />)}
+          <div style={{ width: `${stampW}px`, height: `${stampH}px`, border: '1px solid #d0c8b8', borderRadius: '1px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: large ? '5px' : '3px', color: '#d0c8b8', fontFamily: 'system-ui', textAlign: 'center' }}>STAMP</span>
           </div>
         </div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: large ? '12px' : '7px', paddingTop: '2px' }}>
+          {[0, 1, 2].map(i => <div key={i} style={{ borderBottom: '0.5px solid #d0c8b8' }} />)}
+        </div>
+      </>
+    )
+
+    const frameBase = {
+      width: '100%', aspectRatio: aspect, position: 'relative' as const, borderRadius: '6px',
+      overflow: 'hidden', border: '1px solid #e5e0d8', boxSizing: 'border-box' as const,
+      background: '#fdfaf6', display: 'flex', fontFamily: 'Georgia, serif', color: '#3b2f2f',
+    }
+
+    // Portrait cards address on the BOTTOM (message band on top); landscape addresses on the
+    // RIGHT (message column on the left). Mirrors the backend renderPortraitBack/renderLandscapeBack.
+    if (portrait) {
+      return (
+        <div style={{ ...frameBase, flexDirection: 'column' }}>
+          <div style={{ padding: pad, borderBottom: '1px solid #e5e0d8', display: 'flex', flexDirection: 'column', gap: large ? '4px' : '2px' }}>{messageContent}</div>
+          <div style={{ flex: 1, padding: large ? '14px' : '9px', display: 'flex', flexDirection: 'column' }}>{mailingContent}</div>
+        </div>
+      )
+    }
+    return (
+      <div style={{ ...frameBase, flexDirection: 'row' }}>
+        <div style={{ flex: '0 0 54%', padding: pad, borderRight: '1px solid #e5e0d8', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: large ? '4px' : '2px' }}>{messageContent}</div>
+        <div style={{ flex: 1, padding: large ? '12px' : '8px', display: 'flex', flexDirection: 'column' }}>{mailingContent}</div>
       </div>
     )
   }

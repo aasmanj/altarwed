@@ -36,7 +36,7 @@ export default async function RegistryPage(
               href={r.url!}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-2xl border border-[#d4af6a] bg-white px-10 py-5 text-sm font-semibold text-[#3b2f2f] hover:bg-[#d4af6a]/10 transition text-center min-w-[200px]"
+              className="rounded-2xl border border-[var(--accent)] bg-white px-10 py-5 text-sm font-semibold text-[#3b2f2f] hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] transition text-center min-w-[200px]"
             >
               {r.label} →
             </a>
@@ -54,9 +54,9 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
     <div className="text-center">
       <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#3b2f2f]">{children}</h2>
       <div className="mt-3 flex items-center justify-center gap-3">
-        <div className="h-px w-10 bg-[#d4af6a]/40" />
-        <div className="h-1.5 w-1.5 rounded-full bg-[#d4af6a]" />
-        <div className="h-px w-10 bg-[#d4af6a]/40" />
+        <div className="h-px w-10 bg-[color-mix(in_srgb,var(--accent)_40%,transparent)]" />
+        <div className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+        <div className="h-px w-10 bg-[color-mix(in_srgb,var(--accent)_40%,transparent)]" />
       </div>
     </div>
   )

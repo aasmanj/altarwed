@@ -156,6 +156,7 @@ public class PrintOrderJpaAdapter implements PrintOrderRepository {
                 .returnCity(o.returnCity())
                 .returnState(o.returnState())
                 .returnZip(o.returnZip())
+                .cardSize(o.cardSize())
                 .build();
         if (o.recipients() != null) {
             // Must be a MUTABLE list: Hibernate manages this @OneToMany collection
@@ -202,7 +203,8 @@ public class PrintOrderJpaAdapter implements PrintOrderRepository {
                 e.getReturnAddressLine2(),
                 e.getReturnCity(),
                 e.getReturnState(),
-                e.getReturnZip()
+                e.getReturnZip(),
+                e.getCardSize()
         );
     }
 

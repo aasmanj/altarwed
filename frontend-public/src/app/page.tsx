@@ -119,14 +119,6 @@ const verses = [
   { text: 'And over all these virtues put on love, which binds them all together in perfect unity.', ref: 'Colossians 3:14' },
 ]
 
-const testimonials = [
-  {
-    quote: 'AltarWed gave us a beautiful wedding website in minutes. Having scripture woven through every tool reminded us what our day was really about.',
-    name: 'Caleb & Grace',
-    detail: 'Married June 2026 · Raleigh, NC',
-  },
-]
-
 const JESSICA_LEIGH_ID = 'ba8eb512-086d-43bc-ac2d-f15e0e8a492e'
 
 interface SpotlightVendor {
@@ -315,19 +307,22 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* ── Testimonial ──────────────────────────────────────────────── */}
+        {/* ── Mission ──────────────────────────────────────────────────── */}
+        {/* A first-party, scripture-anchored value statement. Deliberately NOT a customer
+            testimonial: the product is pre-launch, so any named married-couple endorsement would
+            be fabricated (FTC Act / 16 CFR Part 465). Restore real testimonials only when a real
+            customer has given written permission. */}
         <section className="bg-[#fdfaf6] py-16 border-y border-[#e8dcc8]">
           <div className="max-w-3xl mx-auto px-6 text-center">
-            {testimonials.map((t) => (
-              <div key={t.name}>
-                <div className="text-[#d4af6a] text-2xl mb-4" aria-hidden="true">✦ ✦ ✦</div>
-                <blockquote className="font-serif text-xl sm:text-2xl text-[#3b2f2f] italic leading-relaxed mb-6">
-                  &ldquo;{t.quote}&rdquo;
-                </blockquote>
-                <p className="text-sm font-semibold text-[#6b5344]">{t.name}</p>
-                <p className="text-xs text-[#8a6a4a]">{t.detail}</p>
-              </div>
-            ))}
+            <div className="text-[#d4af6a] text-2xl mb-4" aria-hidden="true">✦ ✦ ✦</div>
+            <blockquote className="font-serif text-xl sm:text-2xl text-[#3b2f2f] italic leading-relaxed mb-4">
+              &ldquo;Therefore what God has joined together, let no one separate.&rdquo;
+            </blockquote>
+            <p className="text-xs uppercase tracking-widest text-[#a07840] mb-6">Mark 10:9</p>
+            <p className="text-[#6b5344] leading-relaxed">
+              AltarWed keeps scripture and faith at the center of your wedding planning, from your
+              website to your ceremony, because your marriage is a covenant before God.
+            </p>
           </div>
         </section>
 

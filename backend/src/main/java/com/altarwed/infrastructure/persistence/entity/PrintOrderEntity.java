@@ -82,6 +82,9 @@ public class PrintOrderEntity {
     @Column(name = "return_zip", length = 20)
     private String returnZip;
 
+    @Column(name = "card_size", length = 20)
+    private String cardSize;
+
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JoinColumn(name = "print_order_id", nullable = false)
     @Builder.Default

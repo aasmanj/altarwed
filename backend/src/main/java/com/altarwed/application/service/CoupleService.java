@@ -1,19 +1,32 @@
 package com.altarwed.application.service;
 
 import com.altarwed.domain.exception.CoupleNotFoundException;
+import com.altarwed.domain.model.BlockType;
 import com.altarwed.domain.model.Couple;
+import com.altarwed.domain.model.WeddingPageBlock;
+import com.altarwed.domain.port.BlobStoragePort;
 import com.altarwed.domain.port.CeremonySectionRepository;
 import com.altarwed.domain.port.CoupleRepository;
 import com.altarwed.domain.port.GoogleOAuthTokenRepository;
 import com.altarwed.domain.port.PasswordResetTokenRepository;
 import com.altarwed.domain.port.PrintOrderRepository;
 import com.altarwed.domain.port.RefreshTokenRepository;
+import com.altarwed.domain.port.WeddingPageBlockRepository;
+import com.altarwed.domain.port.WeddingPartyMemberRepository;
+import com.altarwed.domain.port.WeddingPhotoRepository;
+import com.altarwed.domain.port.WeddingWebsiteRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -27,6 +40,14 @@ public class CoupleService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final GoogleOAuthTokenRepository googleOAuthTokenRepository;
+    // Issue #383: account deletion must also purge the couple's uploaded photos from Blob storage,
+    // which the DB cascade cannot reach.
+    private final WeddingWebsiteRepository weddingWebsiteRepository;
+    private final WeddingPhotoRepository weddingPhotoRepository;
+    private final WeddingPartyMemberRepository weddingPartyMemberRepository;
+    private final WeddingPageBlockRepository weddingPageBlockRepository;
+    private final BlobStoragePort blobStorage;
+    private final ObjectMapper objectMapper;
     private final AsyncEmailService asyncEmailService;
 
     public CoupleService(
@@ -36,6 +57,12 @@ public class CoupleService {
             RefreshTokenRepository refreshTokenRepository,
             PasswordResetTokenRepository passwordResetTokenRepository,
             GoogleOAuthTokenRepository googleOAuthTokenRepository,
+            WeddingWebsiteRepository weddingWebsiteRepository,
+            WeddingPhotoRepository weddingPhotoRepository,
+            WeddingPartyMemberRepository weddingPartyMemberRepository,
+            WeddingPageBlockRepository weddingPageBlockRepository,
+            BlobStoragePort blobStorage,
+            ObjectMapper objectMapper,
             AsyncEmailService asyncEmailService) {
         this.coupleRepository = coupleRepository;
         this.printOrderRepository = printOrderRepository;
@@ -43,6 +70,12 @@ public class CoupleService {
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.googleOAuthTokenRepository = googleOAuthTokenRepository;
+        this.weddingWebsiteRepository = weddingWebsiteRepository;
+        this.weddingPhotoRepository = weddingPhotoRepository;
+        this.weddingPartyMemberRepository = weddingPartyMemberRepository;
+        this.weddingPageBlockRepository = weddingPageBlockRepository;
+        this.blobStorage = blobStorage;
+        this.objectMapper = objectMapper;
         this.asyncEmailService = asyncEmailService;
     }
 
@@ -80,6 +113,31 @@ public class CoupleService {
         Couple couple = getById(coupleId);
         log.info("couple account deletion started, coupleId={}", coupleId);
 
+        // Issue #383 (GDPR Art.17 / CCPA / FTC deception): the DB cascade removes the wedding_photos,
+        // wedding_party_members, and wedding_websites ROWS, but the uploaded images themselves live
+        // in Azure Blob storage, not the database, so without explicit cleanup every hero, venue,
+        // save-the-date, album, and wedding-party photo (faces of real people) survives deletion
+        // forever -- while the confirmation email tells the couple "Nothing was retained". Capture
+        // every blob URL now, before the rows are gone. Mirrors VendorService.deleteVendor.
+        // Each URL is validated against the owning site/member ID before deletion to prevent
+        // cross-tenant blob deletion if a URL field was ever set to another couple's storage path.
+        List<String> blobUrls = new ArrayList<>();
+        weddingWebsiteRepository.findByCoupleId(coupleId).ifPresent(site -> {
+            UUID siteId = site.id();
+            String siteIdStr = siteId.toString();
+            addIfOwned(blobUrls, site.heroPhotoUrl(), siteIdStr);
+            addIfOwned(blobUrls, site.venuePhotoUrl(), siteIdStr);
+            addIfOwned(blobUrls, site.stdImageUrl(), siteIdStr);
+            weddingPhotoRepository.findAllByWeddingWebsiteId(siteId)
+                    .forEach(photo -> addIfOwned(blobUrls, photo.url(), siteIdStr));
+            weddingPartyMemberRepository.findAllByWeddingWebsiteId(siteId)
+                    .forEach(member -> addIfOwned(blobUrls, member.photoUrl(), member.id().toString()));
+            weddingPageBlockRepository.findAllByWebsiteId(siteId).forEach(block -> {
+                String blockImgUrl = extractBlockImageUrl(block);
+                addIfOwned(blobUrls, blockImgUrl, siteIdStr);
+            });
+        });
+
         // Delete tables without ON DELETE CASCADE first, in FK-safe order.
         // 1. print_orders (DB cascades print_order_recipients via ON DELETE CASCADE)
         printOrderRepository.deleteAllByCoupleId(coupleId);
@@ -98,7 +156,23 @@ public class CoupleService {
         //    planning_tasks, budget_items, seating_tables, google_sheet_syncs.
         coupleRepository.deleteById(coupleId);
 
-        log.info("couple account deleted, coupleId={}", coupleId);
+        log.info("couple account deleted, coupleId={}, blobs={}", coupleId, blobUrls.size());
+
+        // Purge the blobs only AFTER the row deletes commit. blobStorage.delete is an irreversible
+        // external call; running it inside the transaction would hold the DB connection across Azure
+        // round-trips and, worse, risk deleting blobs for rows a commit-time failure then rolls back.
+        // With no active transaction (e.g. a direct unit-test call) fall back to inline cleanup.
+        // Same rationale and shape as VendorService.deleteVendor.
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    deleteBlobsBestEffort(coupleId, blobUrls);
+                }
+            });
+        } else {
+            deleteBlobsBestEffort(coupleId, blobUrls);
+        }
 
         // Confirmation email is fire-and-forget on its own thread, using the data
         // captured before the delete (the row is gone now). It fires inside the tx
@@ -108,5 +182,37 @@ public class CoupleService {
         asyncEmailService.sendAccountDeletedEmail(
                 couple.email(), couple.partnerOneName(), couple.partnerTwoName());
         log.info("account-deleted email queued, coupleId={}", coupleId);
+    }
+
+    private static void addIfOwned(List<String> urls, String url, String expectedSegment) {
+        if (url != null && !url.isBlank() && url.contains(expectedSegment)) urls.add(url);
+    }
+
+    private String extractBlockImageUrl(WeddingPageBlock block) {
+        if (block.type() != BlockType.IMAGE && block.type() != BlockType.STORY_ENTRY) return null;
+        if (block.contentJson() == null || block.contentJson().isBlank()) return null;
+        try {
+            JsonNode node = objectMapper.readTree(block.contentJson());
+            String key = block.type() == BlockType.IMAGE ? "url" : "imageUrl";
+            JsonNode urlNode = node.get(key);
+            return urlNode != null && !urlNode.isNull() ? urlNode.asText() : null;
+        } catch (Exception e) {
+            log.warn("block image url extraction failed, blockId={}", block.id(), e);
+            return null;
+        }
+    }
+
+    private void deleteBlobsBestEffort(UUID coupleId, List<String> blobUrls) {
+        int deleted = 0, failed = 0;
+        for (String url : blobUrls) {
+            try {
+                blobStorage.delete(url);
+                deleted++;
+            } catch (RuntimeException ex) {
+                log.warn("couple blob orphaned, delete failed (best-effort, ignoring), coupleId={}, url={}", coupleId, url, ex);
+                failed++;
+            }
+        }
+        log.info("couple blobs purged, coupleId={}, deleted={}, failed={}", coupleId, deleted, failed);
     }
 }

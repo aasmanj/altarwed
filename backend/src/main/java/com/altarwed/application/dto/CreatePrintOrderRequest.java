@@ -21,5 +21,10 @@ public record CreatePrintOrderRequest(
         // Client-generated dedup token (UUID). Optional for backward compatibility,
         // but the web client always sends one. A repeat submit with the same key
         // returns the original order instead of mailing the batch again.
-        String idempotencyKey
+        String idempotencyKey,
+        // Printed-card shape/size: LANDSCAPE_6X11 (default), PORTRAIT_6X9, or PORTRAIT_5X7.
+        // Nullable for backward compatibility; a null (or unrecognized) value renders the
+        // original 6x11 landscape. Validated by the DB CHECK constraint (V89) and defaulted in
+        // the Lob adapter, so no @Pattern here keeps an old/newer client from being rejected.
+        String cardSize
 ) {}

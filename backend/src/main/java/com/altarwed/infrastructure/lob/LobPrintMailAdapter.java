@@ -47,13 +47,39 @@ public class LobPrintMailAdapter implements PrintMailPort {
 
     private static final Logger log = LoggerFactory.getLogger(LobPrintMailAdapter.class);
 
-    // Lob 6x11 postcard. Lob validates the rendered HTML against the BLEED dimensions for the
-    // chosen size and returns 422 UNPROCESSABLE_CONTENT on a mismatch. For 6x11 the trim (final
-    // card) is 11in x 6in and the bleed adds 0.125in on every edge, so the front and back HTML
-    // MUST render at 11.25in x 6.25in (see the @page rules in renderFront/renderBack). This bit
-    // us once: the template rendered at the 11in x 6in trim size and every postcard 422'd.
+    // Lob validates the rendered HTML against the BLEED dimensions for the chosen size and returns
+    // 422 UNPROCESSABLE_CONTENT on a mismatch. The bleed adds 0.125in on every edge of the trim
+    // (final card), so the front and back HTML MUST render at trim + 0.25in in each axis (see the
+    // @page rules in renderFront/renderBack). This bit us once: the template rendered at the 11in
+    // x 6in trim size instead of the 11.25in x 6.25in bleed size and every postcard 422'd.
+    //
+    // The couple chooses the shape (issue: prettier + customizable cards). Each entry is the Lob
+    // size string plus the exact bleed dimensions Lob's own artboard templates document:
+    //   LANDSCAPE_6X11 -> 6x11, 11.25in x 6.25in (the original, proven default)
+    //   PORTRAIT_6X9   -> 6x9,   6.25in x 9.25in
+    //   PORTRAIT_5X7   -> 5x7,   5.25in x 7.25in
     // Ref: https://help.lob.com/print-and-mail/designing-mail-creatives/mail-piece-design-specs/postcards
-    private static final String POSTCARD_SIZE = "6x11";
+    private static final CardDims DEFAULT_DIMS =
+            new CardDims("6x11", "11.25in", "6.25in", false, "3.5in", "40pt", "0.55in 0.75in");
+
+    /**
+     * The Lob size string and bleed geometry for a persisted card_size value, plus a few
+     * layout knobs the front template scales by shape (the bottom scrim height, the couple-names
+     * font size, and the content padding). Unknown/null collapses to the proven 6x11 landscape.
+     */
+    private record CardDims(String lobSize, String widthIn, String heightIn, boolean portrait,
+                            String scrimHeight, String namesPt, String pad) {
+        String pageSize() { return widthIn + " " + heightIn; }
+    }
+
+    private static CardDims dimsFor(String cardSize) {
+        if (cardSize == null) return DEFAULT_DIMS;
+        return switch (cardSize.trim().toUpperCase()) {
+            case "PORTRAIT_6X9" -> new CardDims("6x9", "6.25in", "9.25in", true, "3.7in", "34pt", "0.5in");
+            case "PORTRAIT_5X7" -> new CardDims("5x7", "5.25in", "7.25in", true, "3.0in", "28pt", "0.4in");
+            default -> DEFAULT_DIMS; // LANDSCAPE_6X11 and any unrecognized value
+        };
+    }
 
     // Lob requires a use_type on every mail piece (and 422s without it unless an account default
     // is set in the dashboard). The only mail this adapter sends is a couple's own save-the-dates
@@ -305,7 +331,7 @@ public class LobPrintMailAdapter implements PrintMailPort {
         body.put("from", addressMap(req.from()));
         body.put("front", renderFront(req));
         body.put("back", renderBack(req, qrBase64));
-        body.put("size", POSTCARD_SIZE);
+        body.put("size", dimsFor(req.cardSize()).lobSize());
         // Required by Lob on every mail piece; see MAIL_USE_TYPE for why "operational".
         body.put("use_type", MAIL_USE_TYPE);
         // usps_first_class is US-only; omit mail_type for international so Lob routes correctly
@@ -352,61 +378,130 @@ public class LobPrintMailAdapter implements PrintMailPort {
     }
 
     String renderFront(PostcardRequest req) {
+        CardDims dims = dimsFor(req.cardSize());
         boolean saveTheDate = req.templateKey() == null || req.templateKey().startsWith("SAVE_THE_DATE");
         String headline = saveTheDate ? "Save the Date" : "You're Invited";
+        String verse = verseLine(req);
 
-        // Only PHOTO variants use the hero image. CLASSIC variants always render the
-        // cream/gold gradient regardless of whether a hero photo exists -- the template
-        // description says "no photo" and couples choose Classic specifically for that.
+        // Only PHOTO variants use the hero image. CLASSIC variants always render the cream/gold
+        // gradient regardless of whether a hero photo exists -- the template description says "no
+        // photo" and couples choose Classic specifically for that.
         String safePhotoUrl = req.heroPhotoUrl() == null ? null
                 : escape(req.heroPhotoUrl()).replace("\\", "%5C").replace("'", "%27");
         boolean usePhoto = safePhotoUrl != null
                 && req.templateKey() != null
                 && req.templateKey().endsWith("_PHOTO");
 
-        String cardBg = usePhoto
-                ? "background-image:url('" + safePhotoUrl + "');background-size:cover;background-position:center;"
-                : "background:linear-gradient(135deg,#fdfaf6,#f5e9d4);";
-        String cardColor    = usePhoto ? "#fff"                            : "#3b2f2f";
-        String textShadow   = usePhoto ? "0 2px 8px rgba(0,0,0,0.45)"     : "none";
-        String labelColor   = usePhoto ? "#f5e9d4"                         : "#a08060";
-        String verseColor   = usePhoto ? "#f5e9d4"                         : "#a08060";
-        String overlayHtml  = usePhoto ? "<div class=\"overlay\"></div>"   : "";
+        return usePhoto
+                ? renderPhotoFront(dims, headline, req, safePhotoUrl, verse)
+                : renderClassicFront(dims, headline, req, verse);
+    }
 
-        // Dimensions are the Lob 6x11 BLEED size (11.25in x 6.25in), NOT the 11in x 6in trim
-        // (see POSTCARD_SIZE comment). The card background fills the full bleed so there is no
-        // white edge after trimming; text sits inside the ~0.25in-from-bleed safe zone via the
-        // .content padding and the verse offset.
-        // charset=utf-8 prevents the renderer from interpreting multi-byte UTF-8 sequences
-        // (e.g. U+00B7 middle dot in venue names) as Latin-1, which produces Â· mojibake.
+    // PHOTO front: names/date/verse sit in a bottom gradient band, NOT centered over the whole
+    // photo, so the couple's faces (the upper portion of the hero) stay clear and unobscured
+    // (family feedback: "make it so the words aren't over your beautiful faces"). The scripture
+    // uses a distinct warm gold so it reads as its own line instead of blending into the names
+    // ("a different color for the bible verse to see it"). Two-stop gradients only (no % stops):
+    // a literal % in the CSS would collide with String.formatted's format specifiers.
+    // Dimensions are the Lob BLEED size for the chosen shape (see dimsFor); the background fills
+    // the full bleed so there is no white edge after trimming. charset=utf-8 prevents U+00B7
+    // (middle dot in venue names) from being mis-decoded as Latin-1 mojibake.
+    private String renderPhotoFront(CardDims dims, String headline, PostcardRequest req,
+                                    String safePhotoUrl, String verse) {
         return """
                 <html><head><meta charset="utf-8"><style>
-                  @page { size: 11.25in 6.25in; margin: 0; }
-                  body { margin:0; font-family: Georgia, serif; width:11.25in; height:6.25in; }
-                  .card { width:11.25in; height:6.25in; position:relative; %s color:%s; text-shadow:%s; }
-                  .overlay { position:absolute; inset:0; background:linear-gradient(180deg,rgba(0,0,0,0.15),rgba(0,0,0,0.55)); }
-                  .content { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0.7in; text-align:center; }
-                  .label { font-size:14pt; letter-spacing:0.4em; text-transform:uppercase; color:%s; margin-bottom:0.2in; }
-                  .names { font-size:48pt; margin:0; font-weight:bold; }
-                  .amp { font-size:32pt; color:#d4af6a; margin:0.05in 0; }
-                  .date { font-size:22pt; margin-top:0.3in; }
-                  .verse { position:absolute; bottom:0.4in; left:0; right:0; font-size:11pt; color:%s; font-style:italic; }
+                  @page { size: %s; margin: 0; }
+                  body { margin:0; font-family: Georgia, serif; width:%s; height:%s; }
+                  .card { width:%s; height:%s; position:relative; background-image:url('%s');
+                          background-size:cover; background-position:center; color:#fff;
+                          text-shadow:0 2px 10px rgba(0,0,0,0.6); }
+                  .scrim { position:absolute; left:0; right:0; bottom:0; height:%s;
+                           background:linear-gradient(to top, rgba(0,0,0,0.82), rgba(0,0,0,0)); }
+                  .content { position:absolute; left:0; right:0; bottom:0; padding:%s; text-align:center; }
+                  .label { font-size:13pt; letter-spacing:0.4em; text-transform:uppercase; color:#f5e9d4; margin-bottom:0.12in; }
+                  .names { font-size:%s; margin:0; font-weight:bold; line-height:1.1; }
+                  .date { font-size:17pt; margin-top:0.14in; }
+                  .verse { font-size:11pt; color:#f0c674; font-style:italic; margin-top:0.18in; }
                 </style></head><body>
                   <div class="card">
-                    %s
+                    <div class="scrim"></div>
+                    <div class="content">
+                      <div class="label">%s</div>
+                      <div class="names">%s</div>
+                      <div class="date">%s</div>
+                      <div class="verse">%s</div>
+                    </div>
+                  </div>
+                </body></html>
+                """.formatted(dims.pageSize(), dims.widthIn(), dims.heightIn(),
+                        dims.widthIn(), dims.heightIn(), safePhotoUrl,
+                        dims.scrimHeight(), dims.pad(), dims.namesPt(),
+                        headline, escape(req.coupleNames()), escape(req.weddingDate()), verse);
+    }
+
+    // CLASSIC front: cream + gold, centered -- there are no faces to clear, so the elegant
+    // centered layout stays. The scripture gets its own deeper-gold footer line so it is clearly
+    // legible against the cream (same "see the verse" feedback as the photo card).
+    private String renderClassicFront(CardDims dims, String headline, PostcardRequest req, String verse) {
+        return """
+                <html><head><meta charset="utf-8"><style>
+                  @page { size: %s; margin: 0; }
+                  body { margin:0; font-family: Georgia, serif; width:%s; height:%s; }
+                  .card { width:%s; height:%s; position:relative;
+                          background:linear-gradient(135deg,#fdfaf6,#f5e9d4); color:#3b2f2f; }
+                  .content { position:absolute; inset:0; display:flex; flex-direction:column;
+                             align-items:center; justify-content:center; padding:%s; text-align:center; }
+                  .label { font-size:14pt; letter-spacing:0.4em; text-transform:uppercase; color:#a08060; margin-bottom:0.2in; }
+                  .names { font-size:%s; margin:0; font-weight:bold; line-height:1.1; }
+                  .date { font-size:20pt; margin-top:0.28in; }
+                  .verse { position:absolute; bottom:0.45in; left:0; right:0; font-size:12pt; color:#9c7434; font-style:italic; }
+                </style></head><body>
+                  <div class="card">
                     <div class="content">
                       <div class="label">%s</div>
                       <div class="names">%s</div>
                       <div class="date">%s</div>
                     </div>
-                    <div class="verse">"Above all, love each other deeply." - 1 Peter 4:8</div>
+                    <div class="verse">%s</div>
                   </div>
                 </body></html>
-                """.formatted(cardBg, cardColor, textShadow, labelColor, verseColor,
-                        overlayHtml, headline, escape(req.coupleNames()), escape(req.weddingDate()));
+                """.formatted(dims.pageSize(), dims.widthIn(), dims.heightIn(),
+                        dims.widthIn(), dims.heightIn(), dims.pad(), dims.namesPt(),
+                        headline, escape(req.coupleNames()), escape(req.weddingDate()), verse);
+    }
+
+    // Longest verse we render on the front scrim band. Couples routinely enter long verses (the
+    // public site even has a font-size branch for >300 chars), but the card's scrim band is fixed
+    // height (tightest on PORTRAIT_5X7: 3.0in) so an unbounded verse overflows/clips the band.
+    // Lob still accepts it (dimensions stay valid) -- it just prints ugly -- so cap it here.
+    private static final int MAX_VERSE_CHARS = 120;
+
+    // The couple's own verse when they picked one on their wedding website, else an AltarWed
+    // default so a card never ships without scripture. Returns already-escaped, HTML-safe text.
+    private static String verseLine(PostcardRequest req) {
+        String text = req.verseText();
+        if (text != null && !text.isBlank()) {
+            String line = "\"" + escape(truncateVerse(text.trim())) + "\"";
+            String ref = req.verseReference();
+            if (ref != null && !ref.isBlank()) line += " - " + escape(ref.trim());
+            return line;
+        }
+        return "\"Above all, love each other deeply.\" - 1 Peter 4:8";
+    }
+
+    // Trim an over-long verse to MAX_VERSE_CHARS at a word boundary with an ellipsis, so it fits
+    // the scrim band. Truncation happens BEFORE escape() so the char budget counts real characters,
+    // not entity-expanded ones (e.g. "&amp;amp;" would otherwise eat 5 chars of budget for one "&amp;").
+    private static String truncateVerse(String verse) {
+        if (verse.length() <= MAX_VERSE_CHARS) return verse;
+        String cut = verse.substring(0, MAX_VERSE_CHARS);
+        int lastSpace = cut.lastIndexOf(' ');
+        if (lastSpace > MAX_VERSE_CHARS - 20) cut = cut.substring(0, lastSpace);
+        return cut.stripTrailing() + "…";
     }
 
     String renderBack(PostcardRequest req, String qrBase64) {
+        CardDims dims = dimsFor(req.cardSize());
         String venueLine = req.venueLine() != null && !req.venueLine().isBlank()
                 ? "<div style='margin-top:6pt;font-size:12pt;'>" + escape(req.venueLine()) + "</div>"
                 : "";
@@ -417,15 +512,21 @@ public class LobPrintMailAdapter implements PrintMailPort {
                         + "\" alt=\"Scan for wedding website\" /><p class=\"qr-label\">Scan to visit our site</p></div>"
                 : "";
 
-        // Bleed size again (11.25in x 6.25in, see POSTCARD_SIZE). The left half carries our
-        // message; the right half is left blank so Lob can print the recipient address block and
-        // barcode there (Lob reserves the right side of the postcard back for addressing).
-        // charset=utf-8 -- same reason as renderFront; prevents U+00B7 mojibake in venueLine.
+        return dims.portrait()
+                ? renderPortraitBack(dims, req, venueLine, url, qrHtml)
+                : renderLandscapeBack(dims, req, venueLine, url, qrHtml);
+    }
+
+    // LANDSCAPE back: the left half carries our message; the right half is left blank so Lob can
+    // print the recipient address block + barcode there (Lob reserves the right side of a
+    // landscape postcard back for addressing). Bleed dimensions per dimsFor. charset=utf-8 --
+    // same U+00B7 mojibake reason as the front.
+    private String renderLandscapeBack(CardDims dims, PostcardRequest req, String venueLine, String url, String qrHtml) {
         return """
                 <html><head><meta charset="utf-8"><style>
-                  @page { size: 11.25in 6.25in; margin: 0; }
-                  body { margin:0; font-family: Georgia, serif; width:11.25in; height:6.25in; color:#3b2f2f; }
-                  .left { position:absolute; left:0; top:0; width:5.5in; height:6.25in; padding:0.5in; box-sizing:border-box; background:#fdfaf6; }
+                  @page { size: %s; margin: 0; }
+                  body { margin:0; font-family: Georgia, serif; width:%s; height:%s; color:#3b2f2f; }
+                  .left { position:absolute; left:0; top:0; width:5.5in; height:%s; padding:0.5in; box-sizing:border-box; background:#fdfaf6; }
                   .label { font-size:10pt; letter-spacing:0.3em; text-transform:uppercase; color:#a08060; }
                   .title { font-size:22pt; margin:0.1in 0; }
                   .body { font-size:12pt; line-height:1.6; }
@@ -447,7 +548,45 @@ public class LobPrintMailAdapter implements PrintMailPort {
                     %s
                   </div>
                 </body></html>
-                """.formatted(escape(req.coupleNames()), venueLine, url, qrHtml);
+                """.formatted(dims.pageSize(), dims.widthIn(), dims.heightIn(),
+                        dims.heightIn(), escape(req.coupleNames()), venueLine, url, qrHtml);
+    }
+
+    // PORTRAIT back: USPS/Lob place the recipient address block + barcode along the BOTTOM of a
+    // portrait postcard back, so our message + QR go in a top band and the lower ~55% is left
+    // blank for Lob to address. Keeping the message strictly in the top band leaves a generous
+    // ink-free zone below. NOTE: portrait sizes need one live Lob test-mode send verified before
+    // prod use (the address zone can't be asserted in a unit test) -- see the PR's manual steps.
+    private String renderPortraitBack(CardDims dims, PostcardRequest req, String venueLine, String url, String qrHtml) {
+        String topHeight = "5x7".equals(dims.lobSize()) ? "3.2in" : "4.2in";
+        return """
+                <html><head><meta charset="utf-8"><style>
+                  @page { size: %s; margin: 0; }
+                  body { margin:0; font-family: Georgia, serif; width:%s; height:%s; color:#3b2f2f; }
+                  .top { position:absolute; left:0; top:0; right:0; height:%s; padding:0.45in 0.5in; box-sizing:border-box; background:#fdfaf6; }
+                  .label { font-size:10pt; letter-spacing:0.3em; text-transform:uppercase; color:#a08060; }
+                  .title { font-size:20pt; margin:0.08in 0; }
+                  .body { font-size:11pt; line-height:1.5; }
+                  .url { margin-top:0.16in; font-size:13pt; color:#a08060; }
+                  .qr { margin-top:0.16in; }
+                  .qr img { width:0.95in; height:0.95in; display:block; }
+                  .qr-label { font-size:8pt; color:#a08060; margin:3pt 0 0; }
+                </style></head><body>
+                  <div class="top">
+                    <div class="label">From the desk of</div>
+                    <div class="title">%s</div>
+                    <div class="body">
+                      We are joyfully planning our covenant wedding and would be
+                      honored by your presence. Visit our wedding website for
+                      full details, registry, and RSVP.
+                    </div>
+                    %s
+                    <div class="url">%s</div>
+                    %s
+                  </div>
+                </body></html>
+                """.formatted(dims.pageSize(), dims.widthIn(), dims.heightIn(),
+                        topHeight, escape(req.coupleNames()), venueLine, url, qrHtml);
     }
 
     private String generateQrCodeBase64(String url) {

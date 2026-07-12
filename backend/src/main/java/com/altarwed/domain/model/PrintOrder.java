@@ -35,6 +35,11 @@ public record PrintOrder(
         String returnAddressLine2,
         String returnCity,
         String returnState,
-        String returnZip
+        String returnZip,
+        // Printed-card shape/size the couple chose: LANDSCAPE_6X11 (default), PORTRAIT_6X9, or
+        // PORTRAIT_5X7. Persisted because the Lob render runs asynchronously after payment (a
+        // different invocation than the one that created the order). Null on legacy rows -> the
+        // Lob adapter renders the original 6x11 landscape.
+        String cardSize
 ) {
 }

@@ -41,7 +41,14 @@ public interface PrintMailPort {
             String heroPhotoUrl,
             String venueLine,
             FromAddress from,
-            ToAddress to
+            ToAddress to,
+            // Printed-card shape/size: LANDSCAPE_6X11 (default when null), PORTRAIT_6X9, PORTRAIT_5X7.
+            String cardSize,
+            // The couple's own chosen scripture (from their wedding website). Rendered on the card
+            // when present; the adapter falls back to an AltarWed default verse when both are blank,
+            // so a couple who never picked one still gets a scripture line.
+            String verseText,
+            String verseReference
     ) {}
 
     record FromAddress(String name, String addressLine1, String addressLine2,
