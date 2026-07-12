@@ -1,9 +1,10 @@
 package com.altarwed.domain.exception;
 
 /**
- * Thrown when the public find-invitation search for a given wedding slug has exceeded its
- * failed-search budget and is in cooldown (issue #89). Surfaced as HTTP 429 by the
- * GlobalExceptionHandler, mirroring the per-IP rate-limit response written by RateLimitingFilter.
+ * Thrown when the public find-invitation search for a wedding has exceeded its per-wedding
+ * attempt budget and is in cooldown (issue #89). Every attempt is charged (hit or miss), keyed
+ * on the canonical wedding identity (coupleId), not the caller-supplied slug. Surfaced as HTTP
+ * 429 by the GlobalExceptionHandler, mirroring the per-IP rate-limit response from RateLimitingFilter.
  */
 public class RsvpSearchThrottledException extends RuntimeException {
     public RsvpSearchThrottledException() {

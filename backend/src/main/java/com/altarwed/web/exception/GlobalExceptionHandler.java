@@ -115,8 +115,9 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
-    // Per-slug find-invitation lockout (issue #89). 429 with the same problem type the per-IP
-    // RateLimitingFilter writes, so a client treats both throttles uniformly.
+    // Per-wedding find-invitation lockout (issue #89), keyed on coupleId and charging every
+    // attempt. 429 with the same problem type the per-IP RateLimitingFilter writes, so a client
+    // treats both throttles uniformly.
     @ExceptionHandler(RsvpSearchThrottledException.class)
     public ProblemDetail handleRsvpSearchThrottled(RsvpSearchThrottledException ex) {
         var pd = ProblemDetail.forStatus(HttpStatus.TOO_MANY_REQUESTS);
