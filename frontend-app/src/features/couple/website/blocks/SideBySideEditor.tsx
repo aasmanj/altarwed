@@ -43,6 +43,7 @@ import {
   isPreviewTabReady,
 } from './previewChannel'
 import { ACCENT_PRESETS, isAccentPresetSelected } from './accentPresets'
+import { FONT_THEME_OPTIONS, parseTabLabels, readFontThemeKey, serializeTabLabels } from './fontThemes'
 
 // The preview URL is on the public marketing domain (frontend-public).
 // In prod it is the real altarwed.com origin; in local dev we fall back to
@@ -1645,17 +1646,15 @@ function TabSettingsPanel({
   const initialHidden = new Set<BlockTab>(
     (website.hiddenTabs ?? '').split(',').map(s => s.trim()).filter(Boolean) as BlockTab[]
   )
-  const initialLabels: Partial<Record<BlockTab, string>> = (() => {
-    try {
-      return website.customTabLabels ? JSON.parse(website.customTabLabels) : {}
-    } catch {
-      // Treat malformed saved JSON as empty so a future save overwrites it cleanly.
-      return {}
-    }
-  })()
+  // parseTabLabels strips the reserved __theme key so the tab-label editor only manages
+  // real tab labels; the theme is tracked separately in themeKey below.
+  const initialLabels = parseTabLabels(website.customTabLabels) as Partial<Record<BlockTab, string>>
 
   const [hidden, setHidden] = useState<Set<BlockTab>>(initialHidden)
   const [labels, setLabels] = useState<Partial<Record<BlockTab, string>>>(initialLabels)
+  // Font-pairing theme (issue #358), stored alongside the tab labels in the same opaque
+  // customTabLabels column under the reserved __theme key.
+  const [themeKey, setThemeKey] = useState<string>(readFontThemeKey(website.customTabLabels))
 
   const toggleHidden = (tab: BlockTab) => {
     setHidden(prev => {
@@ -1679,7 +1678,9 @@ function TabSettingsPanel({
     // Sort the hidden CSV deterministically so two equivalent saves produce
     // identical strings (cleaner audit logs, predictable cache keys).
     const hiddenCsv = Array.from(hidden).sort().join(',')
-    const labelsJson = Object.keys(labels).length === 0 ? '' : JSON.stringify(labels)
+    // serializeTabLabels merges the tab labels and the chosen font theme back into the
+    // single opaque customTabLabels string so neither clobbers the other.
+    const labelsJson = serializeTabLabels(labels as Record<string, string>, themeKey)
     onSave({ hiddenTabs: hiddenCsv, customTabLabels: labelsJson })
     onClose()
   }
@@ -1791,6 +1792,39 @@ function TabSettingsPanel({
           </button>
         </div>
       </div>
+
+      {/* Font-pairing theme (issue #358): a curated heading + body pairing for the
+          whole public site. Applied after Save (like the tab labels) because the
+          fonts are rendered server-side in the wedding layout. */}
+      <fieldset className="mt-3 rounded border border-stone-200 bg-white px-2.5 py-2">
+        <legend className="text-[11px] font-medium text-brown px-1">Font theme</legend>
+        <div className="space-y-1">
+          {FONT_THEME_OPTIONS.map(option => {
+            const isSelected = themeKey === option.key
+            return (
+              <label
+                key={option.key}
+                className={`flex items-start gap-2 rounded border px-2 py-1.5 cursor-pointer transition ${
+                  isSelected ? 'border-brown bg-stone-50' : 'border-stone-200 hover:border-stone-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="font-theme"
+                  value={option.key}
+                  checked={isSelected}
+                  onChange={() => setThemeKey(option.key)}
+                  className="mt-0.5 accent-amber-600"
+                />
+                <span className="min-w-0">
+                  <span className="block text-[11px] font-medium text-brown leading-tight">{option.label}</span>
+                  <span className="block text-[10px] text-stone-500 leading-snug">{option.description}</span>
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      </fieldset>
 
       <div className="mt-3 flex items-center justify-between gap-2">
         <p className="text-[10px] text-stone-400 leading-snug">

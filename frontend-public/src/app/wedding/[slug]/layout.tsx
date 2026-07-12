@@ -8,6 +8,7 @@ import { getWedding } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
 import { safeColor } from '@/lib/safeColor'
 import { safeNameFont, safeNameFontWeight } from '@/lib/safeFont'
+import { safeFontTheme } from '@/lib/safeFontTheme'
 import { accentColorTokens } from '@/lib/accentColorTokens'
 
 // NOTE: intentionally NO generateStaticParams here. Pre-rendering the published catalog
@@ -169,10 +170,18 @@ export default async function WeddingLayout({
   // the paired weight avoids faux-bold on single-weight script faces.
   const nameFont = safeNameFont(wedding.nameFont)
   const nameFontWeight = safeNameFontWeight(wedding.nameFont)
+  // Couple-chosen font-pairing theme (issue #358). safeFontTheme maps the key stored in
+  // the opaque customTabLabels column to an allowlisted heading + body font-family stack
+  // (never the raw value) and defaults to the pre-#358 Playfair/Inter pair, so an unset
+  // site is pixel-identical. The hero names keep their own --name-font (higher-priority
+  // inline style), so the theme drives section headings and body copy, not the couple's
+  // names on the hero.
+  const fontTheme = safeFontTheme(wedding.customTabLabels)
 
   return (
-    <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
-      <style>{`:root { --accent: ${accentColor}; --accent-on-dark: ${accentTokens.onDark}; --accent-on-light: ${accentTokens.onLight}; --on-accent: ${accentTokens.onAccent}; --name-font: ${nameFont}; --name-font-weight: ${nameFontWeight}; }`}</style>
+    <div className="aw-fonts min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]" style={{ fontFamily: 'var(--body-font)' }}>
+      <style>{`:root { --accent: ${accentColor}; --accent-on-dark: ${accentTokens.onDark}; --accent-on-light: ${accentTokens.onLight}; --on-accent: ${accentTokens.onAccent}; --name-font: ${nameFont}; --name-font-weight: ${nameFontWeight}; --heading-font: ${fontTheme.heading}; --body-font: ${fontTheme.body}; }
+.aw-fonts h1, .aw-fonts h2, .aw-fonts h3, .aw-fonts h4, .aw-fonts h5, .aw-fonts h6 { font-family: var(--heading-font); }`}</style>
 
       {eventJsonLd && (
         <script
