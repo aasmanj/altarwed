@@ -1,12 +1,45 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { useEffect } from 'react'
+import { useEffect, useId, useState } from 'react'
 import {
   useVendorSubscription,
   useCreateCheckoutSession,
   useCreatePortalSession,
 } from './useSubscription'
 import PromoCodeBox from './PromoCodeBox'
+
+// Clear-and-conspicuous auto-renewal disclosure shown adjacent to the Subscribe button
+// before any recurring charge is captured. Required by the FTC Negative Option Rule and
+// California's Automatic Renewal Law (Cal. Bus. & Prof. Code S17600 et seq.), which both
+// require the recurring price, the renewal cadence, and how to cancel to be disclosed
+// up front, plus affirmative consent to the recurring charge.
+//
+// NOTE: the exact legal wording here is pending attorney review (see issue #386). Treat
+// this copy as a placeholder that counsel must confirm before the marketing push.
+export const AUTO_RENEWAL_DISCLOSURE_HEADING = 'Automatic renewal terms'
+
+export const AUTO_RENEWAL_DISCLOSURE_BODY =
+  'Your AltarWed Pro subscription renews automatically. The monthly plan bills $29 every month; ' +
+  'the annual plan bills $290 every year. Billing recurs at the same price each period and ' +
+  'continues until you cancel. You can cancel anytime from the billing portal on this ' +
+  'Subscription page; cancellation takes effect at the end of the current billing period, and ' +
+  'partial periods are not refunded.'
+
+export const AUTO_RENEWAL_CONSENT_LABEL =
+  'I understand my AltarWed Pro subscription renews automatically at the price and interval ' +
+  'shown above, and I authorize AltarWed to charge my payment method on a recurring basis until ' +
+  'I cancel.'
+
+// Checkout may only begin once a valid Stripe price ID has loaded AND the vendor has given
+// affirmative consent to the recurring charge (negative-option compliance) AND no checkout
+// is already in flight. Centralised so the buttons and the tests agree on the exact gate.
+export function canStartCheckout(
+  priceId: string | null | undefined,
+  consented: boolean,
+  loading: boolean,
+): boolean {
+  return !!priceId && consented && !loading
+}
 
 // Shown when a Stripe price ID fails to load (config/deploy skew) so a vendor ready
 // to pay is not left at a silent dead-end with only a greyed-out button. See issue #154.
@@ -156,6 +189,12 @@ function UpgradePanel({
   loading: boolean
   onRedeemed: () => void
 }) {
+  // Affirmative consent to the recurring charge. Checkout stays gated behind this so we
+  // never send a vendor to Stripe without capturing negative-option consent first.
+  const [consented, setConsented] = useState(false)
+  const disclosureId = useId()
+  const consentId = useId()
+
   return (
     <div className="space-y-6">
       <div>
@@ -163,6 +202,26 @@ function UpgradePanel({
         <p className="text-[#8a6a4a] text-sm">
           Get in front of more couples with priority placement and analytics.
         </p>
+      </div>
+
+      <div
+        id={disclosureId}
+        className="rounded-xl border border-[#d4af6a] bg-[#fdf6eb] p-5"
+      >
+        <p className="font-semibold text-[#3b2f2f] text-sm mb-1">
+          {AUTO_RENEWAL_DISCLOSURE_HEADING}
+        </p>
+        <p className="text-sm text-[#6b5344]">{AUTO_RENEWAL_DISCLOSURE_BODY}</p>
+        <label htmlFor={consentId} className="mt-4 flex items-start gap-2.5 cursor-pointer">
+          <input
+            id={consentId}
+            type="checkbox"
+            checked={consented}
+            onChange={(e) => setConsented(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-[#3b2f2f] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af6a]"
+          />
+          <span className="text-sm text-[#3b2f2f]">{AUTO_RENEWAL_CONSENT_LABEL}</span>
+        </label>
       </div>
 
       <div className="rounded-2xl border border-[#e8dcc8] bg-white divide-y divide-[#e8dcc8]">
@@ -173,6 +232,8 @@ function UpgradePanel({
           priceId={monthlyPriceId}
           onCheckout={onCheckout}
           loading={loading}
+          consented={consented}
+          disclosureId={disclosureId}
         />
         <PricingRow
           label="Annual"
@@ -182,6 +243,8 @@ function UpgradePanel({
           priceId={annualPriceId}
           onCheckout={onCheckout}
           loading={loading}
+          consented={consented}
+          disclosureId={disclosureId}
         />
       </div>
 
@@ -212,6 +275,8 @@ function PricingRow({
   priceId,
   onCheckout,
   loading,
+  consented,
+  disclosureId,
 }: {
   label: string
   price: string
@@ -220,7 +285,14 @@ function PricingRow({
   priceId: string | null
   onCheckout: (priceId: string) => void
   loading: boolean
+  consented: boolean
+  disclosureId: string
 }) {
+  const ready = canStartCheckout(priceId, consented, loading)
+  // Consent is only "missing" once the price row is otherwise usable, so we do not nag
+  // the vendor with a consent hint while billing is unavailable for a different reason.
+  const needsConsent = !consented && !isBillingUnavailable(priceId) && !loading
+
   return (
     <div className="flex items-center justify-between gap-4 p-5">
       <div>
@@ -237,17 +309,22 @@ function PricingRow({
       </div>
       <div className="shrink-0 flex flex-col items-end gap-1.5">
         <button
-          onClick={() => priceId && onCheckout(priceId)}
-          disabled={loading || isBillingUnavailable(priceId)}
+          onClick={() => ready && priceId && onCheckout(priceId)}
+          disabled={!ready}
+          aria-describedby={disclosureId}
           className="rounded-lg bg-[#3b2f2f] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5c4033] transition disabled:opacity-40"
         >
           {loading ? 'Loading...' : 'Subscribe'}
         </button>
-        {isBillingUnavailable(priceId) && (
+        {isBillingUnavailable(priceId) ? (
           <p role="alert" className="max-w-[11rem] text-right text-xs text-red-600">
             {BILLING_UNAVAILABLE_MESSAGE}
           </p>
-        )}
+        ) : needsConsent ? (
+          <p className="max-w-[11rem] text-right text-xs text-[#8a6a4a]">
+            Confirm the automatic renewal terms above to continue.
+          </p>
+        ) : null}
       </div>
     </div>
   )
