@@ -61,6 +61,19 @@ public record PublicWeddingWebsiteResponse(
 
         String stdImageUrl,
 
+        // V90: reception venue (venue* above is the ceremony venue) + optional card titles.
+        String receptionVenueName,
+        String receptionVenueAddress,
+        String receptionVenueCity,
+        String receptionVenueState,
+        String receptionTime,
+        String receptionVenueAdditionalInfo,
+        String ceremonyVenueTitle,
+        String receptionVenueTitle,
+
+        // V91: allowlisted font key for the couple's names. null = default serif.
+        String nameFont,
+
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {}

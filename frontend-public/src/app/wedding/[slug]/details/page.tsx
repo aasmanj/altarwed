@@ -11,6 +11,8 @@ export default async function DetailsPage(
   const wedding = await getWedding(slug)
   if (!wedding) notFound()
 
+  const hasReception = !!wedding.receptionVenueName
+
   const fallback = (
     <div className="space-y-10">
       <SectionHeading>The Wedding</SectionHeading>
@@ -24,10 +26,22 @@ export default async function DetailsPage(
         )}
         {wedding.venueName && (
           <DetailCard
-            label="Venue"
+            // When a reception venue exists, the two cards need distinguishing labels;
+            // the couple's custom title wins, else "Ceremony" (or plain "Venue" solo).
+            label={wedding.ceremonyVenueTitle || (hasReception ? 'Ceremony' : 'Venue')}
             value={[wedding.venueName, wedding.venueAddress, wedding.venueCity, wedding.venueState].filter(Boolean).join(', ')}
             Icon={MapPin}
           />
+        )}
+        {hasReception && (
+          <DetailCard
+            label={wedding.receptionVenueTitle || 'Reception'}
+            value={[wedding.receptionVenueName, wedding.receptionVenueAddress, wedding.receptionVenueCity, wedding.receptionVenueState].filter(Boolean).join(', ')}
+            Icon={MapPin}
+          />
+        )}
+        {hasReception && wedding.receptionTime && (
+          <DetailCard label="Reception Time" value={wedding.receptionTime} Icon={Clock} />
         )}
         {wedding.dressCode && (
           <DetailCard label="Dress Code" value={wedding.dressCode} Icon={Shirt} />

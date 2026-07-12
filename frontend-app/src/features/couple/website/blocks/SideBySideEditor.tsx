@@ -806,6 +806,9 @@ export default function SideBySideEditor() {
             onScriptureBgColorSave={(color) => {
               updateWebsite.mutate({ scriptureBackgroundColor: color }, { onSuccess: bumpPreview })
             }}
+            onNameFontSave={(font) => {
+              updateWebsite.mutate({ nameFont: font }, { onSuccess: bumpPreview })
+            }}
           />
           <input
             ref={heroInputRef}
@@ -1096,6 +1099,17 @@ const DEFAULT_HERO_PHOTOS = [
 // 500ms after the most recent call. Used for any text field that wants
 // type-to-save semantics without hammering the API on every keystroke.
 // Lives at module scope (not inside a component) per the React Rules of Hooks.
+// Couple-selectable fonts for the hero names. The `key` MUST stay in sync with the
+// backend @Pattern on UpdateWeddingWebsiteRequest.nameFont and the public safeNameFont()
+// allowlist; `label` is only what the couple sees in this picker.
+const NAME_FONT_OPTIONS: { key: string; label: string }[] = [
+  { key: 'playfair', label: 'Playfair (classic serif, default)' },
+  { key: 'cormorant', label: 'Cormorant (elegant serif)' },
+  { key: 'lora', label: 'Lora (readable serif)' },
+  { key: 'montserrat', label: 'Montserrat (modern sans)' },
+  { key: 'greatvibes', label: 'Great Vibes (script)' },
+]
+
 function useDebouncedSave<T>(persistedSave: (value: T) => void) {
   const timer = useRef<number | null>(null)
   const schedule = useCallback((value: T) => {
@@ -1126,6 +1140,7 @@ function HeroSettings({
   onTaglineColorSave,
   onTaglineColorLive,
   onScriptureBgColorSave,
+  onNameFontSave,
 }: {
   website: {
     heroPhotoUrl?: string | null
@@ -1138,6 +1153,7 @@ function HeroSettings({
     scriptureReference?: string | null
     scriptureText?: string | null
     scriptureBackgroundColor?: string | null
+    nameFont?: string | null
   }
   websiteId: string
   heroUploading: boolean
@@ -1155,6 +1171,7 @@ function HeroSettings({
   onTaglineColorSave: (color: string | null) => void
   onTaglineColorLive: (color: string) => void
   onScriptureBgColorSave: (color: string) => void
+  onNameFontSave: (font: string | null) => void
 }) {
   const DEFAULT_TAGLINE = 'Together in covenant'
   const [expanded, setExpanded] = useState(false)
@@ -1164,6 +1181,7 @@ function HeroSettings({
   const [focalPointY, setFocalPointY] = useState<number>(website.heroFocalPointY ?? 0.5)
   const [brideName, setBrideName] = useState(website.partnerTwoName ?? '')
   const [groomName, setGroomName] = useState(website.partnerOneName ?? '')
+  const [nameFont, setNameFont] = useState<string>(website.nameFont ?? 'playfair')
   const [pickingPhoto, setPickingPhoto] = useState(false)
   const [photoDragOver, setPhotoDragOver] = useState(false)
 
@@ -1174,6 +1192,7 @@ function HeroSettings({
   useEffect(() => { setFocalPointY(website.heroFocalPointY ?? 0.5) }, [website.heroFocalPointY])
   useEffect(() => { setBrideName(website.partnerTwoName ?? '') }, [website.partnerTwoName])
   useEffect(() => { setGroomName(website.partnerOneName ?? '') }, [website.partnerOneName])
+  useEffect(() => { setNameFont(website.nameFont ?? 'playfair') }, [website.nameFont])
 
   const scheduleTaglineSave = useDebouncedSave(onTaglineSave)
   const scheduleBrideSave   = useDebouncedSave((v: string) => onNameSave('partnerTwoName', v))
@@ -1337,6 +1356,32 @@ function HeroSettings({
             </div>
             <p className="col-span-2 text-[10px] text-stone-400 leading-snug -mt-1">
               Updates live. Both names appear on every public page header.
+            </p>
+          </div>
+
+          {/* Names font: sets the typeface for the couple's names in the hero.
+              Saves + refreshes the preview (no live postMessage, same as accent color). */}
+          <div>
+            <label htmlFor="hero-name-font" className="block text-[10px] font-semibold text-stone-500 uppercase tracking-wide mb-1">
+              Names font
+            </label>
+            <select
+              id="hero-name-font"
+              value={nameFont}
+              onChange={e => {
+                const v = e.target.value
+                setNameFont(v)
+                // Always send the literal key (incl. "playfair"). Sending null for the default
+                // would hit the backend patch-merge's "null = no change" branch, so a couple
+                // could never switch BACK to Playfair once they picked another font.
+                onNameFontSave(v)
+              }}
+              className="w-full rounded-md border border-stone-300 px-2.5 py-1.5 text-xs bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+            >
+              {NAME_FONT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+            <p className="mt-1 text-[10px] text-stone-400 leading-snug">
+              Sets the font for your names on the public site.
             </p>
           </div>
 

@@ -52,6 +52,17 @@ export interface WeddingWebsite {
   scriptureBackgroundColor: string | null
   // V65: custom save-the-date image. null = use the default text-only STD email template.
   stdImageUrl: string | null
+  // V90: reception venue (venue* above is the ceremony venue) + optional card titles.
+  receptionVenueName: string | null
+  receptionVenueAddress: string | null
+  receptionVenueCity: string | null
+  receptionVenueState: string | null
+  receptionTime: string | null
+  receptionVenueAdditionalInfo: string | null
+  ceremonyVenueTitle: string | null
+  receptionVenueTitle: string | null
+  // V91: allowlisted font key for the couple's names on the public hero. null = default serif.
+  nameFont: string | null
 }
 
 export interface CreateWebsitePayload {

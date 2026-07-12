@@ -66,6 +66,15 @@ var appSettings = [
     name: 'WEBSITES_PORT'
     value: '8080'
   }
+  {
+    // Seconds the platform waits after SIGTERM before SIGKILL on stop/restart/deploy.
+    // Default is 5s, too short for Spring's graceful drain (server.shutdown=graceful,
+    // spring.lifecycle.timeout-per-shutdown-phase=20s). Set above that 20s so in-flight
+    // requests drain cleanly instead of the container being torn down mid-request
+    // (the NoClassDefFoundError storm + public-site 504 on every restart).
+    name: 'WEBSITES_CONTAINER_STOP_TIME_LIMIT'
+    value: '30'
+  }
   // ── Secrets reconciled into IaC as Key Vault references ──────────────
   {
     name: 'RESEND_API_KEY'

@@ -157,6 +157,36 @@ public class WeddingWebsiteEntity {
     @Column(name = "std_image_url", length = 2000)
     private String stdImageUrl;
 
+    // V90: reception venue (the venue_* columns above are the CEREMONY venue).
+    @Column(name = "reception_venue_name", length = 200)
+    private String receptionVenueName;
+
+    @Column(name = "reception_venue_address", length = 300)
+    private String receptionVenueAddress;
+
+    @Column(name = "reception_venue_city", length = 100)
+    private String receptionVenueCity;
+
+    @Column(name = "reception_venue_state", length = 50)
+    private String receptionVenueState;
+
+    @Column(name = "reception_time", length = 50)
+    private String receptionTime;
+
+    @Column(name = "reception_venue_additional_info", columnDefinition = "NVARCHAR(MAX)")
+    private String receptionVenueAdditionalInfo;
+
+    // V90: optional custom headers for the two venue cards. null = default UI label.
+    @Column(name = "ceremony_venue_title", length = 100)
+    private String ceremonyVenueTitle;
+
+    @Column(name = "reception_venue_title", length = 100)
+    private String receptionVenueTitle;
+
+    // V91: allowlisted font key for the couple's names on the public hero. null = default serif.
+    @Column(name = "name_font", length = 40)
+    private String nameFont;
+
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted;
 

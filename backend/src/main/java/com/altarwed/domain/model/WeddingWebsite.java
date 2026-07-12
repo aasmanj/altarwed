@@ -85,6 +85,25 @@ public record WeddingWebsite(
         // null = use the default text-only STD email template.
         String stdImageUrl,
 
+        // V90: reception venue. The existing venue* fields above are the CEREMONY
+        // venue; these hold a genuinely separate reception location. All null = the
+        // couple has no distinct reception venue (only the ceremony card renders).
+        String receptionVenueName,
+        String receptionVenueAddress,
+        String receptionVenueCity,
+        String receptionVenueState,
+        String receptionTime,
+        String receptionVenueAdditionalInfo,
+        // V90: optional custom headers for the two venue cards (e.g. "Ceremony",
+        // "Reception", "The Blessing"). null = the UI falls back to its default label.
+        String ceremonyVenueTitle,
+        String receptionVenueTitle,
+
+        // V91: font key for the couple's names on the public hero. Allowlisted key
+        // (e.g. "playfair"|"cormorant"|"greatvibes"|"montserrat"), never a raw
+        // font-family. null = the default serif (Playfair).
+        String nameFont,
+
         boolean isDeleted,
         LocalDateTime deletedAt,
 
@@ -103,6 +122,9 @@ public record WeddingWebsite(
                 rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget,
                 hiddenTabs, customTabLabels, accentColor, scriptureBackgroundColor,
                 stdImageUrl,
+                receptionVenueName, receptionVenueAddress, receptionVenueCity, receptionVenueState,
+                receptionTime, receptionVenueAdditionalInfo, ceremonyVenueTitle, receptionVenueTitle,
+                nameFont,
                 isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
@@ -118,6 +140,9 @@ public record WeddingWebsite(
                 rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget,
                 hiddenTabs, customTabLabels, accentColor, scriptureBackgroundColor,
                 stdImageUrl,
+                receptionVenueName, receptionVenueAddress, receptionVenueCity, receptionVenueState,
+                receptionTime, receptionVenueAdditionalInfo, ceremonyVenueTitle, receptionVenueTitle,
+                nameFont,
                 isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
@@ -133,6 +158,9 @@ public record WeddingWebsite(
                 rsvpDeadline, partnerOneVows, partnerTwoVows, goalBudget,
                 hiddenTabs, customTabLabels, accentColor, scriptureBackgroundColor,
                 stdImageUrl,
+                receptionVenueName, receptionVenueAddress, receptionVenueCity, receptionVenueState,
+                receptionTime, receptionVenueAdditionalInfo, ceremonyVenueTitle, receptionVenueTitle,
+                nameFont,
                 true, LocalDateTime.now(), createdAt, LocalDateTime.now());
     }
 }

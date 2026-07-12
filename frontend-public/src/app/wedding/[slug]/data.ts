@@ -1,5 +1,15 @@
 import type { WeddingPartyMember, WeddingPhoto } from '@/components/blocks/BlockRenderer'
 
+// Hard client-side timeout for every backend fetch on the public wedding render
+// path. Without it a slow/wedged backend leaves the SSR render blocked until the
+// Azure Static Web Apps gateway kills it with a hard 504.0 GatewayTimeout (the
+// symptom a couple actually sees). With it, a timeout aborts the fetch: the
+// content-presence gets (party/photos/blocks) fall through their catch to a safe
+// default, and getWedding throws into wedding/error.tsx (a "try again" page) or
+// keeps serving the last good ISR render, instead of a terminal gateway 504.
+// Mirrors the same guard already in src/lib/sitemapData.ts (8s).
+const FETCH_TIMEOUT_MS = 8000
+
 export interface WeddingWebsite {
   id: string
   slug: string
@@ -49,6 +59,18 @@ export interface WeddingWebsite {
   accentColor: string | null
   // V62: CSS color for the scripture banner background. null = default dark gradient.
   scriptureBackgroundColor: string | null
+  // V90: reception venue (venueName etc. above are the ceremony venue) + optional
+  // custom card titles. All null = no separate reception location.
+  receptionVenueName: string | null
+  receptionVenueAddress: string | null
+  receptionVenueCity: string | null
+  receptionVenueState: string | null
+  receptionTime: string | null
+  receptionVenueAdditionalInfo: string | null
+  ceremonyVenueTitle: string | null
+  receptionVenueTitle: string | null
+  // V91: allowlisted font key for the couple's names. null = default serif.
+  nameFont: string | null
 }
 
 // Parsed view of the per-couple tab customisations. The raw fields above are
@@ -106,7 +128,9 @@ export async function getWedding(slug: string, fresh = false): Promise<WeddingWe
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
   const path = fresh ? `preview/${slug}` : `slug/${slug}`
   const res = await fetch(`${apiUrl}/api/v1/wedding-websites/${path}`,
-    fresh ? { cache: 'no-store' } : { next: { revalidate: 60 } })
+    fresh
+      ? { cache: 'no-store', signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }
+      : { next: { revalidate: 60 }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
   // Only a genuine 404 means the site does not exist; the caller turns that into
   // notFound(). Every other failure (5xx, network, timeout, malformed body) is
   // transient and MUST throw rather than return null (issue #148). Returning null
@@ -131,7 +155,7 @@ export async function getWedding(slug: string, fresh = false): Promise<WeddingWe
 export async function hasWeddingPartyMembers(websiteId: string): Promise<boolean> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
   try {
-    const res = await fetch(`${apiUrl}/api/v1/wedding-party/website/${websiteId}`, { next: { revalidate: 60 } })
+    const res = await fetch(`${apiUrl}/api/v1/wedding-party/website/${websiteId}`, { next: { revalidate: 60 }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
     if (!res.ok) return false
     const members = await res.json()
     // Mirror the wedding-party page exactly: it only renders BRIDE/GROOM groups
@@ -147,7 +171,7 @@ export async function hasWeddingPartyMembers(websiteId: string): Promise<boolean
 export async function hasWeddingPhotos(slug: string): Promise<boolean> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
   try {
-    const res = await fetch(`${apiUrl}/api/v1/wedding-photos/website/slug/${slug}`, { next: { revalidate: 60 } })
+    const res = await fetch(`${apiUrl}/api/v1/wedding-photos/website/slug/${slug}`, { next: { revalidate: 60 }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
     if (!res.ok) return false
     const photos = await res.json()
     return Array.isArray(photos) && photos.length > 0
@@ -184,7 +208,9 @@ export async function getBlocks(slug: string, tab: BlockTab, fresh = false): Pro
     const path = fresh ? `preview/${slug}` : `slug/${slug}`
     const res = await fetch(
       `${apiUrl}/api/v1/wedding-page-blocks/${path}?tab=${tab}`,
-      fresh ? { cache: 'no-store' } : { next: { revalidate: 60 } },
+      fresh
+        ? { cache: 'no-store', signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }
+        : { next: { revalidate: 60 }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) },
     )
     if (!res.ok) return []
     return res.json()
@@ -198,7 +224,7 @@ export async function getBlocks(slug: string, tab: BlockTab, fresh = false): Pro
 export async function getAllBlocks(slug: string): Promise<WeddingPageBlock[]> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
   try {
-    const res = await fetch(`${apiUrl}/api/v1/wedding-page-blocks/slug/${slug}`, { next: { revalidate: 60 } })
+    const res = await fetch(`${apiUrl}/api/v1/wedding-page-blocks/slug/${slug}`, { next: { revalidate: 60 }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
     if (!res.ok) return []
     return res.json()
   } catch {
@@ -212,7 +238,7 @@ export async function getAllBlocks(slug: string): Promise<WeddingPageBlock[]> {
 export async function getPartyMembers(websiteId: string): Promise<WeddingPartyMember[]> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
   try {
-    const res = await fetch(`${apiUrl}/api/v1/wedding-party/website/${websiteId}`, { next: { revalidate: 60 } })
+    const res = await fetch(`${apiUrl}/api/v1/wedding-party/website/${websiteId}`, { next: { revalidate: 60 }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
     if (!res.ok) return []
     return res.json()
   } catch {
@@ -223,7 +249,7 @@ export async function getPartyMembers(websiteId: string): Promise<WeddingPartyMe
 export async function getPhotos(slug: string): Promise<WeddingPhoto[]> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
   try {
-    const res = await fetch(`${apiUrl}/api/v1/wedding-photos/website/slug/${slug}`, { next: { revalidate: 60 } })
+    const res = await fetch(`${apiUrl}/api/v1/wedding-photos/website/slug/${slug}`, { next: { revalidate: 60 }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
     if (!res.ok) return []
     return res.json()
   } catch {
@@ -263,7 +289,12 @@ export function blockHasContent(
     }
     case 'RSVP_CTA': return true
     case 'COUNTDOWN': return !!wedding.weddingDate
-    case 'VENUE_CARD': return !!wedding.venueName
+    case 'VENUE_CARD': {
+      // A reception-slot card has content only when the reception venue is set;
+      // a ceremony/legacy card gates on the ceremony venue.
+      const venueSlot = s(c.venueSlot)
+      return venueSlot === 'RECEPTION' ? !!wedding.receptionVenueName : !!wedding.venueName
+    }
     case 'HOTEL_CARD': return !!wedding.hotelName
     case 'REGISTRY_CARD': {
       const slot = typeof c.slot === 'number' ? c.slot : 1

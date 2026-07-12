@@ -127,9 +127,13 @@ export function defaultContentJson(type: BlockType): string {
       return JSON.stringify({ slot: 1 })
     case 'WEDDING_PARTY_GRID':
       return JSON.stringify({ side: 'BRIDE' })
+    case 'VENUE_CARD':
+      // venueSlot selects which venue the card renders (ceremony vs reception). New
+      // cards default to CEREMONY; the rest of the payload is the venue's scalar fields.
+      return JSON.stringify({ venueSlot: 'CEREMONY' })
     default:
-      // DIVIDER, VENUE_CARD, HOTEL_CARD, COUNTDOWN, RSVP_CTA, PHOTO_ALBUM_GRID,
-      // VOWS_PREVIEW: payload pulled from the website's scalar fields at render time.
+      // DIVIDER, HOTEL_CARD, COUNTDOWN, RSVP_CTA, PHOTO_ALBUM_GRID, VOWS_PREVIEW:
+      // payload pulled from the website's scalar fields at render time.
       return '{}'
   }
 }
