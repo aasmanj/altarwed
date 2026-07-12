@@ -22,29 +22,64 @@ import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { coupleDisplayName } from '@/lib/coupleName'
 import { errorDetail } from '@/lib/apiError'
 import { formatShortDate } from '@/lib/date'
+import {
+  type BaseTemplateKey,
+  type TextPosition,
+  type OverlayTextTheme,
+  DEFAULT_TEXT_POSITION,
+  DEFAULT_OVERLAY_THEME,
+  TEXT_POSITIONS,
+  composePrintTemplateKey,
+  basePrintTemplateKey,
+  isPhotoTemplate,
+  styleOf,
+  overlayPlacement,
+} from './printTemplate'
 
-type TemplateKey =
-  | 'SAVE_THE_DATE_CLASSIC'
-  | 'SAVE_THE_DATE_PHOTO'
-  | 'INVITATION_CLASSIC'
-  | 'INVITATION_PHOTO'
+// Base design keys (issue #362 adds Minimal, Botanical, Dark Elegant to the original Classic/Photo).
+// The PHOTO overlay position + light/dark theme are composed onto the key only at submit time.
+type TemplateKey = BaseTemplateKey
 
 const TEMPLATES: Record<PrintOrderType, { key: TemplateKey; label: string; description: string }[]> = {
   SAVE_THE_DATE: [
     { key: 'SAVE_THE_DATE_CLASSIC', label: 'Classic', description: 'Cream + gold, no photo. Best when you don\'t yet have a couple portrait.' },
     { key: 'SAVE_THE_DATE_PHOTO', label: 'Photo', description: 'Full-bleed hero photo with names and date overlaid.' },
+    { key: 'SAVE_THE_DATE_MINIMAL', label: 'Minimal', description: 'Clean white card with a hairline frame in your accent color.' },
+    { key: 'SAVE_THE_DATE_BOTANICAL', label: 'Botanical', description: 'Soft ivory with a botanical accent border and sprig.' },
+    { key: 'SAVE_THE_DATE_DARK_ELEGANT', label: 'Dark elegant', description: 'Dramatic charcoal card with your accent as the divider.' },
   ],
   INVITATION: [
     { key: 'INVITATION_CLASSIC', label: 'Classic', description: 'Cream + gold, scripture footer, ceremony details on back.' },
     { key: 'INVITATION_PHOTO', label: 'Photo', description: 'Full-bleed hero photo with formal invitation copy.' },
+    { key: 'INVITATION_MINIMAL', label: 'Minimal', description: 'Clean white card with a hairline frame in your accent color.' },
+    { key: 'INVITATION_BOTANICAL', label: 'Botanical', description: 'Soft ivory with a botanical accent border and sprig.' },
+    { key: 'INVITATION_DARK_ELEGANT', label: 'Dark elegant', description: 'Dramatic charcoal card with your accent as the divider.' },
   ],
 }
 
 const TEMPLATE_LABELS: Record<TemplateKey, string> = {
   SAVE_THE_DATE_CLASSIC: 'Save the Date - Classic',
   SAVE_THE_DATE_PHOTO: 'Save the Date - Photo',
+  SAVE_THE_DATE_MINIMAL: 'Save the Date - Minimal',
+  SAVE_THE_DATE_BOTANICAL: 'Save the Date - Botanical',
+  SAVE_THE_DATE_DARK_ELEGANT: 'Save the Date - Dark elegant',
   INVITATION_CLASSIC: 'Invitation - Classic',
   INVITATION_PHOTO: 'Invitation - Photo',
+  INVITATION_MINIMAL: 'Invitation - Minimal',
+  INVITATION_BOTANICAL: 'Invitation - Botanical',
+  INVITATION_DARK_ELEGANT: 'Invitation - Dark elegant',
+}
+
+// The card accent falls back to this warm gold when the couple hasn't set a website accentColor,
+// mirroring the backend Lob adapter's DEFAULT_ACCENT so the preview matches the printed card.
+const DEFAULT_ACCENT = '#a08060'
+
+// Guard the couple-controlled accent to a strict hex literal before it reaches inline preview CSS,
+// exactly like the backend sanitizeAccent(); anything else falls back to the default gold.
+function sanitizeAccent(accent: string | null | undefined): string {
+  if (!accent) return DEFAULT_ACCENT
+  const a = accent.trim()
+  return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(a) ? a : DEFAULT_ACCENT
 }
 
 // Card shape/size options. `aspect` drives the live preview; `portrait` flips the preview layout
@@ -77,6 +112,10 @@ export default function CommunicationsPage() {
   const [orderType, setOrderType] = useState<PrintOrderType>('SAVE_THE_DATE')
   const [templateKey, setTemplateKey] = useState<TemplateKey>('SAVE_THE_DATE_CLASSIC')
   const [cardSize, setCardSize] = useState<CardSize>('LANDSCAPE_6X11')
+  // Issue #362: photo-overlay customization. Only meaningful for a PHOTO template; composed onto
+  // the templateKey at submit time. Defaults match the original photo card (bottom-center, light).
+  const [textPosition, setTextPosition] = useState<TextPosition>(DEFAULT_TEXT_POSITION)
+  const [overlayTheme, setOverlayTheme] = useState<OverlayTextTheme>(DEFAULT_OVERLAY_THEME)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [returnName, setReturnName] = useState(
     user?.partnerOneName && user?.partnerTwoName
@@ -104,7 +143,13 @@ export default function CommunicationsPage() {
   // server-side. Clearing the selection after a success also rotates the key.
   useEffect(() => {
     setIdempotencyKey(crypto.randomUUID())
-  }, [orderType, templateKey, cardSize, selectedIds])
+  }, [orderType, templateKey, cardSize, textPosition, overlayTheme, selectedIds])
+
+  const isPhoto = isPhotoTemplate(templateKey)
+  const accent = sanitizeAccent(website?.accentColor)
+  // The full templateKey sent to the backend: base design plus, for a photo card, the chosen
+  // overlay position + theme suffix. Non-photo templates ignore the overlay entirely.
+  const composedTemplateKey = composePrintTemplateKey(templateKey, textPosition, overlayTheme)
 
   // Issue #59: the couple lands back here after Stripe Checkout via successUrl/cancelUrl. Show
   // what happened, refetch orders (once immediately, once after a short delay to catch the async
@@ -195,7 +240,7 @@ export default function CommunicationsPage() {
 
     const payload: CreatePrintOrderPayload = {
       orderType,
-      templateKey,
+      templateKey: composedTemplateKey,
       guestIds: eligibleSelected,
       returnName: returnName.trim(),
       returnAddressLine1: returnAddressLine1.trim(),
@@ -389,9 +434,65 @@ export default function CommunicationsPage() {
               </div>
             </div>
 
+            {/* Photo-overlay controls (issue #362): only meaningful for a Photo template. */}
+            {isPhoto && (
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div role="group" aria-labelledby="overlay-theme-label">
+                  <p id="overlay-theme-label" className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-2">Overlay text</p>
+                  <div className="flex gap-2">
+                    {([
+                      { key: 'LIGHT' as OverlayTextTheme, label: 'Light text' },
+                      { key: 'DARK' as OverlayTextTheme, label: 'Dark text' },
+                    ]).map(o => (
+                      <button
+                        key={o.key}
+                        onClick={() => setOverlayTheme(o.key)}
+                        aria-pressed={overlayTheme === o.key}
+                        className={`px-3 py-2 rounded-lg border text-sm font-medium ${
+                          overlayTheme === o.key
+                            ? 'border-amber-600 bg-amber-50 text-stone-800'
+                            : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
+                        }`}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-stone-500 mt-1.5">Light for dark photos, dark for bright photos.</p>
+                </div>
+                <div role="group" aria-labelledby="text-position-label">
+                  <p id="text-position-label" className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-2">Text position</p>
+                  <div className="grid grid-cols-3 gap-1 w-max" role="radiogroup" aria-labelledby="text-position-label">
+                    {TEXT_POSITIONS.map(pos => (
+                      <button
+                        key={pos}
+                        role="radio"
+                        aria-checked={textPosition === pos}
+                        aria-label={`Text ${pos.toLowerCase().replace('_', ' ')}`}
+                        onClick={() => setTextPosition(pos)}
+                        className={`w-8 h-8 rounded border flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${
+                          textPosition === pos
+                            ? 'border-amber-600 bg-amber-100'
+                            : 'border-stone-300 bg-white hover:bg-stone-50'
+                        }`}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`w-2 h-2 rounded-full ${textPosition === pos ? 'bg-amber-600' : 'bg-stone-300'}`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <PostcardPreview
               templateKey={templateKey}
               cardSize={cardSize}
+              accent={accent}
+              textPosition={textPosition}
+              overlayTheme={overlayTheme}
               user={user!}
               heroPhotoUrl={website?.heroPhotoUrl ?? null}
               websiteLoading={websiteLoading}
@@ -730,7 +831,7 @@ function PastOrderCard({
           <p className="font-medium text-stone-800">
             {order.orderType === 'SAVE_THE_DATE' ? 'Save the Date' : 'Invitation'} &middot;{' '}
             <span className="text-stone-500 text-sm">
-              {TEMPLATE_LABELS[order.templateKey as TemplateKey] ?? order.templateKey}
+              {TEMPLATE_LABELS[basePrintTemplateKey(order.templateKey) as TemplateKey] ?? order.templateKey}
             </span>
           </p>
           <p className="text-xs text-stone-500 mt-0.5">
@@ -824,6 +925,9 @@ export function deliveryStatusStyle(status: string | null): { label: string; cls
 function PostcardPreview({
   templateKey,
   cardSize,
+  accent,
+  textPosition,
+  overlayTheme,
   user,
   heroPhotoUrl,
   websiteLoading,
@@ -839,6 +943,9 @@ function PostcardPreview({
 }: {
   templateKey: TemplateKey
   cardSize: CardSize
+  accent: string
+  textPosition: TextPosition
+  overlayTheme: OverlayTextTheme
   user: { partnerOneName: string | null; partnerTwoName: string | null; weddingDate: string | null }
   heroPhotoUrl: string | null
   websiteLoading: boolean
@@ -854,7 +961,8 @@ function PostcardPreview({
 }) {
   const [enlarged, setEnlarged] = useState(false)
 
-  const isPhoto = templateKey.endsWith('_PHOTO')
+  const isPhoto = isPhotoTemplate(templateKey)
+  const style = styleOf(templateKey)
   const isSaveTheDate = templateKey.startsWith('SAVE_THE_DATE')
   const headline = isSaveTheDate ? 'Save the Date' : "You're Invited"
   // Bride-first (partnerTwoName) to match the printed postcard, the website, and the STD email.
@@ -895,11 +1003,28 @@ function PostcardPreview({
       fontFamily: 'Georgia, serif',
     }
     if (isPhoto) {
-      // Text lives in a bottom scrim band so the couple's faces (upper part of the photo) stay
-      // clear -- family feedback: "the words aren't over your beautiful faces". The verse gets a
-      // distinct warm gold so it reads as its own line ("a different color for the bible verse").
+      // Text lives in a scrim band anchored to the couple's chosen 3x3 position (issue #362), so
+      // their faces stay clear -- family feedback: "the words aren't over your beautiful faces".
+      // The light/dark theme flips the type + scrim for dark vs bright photos; the verse keeps a
+      // distinct warm color so it reads as its own line ("a different color for the bible verse").
+      const light = overlayTheme !== 'DARK'
+      const place = overlayPlacement(textPosition)
+      const labelColor = light ? '#f5e9d4' : '#5b4a34'
+      const verseColor = light ? '#f0c674' : '#7a531c'
+      const textColor = light ? '#fff' : '#2a2018'
+      const textShadow = light ? '0 1px 5px rgba(0,0,0,0.6)' : '0 1px 4px rgba(255,255,255,0.6)'
+      const scrimStrong = light ? 'rgba(0,0,0,0.82)' : 'rgba(255,255,255,0.85)'
+      const scrimFade = light ? 'rgba(0,0,0,0)' : 'rgba(255,255,255,0)'
+      const scrimVeil = light ? 'rgba(0,0,0,0.42)' : 'rgba(255,255,255,0.5)'
+      const bandH = portrait ? '52%' : '64%'
+      // The scrim follows the text: a band on the anchored edge, or a full veil when centered.
+      const scrim = place.justifyContent === 'flex-start'
+        ? { top: 0, height: bandH, background: `linear-gradient(to bottom, ${scrimStrong}, ${scrimFade})` }
+        : place.justifyContent === 'center'
+          ? { top: 0, bottom: 0, background: scrimVeil }
+          : { bottom: 0, height: bandH, background: `linear-gradient(to top, ${scrimStrong}, ${scrimFade})` }
       return (
-        <div style={{ ...frame, background: 'linear-gradient(135deg, #4a3f35, #2a2018)', color: '#fff' }}>
+        <div style={{ ...frame, background: 'linear-gradient(135deg, #4a3f35, #2a2018)', color: textColor }}>
           {hasPhoto ? (
             <img src={heroPhotoUrl!} alt="" aria-hidden="true"
               style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -908,22 +1033,68 @@ function PostcardPreview({
               Your couple photo
             </span>
           )}
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: portrait ? '52%' : '64%', background: 'linear-gradient(to top, rgba(0,0,0,0.82), rgba(0,0,0,0))' }} />
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: pad, textAlign: 'center', textShadow: '0 1px 5px rgba(0,0,0,0.6)' }}>
-            <div style={{ fontSize: px(11), letterSpacing: '0.3em', textTransform: 'uppercase', color: '#f5e9d4', marginBottom: px(6) }}>{headline}</div>
+          <div style={{ position: 'absolute', left: 0, right: 0, ...scrim }} />
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: place.justifyContent, alignItems: place.alignItems, padding: pad, textAlign: place.textAlign, textShadow }}>
+            <div style={{ fontSize: px(11), letterSpacing: '0.3em', textTransform: 'uppercase', color: labelColor, marginBottom: px(6) }}>{headline}</div>
             <div style={{ fontSize: namesPx, fontWeight: 'bold', lineHeight: 1.12 }}>{names}</div>
             {dateLabel && <div style={{ fontSize: px(15), marginTop: px(5), opacity: 0.92 }}>{dateLabel}</div>}
-            <div style={{ fontSize: px(10), fontStyle: 'italic', color: '#f0c674', marginTop: px(7), lineHeight: 1.3 }}>{verseLine}</div>
+            <div style={{ fontSize: px(10), fontStyle: 'italic', color: verseColor, marginTop: px(7), lineHeight: 1.3 }}>{verseLine}</div>
           </div>
         </div>
       )
     }
-    // Classic: centered cream + gold, verse as a distinct deeper-gold footer line.
+    if (style === 'MINIMAL') {
+      // Clean white card; the accent is the only color, driving a hairline frame + rule.
+      return (
+        <div style={{ ...frame, background: '#ffffff', color: '#2b2b2b' }}>
+          <div style={{ position: 'absolute', inset: px(14), border: `1px solid ${accent}` }} />
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: pad, textAlign: 'center' }}>
+            <div style={{ fontSize: px(11), letterSpacing: '0.45em', textTransform: 'uppercase', color: accent, marginBottom: px(10) }}>{headline}</div>
+            <div style={{ fontSize: namesPx, lineHeight: 1.15, letterSpacing: '0.02em' }}>{names}</div>
+            <div style={{ width: px(50), height: '1px', background: accent, margin: `${px(9)} 0` }} />
+            {dateLabel && <div style={{ fontSize: px(12), letterSpacing: '0.18em', textTransform: 'uppercase', color: '#555' }}>{dateLabel}</div>}
+          </div>
+          <div style={{ position: 'absolute', bottom: px(13), left: 0, right: 0, textAlign: 'center', fontSize: px(9), fontStyle: 'italic', color: '#8a6a4a', padding: '0 8%' }}>{verseLine}</div>
+        </div>
+      )
+    }
+    if (style === 'BOTANICAL') {
+      // Warm ivory with a double accent frame + an accent sprig standing in for a botanical wreath.
+      return (
+        <div style={{ ...frame, background: '#f7f3ea', color: '#33413a' }}>
+          <div style={{ position: 'absolute', inset: px(12), border: `2px solid ${accent}` }} />
+          <div style={{ position: 'absolute', inset: px(17), border: `1px solid ${accent}`, opacity: 0.55 }} />
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: pad, textAlign: 'center' }}>
+            <div style={{ fontSize: px(11), letterSpacing: '0.4em', textTransform: 'uppercase', color: accent, marginBottom: px(8) }}>{headline}</div>
+            <div style={{ fontSize: namesPx, fontWeight: 'bold', lineHeight: 1.12 }}>{names}</div>
+            <div style={{ color: accent, fontSize: px(13), letterSpacing: '0.3em', margin: `${px(6)} 0 ${px(3)}` }} aria-hidden="true">&middot; &#10047; &middot;</div>
+            {dateLabel && <div style={{ fontSize: px(14), color: '#4a5a4a' }}>{dateLabel}</div>}
+          </div>
+          <div style={{ position: 'absolute', bottom: px(13), left: 0, right: 0, textAlign: 'center', fontSize: px(10), fontStyle: 'italic', color: '#5a7a55', padding: '0 8%' }}>{verseLine}</div>
+        </div>
+      )
+    }
+    if (style === 'DARK_ELEGANT') {
+      // Deep charcoal card with light cream type; the accent is the eyebrow + divider.
+      return (
+        <div style={{ ...frame, background: 'linear-gradient(150deg, #241f1b, #12100e)', color: '#f3ece0' }}>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: pad, textAlign: 'center' }}>
+            <div style={{ fontSize: px(11), letterSpacing: '0.46em', textTransform: 'uppercase', color: accent, marginBottom: px(8) }}>{headline}</div>
+            <div style={{ fontSize: namesPx, fontWeight: 'bold', lineHeight: 1.12 }}>{names}</div>
+            <div style={{ width: px(60), height: '2px', background: accent, margin: `${px(8)} 0` }} />
+            {dateLabel && <div style={{ fontSize: px(15), color: '#d8ccb8' }}>{dateLabel}</div>}
+          </div>
+          <div style={{ position: 'absolute', bottom: px(13), left: 0, right: 0, textAlign: 'center', fontSize: px(10), fontStyle: 'italic', color: '#d9b877', padding: '0 8%' }}>{verseLine}</div>
+        </div>
+      )
+    }
+    // Classic: centered cream + gold; the accent carries the eyebrow label + a rule under the names.
     return (
       <div style={{ ...frame, background: 'linear-gradient(135deg, #fdfaf6, #f5e9d4)', color: '#3b2f2f' }}>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: pad, textAlign: 'center' }}>
-          <div style={{ fontSize: px(12), letterSpacing: '0.32em', textTransform: 'uppercase', color: '#a08060', marginBottom: px(8) }}>{headline}</div>
+          <div style={{ fontSize: px(12), letterSpacing: '0.32em', textTransform: 'uppercase', color: accent, marginBottom: px(8) }}>{headline}</div>
           <div style={{ fontSize: namesPx, fontWeight: 'bold', lineHeight: 1.12 }}>{names}</div>
+          <div style={{ width: px(64), height: '2px', background: accent, margin: `${px(7)} 0 0` }} />
           {dateLabel && <div style={{ fontSize: px(16), marginTop: px(8), color: '#6a5a45' }}>{dateLabel}</div>}
         </div>
         <div style={{ position: 'absolute', bottom: px(13), left: 0, right: 0, textAlign: 'center', fontSize: px(10), fontStyle: 'italic', color: '#9c7434', padding: '0 8%' }}>{verseLine}</div>
@@ -945,7 +1116,7 @@ function PostcardPreview({
     // landscape (left column) and portrait (top band) layouts.
     const messageContent = (
       <>
-        <div style={{ fontSize: fs.label, letterSpacing: '0.3em', textTransform: 'uppercase', color: '#a08060' }}>{headline}</div>
+        <div style={{ fontSize: fs.label, letterSpacing: '0.3em', textTransform: 'uppercase', color: accent }}>{headline}</div>
         <div style={{ fontSize: fs.names, fontWeight: 'bold', lineHeight: 1.2 }}>{names}</div>
         {dateLabel && <div style={{ fontSize: fs.date, color: '#8a6a4a', marginTop: '1px' }}>{dateLabel}</div>}
         <div style={{ fontSize: fs.body, color: '#8a6a4a', marginTop: large ? '7px' : '4px' }}>
@@ -956,7 +1127,7 @@ function PostcardPreview({
             mailed card. */}
         <div style={{ marginTop: large ? '9px' : '5px' }}>
           <QRCodeCanvas value={qrUrl} size={qrSize} fgColor="#3b2f2f" bgColor="#fdfaf6" level="M" />
-          <div style={{ fontSize: fs.qrLabel, color: '#a08060', marginTop: large ? '4px' : '2px' }}>Scan to visit our site</div>
+          <div style={{ fontSize: fs.qrLabel, color: accent, marginTop: large ? '4px' : '2px' }}>Scan to visit our site</div>
         </div>
       </>
     )
