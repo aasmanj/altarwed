@@ -561,8 +561,17 @@ public class GuestService {
         }
 
         log.info("invite-all batch started, coupleId={}, eligibleCount={}", coupleId, toInvite.size());
-        for (Guest guest : toInvite) {
-            issueInvite(guest, coupleId);
+        // Preload the couple + website once (identical for every guest) and mint each invite into
+        // one outbox, then fan the whole list out through a single batched Resend call (issue
+        // #378). Guarded on a non-empty list so an all-over-cap run issues no extra queries.
+        if (!toInvite.isEmpty()) {
+            WeddingWebsite website = websiteRepository.findByCoupleId(coupleId).orElse(null);
+            Couple couple = coupleRepository.findById(coupleId).orElse(null);
+            List<RsvpInviteRecipient> outbox = new ArrayList<>();
+            for (Guest guest : toInvite) {
+                issueInviteToBatch(guest, coupleId, website, outbox);
+            }
+            dispatchBatchInvites(outbox, coupleId, website, couple);
         }
         return toInvite.size();
     }
@@ -688,9 +697,12 @@ public class GuestService {
         if (!toInvite.isEmpty()) {
             WeddingWebsite website = websiteRepository.findByCoupleId(coupleId).orElse(null);
             Couple couple = coupleRepository.findById(coupleId).orElse(null);
+            List<RsvpInviteRecipient> outbox = new ArrayList<>();
             for (Guest g : toInvite) {
-                issueInvite(g, coupleId, website, couple);
+                issueInviteToBatch(g, coupleId, website, outbox);
             }
+            // One batched Resend call for the whole selection instead of one per guest (issue #378).
+            dispatchBatchInvites(outbox, coupleId, website, couple);
         }
 
         log.info("bulk invite send batch queued, coupleId={}, sent={}, skipped={}",
@@ -1024,17 +1036,57 @@ public class GuestService {
 
     private Guest issueInvite(Guest guest, UUID coupleId) {
         // Single-invite entry point: load the couple + website for this one send, then
-        // delegate. The bulk path preloads these once and calls the overload directly to
+        // delegate. The bulk path preloads these once and calls issueInviteToBatch directly to
         // avoid re-querying them per guest (N+1).
         return issueInvite(guest, coupleId,
                 websiteRepository.findByCoupleId(coupleId).orElse(null),
                 coupleRepository.findById(coupleId).orElse(null));
     }
 
-    // Package-private overload taking a preloaded website/couple so a batch caller can look
-    // them up once and reuse them across the loop. The token/expiry logic below is unchanged
-    // (kept intact so PR #254's expiry edits still merge cleanly).
+    // Package-private single-send overload taking a preloaded website/couple. Mints the token
+    // (updating the guest) and fires exactly one Resend call for this recipient. The bulk paths
+    // instead call issueInviteToBatch below to collect every recipient and fan them out in one
+    // batched provider call (issue #378), so this single-call path is used only by the single
+    // sendInvite / reminder flow.
     Guest issueInvite(Guest guest, UUID coupleId, WeddingWebsite website, Couple couple) {
+        MintedInvite minted = mintInvite(guest, coupleId, website);
+        // Reply-To = this couple's own address so a guest hitting reply reaches their
+        // inbox, not the shared from-address.
+        asyncEmailService.sendRsvpInviteEmail(guest.email(), guest.name(),
+                inviteCoupleNames(couple), inviteWeddingDate(website), minted.rawToken(),
+                guest.id(), coupleId, couple != null ? couple.email() : null);
+        return minted.guest();
+    }
+
+    // Bulk collector overload: mints the token (updating the guest) and appends this recipient to
+    // the caller's outbox WITHOUT sending. The bulk caller fans the whole outbox out through
+    // Resend's /emails/batch endpoint in one call via dispatchBatchInvites, so a 300-guest
+    // invite-all costs a handful of API calls instead of 300 (issue #378).
+    Guest issueInviteToBatch(Guest guest, UUID coupleId, WeddingWebsite website,
+                             List<RsvpInviteRecipient> outbox) {
+        MintedInvite minted = mintInvite(guest, coupleId, website);
+        outbox.add(new RsvpInviteRecipient(guest.email(), guest.name(), guest.id(), minted.rawToken()));
+        return minted.guest();
+    }
+
+    // Fires one batched Resend call for every recipient collected by issueInviteToBatch. The
+    // couple-level fields (names, wedding date, reply-to) are identical for every recipient, so
+    // they are computed once here rather than per guest. Guarded on a non-empty outbox so a send
+    // with nothing to invite queues no background task at all.
+    private void dispatchBatchInvites(List<RsvpInviteRecipient> outbox, UUID coupleId,
+                                      WeddingWebsite website, Couple couple) {
+        if (outbox.isEmpty()) {
+            return;
+        }
+        asyncEmailService.sendRsvpInviteEmails(outbox, coupleId,
+                inviteCoupleNames(couple), inviteWeddingDate(website),
+                couple != null ? couple.email() : null);
+    }
+
+    // Shared minting core: validates the guest is invitable, revokes any outstanding invite
+    // token, persists a fresh one, and stamps the guest's send count / sent-at. Returns the raw
+    // token so the caller can either send one email (single path) or collect it into a batch.
+    private MintedInvite mintInvite(Guest guest, UUID coupleId, WeddingWebsite website) {
         if (guest.email() == null || guest.email().isBlank()) {
             log.warn("invite rejected, guest has no email, guestId={}, coupleId={}", guest.id(), coupleId);
             throw new IllegalArgumentException("Guest has no email address");
@@ -1059,18 +1111,6 @@ public class GuestService {
         );
         tokenRepository.save(token);
 
-        String coupleNames = couple != null
-                ? couple.partnerTwoName() + " & " + couple.partnerOneName()
-                : "The Couple";
-        String weddingDate = (website != null && website.weddingDate() != null)
-                ? website.weddingDate().format(DateTimeFormatter.ofPattern("MMMM d, yyyy"))
-                : "TBD";
-
-        // Reply-To = this couple's own address so a guest hitting reply reaches their
-        // inbox, not the shared from-address.
-        String coupleReplyTo = couple != null ? couple.email() : null;
-        asyncEmailService.sendRsvpInviteEmail(guest.email(), guest.name(), coupleNames, weddingDate, rawToken,
-                guest.id(), coupleId, coupleReplyTo);
         // DEBUG, not INFO: this runs once per guest inside both bulk send loops, which each
         // already emit an aggregate INFO. Per-guest INFO here would break the no-INFO-in-loops
         // rule and inflate App Insights cost (observability rule 9).
@@ -1090,7 +1130,24 @@ public class GuestService {
                 guest.partyId(), guest.partyName(), guest.partyContact(),
                 guest.sheetSyncId(), guest.syncedFromSheet()
         );
-        return guestRepository.save(updated);
+        return new MintedInvite(guestRepository.save(updated), rawToken);
+    }
+
+    // Internal holder pairing the persisted guest (returned to the single-send caller) with the
+    // raw token the email needs. Not a DTO; never leaves this service.
+    private record MintedInvite(Guest guest, String rawToken) {
+    }
+
+    private static String inviteCoupleNames(Couple couple) {
+        return couple != null
+                ? couple.partnerTwoName() + " & " + couple.partnerOneName()
+                : "The Couple";
+    }
+
+    private static String inviteWeddingDate(WeddingWebsite website) {
+        return (website != null && website.weddingDate() != null)
+                ? website.weddingDate().format(DateTimeFormatter.ofPattern("MMMM d, yyyy"))
+                : "TBD";
     }
 
     // Derive an RSVP invite token's expiry from the wedding date so the emailed link stays valid

@@ -3,6 +3,7 @@ package com.altarwed.infrastructure.email;
 import com.altarwed.application.service.EmailSuppressionService;
 import com.altarwed.domain.model.EmailAddresses;
 import com.altarwed.domain.model.EmailRecipient;
+import com.altarwed.domain.model.RsvpInviteRecipient;
 import com.altarwed.domain.port.EmailPort;
 import com.altarwed.domain.port.EmailSuppressionPort;
 import com.altarwed.infrastructure.observability.LogSanitizer;
@@ -81,6 +82,39 @@ public class ResendEmailAdapter implements EmailPort {
             @Value("${altarwed.resend.rate-limit-per-second:2}") int rateLimitPerSecond,
             EmailSuppressionPort suppressionPort
     ) {
+        // Production path: RestClient.Builder is not a Spring bean in SB4, so we build the client
+        // here (static factory) and delegate to the package-private constructor below. That
+        // constructor is the test seam: it accepts a pre-built RestClient so a test can bind a
+        // MockRestServiceServer and assert batching/backoff without a live Resend call.
+        this(buildRestClient(apiKey), fromEmail, invitesFromEmail, appBaseUrl, apiBaseUrl,
+                unsubscribeSecret, postalAddress, adminAlertEmail, rateLimitPerSecond, suppressionPort);
+    }
+
+    private static RestClient buildRestClient(String apiKey) {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(5));
+        factory.setReadTimeout(Duration.ofSeconds(15));
+        return RestClient.builder()
+                .requestFactory(factory)
+                .baseUrl("https://api.resend.com")
+                .defaultHeader("Authorization", "Bearer " + apiKey)
+                .build();
+    }
+
+    // Package-private test seam. Production callers use the @Value constructor above, which builds
+    // the RestClient and delegates here; tests pass a RestClient bound to a MockRestServiceServer.
+    ResendEmailAdapter(
+            RestClient restClient,
+            String fromEmail,
+            String invitesFromEmail,
+            String appBaseUrl,
+            String apiBaseUrl,
+            String unsubscribeSecret,
+            String postalAddress,
+            String adminAlertEmail,
+            int rateLimitPerSecond,
+            EmailSuppressionPort suppressionPort
+    ) {
         this.fromEmail = fromEmail;
         this.invitesFromEmail = invitesFromEmail;
         this.appBaseUrl = appBaseUrl;
@@ -113,14 +147,7 @@ public class ResendEmailAdapter implements EmailPort {
                 .refillGreedy(safeRate, Duration.ofSeconds(1))
                 .build();
         this.resendRateLimiter = Bucket.builder().addLimit(limit).build();
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(Duration.ofSeconds(5));
-        factory.setReadTimeout(Duration.ofSeconds(15));
-        this.restClient = RestClient.builder()
-                .requestFactory(factory)
-                .baseUrl("https://api.resend.com")
-                .defaultHeader("Authorization", "Bearer " + apiKey)
-                .build();
+        this.restClient = restClient;
     }
 
     // Produces two URLs for each unsubscribe link:
@@ -276,6 +303,30 @@ public class ResendEmailAdapter implements EmailPort {
         ));
         body.put("tags", guestTags(guestId, coupleId, "rsvp-invite"));
         return body;
+    }
+
+    @Override
+    public void sendRsvpInviteEmails(List<RsvpInviteRecipient> recipients, UUID coupleId, String coupleNames,
+                                     String weddingDate, String coupleReplyToEmail) {
+        // Drop malformed addresses up front, exactly as the save-the-date batch does: Resend's
+        // /emails/batch is all-or-nothing, so one invalid address (a double-@ typo, a stray space)
+        // 422s the entire 100-message batch and forces the slow per-recipient fallback. The calling
+        // GuestService already applies the per-couple unsubscribe before minting tokens, so
+        // suppression is not re-checked here (consistent with the single-send sendRsvpInviteEmail
+        // path, which also leaves opt-out enforcement to the service).
+        long invalid = recipients.stream()
+                .filter(r -> r.email() != null && !r.email().isBlank())
+                .filter(r -> !isValidEmailAddress(r.email()))
+                .count();
+        if (invalid > 0) {
+            log.warn("rsvp invite recipients skipped, reason=invalid address, type=rsvp-invite, skipped={}", invalid);
+        }
+        List<Map<String, Object>> messages = recipients.stream()
+                .filter(r -> isValidEmailAddress(r.email()))
+                .map(r -> buildRsvpInviteBody(r.email(), r.name(), coupleNames, weddingDate,
+                        r.rsvpToken(), r.guestId(), coupleId, coupleReplyToEmail))
+                .toList();
+        postBatch("rsvp-invite", messages);
     }
 
     @Override

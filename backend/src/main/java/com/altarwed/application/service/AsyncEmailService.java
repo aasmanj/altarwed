@@ -1,6 +1,7 @@
 package com.altarwed.application.service;
 
 import com.altarwed.domain.model.EmailRecipient;
+import com.altarwed.domain.model.RsvpInviteRecipient;
 import com.altarwed.domain.port.EmailPort;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,15 @@ public class AsyncEmailService {
                                     UUID guestId, UUID coupleId, String coupleReplyToEmail) {
         emailPort.sendRsvpInviteEmail(toEmail, guestName, coupleNames, weddingDate, rsvpToken,
                 guestId, coupleId, coupleReplyToEmail);
+    }
+
+    // One background task fans the whole invite list into batched provider calls, rather than
+    // queueing one async task (and one Resend call) per recipient. This is the scale path for a
+    // bulk invite-all / selected-guest send; the single sendRsvpInviteEmail above stays one call.
+    @Async("emailExecutor")
+    public void sendRsvpInviteEmails(List<RsvpInviteRecipient> recipients, UUID coupleId, String coupleNames,
+                                     String weddingDate, String coupleReplyToEmail) {
+        emailPort.sendRsvpInviteEmails(recipients, coupleId, coupleNames, weddingDate, coupleReplyToEmail);
     }
 
     // One background task fans the whole guest list into batched provider calls,
