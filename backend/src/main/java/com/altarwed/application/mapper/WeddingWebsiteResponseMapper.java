@@ -50,7 +50,7 @@ public final class WeddingWebsiteResponseMapper {
                 w.stdImageUrl(),
                 w.receptionVenueName(), w.receptionVenueAddress(), w.receptionVenueCity(), w.receptionVenueState(),
                 w.receptionTime(), w.receptionVenueAdditionalInfo(), w.ceremonyVenueTitle(), w.receptionVenueTitle(),
-                w.nameFont(),
+                w.nameFont(), w.seatingBoardTitle(),
                 w.createdAt(), w.updatedAt()
         );
     }

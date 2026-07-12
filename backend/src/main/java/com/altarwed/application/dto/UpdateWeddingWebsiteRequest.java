@@ -93,5 +93,8 @@ public record UpdateWeddingWebsiteRequest(
         // V91: allowlisted font key for the couple's names on the public hero. null = no change.
         // Validated against the exact keys safeFont() knows on the frontend; anything else is rejected
         // so a raw font-family can never reach the public <style> sink.
-        @Pattern(regexp = "^(playfair|cinzel|greatvibes|dancingscript|montserrat)$") @Size(max = 40) String nameFont
+        @Pattern(regexp = "^(playfair|cinzel|greatvibes|dancingscript|montserrat)$") @Size(max = 40) String nameFont,
+
+        // V92: optional custom headline for the printable seating board. null = no change; blank = clear (revert to "Welcome").
+        @Size(max = 100) String seatingBoardTitle
 ) {}

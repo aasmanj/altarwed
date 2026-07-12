@@ -125,6 +125,7 @@ public class WeddingWebsiteService {
                 null, null, null, null, null, null,  // reception venue name/address/city/state/time/info (V90)
                 null, null,                    // ceremony + reception venue titles (V90)
                 null,                          // nameFont (V91)
+                null,                          // seatingBoardTitle (V92)
                 false, null,
                 LocalDateTime.now(), LocalDateTime.now()
         );
@@ -353,6 +354,7 @@ public class WeddingWebsiteService {
                 blankToNull(req.receptionVenueTitle(),          existing.receptionVenueTitle()),
 
                 req.nameFont()                     != null ? req.nameFont()                     : existing.nameFont(),
+                blankToNull(req.seatingBoardTitle(), existing.seatingBoardTitle()),
 
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(),
@@ -390,7 +392,7 @@ public class WeddingWebsiteService {
                 existing.stdImageUrl(),
                 existing.receptionVenueName(), existing.receptionVenueAddress(), existing.receptionVenueCity(), existing.receptionVenueState(),
                 existing.receptionTime(), existing.receptionVenueAdditionalInfo(), existing.ceremonyVenueTitle(), existing.receptionVenueTitle(),
-                existing.nameFont(),
+                existing.nameFont(), existing.seatingBoardTitle(),
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );
@@ -426,7 +428,7 @@ public class WeddingWebsiteService {
                 existing.stdImageUrl(),
                 existing.receptionVenueName(), existing.receptionVenueAddress(), existing.receptionVenueCity(), existing.receptionVenueState(),
                 existing.receptionTime(), existing.receptionVenueAdditionalInfo(), existing.ceremonyVenueTitle(), existing.receptionVenueTitle(),
-                existing.nameFont(),
+                existing.nameFont(), existing.seatingBoardTitle(),
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );
@@ -463,7 +465,7 @@ public class WeddingWebsiteService {
                 imageUrl,
                 existing.receptionVenueName(), existing.receptionVenueAddress(), existing.receptionVenueCity(), existing.receptionVenueState(),
                 existing.receptionTime(), existing.receptionVenueAdditionalInfo(), existing.ceremonyVenueTitle(), existing.receptionVenueTitle(),
-                existing.nameFont(),
+                existing.nameFont(), existing.seatingBoardTitle(),
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );
