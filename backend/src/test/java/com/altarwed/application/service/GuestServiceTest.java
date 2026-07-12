@@ -13,8 +13,13 @@ import com.altarwed.domain.model.RsvpInviteToken;
 import com.altarwed.domain.model.SaveTheDateSend;
 import com.altarwed.domain.model.WeddingWebsite;
 import com.altarwed.application.dto.RsvpFindResult;
+import com.altarwed.application.dto.PartyMemberInfo;
+import com.altarwed.application.dto.RsvpPageDataResponse;
 import com.altarwed.domain.exception.CaptchaVerificationFailedException;
+import com.altarwed.domain.exception.RsvpSearchThrottledException;
 import com.altarwed.domain.port.CaptchaVerificationPort;
+import com.altarwed.domain.port.RsvpSearchThrottlePort;
+import com.altarwed.infrastructure.security.InMemoryRsvpSearchThrottleAdapter;
 import com.altarwed.domain.port.CoupleRepository;
 import com.altarwed.domain.port.GuestRepository;
 import com.altarwed.domain.port.RsvpInviteTokenRepository;
@@ -70,8 +75,15 @@ class GuestServiceTest {
     @Mock private SaveTheDateSendRepository saveTheDateSendRepository;
     @Mock private RsvpInviteBulkSendRepository rsvpInviteBulkSendRepository;
 
+    // Real in-memory throttle, not a mock: it is a pure value object with no external deps, so
+    // exercising the concrete Bucket4j-backed adapter tests the actual anti-enumeration behavior
+    // (issue #89) end to end through the service rather than asserting against a scripted mock.
+    // Fresh per test method (JUnit default per-method lifecycle) via setUp, so state never leaks.
+    private RsvpSearchThrottlePort searchThrottle;
+
     @BeforeEach
     void setUp() {
+        searchThrottle = new InMemoryRsvpSearchThrottleAdapter();
         // Sends batch the suppression lookup via reasonsByHash; default to "nothing
         // suppressed" so the happy-path send tests queue every valid guest. Lenient
         // because the invite-rejection test throws before it reaches this call.
@@ -85,7 +97,8 @@ class GuestServiceTest {
     private GuestService service() {
         return new GuestService(guestRepository, tokenRepository, websiteRepository,
                 coupleRepository, asyncEmailService, suppressionService, customRsvpQuestionService,
-                captchaVerificationPort, saveTheDateSendRepository, rsvpInviteBulkSendRepository);
+                captchaVerificationPort, saveTheDateSendRepository, rsvpInviteBulkSendRepository,
+                searchThrottle);
     }
 
     private Guest guest(UUID coupleId, String name, String email) {
@@ -720,6 +733,151 @@ class GuestServiceTest {
                 .isInstanceOf(CaptchaVerificationFailedException.class);
 
         verifyNoInteractions(websiteRepository, guestRepository, tokenRepository);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Issue #89: PII redaction on a SEARCH-sourced RSVP view. A token minted from a bare name
+    // search carries no possession factor, so the RSVP page must not disclose the private
+    // noteForCouple or other party members' dietary/song. A token from the emailed invite (the
+    // email on file IS the possession factor) keeps full disclosure, unchanged.
+    // ---------------------------------------------------------------------------
+
+    // A guest in a party, with private fields populated, for the disclosure tests.
+    private Guest partyGuest(UUID coupleId, UUID partyId, String name,
+                             String dietary, String song, String note) {
+        return new Guest(
+                UUID.randomUUID(), coupleId, name, name.toLowerCase() + "@example.com", null,
+                GuestRsvpStatus.ATTENDING, false, null, dietary, song,
+                null, null, null,
+                null, null, null, null, null,
+                note, 0,
+                null, null, null, null, null, null,
+                partyId, "The " + name + " Party", false,
+                null, false);
+    }
+
+    private RsvpPageDataResponse rsvpViewForTokenSource(String source) {
+        UUID coupleId = UUID.randomUUID();
+        UUID partyId = UUID.randomUUID();
+        Guest holder = partyGuest(coupleId, partyId, "Jordan",
+                "no shellfish", "Canon in D", "please seat us near the front");
+        Guest otherMember = partyGuest(coupleId, partyId, "Eden",
+                "vegetarian", "Ode to Joy", "the private note of another member");
+
+        RsvpInviteToken token = new RsvpInviteToken(
+                UUID.randomUUID(), "tokenhash", holder.id(),
+                LocalDateTime.now().plusHours(1), false, null, source);
+
+        when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(token));
+        when(guestRepository.findById(holder.id())).thenReturn(Optional.of(holder));
+        when(guestRepository.findAllByPartyId(partyId)).thenReturn(List.of(holder, otherMember));
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
+
+        return service().getRsvpPageData("raw-token");
+    }
+
+    @Test
+    void getRsvpPageData_redactsPrivateFields_forSearchSourcedToken() {
+        RsvpPageDataResponse view = rsvpViewForTokenSource(RsvpInviteToken.SOURCE_SEARCH);
+
+        // The private note left for the couple is never disclosed to a bare name match.
+        assertThat(view.currentNoteForCouple()).isNull();
+
+        // The token holder's own dietary/song stay so their own form pre-fills.
+        assertThat(view.currentDietary()).isEqualTo("no shellfish");
+        assertThat(view.currentSongRequest()).isEqualTo("Canon in D");
+
+        // Other party members keep name + rsvpStatus (household toggles still render) but their
+        // private dietary/song are nulled.
+        assertThat(view.partyMembers()).hasSize(1);
+        PartyMemberInfo other = view.partyMembers().get(0);
+        assertThat(other.name()).isEqualTo("Eden");
+        assertThat(other.currentRsvpStatus()).isEqualTo("ATTENDING");
+        assertThat(other.currentDietary()).isNull();
+        assertThat(other.currentSongRequest()).isNull();
+    }
+
+    @Test
+    void getRsvpPageData_fullDisclosure_forInviteSourcedToken() {
+        RsvpPageDataResponse view = rsvpViewForTokenSource(RsvpInviteToken.SOURCE_INVITE);
+
+        // Emailed-link (possession factor) view is unchanged: everything is populated.
+        assertThat(view.currentNoteForCouple()).isEqualTo("please seat us near the front");
+        assertThat(view.currentDietary()).isEqualTo("no shellfish");
+        assertThat(view.currentSongRequest()).isEqualTo("Canon in D");
+
+        assertThat(view.partyMembers()).hasSize(1);
+        PartyMemberInfo other = view.partyMembers().get(0);
+        assertThat(other.name()).isEqualTo("Eden");
+        assertThat(other.currentRsvpStatus()).isEqualTo("ATTENDING");
+        assertThat(other.currentDietary()).isEqualTo("vegetarian");
+        assertThat(other.currentSongRequest()).isEqualTo("Ode to Joy");
+    }
+
+    // ---------------------------------------------------------------------------
+    // Issue #89: per-slug anti-enumeration lockout. After a small threshold of zero-result name
+    // searches for one wedding, further searches are rejected (429) regardless of source IP (the
+    // per-IP filter is XFF-bypassable, #41). A search that matches a real guest never trips it and
+    // clears any accumulated failures.
+    // ---------------------------------------------------------------------------
+
+    @Test
+    void findGuestsByName_locksOutSlug_afterThresholdOfFailedSearches() {
+        String slug = "jordan-and-eden";
+        UUID coupleId = UUID.randomUUID();
+        WeddingWebsite website = mock(WeddingWebsite.class);
+        when(website.isPublished()).thenReturn(true);
+        when(website.coupleId()).thenReturn(coupleId);
+        when(websiteRepository.findBySlug(slug)).thenReturn(Optional.of(website));
+        // Every search is a miss (zero results), which is the enumeration signal being throttled.
+        when(guestRepository.findByCoupleIdAndNameContaining(eq(coupleId), anyString()))
+                .thenReturn(List.of());
+
+        // Drive failed searches until the slug locks out. It must lock exactly after the adapter's
+        // failed-search budget (InMemoryRsvpSearchThrottleAdapter.FAILED_SEARCH_BUDGET = 10) is
+        // spent; earlier searches return empty without throwing.
+        int succeededBeforeLock = 0;
+        boolean lockedOut = false;
+        GuestService svc = service();
+        for (int i = 0; i < 50; i++) {
+            try {
+                List<RsvpFindResult> r = svc.findGuestsByName(slug, "Ghost", "captcha", "203.0.113." + i);
+                assertThat(r).isEmpty();
+                succeededBeforeLock++;
+            } catch (RsvpSearchThrottledException e) {
+                lockedOut = true;
+                break;
+            }
+        }
+
+        assertThat(lockedOut).isTrue();
+        assertThat(succeededBeforeLock).isEqualTo(10);
+    }
+
+    @Test
+    void findGuestsByName_successfulMatchNeverTripsTheLockout() {
+        String slug = "jordan-and-eden";
+        UUID coupleId = UUID.randomUUID();
+        Guest match = guest(coupleId, "Jordan Aasman", null);
+        WeddingWebsite website = mock(WeddingWebsite.class);
+        when(website.isPublished()).thenReturn(true);
+        when(website.coupleId()).thenReturn(coupleId);
+        when(websiteRepository.findBySlug(slug)).thenReturn(Optional.of(website));
+        // Every search hits a real guest, so it is not enumeration and must never lock the slug.
+        when(guestRepository.findByCoupleIdAndNameContaining(eq(coupleId), anyString()))
+                .thenReturn(List.of(match));
+        when(tokenRepository.findValidSearchToken(any(), any())).thenReturn(Optional.empty());
+        when(tokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        GuestService svc = service();
+        // Far more than the failed-search budget: a matching search clears the budget every time,
+        // so the slug is never throttled no matter how many times a real guest looks themselves up.
+        assertThatCode(() -> {
+            for (int i = 0; i < 25; i++) {
+                assertThat(svc.findGuestsByName(slug, "Jordan", "captcha", "203.0.113." + i)).hasSize(1);
+            }
+        }).doesNotThrowAnyException();
     }
 
     // ---------------------------------------------------------------------------

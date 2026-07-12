@@ -54,7 +54,8 @@ class GuestExportCsvTest {
     private GuestService service() {
         return new GuestService(guestRepository, tokenRepository, websiteRepository,
                 coupleRepository, asyncEmailService, suppressionService, customRsvpQuestionService,
-                captchaVerificationPort, saveTheDateSendRepository, rsvpInviteBulkSendRepository);
+                captchaVerificationPort, saveTheDateSendRepository, rsvpInviteBulkSendRepository,
+                new com.altarwed.infrastructure.security.InMemoryRsvpSearchThrottleAdapter());
     }
 
     @Test

@@ -19,6 +19,7 @@ import com.altarwed.domain.exception.InvalidPriceIdException;
 import com.altarwed.domain.exception.InvalidPromoCodeException;
 import com.altarwed.domain.exception.InvalidRefreshTokenException;
 import com.altarwed.domain.exception.InvalidRsvpTokenException;
+import com.altarwed.domain.exception.RsvpSearchThrottledException;
 import com.altarwed.domain.exception.CaptchaVerificationFailedException;
 import com.altarwed.domain.exception.DenominationNotFoundException;
 import com.altarwed.domain.exception.EmailAlreadyExistsException;
@@ -110,6 +111,17 @@ public class GlobalExceptionHandler {
         var pd = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
         pd.setType(URI.create("https://altarwed.com/problems/invalid-rsvp-token"));
         pd.setTitle("Invalid RSVP Token");
+        pd.setDetail(ex.getMessage());
+        return pd;
+    }
+
+    // Per-slug find-invitation lockout (issue #89). 429 with the same problem type the per-IP
+    // RateLimitingFilter writes, so a client treats both throttles uniformly.
+    @ExceptionHandler(RsvpSearchThrottledException.class)
+    public ProblemDetail handleRsvpSearchThrottled(RsvpSearchThrottledException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.TOO_MANY_REQUESTS);
+        pd.setType(URI.create("https://altarwed.com/problems/rate-limit-exceeded"));
+        pd.setTitle("Too Many Requests");
         pd.setDetail(ex.getMessage());
         return pd;
     }

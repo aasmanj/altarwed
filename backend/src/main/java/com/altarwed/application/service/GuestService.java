@@ -5,6 +5,7 @@ import com.altarwed.domain.exception.CaptchaVerificationFailedException;
 import com.altarwed.domain.exception.GuestNotFoundException;
 import com.altarwed.domain.exception.GuestUnsubscribedException;
 import com.altarwed.domain.exception.InvalidRsvpTokenException;
+import com.altarwed.domain.exception.RsvpSearchThrottledException;
 import com.altarwed.domain.model.*;
 import com.altarwed.domain.port.*;
 import org.slf4j.Logger;
@@ -69,6 +70,7 @@ public class GuestService {
     private final CaptchaVerificationPort captchaVerificationPort;
     private final SaveTheDateSendRepository saveTheDateSendRepository;
     private final RsvpInviteBulkSendRepository rsvpInviteBulkSendRepository;
+    private final RsvpSearchThrottlePort rsvpSearchThrottlePort;
 
     public GuestService(
             GuestRepository guestRepository,
@@ -80,7 +82,8 @@ public class GuestService {
             CustomRsvpQuestionService customRsvpQuestionService,
             CaptchaVerificationPort captchaVerificationPort,
             SaveTheDateSendRepository saveTheDateSendRepository,
-            RsvpInviteBulkSendRepository rsvpInviteBulkSendRepository
+            RsvpInviteBulkSendRepository rsvpInviteBulkSendRepository,
+            RsvpSearchThrottlePort rsvpSearchThrottlePort
     ) {
         this.guestRepository = guestRepository;
         this.tokenRepository = tokenRepository;
@@ -92,6 +95,7 @@ public class GuestService {
         this.captchaVerificationPort = captchaVerificationPort;
         this.saveTheDateSendRepository = saveTheDateSendRepository;
         this.rsvpInviteBulkSendRepository = rsvpInviteBulkSendRepository;
+        this.rsvpSearchThrottlePort = rsvpSearchThrottlePort;
     }
 
     @Transactional
@@ -724,6 +728,17 @@ public class GuestService {
             throw new CaptchaVerificationFailedException();
         }
 
+        // Per-slug anti-enumeration lockout (issue #89). The per-IP filter is bypassable via
+        // X-Forwarded-For rotation (issue #41), so it cannot stop a distributed enumeration of one
+        // wedding's guest list. This throttle is keyed on the slug being enumerated, not the caller
+        // IP, and counts only zero-result searches, so a wedding whose failed-lookup budget is
+        // exhausted rejects further guesses (429) until it refills. Checked after the captcha gate
+        // and before any DB work, so a locked-out slug does no repository reads.
+        if (rsvpSearchThrottlePort.isLockedOut(slug)) {
+            log.warn("rsvp find throttled, reason=slug lockout, slug={}", slug);
+            throw new RsvpSearchThrottledException();
+        }
+
         var website = websiteRepository.findBySlug(slug)
                 .orElseThrow(() -> new IllegalArgumentException("Wedding not found"));
         if (!website.isPublished()) {
@@ -735,6 +750,15 @@ public class GuestService {
                 .stream()
                 .limit(5)
                 .toList();
+
+        // A zero-result search is an enumeration signal: charge it against the slug's budget. A
+        // real match is not, so it clears any accumulated failures, keeping a legitimate household
+        // that finds itself from ever leaving the wedding throttled for other guests.
+        if (matches.isEmpty()) {
+            rsvpSearchThrottlePort.recordFailedAttempt(slug);
+        } else {
+            rsvpSearchThrottlePort.clear(slug);
+        }
 
         return matches.stream()
                 .map(g -> {
@@ -788,6 +812,16 @@ public class GuestService {
         Guest guest = guestRepository.findById(token.guestId())
                 .orElseThrow(() -> new InvalidRsvpTokenException());
 
+        // A SEARCH-sourced token was minted from a bare name match on the public find endpoint, so
+        // it carries no possession factor and must not disclose private household PII (issue #89).
+        // An INVITE-sourced token arrived via the emailed link (the email on file IS the possession
+        // factor), so it keeps full disclosure exactly as before. Legacy null-source tokens are
+        // never redacted: any that survive are long-lived invite tokens (search tokens expire in
+        // one hour and resolveToken already rejects expired ones), so this cannot silently gut a
+        // real emailed link. This is the trust-boundary check the resolveToken comment says it does
+        // not itself enforce.
+        boolean redactPrivate = RsvpInviteToken.SOURCE_SEARCH.equals(token.source());
+
         var website = websiteRepository.findByCoupleId(guest.coupleId()).orElse(null);
         var couple  = coupleRepository.findById(guest.coupleId()).orElse(null);
 
@@ -812,10 +846,14 @@ public class GuestService {
             partyName = guest.partyName();
             partyMembers = guestRepository.findAllByPartyId(guest.partyId()).stream()
                     .filter(m -> !m.id().equals(guest.id()))
+                    // On a SEARCH-sourced view, keep each member's name and rsvpStatus (the
+                    // household toggles still render) but null out their dietary and song, which
+                    // are private to that member and must not leak to a bare name search (#89).
                     .map(m -> new com.altarwed.application.dto.PartyMemberInfo(
                             m.id(), m.name(),
                             m.rsvpStatus() != null ? m.rsvpStatus().name() : null,
-                            m.dietaryRestrictions(), m.songRequest()))
+                            redactPrivate ? null : m.dietaryRestrictions(),
+                            redactPrivate ? null : m.songRequest()))
                     .toList();
         }
 
@@ -845,9 +883,13 @@ public class GuestService {
                 partyName,
                 currentStatus,
                 guest.plusOneName(),
+                // The token holder's own dietary/song stay so their form pre-fills; the private
+                // noteForCouple is nulled on a SEARCH view (Guest.noteForCouple is documented as
+                // never returned by a public endpoint, and a bare name match is not a possession
+                // factor). An INVITE view is unchanged.
                 guest.dietaryRestrictions(),
                 guest.songRequest(),
-                guest.noteForCouple(),
+                redactPrivate ? null : guest.noteForCouple(),
                 customRsvpQuestionService.activeForRsvp(guest.coupleId())
         );
     }
@@ -1109,10 +1151,12 @@ public class GuestService {
         return candidate.isAfter(floor) ? candidate : floor;
     }
 
-    // token.source() (SEARCH vs INVITE) is intentionally NOT checked here. The discriminator
-    // exists only so the find-search can rotate its own row in place; it is not a trust
-    // boundary. Both kinds grant exactly the same capability: RSVP for that one guest. Do not
-    // assume token-type isolation, none is enforced.
+    // token.source() (SEARCH vs INVITE) is intentionally NOT checked here: resolution and the
+    // RSVP-write capability are the same for both kinds (name-based household RSVP is accepted,
+    // matching The Knot/Zola). The source IS a trust boundary for DISCLOSURE, though, and that
+    // check lives in getRsvpPageData (issue #89): a SEARCH view redacts the private noteForCouple
+    // and other members' dietary/song, because a bare name match carries no possession factor. Do
+    // not move a redaction decision here; keep resolution capability-only.
     private RsvpInviteToken resolveToken(String rawToken) {
         RsvpInviteToken token = tokenRepository.findByTokenHash(hash(rawToken))
                 .orElseThrow(() -> {
