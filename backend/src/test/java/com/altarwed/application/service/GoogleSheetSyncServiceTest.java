@@ -4,8 +4,10 @@ import com.altarwed.domain.exception.GoogleAuthRevokedException;
 import com.altarwed.domain.model.GoogleSheetSync;
 import com.altarwed.domain.model.Guest;
 import com.altarwed.domain.model.GuestRsvpStatus;
+import com.altarwed.domain.model.SeatingTable;
 import com.altarwed.domain.port.GoogleSheetSyncRepository;
 import com.altarwed.domain.port.GuestRepository;
+import com.altarwed.domain.port.SeatingTableRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -38,10 +40,11 @@ class GoogleSheetSyncServiceTest {
 
     @Mock private GoogleSheetSyncRepository syncRepository;
     @Mock private GuestRepository guestRepository;
+    @Mock private SeatingTableRepository seatingTableRepository;
     @Mock private GoogleOAuthService googleOAuthService;
 
     private GoogleSheetSyncService service() {
-        return new GoogleSheetSyncService(syncRepository, guestRepository, googleOAuthService);
+        return new GoogleSheetSyncService(syncRepository, guestRepository, seatingTableRepository, googleOAuthService);
     }
 
     private GoogleSheetSync activeSync(UUID coupleId) {
@@ -239,6 +242,84 @@ class GoogleSheetSyncServiceTest {
         // the prod failure: country text spilled into the Zip column, exceeding NVARCHAR width
         assertThat(GoogleSheetSyncService.clamp("Canada T1A 0W3 please forward", 20))
                 .isEqualTo("Canada T1A 0W3 pleas");
+    }
+
+    /**
+     * The bug this issue fixes: a sheet cell of "Table 12" while the couple has only 4 tables
+     * used to be stored verbatim as tableNumber=12. The board resolves seats positionally
+     * (tables[tableNumber-1]), so slot 11 is undefined and the guest silently vanished from the
+     * printed "find your seat" board. The guest must be retained in the unassigned bucket
+     * (tableNumber=null) instead of dropped.
+     */
+    @Test
+    void outOfRangeTableNumber_leavesGuestUnassigned_notDroppedFromBoard() {
+        UUID coupleId = UUID.randomUUID();
+        GoogleSheetSync sync = activeSync(coupleId);
+
+        when(syncRepository.findAllActive()).thenReturn(List.of(sync));
+        when(googleOAuthService.hasOAuthTokens(coupleId)).thenReturn(true);
+        when(googleOAuthService.readSheet(any(), any())).thenReturn(List.of(
+                new String[]{"Guest Name(s)", "Table #"},
+                new String[]{"Grace Miller", "12"}
+        ));
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of());
+        // Only 4 tables exist, so table 12 is out of range.
+        when(seatingTableRepository.findAllByCoupleId(coupleId)).thenReturn(tables(coupleId, 4));
+        when(syncRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        int[] counts = service().runAllActive();
+
+        assertThat(counts).containsExactly(1, 0);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<Guest>> saved = ArgumentCaptor.forClass(List.class);
+        verify(guestRepository).saveAll(saved.capture());
+        assertThat(saved.getValue()).hasSize(1); // guest retained, not dropped
+        assertThat(saved.getValue().get(0).name()).isEqualTo("Grace Miller");
+        assertThat(saved.getValue().get(0).tableNumber()).isNull(); // moved to unassigned bucket
+    }
+
+    /** A table number within the couple's table count is stored unchanged. */
+    @Test
+    void inRangeTableNumber_isStoredUnchanged() {
+        UUID coupleId = UUID.randomUUID();
+        GoogleSheetSync sync = activeSync(coupleId);
+
+        when(syncRepository.findAllActive()).thenReturn(List.of(sync));
+        when(googleOAuthService.hasOAuthTokens(coupleId)).thenReturn(true);
+        when(googleOAuthService.readSheet(any(), any())).thenReturn(List.of(
+                new String[]{"Guest Name(s)", "Table #"},
+                new String[]{"Grace Miller", "3"}
+        ));
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of());
+        when(seatingTableRepository.findAllByCoupleId(coupleId)).thenReturn(tables(coupleId, 4));
+        when(syncRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service().runAllActive();
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<Guest>> saved = ArgumentCaptor.forClass(List.class);
+        verify(guestRepository).saveAll(saved.capture());
+        assertThat(saved.getValue()).hasSize(1);
+        assertThat(saved.getValue().get(0).tableNumber()).isEqualTo(3);
+    }
+
+    @Test
+    void isTableNumberOutOfRange_boundaries() {
+        assertThat(GoogleSheetSyncService.isTableNumberOutOfRange(null, 4)).isFalse();  // unassigned
+        assertThat(GoogleSheetSyncService.isTableNumberOutOfRange(0, 4)).isTrue();      // below 1
+        assertThat(GoogleSheetSyncService.isTableNumberOutOfRange(1, 4)).isFalse();     // first table
+        assertThat(GoogleSheetSyncService.isTableNumberOutOfRange(4, 4)).isFalse();     // last table
+        assertThat(GoogleSheetSyncService.isTableNumberOutOfRange(5, 4)).isTrue();      // past the end
+        assertThat(GoogleSheetSyncService.isTableNumberOutOfRange(1, 0)).isTrue();      // no tables yet
+    }
+
+    private List<SeatingTable> tables(UUID coupleId, int count) {
+        java.util.List<SeatingTable> out = new java.util.ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            out.add(new SeatingTable(UUID.randomUUID(), coupleId, "Table " + (i + 1), 8, i, null, null));
+        }
+        return out;
     }
 
     private Guest guest(UUID coupleId, String name, String sheetSyncId, boolean syncedFromSheet) {

@@ -7,6 +7,7 @@ import com.altarwed.domain.model.GoogleSheetSync;
 import com.altarwed.domain.model.Guest;
 import com.altarwed.domain.port.GoogleSheetSyncRepository;
 import com.altarwed.domain.port.GuestRepository;
+import com.altarwed.domain.port.SeatingTableRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -104,16 +105,19 @@ public class GoogleSheetSyncService {
 
     private final GoogleSheetSyncRepository syncRepository;
     private final GuestRepository guestRepository;
+    private final SeatingTableRepository seatingTableRepository;
     private final GoogleOAuthService googleOAuthService;
     private final RestClient restClient;
 
     public GoogleSheetSyncService(
             GoogleSheetSyncRepository syncRepository,
             GuestRepository guestRepository,
+            SeatingTableRepository seatingTableRepository,
             GoogleOAuthService googleOAuthService
     ) {
         this.syncRepository = syncRepository;
         this.guestRepository = guestRepository;
+        this.seatingTableRepository = seatingTableRepository;
         this.googleOAuthService = googleOAuthService;
         // Spring Boot 4 does not auto-expose RestClient.Builder as a bean.
         // We explicitly use SimpleClientHttpRequestFactory (wraps HttpURLConnection)
@@ -411,6 +415,13 @@ public class GoogleSheetSyncService {
 
         // Build lookup maps from existing guests
         List<Guest> existing = guestRepository.findAllByCoupleId(coupleId);
+        // Seating is positional: a guest's tableNumber is a 1-based index into the couple's
+        // sortOrder-ordered table list, and the board reads tables[tableNumber-1]. A sheet cell
+        // pointing past the last table (e.g. "Table 12" with 4 tables) resolves to an undefined
+        // slot and the guest vanishes from the printed board with no indication. Validate against
+        // the current table count and move out-of-range assignments to the unassigned bucket so
+        // the guest stays visible, then surface an aggregate warning.
+        int tableCount = seatingTableRepository.findAllByCoupleId(coupleId).size();
         Map<String, Guest> bySheetSyncId = existing.stream()
                 .filter(g -> g.sheetSyncId() != null)
                 .collect(Collectors.toMap(Guest::sheetSyncId, Function.identity(), (a, b) -> a));
@@ -444,6 +455,7 @@ public class GoogleSheetSyncService {
         int added = 0;
         int updated = 0;
         int seen = 0;
+        int tablesUnassigned = 0;
 
         for (int i = 1; i < rows.size(); i++) {
             int sheetRowNumber = i + 1; // sheet row 1 = header, data starts at row 2
@@ -488,6 +500,13 @@ public class GoogleSheetSyncService {
                     (plusOneRaw.equalsIgnoreCase("yes") || plusOneRaw.equalsIgnoreCase("true") || plusOneRaw.equals("1"));
             com.altarwed.domain.model.GuestRsvpStatus rsvpStatus = parseRsvpStatus(rsvpRaw);
             Integer tableNumber = parseTableNumber(tableRaw);
+            if (isTableNumberOutOfRange(tableNumber, tableCount)) {
+                // Out-of-range positional index: drop to null (unassigned bucket) so the guest
+                // stays on the board rather than resolving to a nonexistent table slot. For an
+                // existing guest the non-null merge below then preserves any valid prior seat.
+                tableNumber = null;
+                tablesUnassigned++;
+            }
             com.altarwed.domain.model.GuestSide sideVal = parseSide(side);
 
             // Party grouping for this row (pa == null means solo / no Party column).
@@ -565,6 +584,14 @@ public class GoogleSheetSyncService {
             }
         }
 
+        // One aggregate line (never per-row, per the log-cost rule): tells the couple, via the
+        // logs, that some sheet table numbers exceeded their table count and those guests were
+        // left unassigned instead of silently dropped from the board.
+        if (tablesUnassigned > 0) {
+            log.warn("google sheet sync table numbers out of range, guests left unassigned, coupleId={}, count={}, tableCount={}",
+                     coupleId, tablesUnassigned, tableCount);
+        }
+
         guestRepository.saveAll(toSave);
 
         // Delete guests bound to a sheet row that no longer exists. A guest is bound when
@@ -632,6 +659,9 @@ public class GoogleSheetSyncService {
         validateRequiredColumns(colIndex, headers);
 
         List<Guest> existing = guestRepository.findAllByCoupleId(coupleId);
+        // Same positional-seat validation as the OAuth path: a tableNumber past the couple's
+        // table count would resolve to an undefined board slot and drop the guest silently.
+        int tableCount = seatingTableRepository.findAllByCoupleId(coupleId).size();
         Map<String, Guest> byName = existing.stream()
                 .collect(Collectors.toMap(
                         g -> g.name().toLowerCase().trim(),
@@ -648,6 +678,7 @@ public class GoogleSheetSyncService {
         int added = 0;
         int updated = 0;
         int seen = 0;
+        int tablesUnassigned = 0;
 
         for (int i = 1; i < rows.size(); i++) {
             String[] cols = rows.get(i);
@@ -679,6 +710,10 @@ public class GoogleSheetSyncService {
                     (plusOneRaw.equalsIgnoreCase("yes") || plusOneRaw.equalsIgnoreCase("true") || plusOneRaw.equals("1"));
             com.altarwed.domain.model.GuestRsvpStatus rsvpStatus = parseRsvpStatus(rsvpRaw);
             Integer tableNumber = parseTableNumber(tableRaw);
+            if (isTableNumberOutOfRange(tableNumber, tableCount)) {
+                tableNumber = null; // unassigned bucket, not a nonexistent board slot
+                tablesUnassigned++;
+            }
             com.altarwed.domain.model.GuestSide sideVal = parseSide(side);
 
             // Party grouping for this row (pa == null means solo / no Party column).
@@ -740,6 +775,11 @@ public class GoogleSheetSyncService {
             }
         }
 
+        if (tablesUnassigned > 0) {
+            log.warn("google sheet sync table numbers out of range, guests left unassigned, coupleId={}, count={}, tableCount={}",
+                     coupleId, tablesUnassigned, tableCount);
+        }
+
         guestRepository.saveAll(toSave);
 
         // Delete guests created by the CSV sync path but no longer present in the sheet.
@@ -799,6 +839,18 @@ public class GoogleSheetSyncService {
     private Integer parseTableNumber(String raw) {
         if (raw == null) return null;
         try { return Integer.parseInt(raw.trim()); } catch (NumberFormatException ignored) { return null; }
+    }
+
+    /**
+     * True when a parsed table number cannot map to a real table for this couple. Seating is
+     * positional: the board resolves tables[tableNumber-1] against the couple's sortOrder-ordered
+     * table list, so a value below 1 or above the table count points at a nonexistent slot and the
+     * guest silently disappears from the printed board. Callers move these to the unassigned bucket
+     * (tableNumber=null) so the guest stays visible. A null table number is "unassigned", not
+     * out of range. With zero tables configured, any number is out of range.
+     */
+    static boolean isTableNumberOutOfRange(Integer tableNumber, int tableCount) {
+        return tableNumber != null && (tableNumber < 1 || tableNumber > tableCount);
     }
 
     private com.altarwed.domain.model.GuestSide parseSide(String raw) {
