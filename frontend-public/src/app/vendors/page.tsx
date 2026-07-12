@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
+import { vendorLandingPath } from '@/lib/vendorLanding'
 
 export const dynamic = 'force-dynamic'
 
@@ -112,6 +113,19 @@ export default async function VendorsPage({
   const prevHref = buildHref({ page: page - 1 })
   const nextHref = buildHref({ page: page + 1 })
 
+  // When a city filter is active, point the category chips at the indexable
+  // /vendors/[category]/[city] landing page instead of a query string (issue #369),
+  // so crawlers and users follow the canonical, rankable URL. Cities whose slug is
+  // lossy (punctuation) are not landing-eligible, so we fall back to the query-param
+  // directory for those to avoid linking to a page that would 404.
+  const categoryHref = (val: string) => {
+    if (city) {
+      const landing = vendorLandingPath(val, city)
+      if (landing) return landing
+    }
+    return buildHref({ category: val })
+  }
+
   // A zero-results state means one of two very different things. If the visitor
   // has narrowed the directory (category, city, or price), it is a filter miss,
   // not an empty directory, so we show what they filtered by and a one-click
@@ -145,7 +159,7 @@ export default async function VendorsPage({
             <FilterChip
               key={val}
               label={label}
-              href={buildHref({ category: val })}
+              href={categoryHref(val)}
               active={category === val}
             />
           ))}
