@@ -815,32 +815,92 @@ class GuestServiceTest {
         assertThat(other.currentSongRequest()).isEqualTo("Ode to Joy");
     }
 
-    // ---------------------------------------------------------------------------
-    // Issue #89: per-slug anti-enumeration lockout. After a small threshold of zero-result name
-    // searches for one wedding, further searches are rejected (429) regardless of source IP (the
-    // per-IP filter is XFF-bypassable, #41). A search that matches a real guest never trips it and
-    // clears any accumulated failures.
-    // ---------------------------------------------------------------------------
+    @Test
+    void getRsvpPageData_fullDisclosure_forLegacyNullSourceToken() {
+        // Edge branch: a legacy token predating the source discriminator has source == null. It is
+        // NOT redacted, because any null-source token that still resolves is a long-lived INVITE
+        // token (search tokens expire in one hour and resolveToken rejects expired ones), so
+        // redacting on null would silently gut a real emailed link. Treated exactly like INVITE.
+        RsvpPageDataResponse view = rsvpViewForTokenSource(null);
+
+        assertThat(view.currentNoteForCouple()).isEqualTo("please seat us near the front");
+        assertThat(view.currentDietary()).isEqualTo("no shellfish");
+        assertThat(view.currentSongRequest()).isEqualTo("Canon in D");
+
+        assertThat(view.partyMembers()).hasSize(1);
+        PartyMemberInfo other = view.partyMembers().get(0);
+        assertThat(other.currentDietary()).isEqualTo("vegetarian");
+        assertThat(other.currentSongRequest()).isEqualTo("Ode to Joy");
+    }
 
     @Test
-    void findGuestsByName_locksOutSlug_afterThresholdOfFailedSearches() {
+    void getRsvpPageData_searchView_soloGuest_noNpe_andNullsNote() {
+        // Edge branch: a SEARCH view on a guest with partyId == null must not NPE on the party
+        // block (partyMembers stays null, partyName stays null) and still redacts the private note.
+        UUID coupleId = UUID.randomUUID();
+        Guest solo = new Guest(
+                UUID.randomUUID(), coupleId, "Jordan", "jordan@example.com", null,
+                GuestRsvpStatus.ATTENDING, false, null, "no shellfish", "Canon in D",
+                null, null, null,
+                null, null, null, null, null,
+                "please seat us near the front", 0,
+                null, null, null, null, null, null,
+                null, null, false,   // partyId == null: solo guest
+                null, false);
+
+        RsvpInviteToken token = new RsvpInviteToken(
+                UUID.randomUUID(), "tokenhash", solo.id(),
+                LocalDateTime.now().plusHours(1), false, null, RsvpInviteToken.SOURCE_SEARCH);
+
+        when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(token));
+        when(guestRepository.findById(solo.id())).thenReturn(Optional.of(solo));
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
+
+        RsvpPageDataResponse view = service().getRsvpPageData("raw-token");
+
+        assertThat(view.partyMembers()).isNull();
+        assertThat(view.partyName()).isNull();
+        // Private note redacted on the SEARCH view; the holder's own dietary/song still pre-fill.
+        assertThat(view.currentNoteForCouple()).isNull();
+        assertThat(view.currentDietary()).isEqualTo("no shellfish");
+        assertThat(view.currentSongRequest()).isEqualTo("Canon in D");
+        // findAllByPartyId must never be called for a solo guest.
+        verify(guestRepository, never()).findAllByPartyId(any());
+    }
+
+    // ---------------------------------------------------------------------------
+    // Issue #89 (H1/H2): per-wedding anti-enumeration lockout. EVERY find attempt is charged
+    // against the wedding's budget (hit or miss) with no reset-on-success, so a harvester walking
+    // name substrings (each hit returning up to five masked names + live tokens) is bounded, not
+    // exempt. The budget keys on the canonical coupleId, so recased/whitespace slug variants for
+    // the same wedding share one bucket instead of each getting a fresh budget (H2). Throttling is
+    // per wedding, not per source IP (the per-IP filter is XFF-bypassable, #41).
+    // ---------------------------------------------------------------------------
+
+    // Mirrors InMemoryRsvpSearchThrottleAdapter.SEARCH_BUDGET (package-private, not visible from
+    // this test's package). Kept in sync deliberately: if the adapter's budget changes, this test's
+    // exact-count assertions should be revisited with it.
+    private static final int SEARCH_BUDGET = 20;
+
+    @Test
+    void findGuestsByName_locksOutWedding_afterBudgetOfFailedSearches() {
         String slug = "jordan-and-eden";
         UUID coupleId = UUID.randomUUID();
         WeddingWebsite website = mock(WeddingWebsite.class);
         when(website.isPublished()).thenReturn(true);
         when(website.coupleId()).thenReturn(coupleId);
         when(websiteRepository.findBySlug(slug)).thenReturn(Optional.of(website));
-        // Every search is a miss (zero results), which is the enumeration signal being throttled.
+        // Every search is a miss (zero results): still charged against the wedding's budget.
         when(guestRepository.findByCoupleIdAndNameContaining(eq(coupleId), anyString()))
                 .thenReturn(List.of());
 
-        // Drive failed searches until the slug locks out. It must lock exactly after the adapter's
-        // failed-search budget (InMemoryRsvpSearchThrottleAdapter.FAILED_SEARCH_BUDGET = 10) is
-        // spent; earlier searches return empty without throwing.
+        // Drive searches until the wedding locks out. It must lock exactly after the adapter's
+        // SEARCH_BUDGET attempts are spent; earlier searches return empty without throwing.
         int succeededBeforeLock = 0;
         boolean lockedOut = false;
         GuestService svc = service();
-        for (int i = 0; i < 50; i++) {
+        for (int i = 0; i < SEARCH_BUDGET * 3; i++) {
             try {
                 List<RsvpFindResult> r = svc.findGuestsByName(slug, "Ghost", "captcha", "203.0.113." + i);
                 assertThat(r).isEmpty();
@@ -852,11 +912,14 @@ class GuestServiceTest {
         }
 
         assertThat(lockedOut).isTrue();
-        assertThat(succeededBeforeLock).isEqualTo(10);
+        assertThat(succeededBeforeLock).isEqualTo(SEARCH_BUDGET);
     }
 
     @Test
-    void findGuestsByName_successfulMatchNeverTripsTheLockout() {
+    void findGuestsByName_successfulSearchesAlsoConsumeBudget_andEventuallyLockOut() {
+        // H1 regression: a successful substring match is the harvest path (returns up to five masked
+        // names + live RSVP tokens), so it MUST consume budget and MUST NOT reset it. After
+        // SEARCH_BUDGET successful searches the wedding locks out just as a run of misses would.
         String slug = "jordan-and-eden";
         UUID coupleId = UUID.randomUUID();
         Guest match = guest(coupleId, "Jordan Aasman", null);
@@ -864,20 +927,55 @@ class GuestServiceTest {
         when(website.isPublished()).thenReturn(true);
         when(website.coupleId()).thenReturn(coupleId);
         when(websiteRepository.findBySlug(slug)).thenReturn(Optional.of(website));
-        // Every search hits a real guest, so it is not enumeration and must never lock the slug.
         when(guestRepository.findByCoupleIdAndNameContaining(eq(coupleId), anyString()))
                 .thenReturn(List.of(match));
         when(tokenRepository.findValidSearchToken(any(), any())).thenReturn(Optional.empty());
         when(tokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         GuestService svc = service();
-        // Far more than the failed-search budget: a matching search clears the budget every time,
-        // so the slug is never throttled no matter how many times a real guest looks themselves up.
-        assertThatCode(() -> {
-            for (int i = 0; i < 25; i++) {
+        int matchedBeforeLock = 0;
+        boolean lockedOut = false;
+        for (int i = 0; i < SEARCH_BUDGET * 3; i++) {
+            try {
                 assertThat(svc.findGuestsByName(slug, "Jordan", "captcha", "203.0.113." + i)).hasSize(1);
+                matchedBeforeLock++;
+            } catch (RsvpSearchThrottledException e) {
+                lockedOut = true;
+                break;
             }
-        }).doesNotThrowAnyException();
+        }
+
+        assertThat(lockedOut).as("harvest path must be throttled, not exempt").isTrue();
+        assertThat(matchedBeforeLock).isEqualTo(SEARCH_BUDGET);
+    }
+
+    @Test
+    void findGuestsByName_caseAndWhitespaceSlugVariants_shareOneWeddingBudget() {
+        // H2 regression: findBySlug resolves under case-insensitive collation, so these three slug
+        // strings are the SAME wedding. The throttle keys on the resolved coupleId, so the variants
+        // draw down ONE shared budget; an attacker cannot multiply the harvest ceiling by recasing
+        // or padding the slug. Simulate the collation by mapping every variant to the same website.
+        UUID coupleId = UUID.randomUUID();
+        WeddingWebsite website = mock(WeddingWebsite.class);
+        when(website.isPublished()).thenReturn(true);
+        when(website.coupleId()).thenReturn(coupleId);
+        String[] variants = {"Jordan-Eden", "jordan-eden", " jordan-eden"};
+        for (String v : variants) {
+            when(websiteRepository.findBySlug(v)).thenReturn(Optional.of(website));
+        }
+        when(guestRepository.findByCoupleIdAndNameContaining(eq(coupleId), anyString()))
+                .thenReturn(List.of());
+
+        GuestService svc = service();
+        // Spend the whole budget across a mix of the three variants (round-robin).
+        for (int i = 0; i < SEARCH_BUDGET; i++) {
+            String v = variants[i % variants.length];
+            assertThat(svc.findGuestsByName(v, "Ghost", "captcha", "203.0.113." + i)).isEmpty();
+        }
+        // A different-cased variant is now locked out too: the budget was shared, not per-slug.
+        // (All three variants resolve to the same wedding, so any of them hits the same drained bucket.)
+        assertThatThrownBy(() -> svc.findGuestsByName("Jordan-Eden", "Ghost", "captcha", "203.0.113.250"))
+                .isInstanceOf(RsvpSearchThrottledException.class);
     }
 
     // ---------------------------------------------------------------------------

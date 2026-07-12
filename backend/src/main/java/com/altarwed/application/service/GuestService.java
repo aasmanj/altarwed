@@ -728,37 +728,40 @@ public class GuestService {
             throw new CaptchaVerificationFailedException();
         }
 
-        // Per-slug anti-enumeration lockout (issue #89). The per-IP filter is bypassable via
-        // X-Forwarded-For rotation (issue #41), so it cannot stop a distributed enumeration of one
-        // wedding's guest list. This throttle is keyed on the slug being enumerated, not the caller
-        // IP, and counts only zero-result searches, so a wedding whose failed-lookup budget is
-        // exhausted rejects further guesses (429) until it refills. Checked after the captcha gate
-        // and before any DB work, so a locked-out slug does no repository reads.
-        if (rsvpSearchThrottlePort.isLockedOut(slug)) {
-            log.warn("rsvp find throttled, reason=slug lockout, slug={}", slug);
-            throw new RsvpSearchThrottledException();
-        }
-
+        // Resolve the wedding BEFORE the throttle so the budget keys on the wedding's canonical
+        // identity (couple id), not the caller-supplied slug string (issue #89 / H2). findBySlug
+        // resolves under case-insensitive collation, so "Jordan-Eden", "jordan-eden", and
+        // " jordan-eden" are the SAME wedding; keying the throttle on the raw slug would hand each
+        // variant its own fresh budget and let an attacker multiply the harvest ceiling just by
+        // recasing the slug. Keying on coupleId collapses them onto one bucket.
         var website = websiteRepository.findBySlug(slug)
                 .orElseThrow(() -> new IllegalArgumentException("Wedding not found"));
         if (!website.isPublished()) {
             throw new IllegalArgumentException("Wedding not found");
         }
+        String throttleKey = website.coupleId().toString();
+
+        // Per-wedding anti-enumeration lockout (issue #89 / H1). The per-IP filter is bypassable via
+        // X-Forwarded-For rotation (issue #41), so it cannot stop a distributed enumeration of one
+        // wedding's guest list. This throttle is keyed on the wedding, not the caller IP, and every
+        // find attempt is charged against the budget, hit or miss, with no reset-on-success. That
+        // matters because the match below is a case-insensitive SUBSTRING lookup that returns up to
+        // five masked names plus live RSVP tokens: an earlier design that counted only zero-result
+        // searches (and cleared the budget on any match) left that harvest path completely
+        // unthrottled and self-resetting. The lockout check runs before the DB name query, so a
+        // locked-out wedding does no guest reads.
+        if (rsvpSearchThrottlePort.isLockedOut(throttleKey)) {
+            log.warn("rsvp find throttled, reason=wedding lockout, coupleId={}", throttleKey);
+            throw new RsvpSearchThrottledException();
+        }
+        // Charge this attempt against the wedding's budget regardless of whether it matches below.
+        rsvpSearchThrottlePort.recordAttempt(throttleKey);
 
         List<Guest> matches = guestRepository
                 .findByCoupleIdAndNameContaining(website.coupleId(), name.trim())
                 .stream()
                 .limit(5)
                 .toList();
-
-        // A zero-result search is an enumeration signal: charge it against the slug's budget. A
-        // real match is not, so it clears any accumulated failures, keeping a legitimate household
-        // that finds itself from ever leaving the wedding throttled for other guests.
-        if (matches.isEmpty()) {
-            rsvpSearchThrottlePort.recordFailedAttempt(slug);
-        } else {
-            rsvpSearchThrottlePort.clear(slug);
-        }
 
         return matches.stream()
                 .map(g -> {
