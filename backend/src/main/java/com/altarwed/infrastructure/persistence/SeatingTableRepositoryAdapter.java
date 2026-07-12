@@ -43,8 +43,11 @@ public class SeatingTableRepositoryAdapter implements SeatingTableRepository {
     }
 
     private SeatingTable toDomain(SeatingTableEntity e) {
+        // Entity shape is @Transient until the migration in the PR "Manual steps" is applied,
+        // so a fresh read returns null; normalize to the default so the API always sends a shape.
+        String shape = e.getShape() != null ? e.getShape() : SeatingTable.DEFAULT_SHAPE;
         return new SeatingTable(e.getId(), e.getCoupleId(), e.getName(),
-                e.getCapacity(), e.getSortOrder(), e.getCreatedAt(), e.getUpdatedAt());
+                e.getCapacity(), e.getSortOrder(), shape, e.getCreatedAt(), e.getUpdatedAt());
     }
 
     private SeatingTableEntity toEntity(SeatingTable t) {
@@ -54,6 +57,7 @@ public class SeatingTableRepositoryAdapter implements SeatingTableRepository {
                 .name(t.name())
                 .capacity(t.capacity())
                 .sortOrder(t.sortOrder())
+                .shape(t.shape())
                 .createdAt(t.createdAt())
                 .updatedAt(t.updatedAt())
                 .build();
