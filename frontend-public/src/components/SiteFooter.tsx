@@ -25,6 +25,7 @@ export default function SiteFooter() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-[#8a6a4a] mb-3">For Vendors</p>
           <ul className="space-y-2">
+            <FooterLink href="/for-vendors">Why list with us</FooterLink>
             <FooterLink href="https://app.altarwed.com/register/vendor">List your business</FooterLink>
             <FooterLink href="/vendors">Browse directory</FooterLink>
           </ul>
