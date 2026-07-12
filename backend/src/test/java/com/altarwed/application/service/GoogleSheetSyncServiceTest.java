@@ -304,6 +304,77 @@ class GoogleSheetSyncServiceTest {
         assertThat(saved.getValue().get(0).tableNumber()).isEqualTo(3);
     }
 
+    /**
+     * A valid stored seat must not be clobbered when the sheet cell is out of range: the sheet
+     * value is discarded (invalid) and the guest keeps its real table. Exercises the merge branch
+     * (g != null), which the first two tests do not because they stub an empty roster.
+     */
+    @Test
+    void existingGuestWithValidSeat_keepsIt_whenSheetTableIsOutOfRange() {
+        UUID coupleId = UUID.randomUUID();
+        GoogleSheetSync sync = activeSync(coupleId);
+        Guest seated = guestWithTable(coupleId, "Grace Miller", 3);
+
+        when(syncRepository.findAllActive()).thenReturn(List.of(sync));
+        when(googleOAuthService.hasOAuthTokens(coupleId)).thenReturn(true);
+        when(googleOAuthService.readSheet(any(), any())).thenReturn(List.of(
+                new String[]{"Guest Name(s)", "Table #"},
+                new String[]{"Grace Miller", "12"} // out of range, must not clobber the stored seat
+        ));
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(seated));
+        when(seatingTableRepository.findAllByCoupleId(coupleId)).thenReturn(tables(coupleId, 4));
+        when(syncRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service().runAllActive();
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<Guest>> saved = ArgumentCaptor.forClass(List.class);
+        verify(guestRepository).saveAll(saved.capture());
+        assertThat(saved.getValue()).hasSize(1);
+        assertThat(saved.getValue().get(0).tableNumber()).isEqualTo(3); // kept, not clobbered
+    }
+
+    /**
+     * The actual reason #353 was filed: a guest ALREADY STORED at a table beyond the couple's
+     * current table count (couple removed tables, or the pre-fix code stored it) was invisible on
+     * the board. Re-syncing must heal that stored value to unassigned, not preserve it through the
+     * merge. Fails before the effective-value fix (merge keeps 12), passes after (becomes null).
+     */
+    @Test
+    void existingGuestStoredOutOfRange_isHealedToUnassigned_onResync() {
+        UUID coupleId = UUID.randomUUID();
+        GoogleSheetSync sync = activeSync(coupleId);
+        Guest stranded = guestWithTable(coupleId, "Grace Miller", 12); // stored past the table count
+
+        when(syncRepository.findAllActive()).thenReturn(List.of(sync));
+        when(googleOAuthService.hasOAuthTokens(coupleId)).thenReturn(true);
+        when(googleOAuthService.readSheet(any(), any())).thenReturn(List.of(
+                new String[]{"Guest Name(s)", "Table #"},
+                new String[]{"Grace Miller", "12"}
+        ));
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(stranded));
+        when(seatingTableRepository.findAllByCoupleId(coupleId)).thenReturn(tables(coupleId, 4));
+        when(syncRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service().runAllActive();
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<Guest>> saved = ArgumentCaptor.forClass(List.class);
+        verify(guestRepository).saveAll(saved.capture());
+        assertThat(saved.getValue()).hasSize(1);
+        assertThat(saved.getValue().get(0).tableNumber()).isNull(); // healed back onto the board
+    }
+
+    @Test
+    void resolveMergedTableNumber_prefersValidSheet_thenValidStored_elseNull() {
+        assertThat(GoogleSheetSyncService.resolveMergedTableNumber(3, 1, 4)).isEqualTo(3);   // valid sheet wins
+        assertThat(GoogleSheetSyncService.resolveMergedTableNumber(12, 3, 4)).isEqualTo(3);  // bad sheet keeps valid stored
+        assertThat(GoogleSheetSyncService.resolveMergedTableNumber(12, 12, 4)).isNull();     // both bad -> unassigned
+        assertThat(GoogleSheetSyncService.resolveMergedTableNumber(null, 12, 4)).isNull();   // heal stored on blank sheet
+        assertThat(GoogleSheetSyncService.resolveMergedTableNumber(null, 3, 4)).isEqualTo(3);// keep valid stored
+        assertThat(GoogleSheetSyncService.resolveMergedTableNumber(null, null, 4)).isNull(); // plain unassigned
+    }
+
     @Test
     void isTableNumberOutOfRange_boundaries() {
         assertThat(GoogleSheetSyncService.isTableNumberOutOfRange(null, 4)).isFalse();  // unassigned
@@ -312,6 +383,18 @@ class GoogleSheetSyncServiceTest {
         assertThat(GoogleSheetSyncService.isTableNumberOutOfRange(4, 4)).isFalse();     // last table
         assertThat(GoogleSheetSyncService.isTableNumberOutOfRange(5, 4)).isTrue();      // past the end
         assertThat(GoogleSheetSyncService.isTableNumberOutOfRange(1, 0)).isTrue();      // no tables yet
+    }
+
+    private Guest guestWithTable(UUID coupleId, String name, Integer tableNumber) {
+        return new Guest(
+                UUID.randomUUID(), coupleId, name, null, null,
+                GuestRsvpStatus.PENDING, false, null, null, null,
+                tableNumber, null, null,
+                null, null, null, null, null,
+                null, 0,
+                null, null, null, null, null, null,
+                null, null, null,
+                null, false);
     }
 
     private List<SeatingTable> tables(UUID coupleId, int count) {

@@ -499,12 +499,16 @@ public class GoogleSheetSyncService {
             boolean plusOneAllowed = plusOneRaw != null &&
                     (plusOneRaw.equalsIgnoreCase("yes") || plusOneRaw.equalsIgnoreCase("true") || plusOneRaw.equals("1"));
             com.altarwed.domain.model.GuestRsvpStatus rsvpStatus = parseRsvpStatus(rsvpRaw);
-            Integer tableNumber = parseTableNumber(tableRaw);
-            if (isTableNumberOutOfRange(tableNumber, tableCount)) {
-                // Out-of-range positional index: drop to null (unassigned bucket) so the guest
-                // stays on the board rather than resolving to a nonexistent table slot. For an
-                // existing guest the non-null merge below then preserves any valid prior seat.
-                tableNumber = null;
+            // Merge the sheet cell with any stored seat, then heal an out-of-range EFFECTIVE value
+            // to the unassigned bucket. Validating the merged value (not just the sheet cell) is
+            // what rescues a guest already stored at a table beyond the couple's current table
+            // count (couple removed tables, or the pre-fix code left a bad value); the sheet-cell
+            // check alone would fall through the merge to that stale value and keep them off the board.
+            Integer sheetTable = parseTableNumber(tableRaw);
+            Integer storedTable = g != null ? g.tableNumber() : null;
+            Integer tableNumber = resolveMergedTableNumber(sheetTable, storedTable, tableCount);
+            if (tableNumber == null
+                    && (isTableNumberOutOfRange(sheetTable, tableCount) || isTableNumberOutOfRange(storedTable, tableCount))) {
                 tablesUnassigned++;
             }
             com.altarwed.domain.model.GuestSide sideVal = parseSide(side);
@@ -558,7 +562,7 @@ public class GoogleSheetSyncService {
                         plusOneName != null ? plusOneName : g.plusOneName(),
                         dietary     != null ? dietary     : g.dietaryRestrictions(),
                         g.songRequest(),
-                        tableNumber != null ? tableNumber : g.tableNumber(),
+                        tableNumber, // effective merged+healed seat (see resolveMergedTableNumber)
                         sideVal     != null ? sideVal     : g.side(),
                         notes       != null ? notes       : g.notes(),
                         mailLine1   != null ? mailLine1   : g.mailLine1(),
@@ -709,9 +713,13 @@ public class GoogleSheetSyncService {
             boolean plusOneAllowed = plusOneRaw != null &&
                     (plusOneRaw.equalsIgnoreCase("yes") || plusOneRaw.equalsIgnoreCase("true") || plusOneRaw.equals("1"));
             com.altarwed.domain.model.GuestRsvpStatus rsvpStatus = parseRsvpStatus(rsvpRaw);
-            Integer tableNumber = parseTableNumber(tableRaw);
-            if (isTableNumberOutOfRange(tableNumber, tableCount)) {
-                tableNumber = null; // unassigned bucket, not a nonexistent board slot
+            // Same effective-value validation as the OAuth path: heal an out-of-range MERGED seat
+            // (sheet or stored) to unassigned so an already-affected guest reappears on the board.
+            Integer sheetTable = parseTableNumber(tableRaw);
+            Integer storedTable = g != null ? g.tableNumber() : null;
+            Integer tableNumber = resolveMergedTableNumber(sheetTable, storedTable, tableCount);
+            if (tableNumber == null
+                    && (isTableNumberOutOfRange(sheetTable, tableCount) || isTableNumberOutOfRange(storedTable, tableCount))) {
                 tablesUnassigned++;
             }
             com.altarwed.domain.model.GuestSide sideVal = parseSide(side);
@@ -751,7 +759,7 @@ public class GoogleSheetSyncService {
                         plusOneName != null ? plusOneName : g.plusOneName(),
                         dietary     != null ? dietary     : g.dietaryRestrictions(),
                         g.songRequest(),
-                        tableNumber != null ? tableNumber : g.tableNumber(),
+                        tableNumber, // effective merged+healed seat (see resolveMergedTableNumber)
                         sideVal     != null ? sideVal     : g.side(),
                         notes       != null ? notes       : g.notes(),
                         mailLine1   != null ? mailLine1   : g.mailLine1(),
@@ -851,6 +859,27 @@ public class GoogleSheetSyncService {
      */
     static boolean isTableNumberOutOfRange(Integer tableNumber, int tableCount) {
         return tableNumber != null && (tableNumber < 1 || tableNumber > tableCount);
+    }
+
+    /**
+     * Resolves the seat to store for a guest, merging the sheet cell over any stored seat the same
+     * non-destructive way the rest of the row merges, but validating the EFFECTIVE result against
+     * the couple's table count:
+     *   1. a valid sheet value wins (sheet is authoritative),
+     *   2. else a valid stored value is kept (manual edits survive a blank/invalid sheet cell),
+     *   3. else null (unassigned bucket) so the guest stays on the board.
+     * Step 2 is the fix for already-affected guests: a stored seat past the current table count
+     * (couple removed tables, or the pre-fix code stored a bad value) heals to unassigned instead
+     * of surviving the merge and keeping the guest off the printed board.
+     */
+    static Integer resolveMergedTableNumber(Integer sheetTable, Integer storedTable, int tableCount) {
+        if (sheetTable != null && !isTableNumberOutOfRange(sheetTable, tableCount)) {
+            return sheetTable;
+        }
+        if (storedTable != null && !isTableNumberOutOfRange(storedTable, tableCount)) {
+            return storedTable;
+        }
+        return null;
     }
 
     private com.altarwed.domain.model.GuestSide parseSide(String raw) {
