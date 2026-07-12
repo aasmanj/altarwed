@@ -14,6 +14,7 @@ import { setVendorMarketingConsent } from '@/core/analytics/vendorConsent'
 import { enableVendorAnalyticsIfConsented } from '@/core/analytics/vendorAnalytics'
 import { useCreateCheckoutSession } from './useSubscription'
 import type { SubscriptionInfo } from './useSubscription'
+import { planValueForPrice } from './planValue'
 import PromoCodeBox from './PromoCodeBox'
 
 const CATEGORIES = [
@@ -209,7 +210,16 @@ export default function RegisterVendorPage() {
                   subError={subError}
                   onRetry={refetchSub}
                   checkoutPending={checkout.isPending}
-                  onCheckout={priceId => checkout.mutate(priceId)}
+                  onCheckout={priceId =>
+                    checkout.mutate({
+                      priceId,
+                      planValue: planValueForPrice(
+                        priceId,
+                        sub?.proMonthlyPriceId ?? null,
+                        sub?.proAnnualPriceId ?? null,
+                      ),
+                    })
+                  }
                   onRedeemed={() => navigate('/vendor')}
                   onSkip={() => navigate('/vendor')}
                 />

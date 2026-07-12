@@ -5,6 +5,7 @@ import { errorDetail } from '@/lib/apiError'
 import { captureEvent } from '@/core/analytics/analytics'
 import { trackInitiateCheckout } from '@/core/analytics/metaPixel'
 import { enableVendorAnalyticsIfConsented } from '@/core/analytics/vendorAnalytics'
+import { PLAN_CURRENCY, rememberCheckoutValue } from './planValue'
 
 // Actionable fallbacks for the two money-path mutations (issue #296). When the backend
 // sends an RFC 7807 ProblemDetail we surface its `detail` verbatim; otherwise (5xx,
@@ -30,18 +31,28 @@ export function useVendorSubscription() {
   })
 }
 
+export interface CheckoutParams {
+  priceId: string
+  // Static plan value (USD) attached to the Meta conversions for value-based
+  // lookalikes. See planValue.ts; not a billing source of truth.
+  planValue: number
+}
+
 export function useCreateCheckoutSession() {
   return useMutation({
     // checkout_started is the vendor funnel's paid-intent signal. Fire it (plus
-    // Meta's InitiateCheckout) before we navigate away to Stripe. Both are gated
-    // on the vendor's opt-in; enableVendorAnalyticsIfConsented re-boots analytics
-    // for this page load (module state is lost across the earlier redirect chain).
-    onMutate: (priceId: string) => {
+    // Meta's InitiateCheckout, carrying value + currency) before we navigate away
+    // to Stripe. Both are gated on the vendor's opt-in; enableVendorAnalyticsIfConsented
+    // re-boots analytics for this page load (module state is lost across the earlier
+    // redirect chain). Stash the value so the post-Stripe return can fire Subscribe
+    // with the same amount.
+    onMutate: ({ priceId, planValue }: CheckoutParams) => {
       enableVendorAnalyticsIfConsented()
-      captureEvent('checkout_started', { price_id: priceId })
-      trackInitiateCheckout()
+      rememberCheckoutValue(planValue)
+      captureEvent('checkout_started', { price_id: priceId, value: planValue, currency: PLAN_CURRENCY })
+      trackInitiateCheckout({ value: planValue, currency: PLAN_CURRENCY })
     },
-    mutationFn: (priceId: string) =>
+    mutationFn: ({ priceId }: CheckoutParams) =>
       apiClient.post('/api/v1/stripe/checkout', { priceId }).then(r => r.data as { url: string }),
     onSuccess: ({ url }) => { window.location.href = url },
     onError: (err: unknown) => toast.error(errorDetail(err, CHECKOUT_ERROR_MESSAGE)),
