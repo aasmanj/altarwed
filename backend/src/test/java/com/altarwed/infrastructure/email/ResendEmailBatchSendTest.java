@@ -1,5 +1,6 @@
 package com.altarwed.infrastructure.email;
 
+import com.altarwed.application.service.EmailSuppressionService;
 import com.altarwed.domain.model.RsvpInviteRecipient;
 import com.altarwed.domain.port.EmailSuppressionPort;
 import org.junit.jupiter.api.Test;
@@ -19,6 +20,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
@@ -26,8 +30,9 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 /**
  * Verifies the scale fix in issue #378: bulk RSVP invites are fanned out through Resend's
- * /emails/batch endpoint in chunks of 100, not one API call per guest, and a transient 429
- * (rate-limit) is retried with backoff rather than dropped.
+ * /emails/batch endpoint in chunks of 100, not one API call per guest, a transient 429
+ * (rate-limit) is retried with backoff rather than dropped, and a suppressed (unsubscribed)
+ * recipient is dropped from the batch as a safe-by-construction backstop.
  *
  * These tests bind a {@link MockRestServiceServer} to the adapter's RestClient via the
  * package-private test-seam constructor, so batching and backoff are asserted against a mocked
@@ -37,11 +42,17 @@ class ResendEmailBatchSendTest {
 
     private static final String BATCH_URL = "https://api.resend.com/emails/batch";
 
+    // No-op suppression: nothing is suppressed. Used by the chunking / backoff tests where
+    // suppression is irrelevant.
     private static EmailSuppressionPort noopSuppression() {
-        // The RSVP batch path never consults the suppression port (opt-out is enforced in
-        // GuestService before minting tokens), so a no-op stub is sufficient here.
+        return suppressing(null);
+    }
+
+    // Suppression stub that reports exactly one email hash as suppressed (or nothing when the
+    // argument is null), so a test can assert the batch path drops that recipient.
+    private static EmailSuppressionPort suppressing(String suppressedHash) {
         return new EmailSuppressionPort() {
-            @Override public boolean isSuppressed(String emailHash) { return false; }
+            @Override public boolean isSuppressed(String emailHash) { return emailHash.equals(suppressedHash); }
             @Override public void suppress(String emailHash, String source) { }
             @Override public Optional<String> suppressionSource(String emailHash) { return Optional.empty(); }
             @Override public Map<String, String> suppressionSources(Collection<String> emailHashes) { return Collections.emptyMap(); }
@@ -50,6 +61,11 @@ class ResendEmailBatchSendTest {
     }
 
     private ResendEmailAdapter adapterBoundTo(MockRestServiceServer[] serverOut, int ratePerSecond) {
+        return adapterBoundTo(serverOut, ratePerSecond, noopSuppression());
+    }
+
+    private ResendEmailAdapter adapterBoundTo(MockRestServiceServer[] serverOut, int ratePerSecond,
+                                              EmailSuppressionPort suppression) {
         RestClient.Builder builder = RestClient.builder().baseUrl("https://api.resend.com");
         serverOut[0] = MockRestServiceServer.bindTo(builder).build();
         RestClient client = builder.build();
@@ -63,7 +79,7 @@ class ResendEmailBatchSendTest {
                 "AltarWed, 123 Chapel Lane, Suite 4, Portland OR 97201",
                 "admin@altarwed.com",
                 ratePerSecond,
-                noopSuppression()
+                suppression
         );
     }
 
@@ -134,6 +150,35 @@ class ResendEmailBatchSendTest {
                 .doesNotThrowAnyException();
 
         // Both the initial 429 and the successful retry were issued.
+        server.verify();
+    }
+
+    @Test
+    void suppressedRecipient_isDroppedFromBatch() {
+        String suppressedEmail = "optout@example.com";
+        // The adapter checks suppression by the same hash the suppression service mints.
+        String suppressedHash = EmailSuppressionService.emailHash(suppressedEmail);
+
+        MockRestServiceServer[] serverOut = new MockRestServiceServer[1];
+        ResendEmailAdapter adapter = adapterBoundTo(serverOut, 1000, suppressing(suppressedHash));
+        MockRestServiceServer server = serverOut[0];
+
+        // The batch that reaches Resend must carry the allowed recipient and NOT the suppressed
+        // one, proving the invite path is safe-by-construction even if a caller forgets to
+        // pre-filter opt-outs (issue #378 hardening).
+        server.expect(ExpectedCount.once(), requestTo(BATCH_URL))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().string(containsString("allowed@example.com")))
+                .andExpect(content().string(not(containsString(suppressedEmail))))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        UUID coupleId = UUID.randomUUID();
+        adapter.sendRsvpInviteEmails(
+                List.of(
+                        new RsvpInviteRecipient("allowed@example.com", "Al", UUID.randomUUID(), "tok-a"),
+                        new RsvpInviteRecipient(suppressedEmail, "Op", UUID.randomUUID(), "tok-o")),
+                coupleId, "Alex & Jordan", "October 3, 2026", "couple@example.com");
+
         server.verify();
     }
 }

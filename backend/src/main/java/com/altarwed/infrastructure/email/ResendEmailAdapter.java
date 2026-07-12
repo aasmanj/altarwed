@@ -318,10 +318,7 @@ public class ResendEmailAdapter implements EmailPort {
                                      String weddingDate, String coupleReplyToEmail) {
         // Drop malformed addresses up front, exactly as the save-the-date batch does: Resend's
         // /emails/batch is all-or-nothing, so one invalid address (a double-@ typo, a stray space)
-        // 422s the entire 100-message batch and forces the slow per-recipient fallback. The calling
-        // GuestService already applies the per-couple unsubscribe before minting tokens, so
-        // suppression is not re-checked here (consistent with the single-send sendRsvpInviteEmail
-        // path, which also leaves opt-out enforcement to the service).
+        // 422s the entire 100-message batch and forces the slow per-recipient fallback.
         long invalid = recipients.stream()
                 .filter(r -> r.email() != null && !r.email().isBlank())
                 .filter(r -> !isValidEmailAddress(r.email()))
@@ -329,8 +326,13 @@ public class ResendEmailAdapter implements EmailPort {
         if (invalid > 0) {
             log.warn("rsvp invite recipients skipped, reason=invalid address, type=rsvp-invite, skipped={}", invalid);
         }
+        // Drop suppressed (globally unsubscribed/bounced/complained) addresses too, mirroring the
+        // save-the-date batch. Today's callers already pre-filter opt-outs, but the port must be
+        // safe-by-construction: a future caller that forgets to pre-filter must never be able to
+        // email an unsubscribed guest through the invite path, so this is the backstop here.
         List<Map<String, Object>> messages = recipients.stream()
                 .filter(r -> isValidEmailAddress(r.email()))
+                .filter(r -> !suppressionPort.isSuppressed(emailHash(r.email())))
                 .map(r -> buildRsvpInviteBody(r.email(), r.name(), coupleNames, weddingDate,
                         r.rsvpToken(), r.guestId(), coupleId, coupleReplyToEmail))
                 .toList();
