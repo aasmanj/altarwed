@@ -1,5 +1,6 @@
 package com.altarwed.application.service;
 
+import com.altarwed.application.dto.UpdateWeddingWebsiteRequest;
 import com.altarwed.application.dto.WeddingWebsiteSearchResultResponse;
 import com.altarwed.domain.exception.WeddingWebsiteNotFoundException;
 import com.altarwed.domain.model.WeddingWebsite;
@@ -10,6 +11,7 @@ import com.altarwed.domain.port.RevalidationPort;
 import com.altarwed.domain.port.WeddingWebsiteRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -184,6 +186,59 @@ class WeddingWebsiteServiceTest {
         assertThat(WeddingWebsiteService.blankToNull("New", null)).isEqualTo("New");           // applied over null existing
     }
 
+    @Test
+    void update_seatingBoardTitle_isApplied_clearedByBlank_keptOnNull() {
+        // V92: seatingBoardTitle uses blankToNull semantics (same as ceremonyVenueTitle).
+        // A non-null value is applied, blank clears to null (board reverts to "Welcome"),
+        // and null means "field omitted, keep existing."
+        UUID coupleId = UUID.randomUUID();
+        WeddingWebsite existing = websiteWithFlags(false, false);
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.of(existing));
+        when(websiteRepository.save(ArgumentMatchers.any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // apply a new title
+        WeddingWebsite applied = weddingWebsiteService.update(coupleId, titleRequest("Our Wedding"));
+        assertThat(applied.seatingBoardTitle()).isEqualTo("Our Wedding");
+
+        // blank clears to null
+        WeddingWebsite cleared = weddingWebsiteService.update(coupleId, titleRequest(""));
+        assertThat(cleared.seatingBoardTitle()).isNull();
+
+        // null keeps the existing value (null in this case)
+        WeddingWebsite kept = weddingWebsiteService.update(coupleId, titleRequest(null));
+        assertThat(kept.seatingBoardTitle()).isEqualTo(existing.seatingBoardTitle());
+    }
+
+    // Builds an UpdateWeddingWebsiteRequest with only seatingBoardTitle set; all other
+    // fields are null so they are omitted from the patch.
+    // Field order mirrors UpdateWeddingWebsiteRequest (48 params total):
+    //   1-4:  partnerOneName, partnerTwoName, weddingDate, engagementDate
+    //   5-9:  heroPhotoUrl, heroTagline, heroFocalPointX, heroFocalPointY, heroTaglineColor
+    //   10-19: ourStory, scriptureRef, scriptureText, scriptureTranslation, venueName,
+    //          venueAddress, venueCity, venueState, ceremonyTime, dressCode
+    //   20-22: venuePhotoUrl, venueAdditionalInfo, hotelName
+    //   23-28: hotelUrl, hotelDetails, registryUrl1-3 + labels1-2
+    //   29-32: registryUrl3, registryLabel3, rsvpDeadline, partnerOneVows
+    //   33-36: partnerTwoVows, goalBudget, hiddenTabs, customTabLabels
+    //   37-45: accentColor, scriptureBackgroundColor, receptionVenueName-state, receptionTime,
+    //          receptionVenueAdditionalInfo, ceremonyVenueTitle
+    //   46-47: receptionVenueTitle, nameFont
+    //   48:    seatingBoardTitle
+    private static UpdateWeddingWebsiteRequest titleRequest(String seatingBoardTitle) {
+        return new UpdateWeddingWebsiteRequest(
+                null, null, null, null,
+                null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null,
+                null, null, null,
+                null, null, null, null, null, null,
+                null, null, null, null,
+                null, null, null, null,
+                null, null, null, null, null, null, null, null, null,
+                null, null,
+                seatingBoardTitle
+        );
+    }
+
     private WeddingWebsite websiteWithFlags(boolean published, boolean deleted) {
         return new WeddingWebsite(
                 UUID.randomUUID(), UUID.randomUUID(), "some-slug", published,
@@ -197,7 +252,7 @@ class WeddingWebsiteServiceTest {
                 null, null, null, null,
                 null, null, null, null,
                 null,
-                null, null, null, null, null, null, null, null, null,  // reception venue + titles (V90), nameFont (V91)
+                null, null, null, null, null, null, null, null, null, null,  // reception venue + titles (V90), nameFont (V91), seatingBoardTitle (V92)
                 deleted, null, null, null
         );
     }
@@ -228,7 +283,7 @@ class WeddingWebsiteServiceTest {
                 null, null, null, null,
                 null, null, null, null,
                 null,
-                null, null, null, null, null, null, null, null, null,  // reception venue + titles (V90), nameFont (V91)
+                null, null, null, null, null, null, null, null, null, null,  // reception venue + titles (V90), nameFont (V91), seatingBoardTitle (V92)
                 false, null, null, null
         );
     }

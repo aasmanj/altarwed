@@ -84,6 +84,9 @@ public record WeddingWebsiteResponse(
         // V91: allowlisted font key for the couple's names. null = default serif.
         String nameFont,
 
+        // V92: optional custom headline for the printable seating board. null = "Welcome".
+        String seatingBoardTitle,
+
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {}

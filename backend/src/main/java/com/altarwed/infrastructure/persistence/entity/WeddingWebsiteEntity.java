@@ -187,6 +187,10 @@ public class WeddingWebsiteEntity {
     @Column(name = "name_font", length = 40)
     private String nameFont;
 
+    // V92: optional custom headline on the printable seating board. null = "Welcome".
+    @Column(name = "seating_board_title", length = 100)
+    private String seatingBoardTitle;
+
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted;
 
