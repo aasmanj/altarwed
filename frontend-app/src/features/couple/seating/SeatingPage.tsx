@@ -28,6 +28,14 @@ import {
   useDeleteSeatingTable,
   type SeatingTable,
 } from './useSeatingTables'
+import {
+  CAPACITY_PRESETS,
+  TABLE_SHAPES,
+  normalizeShape,
+  shapeLabel,
+  type TableShape,
+} from './tableShape'
+import TableShapeIcon from './TableShapeIcon'
 
 // ─── Guest chip (draggable on desktop) ──────────────────────────────────────
 
@@ -146,9 +154,14 @@ function TableColumn({
     >
       <div className={`px-3 py-2 border-b rounded-t-xl ${isUnassigned ? 'border-amber-200 bg-amber-50' : 'border-stone-200 bg-white'}`}>
         <div className="flex items-center justify-between gap-1">
-          <p className={`text-xs font-semibold truncate ${isUnassigned ? 'text-amber-900' : 'text-stone-700'}`}>
-            {table ? table.name : '○ Unassigned'}
-          </p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            {table && (
+              <TableShapeIcon shape={table.shape} capacity={table.capacity} size={18} className="text-stone-500 flex-shrink-0" />
+            )}
+            <p className={`text-xs font-semibold truncate ${isUnassigned ? 'text-amber-900' : 'text-stone-700'}`}>
+              {table ? table.name : '○ Unassigned'}
+            </p>
+          </div>
           {table && onEdit && (
             <button
               onClick={() => onEdit(table)}
@@ -248,11 +261,14 @@ function MobileTableCard({
   return (
     <div className="rounded-xl border-2 border-stone-200 bg-stone-50 overflow-hidden">
       <div className="px-4 py-3 border-b border-stone-200 bg-white flex items-center justify-between">
-        <div>
-          <p className="text-sm font-semibold text-stone-700">{table.name}</p>
-          <p className={`text-xs mt-0.5 ${overCapacity ? 'text-rose-500 font-medium' : 'text-stone-400'}`}>
-            {filled}/{table.capacity} seats{overCapacity ? ' · over capacity' : ''}
-          </p>
+        <div className="flex items-center gap-2 min-w-0">
+          <TableShapeIcon shape={table.shape} capacity={table.capacity} size={22} className="text-stone-500 flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-stone-700 truncate">{table.name}</p>
+            <p className={`text-xs mt-0.5 ${overCapacity ? 'text-rose-500 font-medium' : 'text-stone-400'}`}>
+              {filled}/{table.capacity} seats{overCapacity ? ' · over capacity' : ''}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {selectedGuestId && (
@@ -311,13 +327,14 @@ function TableModal({
 
   const [name, setName] = useState(table?.name ?? '')
   const [capacity, setCapacity] = useState(String(table?.capacity ?? 8))
+  const [shape, setShape] = useState<TableShape>(normalizeShape(table?.shape))
 
   async function handleSave() {
     const cap = Math.max(1, parseInt(capacity) || 8)
     if (table) {
-      await update.mutateAsync({ tableId: table.id, name: name.trim() || table.name, capacity: cap })
+      await update.mutateAsync({ tableId: table.id, name: name.trim() || table.name, capacity: cap, shape })
     } else {
-      await create.mutateAsync({ name: name.trim() || 'New Table', capacity: cap })
+      await create.mutateAsync({ name: name.trim() || 'New Table', capacity: cap, shape })
     }
     onClose()
   }
@@ -355,8 +372,53 @@ function TableModal({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-stone-700 mb-1">Seat Capacity</label>
+            <span className="block text-sm font-medium text-stone-700 mb-1.5">Table Shape</span>
+            <div className="grid grid-cols-3 gap-2" role="group" aria-label="Table shape">
+              {TABLE_SHAPES.map(s => {
+                const selected = shape === s
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setShape(s)}
+                    aria-pressed={selected}
+                    className={`flex flex-col items-center gap-1 rounded-lg border px-2 py-2.5 text-xs font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
+                      selected
+                        ? 'border-amber-500 bg-amber-50 text-amber-800'
+                        : 'border-stone-300 text-stone-600 hover:bg-stone-50'
+                    }`}
+                  >
+                    <TableShapeIcon shape={s} capacity={parseInt(capacity) || 8} size={30} />
+                    {shapeLabel(s)}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          <div>
+            <label htmlFor="table-capacity" className="block text-sm font-medium text-stone-700 mb-1">Seat Capacity</label>
+            <div className="flex flex-wrap gap-1.5 mb-2" role="group" aria-label="Capacity presets">
+              {CAPACITY_PRESETS.map(preset => {
+                const selected = (parseInt(capacity) || 0) === preset
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setCapacity(String(preset))}
+                    aria-pressed={selected}
+                    className={`min-w-[2.25rem] rounded-lg border px-2 py-1 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
+                      selected
+                        ? 'border-amber-500 bg-amber-50 text-amber-800'
+                        : 'border-stone-300 text-stone-600 hover:bg-stone-50'
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                )
+              })}
+            </div>
             <input
+              id="table-capacity"
               type="number"
               min="1"
               max="100"

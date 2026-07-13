@@ -40,7 +40,8 @@ public class SeatingTableService {
                 .max()
                 .orElse(-1) + 1;
         int capacity = req.capacity() != null ? req.capacity() : 8;
-        SeatingTable table = new SeatingTable(null, coupleId, req.name(), capacity, nextSort, null, null);
+        String shape = req.shape() != null ? req.shape() : SeatingTable.DEFAULT_SHAPE;
+        SeatingTable table = new SeatingTable(null, coupleId, req.name(), capacity, nextSort, shape, null, null);
         SeatingTable saved = repository.save(table);
         log.info("seating table created, coupleId={}, tableId={}", coupleId, saved.id());
         return saved;
@@ -54,6 +55,7 @@ public class SeatingTableService {
                 req.name()      != null ? req.name()      : existing.name(),
                 req.capacity()  != null ? req.capacity()  : existing.capacity(),
                 req.sortOrder() != null ? req.sortOrder() : existing.sortOrder(),
+                req.shape()     != null ? req.shape()     : existing.shape(),
                 existing.createdAt(), LocalDateTime.now()
         );
         SeatingTable saved = repository.save(updated);

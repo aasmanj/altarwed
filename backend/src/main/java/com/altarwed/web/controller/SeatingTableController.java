@@ -68,6 +68,6 @@ public class SeatingTableController {
     }
 
     private SeatingTableResponse toResponse(com.altarwed.domain.model.SeatingTable t) {
-        return new SeatingTableResponse(t.id(), t.coupleId(), t.name(), t.capacity(), t.sortOrder());
+        return new SeatingTableResponse(t.id(), t.coupleId(), t.name(), t.capacity(), t.sortOrder(), t.shape());
     }
 }

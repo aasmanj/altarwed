@@ -32,6 +32,11 @@ public class SeatingTableEntity {
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
+    // Table silhouette (ROUND / RECTANGLE / HEAD) rendered by the seating editor.
+    // Backed by the shape column added in V92 (NOT NULL, DEFAULT 'ROUND', CHECK constraint).
+    @Column(name = "shape", nullable = false, length = 20)
+    private String shape;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

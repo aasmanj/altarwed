@@ -4,6 +4,7 @@ import { useAuth } from '@/core/auth/AuthContext'
 import QueryErrorState from '@/components/QueryErrorState'
 import { useGuests, type Guest } from '@/features/couple/guests/useGuests'
 import { useSeatingTables } from './useSeatingTables'
+import TableShapeIcon from './TableShapeIcon'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Printable seating board
@@ -148,8 +149,9 @@ export default function SeatingBoardPage() {
                 if (seated.length === 0) return null
                 return (
                   <div key={t.id} className="break-inside-avoid">
-                    <p className="font-serif font-semibold text-stone-800 mb-1.5 pb-1 border-b border-stone-200">
-                      {t.name}{' '}
+                    <p className="font-serif font-semibold text-stone-800 mb-1.5 pb-1 border-b border-stone-200 flex items-center gap-1.5">
+                      <TableShapeIcon shape={t.shape} capacity={t.capacity} size={18} className="text-stone-500 flex-shrink-0" />
+                      <span>{t.name}</span>{' '}
                       <span className="text-xs font-normal text-stone-400">({seated.length}/{t.capacity})</span>
                     </p>
                     <ul className="space-y-0.5">
