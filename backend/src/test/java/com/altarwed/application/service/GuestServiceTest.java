@@ -9,6 +9,7 @@ import com.altarwed.domain.model.EmailRecipient;
 import com.altarwed.domain.model.Guest;
 import com.altarwed.domain.model.GuestRsvpStatus;
 import com.altarwed.domain.model.RsvpInviteBulkSend;
+import com.altarwed.domain.model.RsvpInviteRecipient;
 import com.altarwed.domain.model.RsvpInviteToken;
 import com.altarwed.domain.model.SaveTheDateSend;
 import com.altarwed.domain.model.WeddingWebsite;
@@ -99,6 +100,14 @@ class GuestServiceTest {
                 coupleRepository, asyncEmailService, suppressionService, customRsvpQuestionService,
                 captchaVerificationPort, saveTheDateSendRepository, rsvpInviteBulkSendRepository,
                 searchThrottle);
+    }
+
+    // Typed captor for the batched RSVP invite recipient list. The unchecked cast is unavoidable
+    // when capturing a generic List with Mockito's Class-based forClass; isolated here so the
+    // suppression does not spread across the individual tests.
+    @SuppressWarnings("unchecked")
+    private static ArgumentCaptor<List<RsvpInviteRecipient>> batchCaptor() {
+        return ArgumentCaptor.forClass(List.class);
     }
 
     private Guest guest(UUID coupleId, String name, String email) {
@@ -436,9 +445,13 @@ class GuestServiceTest {
 
         // Each eligible guest got a fresh invite token persisted; the over-cap guest did not.
         verify(tokenRepository, times(2)).save(any());
-        // No invite email queued for the over-cap guest's address.
-        verify(asyncEmailService, never()).sendRsvpInviteEmail(
-                eq("bo@example.com"), any(), any(), any(), any(), any(), any(), any());
+        // One batched Resend call carries only the two eligible guests; the over-cap guest's
+        // address is never queued (issue #378, invite-all now fans out through /emails/batch).
+        ArgumentCaptor<List<RsvpInviteRecipient>> batch = batchCaptor();
+        verify(asyncEmailService).sendRsvpInviteEmails(batch.capture(), any(), any(), any(), any());
+        assertThat(batch.getValue()).extracting(RsvpInviteRecipient::email)
+                .containsExactlyInAnyOrder("anna@example.com", "cy@example.com")
+                .doesNotContain("bo@example.com");
     }
 
     @Test
@@ -494,8 +507,11 @@ class GuestServiceTest {
         assertThat(result.skipped()).isZero();
         assertThat(result.skippedGuests()).isEmpty();
         verify(tokenRepository, times(2)).save(any());
-        verify(asyncEmailService, times(2))
-                .sendRsvpInviteEmail(any(), any(), any(), any(), any(), any(), any(), any());
+        // Both eligible guests ride ONE batched Resend call, not two single sends (issue #378).
+        ArgumentCaptor<List<RsvpInviteRecipient>> batch = batchCaptor();
+        verify(asyncEmailService).sendRsvpInviteEmails(batch.capture(), any(), any(), any(), any());
+        assertThat(batch.getValue()).extracting(RsvpInviteRecipient::email)
+                .containsExactlyInAnyOrder("anna@example.com", "bo@example.com");
     }
 
     @Test
@@ -519,9 +535,11 @@ class GuestServiceTest {
                     assertThat(s.guestId()).isEqualTo(noEmail.id());
                     assertThat(s.reason()).isEqualTo("no_email");
                 });
-        // The no-email guest never gets a token or an email.
-        verify(asyncEmailService, never())
-                .sendRsvpInviteEmail(eq(null), any(), any(), any(), any(), any(), any(), any());
+        // The no-email guest never gets a token or a place in the batched send.
+        ArgumentCaptor<List<RsvpInviteRecipient>> batch = batchCaptor();
+        verify(asyncEmailService).sendRsvpInviteEmails(batch.capture(), any(), any(), any(), any());
+        assertThat(batch.getValue()).extracting(RsvpInviteRecipient::email)
+                .containsExactly("anna@example.com");
     }
 
     @Test
@@ -544,8 +562,12 @@ class GuestServiceTest {
                     assertThat(s.guestId()).isEqualTo(responded.id());
                     assertThat(s.reason()).isEqualTo("already_responded");
                 });
-        verify(asyncEmailService, never()).sendRsvpInviteEmail(
-                eq("bo@example.com"), any(), any(), any(), any(), any(), any(), any());
+        // The skipped guest is never placed in the batched send; only the eligible guest is.
+        ArgumentCaptor<List<RsvpInviteRecipient>> batch = batchCaptor();
+        verify(asyncEmailService).sendRsvpInviteEmails(batch.capture(), any(), any(), any(), any());
+        assertThat(batch.getValue()).extracting(RsvpInviteRecipient::email)
+                .containsExactly("anna@example.com")
+                .doesNotContain("bo@example.com");
     }
 
     @Test
@@ -568,8 +590,12 @@ class GuestServiceTest {
                     assertThat(s.guestId()).isEqualTo(overCap.id());
                     assertThat(s.reason()).isEqualTo("cap_reached");
                 });
-        verify(asyncEmailService, never()).sendRsvpInviteEmail(
-                eq("bo@example.com"), any(), any(), any(), any(), any(), any(), any());
+        // The skipped guest is never placed in the batched send; only the eligible guest is.
+        ArgumentCaptor<List<RsvpInviteRecipient>> batch = batchCaptor();
+        verify(asyncEmailService).sendRsvpInviteEmails(batch.capture(), any(), any(), any(), any());
+        assertThat(batch.getValue()).extracting(RsvpInviteRecipient::email)
+                .containsExactly("anna@example.com")
+                .doesNotContain("bo@example.com");
     }
 
     @Test
@@ -596,8 +622,12 @@ class GuestServiceTest {
                     assertThat(s.guestId()).isEqualTo(unsub.id());
                     assertThat(s.reason()).isEqualTo("unsubscribed");
                 });
-        verify(asyncEmailService, never()).sendRsvpInviteEmail(
-                eq("bo@example.com"), any(), any(), any(), any(), any(), any(), any());
+        // The skipped guest is never placed in the batched send; only the eligible guest is.
+        ArgumentCaptor<List<RsvpInviteRecipient>> batch = batchCaptor();
+        verify(asyncEmailService).sendRsvpInviteEmails(batch.capture(), any(), any(), any(), any());
+        assertThat(batch.getValue()).extracting(RsvpInviteRecipient::email)
+                .containsExactly("anna@example.com")
+                .doesNotContain("bo@example.com");
     }
 
     @Test
@@ -616,7 +646,7 @@ class GuestServiceTest {
         verify(tokenRepository, never()).save(any());
         verify(guestRepository, never()).save(any());
         verify(asyncEmailService, never())
-                .sendRsvpInviteEmail(any(), any(), any(), any(), any(), any(), any(), any());
+                .sendRsvpInviteEmails(any(), any(), any(), any(), any());
     }
 
     // ---------------------------------------------------------------------------
@@ -664,8 +694,9 @@ class GuestServiceTest {
         assertThat(receipt.getValue().idempotencyKey()).isEqualTo("key-2");
         assertThat(receipt.getValue().sentCount()).isEqualTo(1);
         assertThat(receipt.getValue().skippedCount()).isZero();
+        // The single eligible guest is dispatched via one batched Resend call (issue #378).
         verify(asyncEmailService, times(1))
-                .sendRsvpInviteEmail(any(), any(), any(), any(), any(), any(), any(), any());
+                .sendRsvpInviteEmails(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -689,7 +720,7 @@ class GuestServiceTest {
         // The loser never mails the batch.
         verify(tokenRepository, never()).save(any());
         verify(asyncEmailService, never())
-                .sendRsvpInviteEmail(any(), any(), any(), any(), any(), any(), any(), any());
+                .sendRsvpInviteEmails(any(), any(), any(), any(), any());
     }
 
     @Test
