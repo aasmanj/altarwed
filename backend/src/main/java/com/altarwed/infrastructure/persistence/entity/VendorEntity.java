@@ -2,6 +2,7 @@ package com.altarwed.infrastructure.persistence.entity;
 
 import com.altarwed.domain.model.VendorCategory;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -49,13 +50,22 @@ public class VendorEntity {
     @Column(name = "is_christian_owned", nullable = false)
     private boolean isChristianOwned;
 
-    // Stored in a separate join table: vendor_denomination_ids
+    // Stored in a separate join table: vendor_denomination_ids.
+    // @BatchSize collapses the EAGER collection loads for a directory page into a single IN query
+    // instead of one SELECT per vendor (issue #380). Without it, findDirectory returns a page of up
+    // to MAX_PAGE_SIZE (50) rows and Hibernate issued 1 query for the page plus one collection
+    // SELECT per row (the classic N+1 on an SEO growth surface). With a batch size that covers a
+    // full page, all collections load in a single batched IN (:ids) query, so a directory render is
+    // bounded at 2 queries regardless of page size. A join-fetch was rejected because Hibernate
+    // cannot apply OFFSET/FETCH paging in the database alongside a fetched collection (it pages in
+    // memory, "HHH000104"), which would reintroduce the full scan the paging fix (issue #135) removed.
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(
             name = "vendor_denomination_ids",
             joinColumns = @JoinColumn(name = "vendor_id")
     )
     @Column(name = "denomination_id", nullable = false)
+    @BatchSize(size = 50)
     @Builder.Default
     private List<UUID> denominationIds = new ArrayList<>();
 
