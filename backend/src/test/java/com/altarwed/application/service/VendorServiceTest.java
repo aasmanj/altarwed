@@ -299,8 +299,8 @@ class VendorServiceTest {
     // Before this change /me/stats handed every vendor viewCount + inquiryCount, giving away the
     // exact thing the Pro upgrade panel sells. getStats now returns only the lifetime view count
     // plus an entitlement flag, and the inquiry analytics move to getAnalytics, which enforces the
-    // paywall server-side: a non-Pro vendor is denied (AnalyticsNotEntitledException -> 403) and
-    // never reads the inquiry counts, while a Pro (ACTIVE, paid or comped) vendor is allowed.
+    // paywall server-side: a non-Pro vendor is denied (AnalyticsNotEntitledException -> 402) and
+    // never reads the inquiry counts, while a Pro (ACTIVE paid/comped, or TRIALING) vendor is allowed.
     // -------------------------------------------------------------------------
 
     @Test
@@ -363,6 +363,24 @@ class VendorServiceTest {
 
         assertThat(analytics.inquiryCount()).isEqualTo(2L);
         assertThat(analytics.unreadInquiryCount()).isEqualTo(0L);
+    }
+
+    @Test
+    void getAnalytics_allowsTrialingVendor() {
+        UUID vendorId = UUID.randomUUID();
+        when(vendorRepository.findById(vendorId))
+                .thenReturn(Optional.of(vendorWithViews(vendorId, 11)));
+        // TRIALING: a vendor in a Stripe trial is entitled, matching StripeService which treats
+        // ACTIVE and TRIALING as equivalent, and letting the trial show the analytics it is selling.
+        when(subscriptionRepository.findByVendorId(vendorId))
+                .thenReturn(Optional.of(subscription(vendorId, SubscriptionStatus.TRIALING, "sub_123")));
+        when(inquiryRepository.countByVendorId(vendorId)).thenReturn(4L);
+        when(inquiryRepository.countUnreadByVendorId(vendorId)).thenReturn(1L);
+
+        VendorAnalyticsResponse analytics = vendorService.getAnalytics(vendorId);
+
+        assertThat(analytics.inquiryCount()).isEqualTo(4L);
+        assertThat(analytics.unreadInquiryCount()).isEqualTo(1L);
     }
 
     @Test
