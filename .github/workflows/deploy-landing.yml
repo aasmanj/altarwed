@@ -21,6 +21,9 @@ jobs:
   # Scoped to this job (not workflow-level) so it never governs close_pull_request.
   deploy:
     runs-on: ubuntu-latest
+    # Bounded because the smoke gate starts a server; its script self-bounds,
+    # but a hang here must never sit at the 6h GitHub default.
+    timeout-minutes: 15
     name: Build and deploy Next.js to Azure Static Web Apps
     concurrency:
       group: deploy-landing-prod

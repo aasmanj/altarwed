@@ -50,7 +50,10 @@ fail=0
 check() {
   local path="$1" expected="$2"
   local code
-  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "http://localhost:$PORT$path")
+  # `|| echo 000`: if the server died between readiness and this check, a
+  # connection-level curl failure must still reach the readable FAIL path
+  # (and the log dump) instead of set -e aborting mid-function.
+  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "http://localhost:$PORT$path" || echo 000)
   if [ "$code" = "$expected" ]; then
     echo "SMOKE OK:   $path -> $code"
   else
