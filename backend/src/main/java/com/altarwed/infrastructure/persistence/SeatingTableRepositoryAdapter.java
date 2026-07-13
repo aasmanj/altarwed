@@ -43,8 +43,8 @@ public class SeatingTableRepositoryAdapter implements SeatingTableRepository {
     }
 
     private SeatingTable toDomain(SeatingTableEntity e) {
-        // Entity shape is @Transient until the migration in the PR "Manual steps" is applied,
-        // so a fresh read returns null; normalize to the default so the API always sends a shape.
+        // The shape column is NOT NULL with a DEFAULT (V92), so a read is never null; this fallback
+        // is a defensive belt-and-suspenders so the API always emits a valid shape.
         String shape = e.getShape() != null ? e.getShape() : SeatingTable.DEFAULT_SHAPE;
         return new SeatingTable(e.getId(), e.getCoupleId(), e.getName(),
                 e.getCapacity(), e.getSortOrder(), shape, e.getCreatedAt(), e.getUpdatedAt());
