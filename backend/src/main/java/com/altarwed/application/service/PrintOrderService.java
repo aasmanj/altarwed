@@ -172,6 +172,16 @@ public class PrintOrderService {
      */
     public CreateOrderResult createOrder(UUID coupleId, CreatePrintOrderRequest req) {
         PrintOrderType orderType = PrintOrderType.valueOf(req.orderType());
+        // Issue #352: templateKey is fully couple-controlled, selects a layout branch + headline,
+        // and is concatenated into Lob's description metadata. Validate it against the closed
+        // allowlist before doing anything else so an unknown/mismatched value is a clean 400 rather
+        // than a silently-accepted order. WARN (expected domain-rule rejection, not an error), and
+        // deliberately do NOT log the raw key to avoid log injection from a rogue client.
+        if (!PrintTemplate.isAllowed(req.templateKey())) {
+            log.warn("print order rejected, unknown templateKey, coupleId={}", coupleId);
+            throw new IllegalArgumentException(
+                    "Unknown print template. Choose one of the available card designs.");
+        }
         String idempotencyKey = req.idempotencyKey();
         log.info("print order requested, coupleId={}, orderType={}, templateKey={}, recipients={}",
                  coupleId, orderType, req.templateKey(), req.guestIds().size());
