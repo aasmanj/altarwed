@@ -400,7 +400,7 @@ class GoogleSheetSyncServiceTest {
     private List<SeatingTable> tables(UUID coupleId, int count) {
         java.util.List<SeatingTable> out = new java.util.ArrayList<>();
         for (int i = 0; i < count; i++) {
-            out.add(new SeatingTable(UUID.randomUUID(), coupleId, "Table " + (i + 1), 8, i, null, null));
+            out.add(new SeatingTable(UUID.randomUUID(), coupleId, "Table " + (i + 1), 8, i, SeatingTable.SHAPE_ROUND, null, null));
         }
         return out;
     }
