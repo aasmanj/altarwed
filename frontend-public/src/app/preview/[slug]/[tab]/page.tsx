@@ -16,6 +16,7 @@ import { getWedding, getBlocks, type BlockTab, parseTabCustomisation } from '@/a
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
 import { safeColor } from '@/lib/safeColor'
 import { safeNameFont, safeNameFontWeight } from '@/lib/safeFont'
+import { safeFontTheme } from '@/lib/safeFontTheme'
 import HeroLive from './HeroLive'
 import BlockListLive from './BlockListLive'
 import TabSwitchListener from './TabSwitchListener'
@@ -106,10 +107,14 @@ export default async function PreviewPage({
   // Mirror the live layout's font vars so the dashboard preview reflects the chosen font.
   const nameFont = safeNameFont(wedding.nameFont)
   const nameFontWeight = safeNameFontWeight(wedding.nameFont)
+  // Mirror the live layout's font-pairing theme (issue #358) so the dashboard preview
+  // reflects the chosen heading/body fonts. Defaults to the classic pair when unset.
+  const fontTheme = safeFontTheme(wedding.customTabLabels)
 
   return (
-    <div className="min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]">
-      <style>{`:root { --accent: ${accentColor}; --name-font: ${nameFont}; --name-font-weight: ${nameFontWeight}; }`}</style>
+    <div className="aw-fonts min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]" style={{ fontFamily: 'var(--body-font)' }}>
+      <style>{`:root { --accent: ${accentColor}; --name-font: ${nameFont}; --name-font-weight: ${nameFontWeight}; --heading-font: ${fontTheme.heading}; --body-font: ${fontTheme.body}; }
+.aw-fonts h1, .aw-fonts h2, .aw-fonts h3, .aw-fonts h4, .aw-fonts h5, .aw-fonts h6 { font-family: var(--heading-font); }`}</style>
 
       {/* Handles the editor's tab-switch postMessage with a client-side (RSC)
           navigation instead of the iframe reload this route used to require

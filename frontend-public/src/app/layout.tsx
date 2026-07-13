@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter, Playfair_Display, Cinzel, Great_Vibes, Montserrat, Dancing_Script } from 'next/font/google'
+import { Inter, Playfair_Display, Cinzel, Great_Vibes, Montserrat, Dancing_Script, Cormorant_Garamond, Lato } from 'next/font/google'
 import './globals.css'
 import FacebookPixel from '@/components/FacebookPixel'
 import CookieConsentBanner from '@/components/CookieConsentBanner'
@@ -50,6 +50,25 @@ const dancingScript = Dancing_Script({
   subsets: ['latin'],
   weight: ['400', '700'],
   variable: '--font-dancing-script',
+  display: 'swap',
+})
+
+// Font-pairing theme faces (issue #358). Declared here so their CSS variables exist
+// site-wide; next/font only DOWNLOADS a family when an element references it, so a
+// couple who never picks a theme (and every non-wedding page) pays nothing for these.
+// Cormorant Garamond: high-contrast editorial serif for the "editorial" heading pair.
+const cormorant = Cormorant_Garamond({
+  subsets: ['latin'],
+  weight: ['400', '600', '700'],
+  variable: '--font-cormorant',
+  display: 'swap',
+})
+
+// Lato: warm humanist sans body for the "editorial" and "romantic" pairs.
+const lato = Lato({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  variable: '--font-lato',
   display: 'swap',
 })
 
@@ -124,7 +143,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${playfair.variable} ${cinzel.variable} ${greatVibes.variable} ${montserrat.variable} ${dancingScript.variable}`}
+      className={`${inter.variable} ${playfair.variable} ${cinzel.variable} ${greatVibes.variable} ${montserrat.variable} ${dancingScript.variable} ${cormorant.variable} ${lato.variable}`}
     >
       <body>
         <script
