@@ -31,6 +31,25 @@ jobs:
         with:
           submodules: true
 
+      # Boot smoke gate (issue #421): build and start the server BEFORE the SWA
+      # upload so a runtime-dead build never reaches production, even on direct
+      # pushes to main that skipped PR CI. Costs one extra build (~2-3 min); the
+      # SWA action below still does its own build via Oryx. Deliberately built
+      # without secrets: the app must boot on defaults, and this gate only
+      # proves bootability, not feature config.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install deps for smoke gate
+        working-directory: ./frontend-public
+        run: npm install
+      - name: Build for smoke gate
+        working-directory: ./frontend-public
+        run: npm run build
+      - name: Smoke test the built server boots and routes
+        working-directory: ./frontend-public
+        run: bash scripts/smoke.sh
+
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
         with:
