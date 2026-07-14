@@ -10,10 +10,14 @@
 // dragging the posthog-js client (or its mock) into this module's graph.
 //
 // Scope note: unlike frontend-public, this adapter deliberately does NOT fire a
-// PageView. The public www site owns PageView; the authed app only fires the
-// CompleteRegistration conversion at the moment of a consenting couple signup, so
-// Meta can optimize delivery toward activated couples and seed a converter
-// lookalike audience. Server-side Conversions API is a separate follow-up.
+// PageView. The public www site owns PageView. The authed app fires the revenue
+// funnel conversions at the moment they happen for a consenting user:
+//   - CompleteRegistration when a consenting couple signs up (couples are the
+//     free acquisition side), and
+//   - InitiateCheckout + Subscribe on the vendor billing path (vendors are the
+//     paying side), gated on the vendor's own opt-in (see vendorConsent.ts).
+// This lets Meta optimize delivery toward activated couples and paying vendors and
+// seed value-based lookalikes. Server-side Conversions API is a separate follow-up.
 
 // The global fbq function the Meta snippet installs on window. Typed loosely
 // because it is a variadic command bus (fbq('init', id) / fbq('track', event)).
@@ -114,6 +118,22 @@ export function initPixel(): void {
 export function trackCompleteRegistration(params?: Record<string, unknown>): void {
   if (!enabled) return
   window.fbq?.('track', 'CompleteRegistration', params)
+}
+
+// Fires the Meta standard InitiateCheckout conversion when a consenting vendor
+// starts a Stripe Checkout session. Gated on `enabled` like every call here, so
+// it is a no-op unless the vendor opted in and the pixel booted this page load.
+export function trackInitiateCheckout(params?: Record<string, unknown>): void {
+  if (!enabled) return
+  window.fbq?.('track', 'InitiateCheckout', params)
+}
+
+// Fires the Meta standard Subscribe conversion when a vendor's subscription is
+// confirmed active on return from Stripe Checkout. Subscribe (not Purchase) is the
+// correct standard event for a recurring subscription. Gated on `enabled`.
+export function trackSubscribe(params?: Record<string, unknown>): void {
+  if (!enabled) return
+  window.fbq?.('track', 'Subscribe', params)
 }
 
 // Called on logout, consistent with analytics.disableAnalytics(). The Meta Pixel

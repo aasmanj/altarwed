@@ -1,12 +1,16 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   useVendorSubscription,
   useCreateCheckoutSession,
   useCreatePortalSession,
 } from './useSubscription'
 import PromoCodeBox from './PromoCodeBox'
+import { captureEvent } from '@/core/analytics/analytics'
+import { trackSubscribe } from '@/core/analytics/metaPixel'
+import { enableVendorAnalyticsIfConsented } from '@/core/analytics/vendorAnalytics'
+import { PLAN_CURRENCY, planValueForPrice, takeCheckoutValue } from './planValue'
 
 // Shown when a Stripe price ID fails to load (config/deploy skew) so a vendor ready
 // to pay is not left at a silent dead-end with only a greyed-out button. See issue #154.
@@ -21,16 +25,40 @@ export function isBillingUnavailable(priceId: string | null | undefined): boolea
 }
 
 export default function VendorSubscriptionPage() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { data: sub, isLoading } = useVendorSubscription()
   const checkout = useCreateCheckoutSession()
   const portal = useCreatePortalSession()
 
+  // Fire the activation conversion at most once per successful return. The
+  // '?session=success' param persists in the address bar after the Stripe
+  // redirect, so a refresh, back-nav, remount, or StrictMode double-invoke would
+  // otherwise replay the un-dedupable Meta Subscribe conversion. The ref stops the
+  // in-session replays; stripping the param keeps a hard refresh clean too.
+  const firedActivation = useRef(false)
+
   useEffect(() => {
-    if (searchParams.get('session') === 'success') {
-      toast.success('Subscription activated! Welcome to AltarWed Pro.')
-    }
-  }, [searchParams])
+    if (searchParams.get('session') !== 'success') return
+    if (firedActivation.current) return
+    firedActivation.current = true
+
+    toast.success('Subscription activated! Welcome to AltarWed Pro.')
+    // subscription_activated is the vendor funnel's revenue conversion. Stripe
+    // redirected the browser here, so module-level analytics state was reset;
+    // re-boot for a consenting vendor before capturing, then fire Meta Subscribe
+    // with the value stashed when checkout started (for value-based lookalikes).
+    enableVendorAnalyticsIfConsented()
+    const value = takeCheckoutValue()
+    const valueProps = value !== null ? { value, currency: PLAN_CURRENCY } : undefined
+    captureEvent('subscription_activated', valueProps)
+    trackSubscribe(valueProps)
+
+    // Strip the param so a refresh or shared/bookmarked URL does not look like a
+    // fresh activation. replace: true so it does not add a history entry.
+    const next = new URLSearchParams(searchParams)
+    next.delete('session')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
 
   const isPro = sub?.planTier === 'FEATURED' || sub?.planTier === 'PREMIUM'
   const isActive = sub?.status === 'ACTIVE' || sub?.status === 'TRIALING'
@@ -60,7 +88,16 @@ export default function VendorSubscriptionPage() {
           <UpgradePanel
             monthlyPriceId={sub?.proMonthlyPriceId ?? null}
             annualPriceId={sub?.proAnnualPriceId ?? null}
-            onCheckout={(priceId) => checkout.mutate(priceId)}
+            onCheckout={(priceId) =>
+              checkout.mutate({
+                priceId,
+                planValue: planValueForPrice(
+                  priceId,
+                  sub?.proMonthlyPriceId ?? null,
+                  sub?.proAnnualPriceId ?? null,
+                ),
+              })
+            }
             loading={checkout.isPending}
             onRedeemed={() => toast.success('Your listing is now active. Welcome to AltarWed!')}
           />
