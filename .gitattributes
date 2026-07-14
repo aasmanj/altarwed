@@ -1,0 +1,3 @@
+# Shell scripts run on Linux CI runners; a CRLF checkout from a Windows
+# contributor with autocrlf=false would break `bash script.sh` there.
+*.sh text eol=lf
