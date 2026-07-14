@@ -8,11 +8,28 @@ The App Insights resource already exists: `altarwed-prod-insights` (workspace-ba
 `altarwed-rg`), provisioned by `modules/observability.bicep`. This runbook connects the
 Static Web Apps to it.
 
-## The two SWAs are not equivalent for this
+## Two parts are BOTH required (the env var alone does nothing)
 
-| SWA | Runtime | Setting does what |
+Unlike Azure App Service (which runs a codeless App Insights agent that auto-instruments the
+Java backend), **Azure Static Web Apps does NOT auto-instrument Next.js.** Setting the
+connection string as an app setting is necessary but not sufficient: nothing reads it unless the
+app starts the App Insights SDK itself. So this fix has two halves:
+
+1. **Code (in the repo):** `frontend-public/src/instrumentation.ts` starts the `applicationinsights`
+   SDK from `process.env.APPLICATIONINSIGHTS_CONNECTION_STRING` when the Node SSR server boots.
+   `applicationinsights` is a dependency, and `serverExternalPackages` in `next.config.ts` keeps
+   it unbundled. Absent the env var this is a clean no-op (local dev, preview, CI smoke gate).
+2. **Config (this runbook):** set `APPLICATIONINSIGHTS_CONNECTION_STRING` on the `altarwed-landing`
+   SWA so the code above has a connection string to start with.
+
+If you set the app setting but skip the code (or vice versa), **zero SSR telemetry flows** and the
+App Insights instance shows only the backend role (`altarwed-prod-api`). Both halves must ship.
+
+### The two SWAs are not equivalent
+
+| SWA | Runtime | What to do |
 |---|---|---|
-| `altarwed-landing` (altarwed.com, Next.js hybrid) | Node SSR server runs in SWA | `APPLICATIONINSIGHTS_CONNECTION_STRING` auto-instruments the SSR server, so unhandled SSR exceptions and traces flow to App Insights. **This is the load-bearing fix.** |
+| `altarwed-landing` (altarwed.com, Next.js hybrid) | Node SSR server runs in SWA | Set `APPLICATIONINSIGHTS_CONNECTION_STRING` (below). Combined with `instrumentation.ts`, SSR requests/exceptions flow to App Insights. **This is the load-bearing fix.** |
 | `altarwed-prod-app` (app.altarwed.com, React + Vite) | Pure static client bundle, no server | A runtime SWA app setting is **inert**: a client bundle cannot read SWA app settings, and Vite bakes env vars at build time (`VITE_*`). Setting it here produces no logs. |
 
 Conclusion: set the connection string on `altarwed-landing` (below). Do **not** cargo-cult it
