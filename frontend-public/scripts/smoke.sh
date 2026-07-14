@@ -13,6 +13,12 @@
 #   1. GET /            -> 200 (homepage renders; any router-boot error 500s this)
 #   2. GET /smoke-404-* -> 404 (route matching + not-found render both work;
 #                          a matcher crash returns 500 for unknown paths too)
+#   3. GET /wedding-vendors/<bad-category>/<city> -> 404 (issue #419): the vendor
+#                          category/city landing route resolves without a slug-name
+#                          collision. An unknown category 404s BEFORE any backend
+#                          fetch, so this stays hermetic; a route collision (like the
+#                          reverted /vendors/[category] vs /vendors/[id]) would 500
+#                          this AND / instead.
 #
 # Usage: scripts/smoke.sh   (run from frontend-public/ after `next build`)
 set -euo pipefail
@@ -64,6 +70,7 @@ check() {
 
 check "/" 200
 check "/smoke-nonexistent-path-421" 404
+check "/wedding-vendors/smoke-not-a-category-419/austin" 404
 
 if [ "$fail" -ne 0 ]; then
   echo "--- next start log ---" >&2
