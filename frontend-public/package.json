@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "applicationinsights": "^3.15.1",
     "lucide-react": "^1.14.0",
     "next": "^15.5.20",
     "react": "^18",
