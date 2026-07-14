@@ -19,7 +19,10 @@ resources are managed separately and are intentionally NOT in `main.bicep` (see 
 - **frontend-public (Next.js)**: `altarwed-landing` in `altarwed-landing_group`.
   **NOT in main.bicep** — managed separately. Deployed by `.github/deploy-landing.yml` using
   the `AZURE_STATIC_WEB_APPS_API_TOKEN` secret. Runtime app settings (all set):
-  `REVALIDATION_SECRET`, `RESEND_API_KEY`, `RESEND_AUDIENCE_ID`, `NEXT_PUBLIC_FB_PIXEL_ID`.
+  `REVALIDATION_SECRET`, `RESEND_API_KEY`, `RESEND_AUDIENCE_ID`, `NEXT_PUBLIC_FB_PIXEL_ID`, plus
+  `APPLICATIONINSIGHTS_CONNECTION_STRING` for SSR server logs (issue #422; set via
+  `az staticwebapp appsettings set`, see `RUNBOOK-frontend-observability.md`). Because this SWA is
+  not in Bicep, App-Insights wiring is a manual az step, not a Bicep apply.
 - **frontend-app (React/Vite)**: `altarwed-prod-app` in `altarwed-rg`. **In main.bicep.**
   Deployed by `.github/deploy-app.yml` using `AZURE_STATIC_WEB_APPS_APP_API_TOKEN`.
 
