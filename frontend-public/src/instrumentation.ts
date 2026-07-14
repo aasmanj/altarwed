@@ -20,5 +20,10 @@ export async function register() {
       .setup(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING)
       .setSendLiveMetrics(false)
       .start();
+    // Label this app's telemetry as `altarwed-landing` in App Insights instead of the
+    // default `staticwebapps-<guid>` role name, so the landing app is legible alongside
+    // the `altarwed-prod-api` backend role (issue #422).
+    const client = appInsights.defaultClient;
+    client.context.tags[client.context.keys.cloudRole] = 'altarwed-landing';
   }
 }
