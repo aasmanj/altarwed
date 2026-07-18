@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -136,7 +137,13 @@ public class AuthService {
                 ROLE_COUPLE, couple.partnerOneName(), couple.partnerTwoName(), couple.weddingDate(), couple.marketingConsent());
     }
 
-    @Transactional
+    // noRollbackFor is load-bearing: the reuse tripwire deletes the token family
+    // and then throws InvalidRefreshTokenException (a RuntimeException) to return
+    // the generic 401. Spring's default rule rolls the transaction back on any
+    // unchecked exception, which would silently undo the revocation and make the
+    // whole control a no-op. Committing on this exception keeps the family delete
+    // (and the expired-row cleanup) durable while still failing the request.
+    @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public AuthResponse refresh(String rawRefreshToken) {
         Claims claims = jwtService.parseRefreshToken(rawRefreshToken);
         String tokenHash = jwtService.hashToken(rawRefreshToken);
@@ -147,14 +154,37 @@ public class AuthService {
                     return new InvalidRefreshTokenException();
                 });
 
-        if (!stored.isValid()) {
+        // Theft tripwire (issue #250): a superseded token is kept as a revoked row
+        // after rotation. Seeing it again means two parties hold the same token,
+        // the legitimate client already rotated it, so this presenter (or the one
+        // now holding the live descendant) stole it. Revoke the whole family so
+        // BOTH sessions die and the real user must re-login. The response is the
+        // same generic 401 as any invalid token, so an attacker cannot tell
+        // detection from ordinary expiry.
+        if (stored.revoked()) {
+            UUID familyId = stored.familyId();
+            if (familyId != null) {
+                refreshTokenRepository.deleteAllByFamilyId(familyId);
+            } else {
+                // Pre-V96 row with no family recorded: fall back to revoking every
+                // session of the user, the strictly safer containment.
+                refreshTokenRepository.deleteAllByUserId(stored.userId());
+            }
+            log.warn("token reuse detected, refresh token family revoked, userId={}, familyId={}, email={}",
+                    stored.userId(), familyId, LogSanitizer.maskEmail(jwtService.extractEmail(claims)));
+            throw new InvalidRefreshTokenException();
+        }
+
+        if (stored.isExpired()) {
             log.warn("token refresh rejected, reason=token invalid or expired, userId={}", stored.userId());
             refreshTokenRepository.deleteByTokenHash(tokenHash);
             throw new InvalidRefreshTokenException();
         }
 
-        // rotate: delete old, issue new pair
-        refreshTokenRepository.deleteByTokenHash(tokenHash);
+        // rotate: mark old superseded (kept as the reuse tripwire), issue new pair
+        // in the same family so descendants stay linked to their chain
+        UUID familyId = stored.familyIdOrSelf();
+        refreshTokenRepository.save(stored.superseded());
 
         String email = jwtService.extractEmail(claims);
         String role = jwtService.extractRole(claims);
@@ -162,7 +192,11 @@ public class AuthService {
 
         String newAccessToken = jwtService.generateAccessToken(email, role, userId);
         String newRawRefresh = jwtService.generateRefreshToken(email, role, userId);
-        persistRefreshToken(newRawRefresh, userId, role);
+        persistRefreshToken(newRawRefresh, userId, role, familyId);
+        // Superseded rows are only useful as tripwires while the raw JWT could
+        // still be replayed; prune the ones past their JWT expiry so the table
+        // does not grow without bound.
+        refreshTokenRepository.deleteAllByUserIdAndExpiresAtBefore(userId, LocalDateTime.now());
         log.info("token refresh succeeded, userId={}, role={}", userId, role);
 
         // Load couple to return partner names and consent flag, needed so the frontend can display them after a token refresh
@@ -196,13 +230,20 @@ public class AuthService {
                 info.utmTerm(), info.utmContent(), info.referrer(), info.landingPath());
     }
 
+    // Every fresh login/registration starts a new token family; rotation passes
+    // the inherited family id so the whole chain stays revocable as one unit.
     private void persistRefreshToken(String rawToken, java.util.UUID userId, String role) {
+        persistRefreshToken(rawToken, userId, role, UUID.randomUUID());
+    }
+
+    private void persistRefreshToken(String rawToken, java.util.UUID userId, String role, UUID familyId) {
         long expiryMs = jwtService.getRefreshTokenExpiryMs();
         var refreshToken = new RefreshToken(
                 null,
                 jwtService.hashToken(rawToken),
                 userId,
                 role,
+                familyId,
                 LocalDateTime.now().plusSeconds(expiryMs / 1000),
                 false,
                 null
