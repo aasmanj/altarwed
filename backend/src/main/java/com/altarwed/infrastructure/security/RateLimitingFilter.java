@@ -1,10 +1,9 @@
 package com.altarwed.infrastructure.security;
 
 import com.altarwed.infrastructure.observability.LogSanitizer;
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
+import com.altarwed.infrastructure.sharedstate.RateLimitBucketStore;
 import io.github.bucket4j.Bandwidth;
-import io.github.bucket4j.Bucket;
+import io.github.bucket4j.BucketConfiguration;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,16 +31,16 @@ public class RateLimitingFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(RateLimitingFilter.class);
 
-    // Bounded + TTL-evicting (issue #41): an unbounded map keyed by client IP is
-    // an OOM/DoS vector on its own, independent of the XFF-spoofing fix below.
-    // 10 minutes is comfortably longer than the 1-minute refill window, so a
-    // bucket never evicts mid-throttle; maximumSize is a hard backstop against a
-    // single burst of unique IPs outrunning eviction. Keyed by "tier|ip" so each
+    // Where bucket state lives is delegated to the store (issue #109): in-memory per
+    // instance by default (the exact Caffeine cache this filter used to own, bounds and
+    // TTL unchanged, see InMemoryRateLimitBucketStore), or shared Redis when REDIS_URL is
+    // set so limits stay global across App Service instances. Keyed by "tier|ip" so each
     // tier is an independent bucket and never lends tokens across path families.
-    private final Cache<String, Bucket> buckets = Caffeine.newBuilder()
-            .maximumSize(100_000)
-            .expireAfterAccess(Duration.ofMinutes(10))
-            .build();
+    private final RateLimitBucketStore buckets;
+
+    public RateLimitingFilter(RateLimitBucketStore buckets) {
+        this.buckets = buckets;
+    }
 
     // A rate-limit tier: an independent token-bucket configuration selected per
     // request from the URI. Keeping each limit as a separate bucket (not one
@@ -66,7 +65,10 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         EXPORT
     }
 
-    private Bucket newBucket(Tier tier) {
+    // Backend-neutral bucket shape (capacity + refill), consumed by whichever store is
+    // active: the in-memory store builds a local bucket from it, the Redis store persists
+    // it alongside the shared bucket state.
+    private BucketConfiguration bucketConfig(Tier tier) {
         Bandwidth limit = switch (tier) {
             // Refill 5 tokens per 60 seconds, steady rate, no burst beyond 10.
             case DEFAULT -> Bandwidth.builder()
@@ -84,7 +86,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
                     .refillGreedy(6, Duration.ofMinutes(1))
                     .build();
         };
-        return Bucket.builder().addLimit(limit).build();
+        return BucketConfiguration.builder().addLimit(limit).build();
     }
 
     // Selects the tier for a URI. Order matters: /rsvp/find is a sub-path of the
@@ -144,9 +146,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
                                     FilterChain chain) throws ServletException, IOException {
         String ip = ClientIpResolver.resolve(request);
         Tier tier = tierFor(request.getRequestURI());
-        Bucket bucket = buckets.get(tier + "|" + ip, k -> newBucket(tier));
-
-        if (bucket.tryConsume(1)) {
+        if (buckets.tryConsume(tier + "|" + ip, () -> bucketConfig(tier))) {
             chain.doFilter(request, response);
         } else {
             // Security signal: spikes here mean brute-force attempts on auth endpoints.
