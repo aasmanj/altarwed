@@ -129,6 +129,11 @@ public class AuthService {
             throw new BadCredentialsException("Invalid email or password");
         }
 
+        // Note: the guard above and the recordFailure below are two separate steps spanning the
+        // whole credential check, so the threshold is NOT a hard cap under concurrency: a
+        // parallel burst for one email can all pass isLockedOut before any of them latches the
+        // cool-down. Acceptable: each burst still ends locked, escalation still applies, and the
+        // per-IP RateLimitingFilter bounds single-source concurrency.
         try {
             AuthResponse response = authenticate(request);
             // Success clears the failure history so a user who finally remembered their
