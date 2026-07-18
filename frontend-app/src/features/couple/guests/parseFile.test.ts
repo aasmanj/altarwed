@@ -99,6 +99,20 @@ describe('parseFile with .xlsx (exceljs)', () => {
     expect(rows[0].notes).toBe('front row')
   })
 
+  it('treats a formula error result as a blank cell', async () => {
+    const wb = new Workbook()
+    const ws = wb.addWorksheet('Sheet1')
+    ws.addRow(['Name', 'Notes'])
+    ws.getCell('A2').value = 'Job Uzman'
+    ws.getCell('B2').value = { formula: 'A99/0', result: { error: '#DIV/0!' } }
+    const file = new File([await wb.xlsx.writeBuffer()], 'guests.xlsx')
+
+    const rows = await parseFile(file)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].name).toBe('Job Uzman')
+    expect(rows[0].notes).toBeUndefined()
+  })
+
   it('reads a typed date cell as a readable yyyy-mm-dd string, not an Excel serial', async () => {
     const wb = new Workbook()
     const ws = wb.addWorksheet('Sheet1')
@@ -135,6 +149,24 @@ describe('parseFile with .csv (papaparse)', () => {
     })
     expect(rows[1].name).toBe('Joel Ray')
     expect(rows[1].email).toBeUndefined()
+  })
+
+  it('keeps all columns when the first data row is ragged (shorter than the header)', async () => {
+    // papaparse leaves missing trailing fields out of a row entirely. Since
+    // parseRows derives its column map from the first row's keys, an unpadded
+    // first row used to silently drop every later row's values in those columns.
+    const csv =
+      'Guest Name(s),Email Address,City\n' +
+      'Joel Ray\n' +
+      'Mary Cole,mary@example.com,Nazareth\n'
+    const rows = await parseFile(new File([csv], 'guests.csv'))
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toMatchObject({ name: 'Joel Ray' })
+    expect(rows[1]).toMatchObject({
+      name: 'Mary Cole',
+      email: 'mary@example.com',
+      mailCity: 'Nazareth',
+    })
   })
 
   it('is detected by content, not extension: CSV bytes in a .xlsx-named file still parse', async () => {

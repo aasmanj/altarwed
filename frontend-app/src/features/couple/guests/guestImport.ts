@@ -299,13 +299,24 @@ async function readXlsxRows(data: ArrayBuffer): Promise<Record<string, string>[]
 // header, matching the shape readXlsxRows produces.
 async function readCsvRows(text: string): Promise<Record<string, string>[]> {
   const { default: Papa } = await import('papaparse')
-  // Strip the UTF-8 BOM our own export prepends (for Excel) so it never sticks to
-  // the first header name.
+  // Defense in depth: TextDecoder already consumes a leading UTF-8 BOM (like the
+  // one our own export prepends for Excel), so this only fires for callers that
+  // hand us a string from another source.
   const body = text.replace(/^\uFEFF/, '')
   const result = Papa.parse<Record<string, string>>(body, {
     header: true,
     skipEmptyLines: 'greedy',
   })
+  // papaparse leaves keys out of a row when the line has fewer fields than the
+  // header (a ragged CSV). parseRows builds its column map from the FIRST row's
+  // keys, so a short first row would silently drop whole columns for every guest.
+  // Pad every row with every header ('' default), like the old reader guaranteed.
+  const headers = result.meta.fields ?? []
+  for (const row of result.data) {
+    for (const h of headers) {
+      if (!(h in row)) row[h] = ''
+    }
+  }
   return result.data
 }
 
