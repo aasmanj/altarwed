@@ -192,7 +192,7 @@ function ActivePlanPanel({
   onManage,
   managing,
 }: {
-  sub: { currentPeriodEnd: string | null; planTier?: string }
+  sub: { currentPeriodEnd: string | null; planTier?: 'BASIC' | 'FEATURED' | 'PREMIUM' }
   premiumConfigured: boolean
   onManage: () => void
   managing: boolean
