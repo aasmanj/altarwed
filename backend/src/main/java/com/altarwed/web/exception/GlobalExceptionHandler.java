@@ -20,6 +20,7 @@ import com.altarwed.domain.exception.InvalidPriceIdException;
 import com.altarwed.domain.exception.InvalidPromoCodeException;
 import com.altarwed.domain.exception.InvalidRefreshTokenException;
 import com.altarwed.domain.exception.InvalidRsvpTokenException;
+import com.altarwed.domain.exception.InquiryThrottledException;
 import com.altarwed.domain.exception.RsvpSearchThrottledException;
 import com.altarwed.domain.exception.CaptchaVerificationFailedException;
 import com.altarwed.domain.exception.DenominationNotFoundException;
@@ -121,6 +122,18 @@ public class GlobalExceptionHandler {
     // treats both throttles uniformly.
     @ExceptionHandler(RsvpSearchThrottledException.class)
     public ProblemDetail handleRsvpSearchThrottled(RsvpSearchThrottledException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.TOO_MANY_REQUESTS);
+        pd.setType(URI.create("https://altarwed.com/problems/rate-limit-exceeded"));
+        pd.setTitle("Too Many Requests");
+        pd.setDetail(ex.getMessage());
+        return pd;
+    }
+
+    // Per-vendor inbound inquiry cap (issue #100), keyed on the target vendor id and charged
+    // only after captcha + active-vendor checks pass. 429 with the same problem type the per-IP
+    // RateLimitingFilter writes, so a client treats every throttle uniformly.
+    @ExceptionHandler(InquiryThrottledException.class)
+    public ProblemDetail handleInquiryThrottled(InquiryThrottledException ex) {
         var pd = ProblemDetail.forStatus(HttpStatus.TOO_MANY_REQUESTS);
         pd.setType(URI.create("https://altarwed.com/problems/rate-limit-exceeded"));
         pd.setTitle("Too Many Requests");

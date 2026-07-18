@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { trackPixelEvent } from '@/lib/pixel'
+import { useTurnstile } from '@/lib/useTurnstile'
 
 interface Props {
   vendorId: string
@@ -16,12 +17,38 @@ type FormState =
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
 
+// Pure so the captchaToken-inclusion contract is unit-testable without a DOM
+// (mirrors buildFindUrl in the RSVP FindInvitationWidget): the field is only
+// present when a token exists, never as an empty string, so "Turnstile not
+// configured / not yet resolved" and "sent an empty token" stay distinguishable
+// in server logs.
+export function buildInquiryBody(
+  fields: { vendorId: string; name: string; email: string; weddingDate: string; message: string },
+  captchaToken: string,
+): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    vendorId: fields.vendorId,
+    coupleName: fields.name.trim(),
+    coupleEmail: fields.email.trim(),
+    weddingDate: fields.weddingDate.trim() || null,
+    message: fields.message.trim(),
+  }
+  if (captchaToken) body.captchaToken = captchaToken
+  return body
+}
+
 export default function InquiryForm({ vendorId, vendorBusinessName }: Props) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [weddingDate, setWeddingDate] = useState('')
   const [message, setMessage] = useState('')
   const [state, setState] = useState<FormState>({ kind: 'idle' })
+
+  // Issue #100: the inquiry endpoint queues two emails per accepted call, so it is
+  // gated by the same Turnstile check as the RSVP find search (issue #89). The
+  // shared hook owns the widget mechanics; this form only sends the token and
+  // resets it after failed attempts (tokens are single-use).
+  const { captchaToken, waitingOnCaptcha, resetCaptcha, turnstileSlot } = useTurnstile()
 
   const charCount = message.length
   const charLimit = 2000
@@ -36,13 +63,7 @@ export default function InquiryForm({ vendorId, vendorBusinessName }: Props) {
       const res = await fetch(`${API_URL}/api/v1/inquiries`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          vendorId,
-          coupleName: name.trim(),
-          coupleEmail: email.trim(),
-          weddingDate: weddingDate.trim() || null,
-          message: message.trim(),
-        }),
+        body: JSON.stringify(buildInquiryBody({ vendorId, name, email, weddingDate, message }, captchaToken)),
       })
 
       if (res.ok) {
@@ -55,8 +76,17 @@ export default function InquiryForm({ vendorId, vendorBusinessName }: Props) {
         return
       }
 
+      // A Turnstile token is single-use; after any rejected attempt get a fresh one
+      // ready before the couple retries. (Not needed on success: the form is
+      // replaced by the confirmation panel and never submits again.)
+      resetCaptcha()
+
       if (res.status === 429) {
-        setState({ kind: 'error', detail: 'You have sent a few inquiries already. Please wait a minute and try again.' })
+        // Covers both the per-IP filter and the per-vendor send cap (issue #100).
+        // Vendor-neutral and couple-neutral on purpose: when the per-vendor cap
+        // fires, THIS couple did nothing wrong, so the copy must not accuse them,
+        // and it reveals nothing about cap sizes or windows.
+        setState({ kind: 'error', detail: 'Inquiries are coming in fast right now. Please wait a few minutes and try again.' })
         return
       }
 
@@ -69,6 +99,7 @@ export default function InquiryForm({ vendorId, vendorBusinessName }: Props) {
       } catch { /* ignore body parse failures */ }
       setState({ kind: 'error', detail })
     } catch {
+      resetCaptcha()
       setState({
         kind: 'error',
         detail: 'We could not reach the server. Please check your connection and try again.',
@@ -168,6 +199,12 @@ export default function InquiryForm({ vendorId, vendorBusinessName }: Props) {
           </p>
         </div>
 
+        {turnstileSlot}
+
+        {waitingOnCaptcha && state.kind !== 'error' && (
+          <p role="status" className="text-xs text-[#8a6a4a]">Verifying you&apos;re human...</p>
+        )}
+
         {state.kind === 'error' && (
           <div
             role="alert"
@@ -179,7 +216,7 @@ export default function InquiryForm({ vendorId, vendorBusinessName }: Props) {
 
         <button
           type="submit"
-          disabled={submitting || tooLong || !name.trim() || !email.trim() || message.trim().length < 10}
+          disabled={submitting || tooLong || !name.trim() || !email.trim() || message.trim().length < 10 || waitingOnCaptcha}
           className="w-full sm:w-auto rounded-xl bg-[#3b2f2f] px-6 py-2.5 font-semibold text-white hover:bg-[#5c4033] disabled:opacity-50 disabled:cursor-not-allowed transition text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af6a] focus-visible:ring-offset-2"
         >
           {submitting ? 'Sending...' : 'Send inquiry'}
