@@ -132,9 +132,11 @@ public class GlobalExceptionHandler {
     // Prod fail-closed with no Turnstile secret configured (issue #413). Deliberately generic,
     // mirroring handleStorageNotConfigured: the detail never echoes ex.getMessage(), so the
     // response carries no hint about which defense layer is down or why (no config oracle).
+    // No log here: this is guest-triggerable, so a per-request ERROR would spam the paging
+    // signal. The adapter logs one WARN per rejection and TurnstileStartupValidator already
+    // logged the unmet launch gate at ERROR once at boot.
     @ExceptionHandler(CaptchaUnavailableException.class)
     public ProblemDetail handleCaptchaUnavailable(CaptchaUnavailableException ex) {
-        log.error("rsvp find-invitation rejected, captcha required but not configured (issue #413 launch gate unmet)");
         var pd = ProblemDetail.forStatus(HttpStatus.SERVICE_UNAVAILABLE);
         pd.setType(URI.create("https://altarwed.com/problems/rsvp-lookup-unavailable"));
         pd.setTitle("RSVP Lookup Unavailable");
