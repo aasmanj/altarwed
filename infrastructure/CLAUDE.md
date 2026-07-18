@@ -26,6 +26,17 @@ resources are managed separately and are intentionally NOT in `main.bicep` (see 
 - **frontend-app (React/Vite)**: `altarwed-prod-app` in `altarwed-rg`. **In main.bicep.**
   Deployed by `.github/deploy-app.yml` using `AZURE_STATIC_WEB_APPS_APP_API_TOKEN`.
 
+## Cloudflare (click-ops, NOT in IaC)
+Cloudflare proxies the `altarwed.com` zone in front of Azure. Two behaviors live only in the
+Cloudflare dashboard, with no representation in this repo:
+- **Apex to www canonical redirect**: a Single Redirect rule named "Apex to www canonical"
+  (wildcard `https://altarwed.com/*` to `https://www.altarwed.com/${1}`, 308, preserve query
+  string), added 2026-07-18. The `redirects()` block in `frontend-public/next.config.ts`
+  (PR #432) looks like it does this but no-ops in prod: the Cloudflare/Azure proxy chain
+  rewrites the `Host` header before it reaches the Next.js server, so the host match never
+  fires. It stays in the repo only as a fallback. The edge rule is the live fix.
+- **Always Use HTTPS**: upgrades `http://` requests at the edge (301) before the rule above.
+
 ## The env-var → Bicep contract (critical, enforced by code-reviewer)
 **Every new backend env var must be added to `modules/app-service.bicep` `appSettings` in the
 same PR that introduces it.** Backend code that references a new env var (`@Value`,
