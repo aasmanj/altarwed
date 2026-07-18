@@ -18,6 +18,13 @@ public interface PrintOrderRepository {
     void deleteAllByCoupleId(UUID coupleId);
 
     /**
+     * Issue #209: orders still in PENDING_PAYMENT created before the cutoff -- candidates for the
+     * lost-webhook reconciliation job. Oldest first so the couples who have been stuck longest
+     * are reconciled first if a run is ever interrupted mid-batch.
+     */
+    List<PrintOrder> findPendingPaymentCreatedBefore(LocalDateTime cutoff);
+
+    /**
      * Issue #53: persists one recipient's outcome immediately, independent of the parent
      * order's whole-aggregate {@link #save}. Must NOT go through the aggregate's
      * orphanRemoval-cascaded collection (a partial recipient list passed to {@link #save}
