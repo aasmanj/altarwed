@@ -234,15 +234,18 @@ export default function CommunicationsPage() {
   const stateInvalid = returnState.trim().length > 0 && returnState.trim().length !== 2
   const zipInvalid = returnZip.trim().length > 0 && !/^\d{5}(-\d{4})?$/.test(returnZip.trim())
 
-  // Single source of truth for submit readiness. `canSubmit` is derived from
-  // the hint so the validation rules can't drift between the two.
-  function submitBlockerHint(): string | null {
-    // Don't let a couple pay for a photo card with no photo: the async Lob batch would build a
-    // blank-hero card (or Lob rejects it) only after the charge. Block it before checkout.
+  // Shared validity checks used by BOTH the batch submit and the test-proof send (issue #208),
+  // one implementation so the two flows can never drift apart on these rules.
+  // Don't let a couple pay for a photo card with no photo: the async Lob batch would build a
+  // blank-hero card (or Lob rejects it) only after the charge. Block it before checkout.
+  function photoTemplateBlocker(): string | null {
     if (templateKey.endsWith('_PHOTO') && !websiteLoading && !website?.heroPhotoUrl) {
       return 'Upload a couple photo on your wedding website to use a Photo card, or pick a Classic template'
     }
-    if (eligibleSelected.length === 0) return 'Select at least one recipient above'
+    return null
+  }
+
+  function returnAddressBlocker(): string | null {
     if (!returnName.trim()) return 'Enter a name for the return address'
     if (!returnAddressLine1.trim()) return 'Enter address line 1'
     if (!returnCity.trim()) return 'Enter the city'
@@ -251,22 +254,22 @@ export default function CommunicationsPage() {
     return null
   }
 
+  // Single source of truth for submit readiness. `canSubmit` is derived from
+  // the hint so the validation rules can't drift between the two.
+  function submitBlockerHint(): string | null {
+    const photoBlocker = photoTemplateBlocker()
+    if (photoBlocker) return photoBlocker
+    if (eligibleSelected.length === 0) return 'Select at least one recipient above'
+    return returnAddressBlocker()
+  }
+
   const blocker = submitBlockerHint()
   const canSubmit = blocker === null
 
   // Issue #208: the test postcard needs the couple's own address (it is both the return address
-  // and the destination) and a printable design, but no guest selection. Shares the address and
-  // photo rules with submitBlockerHint so the two can't drift apart on those.
+  // and the destination) and a printable design, but no guest selection.
   function testBlockerHint(): string | null {
-    if (templateKey.endsWith('_PHOTO') && !websiteLoading && !website?.heroPhotoUrl) {
-      return 'Upload a couple photo on your wedding website to use a Photo card, or pick a Classic template'
-    }
-    if (!returnName.trim()) return 'Enter a name in the return address above; the test mails to it'
-    if (!returnAddressLine1.trim()) return 'Enter address line 1 above; the test mails to it'
-    if (!returnCity.trim()) return 'Enter the city above; the test mails to it'
-    if (returnState.trim().length !== 2) return 'Enter a 2-letter state code above (e.g. CA)'
-    if (!/^\d{5}(-\d{4})?$/.test(returnZip.trim())) return 'Enter a valid 5-digit ZIP above'
-    return null
+    return photoTemplateBlocker() ?? returnAddressBlocker()
   }
 
   const testBlocker = testBlockerHint()

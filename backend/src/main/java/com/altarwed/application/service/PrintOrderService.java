@@ -595,7 +595,8 @@ public class PrintOrderService {
             } catch (PrintMailPort.PrintMailException ex) {
                 // Same PII caution as before: log only domain IDs, never the exception
                 // message/cause (can echo submitted address fields).
-                log.warn("print recipient rejected, orderId={}, guestId={}", orderId, r.guestId());
+                // recipientId included so a failed TEST_PROOF send (guestId=null) stays filterable.
+                log.warn("print recipient rejected, orderId={}, recipientId={}, guestId={}", orderId, r.id(), r.guestId());
                 String detail = ex.userDetail() != null ? ex.userDetail() : ex.getMessage();
                 if (detail != null && detail.length() > 480) detail = detail.substring(0, 480);
                 printOrderRepository.updateRecipientOutcome(r.id(), null, RECIPIENT_STATUS_FAILED, detail);

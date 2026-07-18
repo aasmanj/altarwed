@@ -51,10 +51,14 @@ describe('test postcard proof wiring (issue #208)', () => {
     expect(page).not.toContain('free test')
   })
 
-  it('blocks a photo-template test when no couple photo exists, same as the batch flow', () => {
+  it('blocks a photo-template test when no couple photo exists, sharing the batch flow rules', () => {
+    // Both flows must call the SAME photo/address helpers so the rules cannot drift apart.
     const blockerFn = page.slice(page.indexOf('function testBlockerHint'), page.indexOf('const testBlocker'))
-    expect(blockerFn).toContain("endsWith('_PHOTO')")
-    expect(blockerFn).toContain('heroPhotoUrl')
+    expect(blockerFn).toContain('photoTemplateBlocker()')
+    expect(blockerFn).toContain('returnAddressBlocker()')
+    const submitFn = page.slice(page.indexOf('function submitBlockerHint'), page.indexOf('const blocker ='))
+    expect(submitFn).toContain('photoTemplateBlocker()')
+    expect(submitFn).toContain('returnAddressBlocker()')
   })
 
   it('labels the test order honestly in Past orders and handles its guest-less recipient', () => {

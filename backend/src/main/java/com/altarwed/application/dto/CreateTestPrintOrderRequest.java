@@ -1,6 +1,7 @@
 package com.altarwed.application.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 /**
  * Issue #208: create a single self-addressed test postcard (a proof of the real printed card)
@@ -20,7 +21,9 @@ public record CreateTestPrintOrderRequest(
         @NotBlank String returnAddressLine1,
         String returnAddressLine2,
         @NotBlank String returnCity,
-        @NotBlank String returnState,
+        // 2-letter USPS state code: fail fast at validation rather than burning an external
+        // Lob verifyAddress call on an obviously malformed state.
+        @NotBlank @Size(min = 2, max = 2) String returnState,
         @NotBlank String returnZip,
         // Client-generated dedup token (UUID). Optional for backward compatibility, but the web
         // client always sends one; a repeat submit with the same key returns the original order.
