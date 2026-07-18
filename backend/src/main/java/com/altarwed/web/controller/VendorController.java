@@ -11,6 +11,7 @@ import com.altarwed.application.dto.UpdateVendorRequest;
 import com.altarwed.application.dto.VendorPageResponse;
 import com.altarwed.application.dto.VendorPageResult;
 import com.altarwed.application.dto.VendorPortfolioPhotoResponse;
+import com.altarwed.application.dto.VendorAnalyticsResponse;
 import com.altarwed.application.dto.VendorProfileResponse;
 import com.altarwed.application.dto.VendorResponse;
 import com.altarwed.application.dto.VendorStatsResponse;
@@ -207,11 +208,21 @@ public class VendorController {
         return ResponseEntity.ok(response);
     }
 
+    // Free-tier stats: lifetime view count + the pro-analytics entitlement flag. Available to every
+    // authenticated vendor so the dashboard can render either the numbers or an upgrade prompt.
     @GetMapping("/me/stats")
     public ResponseEntity<VendorStatsResponse> getMyStats(Authentication authentication) {
         var vendor = vendorService.getByEmail(authentication.getName());
         log.info("vendor stats fetched, vendorId={}", vendor.id());
         return ResponseEntity.ok(vendorService.getStats(vendor.id()));
+    }
+
+    // Pro-only analytics (inquiry totals). The service enforces the entitlement and throws
+    // AnalyticsNotEntitledException (402) for a non-Pro vendor, so this is a paywalled resource.
+    @GetMapping("/me/analytics")
+    public ResponseEntity<VendorAnalyticsResponse> getMyAnalytics(Authentication authentication) {
+        var vendor = vendorService.getByEmail(authentication.getName());
+        return ResponseEntity.ok(vendorService.getAnalytics(vendor.id()));
     }
 
     @GetMapping("/me/subscription")

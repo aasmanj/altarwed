@@ -1,5 +1,6 @@
 package com.altarwed.web.exception;
 
+import com.altarwed.domain.exception.AnalyticsNotEntitledException;
 import com.altarwed.domain.exception.BlogPostNotFoundException;
 import com.altarwed.domain.exception.CeremonySectionNotFoundException;
 import com.altarwed.domain.exception.PlanningTaskNotFoundException;
@@ -394,6 +395,22 @@ public class GlobalExceptionHandler {
         pd.setType(URI.create("https://altarwed.com/problems/access-denied"));
         pd.setTitle("Access Denied");
         pd.setDetail("You do not have access to this resource.");
+        return pd;
+    }
+
+    // 402 Payment Required: a vendor without an active Pro subscription asked for the gated
+    // analytics. The service already WARN-logged the rejection; here we translate to a clean 402
+    // that the dashboard reads as "upgrade required". 402 (not 403) is deliberate: the SPA's axios
+    // interceptor treats 401/403 as an expired session and fires a silent token-refresh + retry, so
+    // a 403 paywall would burn a refresh round trip and conflate "not entitled" with "auth expired".
+    // 402 sidesteps that path. No resource detail is leaked. Server-side backstop for the paywall
+    // (issue #371); the frontend also hides the analytics for non-Pro vendors.
+    @ExceptionHandler(AnalyticsNotEntitledException.class)
+    public ProblemDetail handleAnalyticsNotEntitled(AnalyticsNotEntitledException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.PAYMENT_REQUIRED);
+        pd.setType(URI.create("https://altarwed.com/problems/analytics-requires-pro"));
+        pd.setTitle("Analytics Requires Pro");
+        pd.setDetail("Upgrade to Pro to see inquiry analytics for your listing.");
         return pd;
     }
 
