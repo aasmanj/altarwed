@@ -28,7 +28,9 @@ public class PrintOrderRecipientEntity {
     @Column(name = "print_order_id", nullable = false, insertable = false, updatable = false)
     private UUID printOrderId;
 
-    @Column(name = "guest_id", nullable = false)
+    // Nullable since V98 (issue #208): a TEST_PROOF recipient is the couple themselves,
+    // addressed via the parent order's return_* block, not a guest row.
+    @Column(name = "guest_id")
     private UUID guestId;
 
     @Column(name = "lob_postcard_id", length = 64)

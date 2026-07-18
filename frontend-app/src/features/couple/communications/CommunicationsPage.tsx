@@ -11,8 +11,10 @@ import { useGuests } from '@/features/couple/guests/useGuests'
 import {
   usePrintOrders,
   useCreatePrintOrder,
+  useCreateTestPrintOrder,
   useRefreshPrintOrderStatus,
   type CreatePrintOrderPayload,
+  type CreateTestPrintOrderPayload,
   type CreatePrintOrderResult,
   type PrintOrder,
   type PrintOrderType,
@@ -40,7 +42,11 @@ import {
 // The PHOTO overlay position + light/dark theme are composed onto the key only at submit time.
 type TemplateKey = BaseTemplateKey
 
-const TEMPLATES: Record<PrintOrderType, { key: TemplateKey; label: string; description: string }[]> = {
+// The order types a couple can pick in the builder. TEST_PROOF (issue #208) is never picked
+// directly: it is created by the "send myself a test" flow from whichever design is selected.
+type BatchOrderType = Exclude<PrintOrderType, 'TEST_PROOF'>
+
+const TEMPLATES: Record<BatchOrderType, { key: TemplateKey; label: string; description: string }[]> = {
   SAVE_THE_DATE: [
     { key: 'SAVE_THE_DATE_CLASSIC', label: 'Classic', description: 'Cream + gold, no photo. Best when you don\'t yet have a couple portrait.' },
     { key: 'SAVE_THE_DATE_PHOTO', label: 'Photo', description: 'Full-bleed hero photo with names and date overlaid.' },
@@ -68,6 +74,14 @@ const TEMPLATE_LABELS: Record<TemplateKey, string> = {
   INVITATION_MINIMAL: 'Invitation - Minimal',
   INVITATION_BOTANICAL: 'Invitation - Botanical',
   INVITATION_DARK_ELEGANT: 'Invitation - Dark elegant',
+}
+
+// Past-orders header label per order type. TEST_PROOF (issue #208) is the single self-addressed
+// proof postcard, honestly labeled so it never reads as a real guest batch.
+const ORDER_TYPE_LABELS: Record<PrintOrderType, string> = {
+  SAVE_THE_DATE: 'Save the Date',
+  INVITATION: 'Invitation',
+  TEST_PROOF: 'Test postcard',
 }
 
 // The card accent falls back to this warm gold when the couple hasn't set a website accentColor,
@@ -107,9 +121,10 @@ export default function CommunicationsPage() {
   const { data: guests = [], isLoading: guestsLoading, isError: guestsError, refetch: refetchGuests } = useGuests(coupleId)
   const { data: orders = [], isLoading: ordersLoading, isError: ordersError, refetch: refetchOrders } = usePrintOrders(coupleId)
   const createOrder = useCreatePrintOrder(coupleId)
+  const createTestOrder = useCreateTestPrintOrder(coupleId)
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const [orderType, setOrderType] = useState<PrintOrderType>('SAVE_THE_DATE')
+  const [orderType, setOrderType] = useState<BatchOrderType>('SAVE_THE_DATE')
   const [templateKey, setTemplateKey] = useState<TemplateKey>('SAVE_THE_DATE_CLASSIC')
   const [cardSize, setCardSize] = useState<CardSize>('LANDSCAPE_6X11')
   // Issue #362: photo-overlay customization. Only meaningful for a PHOTO template; composed onto
@@ -144,6 +159,17 @@ export default function CommunicationsPage() {
   useEffect(() => {
     setIdempotencyKey(crypto.randomUUID())
   }, [orderType, templateKey, cardSize, textPosition, overlayTheme, selectedIds])
+
+  // Issue #208: the test postcard keeps its OWN dedup key, never sharing the batch key above --
+  // otherwise sending a test and then the real batch with the same selections would collide into
+  // one order server-side. Rotated whenever the card design or the destination (the couple's own
+  // address) changes; a retry of the SAME test after a transient failure keeps the key and is
+  // deduped by the backend.
+  const [testIdempotencyKey, setTestIdempotencyKey] = useState<string>(() => crypto.randomUUID())
+  useEffect(() => {
+    setTestIdempotencyKey(crypto.randomUUID())
+  }, [templateKey, cardSize, textPosition, overlayTheme,
+      returnName, returnAddressLine1, returnAddressLine2, returnCity, returnState, returnZip])
 
   const isPhoto = isPhotoTemplate(templateKey)
   const accent = sanitizeAccent(website?.accentColor)
@@ -186,7 +212,7 @@ export default function CommunicationsPage() {
   const internationalSelectedCount = eligibleSelected.filter(id => guestById.get(id)?.mailCountry).length
   const estimatedCostDollars = (eligibleSelected.length * COST_PER_POSTCARD_CENTS) / 100
 
-  function toggleType(t: PrintOrderType) {
+  function toggleType(t: BatchOrderType) {
     setOrderType(t)
     setTemplateKey(TEMPLATES[t][0].key)
   }
@@ -227,6 +253,61 @@ export default function CommunicationsPage() {
 
   const blocker = submitBlockerHint()
   const canSubmit = blocker === null
+
+  // Issue #208: the test postcard needs the couple's own address (it is both the return address
+  // and the destination) and a printable design, but no guest selection. Shares the address and
+  // photo rules with submitBlockerHint so the two can't drift apart on those.
+  function testBlockerHint(): string | null {
+    if (templateKey.endsWith('_PHOTO') && !websiteLoading && !website?.heroPhotoUrl) {
+      return 'Upload a couple photo on your wedding website to use a Photo card, or pick a Classic template'
+    }
+    if (!returnName.trim()) return 'Enter a name in the return address above; the test mails to it'
+    if (!returnAddressLine1.trim()) return 'Enter address line 1 above; the test mails to it'
+    if (!returnCity.trim()) return 'Enter the city above; the test mails to it'
+    if (returnState.trim().length !== 2) return 'Enter a 2-letter state code above (e.g. CA)'
+    if (!/^\d{5}(-\d{4})?$/.test(returnZip.trim())) return 'Enter a valid 5-digit ZIP above'
+    return null
+  }
+
+  const testBlocker = testBlockerHint()
+  const canSendTest = testBlocker === null
+
+  async function handleSendTest() {
+    if (createTestOrder.isPending) return
+    const confirmed = await confirm({
+      title: 'Send a test postcard to yourself?',
+      message: `We'll print and mail ONE copy of this exact card design to your own return address, so you can proof the real printed card before ordering the full batch. It costs $${(COST_PER_POSTCARD_CENTS / 100).toFixed(2)}, paid via Stripe's secure checkout. Nothing is mailed and no card is charged until payment completes.`,
+      confirmLabel: 'Continue',
+      tone: 'default',
+    })
+    if (!confirmed) return
+
+    const payload: CreateTestPrintOrderPayload = {
+      templateKey: composedTemplateKey,
+      returnName: returnName.trim(),
+      returnAddressLine1: returnAddressLine1.trim(),
+      returnAddressLine2: returnAddressLine2.trim() || undefined,
+      returnCity: returnCity.trim(),
+      returnState: returnState.trim().toUpperCase(),
+      returnZip: returnZip.trim(),
+      idempotencyKey: testIdempotencyKey,
+      cardSize,
+    }
+    try {
+      const result = await createTestOrder.mutateAsync(payload)
+      if (!result.checkoutUrl) {
+        // Idempotent replay: a test for this exact design and address already exists.
+        setLastResult('A test postcard for this exact design was already created. Check Past orders below for its status.')
+        return
+      }
+      // Same review-before-pay panel as the batch: see the exact $2.00 charge before Stripe.
+      setPendingCheckout(result)
+    } catch (err) {
+      const fallback = (err as { message?: string })?.message ?? 'Unknown error'
+      setLastResult(`Failed to create the test postcard: ${errorDetail(err, fallback)}`)
+      // Keep the SAME key on failure so a retry dedups server-side.
+    }
+  }
 
   async function handleSubmit() {
     if (createOrder.isPending) return
@@ -366,7 +447,7 @@ export default function CommunicationsPage() {
           <div className="mb-5" role="group" aria-labelledby="order-type-label">
             <p id="order-type-label" className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-2">1. What are you sending?</p>
             <div className="flex flex-wrap gap-2">
-              {(['SAVE_THE_DATE', 'INVITATION'] as PrintOrderType[]).map(t => (
+              {(['SAVE_THE_DATE', 'INVITATION'] as BatchOrderType[]).map(t => (
                 <button
                   key={t}
                   onClick={() => toggleType(t)}
@@ -666,6 +747,31 @@ export default function CommunicationsPage() {
             </div>
           </div>
 
+          {/* Issue #208: send one proof card to yourself before committing to the full batch. */}
+          <div className="mb-6 rounded-lg border border-stone-200 bg-stone-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-1">
+              Optional: proof it first
+            </p>
+            <p className="text-sm text-stone-600 mb-3">
+              The preview above is an approximation; the printed card can differ (photo crop, fonts,
+              QR placement). Mail one copy of this exact design to your own return address to check
+              it in hand before ordering the full batch. Same ${(COST_PER_POSTCARD_CENTS / 100).toFixed(2)} per card,
+              and it will appear under Past orders labeled as a test.
+            </p>
+            <button
+              onClick={handleSendTest}
+              disabled={!canSendTest || createTestOrder.isPending}
+              className="px-4 py-2 rounded-lg text-sm font-medium border border-amber-600 text-amber-700 bg-white hover:bg-amber-50 disabled:opacity-50 disabled:hover:bg-white min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            >
+              {createTestOrder.isPending
+                ? 'Preparing test order...'
+                : `Send myself a test postcard ($${(COST_PER_POSTCARD_CENTS / 100).toFixed(2)})`}
+            </button>
+            {!canSendTest && testBlocker && (
+              <p className="text-xs text-stone-500 mt-2">{testBlocker}</p>
+            )}
+          </div>
+
           {/* Submit */}
           <div className="pt-4 border-t border-stone-100 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -829,7 +935,7 @@ function PastOrderCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-medium text-stone-800">
-            {order.orderType === 'SAVE_THE_DATE' ? 'Save the Date' : 'Invitation'} &middot;{' '}
+            {ORDER_TYPE_LABELS[order.orderType] ?? order.orderType} &middot;{' '}
             <span className="text-stone-500 text-sm">
               {TEMPLATE_LABELS[basePrintTemplateKey(order.templateKey) as TemplateKey] ?? order.templateKey}
             </span>
@@ -864,9 +970,12 @@ function PastOrderCard({
           </div>
           <ul className="divide-y divide-stone-100">
             {order.recipients.map(r => {
-              const name = guestById.get(r.guestId)?.name ?? `Guest ${r.guestId.slice(0, 8)}`
+              // A null guestId is a TEST_PROOF recipient (issue #208): the couple themselves.
+              const name = r.guestId === null
+                ? 'You (test postcard)'
+                : guestById.get(r.guestId)?.name ?? `Guest ${r.guestId.slice(0, 8)}`
               return (
-                <li key={r.guestId} className="flex items-start justify-between gap-3 py-1.5 text-sm">
+                <li key={r.guestId ?? 'self'} className="flex items-start justify-between gap-3 py-1.5 text-sm">
                   <div className="min-w-0">
                     <span className="block truncate text-stone-700">{name}</span>
                     {r.deliveryStatus === 'FAILED' && r.errorMessage && (
