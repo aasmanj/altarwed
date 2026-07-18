@@ -1,8 +1,11 @@
 import type { CreateGuestPayload, GuestSide, RsvpStatus } from './useGuests'
 
 // Spreadsheet import parsing, extracted from ImportGuestsModal so it is unit
-// testable without a DOM, a File, or the xlsx reader. The modal is a thin view
-// over these pure functions.
+// testable without a DOM or a File. The modal is a thin view over these functions.
+// .xlsx files are read with exceljs and .csv with papaparse (both lazy-loaded);
+// the unmaintained SheetJS `xlsx` package was removed in issue #99 because the
+// npm-registry build carries unfixed HIGH advisories (prototype pollution + ReDoS)
+// and this parser runs on user-supplied files.
 //
 // ParsedRow holds all fields the bulk-add endpoint (CreateGuestRequest) can persist,
 // including the three that were previously skipped: plusOneName, rsvpStatus, tableNumber.
@@ -210,12 +213,120 @@ export function findDuplicates(rows: ParsedRow[], existing: ExistingGuestKey[]):
   return { reasons, existingCount, inFileCount }
 }
 
+// Hard cap on the uploaded file itself, checked before any parsing (issue #99:
+// validate and cap imported file size). 500 guests fits in well under 1 MB even as
+// a bloated .xlsx; 10 MB leaves headroom while keeping a hostile or accidental
+// 500 MB upload from ever reaching the parser.
+export const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024
+
+// A parse failure with a message written for the couple, not the console. The
+// modal shows err.message verbatim when it catches one of these, and falls back
+// to its generic "could not read the file" copy for anything else.
+export class ImportFileError extends Error {}
+
+// File-signature sniffing. An .xlsx is a ZIP container ("PK"); a legacy Excel
+// 97-2003 .xls is an OLE Compound File (D0 CF 11 E0 A1 B1 1A E1). Sniffing content
+// instead of trusting the extension matches what the old reader did and means a
+// mislabeled file still parses (or fails) for the right reason.
+const ZIP_MAGIC = [0x50, 0x4b]
+const OLE_MAGIC = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]
+
+function startsWith(bytes: Uint8Array, magic: number[]): boolean {
+  return magic.every((b, i) => bytes[i] === b)
+}
+
+// Flatten an exceljs cell value to the plain trimmed-later string parseRows expects.
+// exceljs keeps structure the old reader collapsed for us: rich text is an array of
+// runs, hyperlinks carry their display text, formula cells wrap their computed
+// result, and true date cells are real JS Dates (the old reader surfaced those as
+// raw Excel serial numbers like "45123", so Dates here are strictly an improvement).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function cellToString(value: any): string {
+  if (value == null) return ''
+  if (value instanceof Date) return value.toISOString().slice(0, 10)
+  if (typeof value === 'object') {
+    if (Array.isArray(value.richText)) {
+      return value.richText.map((run: { text?: string }) => run.text ?? '').join('')
+    }
+    // Formula cell: use the computed result. A formula error result is an
+    // { error } object with no usable value.
+    if ('formula' in value || 'sharedFormula' in value) return cellToString(value.result)
+    if ('error' in value) return ''
+    // Hyperlink cell: the display text is what the couple sees in Excel.
+    if ('text' in value) return cellToString(value.text)
+    return String(value)
+  }
+  return String(value)
+}
+
+// Read the first worksheet of an .xlsx into the same header-keyed string rows the
+// old sheet_to_json(defval: '') call produced: row 1 is the header row, every data
+// row carries every non-empty header as a key (blank cells as ''), and rows with no
+// content at all are dropped.
+async function readXlsxRows(data: ArrayBuffer): Promise<Record<string, string>[]> {
+  const { Workbook } = await import('exceljs')
+  const wb = new Workbook()
+  await wb.xlsx.load(data)
+  const ws = wb.worksheets[0]
+  if (!ws) return []
+
+  const headers: (string | undefined)[] = []
+  ws.getRow(1).eachCell({ includeEmpty: false }, (cell, col) => {
+    const h = cellToString(cell.value).trim()
+    if (h) headers[col] = h
+  })
+  if (headers.every(h => !h)) return []
+
+  const rawRows: Record<string, string>[] = []
+  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    if (rowNumber === 1) return
+    const raw: Record<string, string> = {}
+    let hasContent = false
+    for (let col = 1; col < headers.length; col++) {
+      const header = headers[col]
+      if (!header) continue
+      const val = cellToString(row.getCell(col).value)
+      raw[header] = val
+      if (val.trim()) hasContent = true
+    }
+    if (hasContent) rawRows.push(raw)
+  })
+  return rawRows
+}
+
+// Parse CSV text with papaparse (already the CSV writer for the guest-list export,
+// so import and export share one dialect). header: true keys each row by its
+// header, matching the shape readXlsxRows produces.
+async function readCsvRows(text: string): Promise<Record<string, string>[]> {
+  const { default: Papa } = await import('papaparse')
+  // Strip the UTF-8 BOM our own export prepends (for Excel) so it never sticks to
+  // the first header name.
+  const body = text.replace(/^\uFEFF/, '')
+  const result = Papa.parse<Record<string, string>>(body, {
+    header: true,
+    skipEmptyLines: 'greedy',
+  })
+  return result.data
+}
+
 export async function parseFile(file: File): Promise<ParsedRow[]> {
-  const { read, utils } = await import('xlsx')
-  const data = new Uint8Array(await file.arrayBuffer())
-  const wb = read(data, { type: 'array' })
-  const sheet = wb.Sheets[wb.SheetNames[0]]
-  const rawRows = utils.sheet_to_json<Record<string, string>>(sheet, { defval: '' })
+  if (file.size > MAX_IMPORT_FILE_BYTES) {
+    throw new ImportFileError(
+      'That file is too large to import (over 10 MB). Save your guest list as a plain .xlsx or .csv and try again.'
+    )
+  }
+  const buffer = await file.arrayBuffer()
+  const bytes = new Uint8Array(buffer)
+
+  if (startsWith(bytes, OLE_MAGIC)) {
+    throw new ImportFileError(
+      'Legacy Excel .xls files are not supported. Open the file in Excel or Google Sheets, save it as .xlsx or .csv, and try again.'
+    )
+  }
+
+  const rawRows = startsWith(bytes, ZIP_MAGIC)
+    ? await readXlsxRows(buffer)
+    : await readCsvRows(new TextDecoder('utf-8').decode(buffer))
   return parseRows(rawRows)
 }
 

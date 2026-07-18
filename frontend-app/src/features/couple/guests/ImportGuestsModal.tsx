@@ -5,6 +5,7 @@ import {
   parseFile,
   toCreatePayload,
   findDuplicates,
+  ImportFileError,
   MAX_IMPORT_ROWS,
   type ParsedRow,
   type ExistingGuestKey,
@@ -56,8 +57,14 @@ export default function ImportGuestsModal({ existingGuests, onImport, onClose, i
       if (parsed.length === 0) {
         setParseError('No importable rows found. Make sure your file has a "Name" column with guest names.')
       }
-    } catch {
-      setParseError('Could not read the file. Make sure it is a valid .xlsx, .xls, or .csv file.')
+    } catch (err) {
+      // ImportFileError carries a specific, user-facing message (file too large,
+      // legacy .xls); anything else gets the generic fallback.
+      setParseError(
+        err instanceof ImportFileError
+          ? err.message
+          : 'Could not read the file. Make sure it is a valid .xlsx or .csv file.'
+      )
       setRows(null)
     } finally {
       setParsing(false)
@@ -122,12 +129,12 @@ export default function ImportGuestsModal({ existingGuests, onImport, onClose, i
               <span className="block text-sm font-medium text-brown">
                 {fileName ? fileName : 'Drop a file here, or click to choose'}
               </span>
-              <span className="block text-xs text-brown-light mt-1">Accepts .xlsx, .xls, and .csv</span>
+              <span className="block text-xs text-brown-light mt-1">Accepts .xlsx and .csv</span>
             </button>
             <input
               ref={inputRef}
               type="file"
-              accept=".xlsx,.xls,.csv"
+              accept=".xlsx,.csv"
               className="sr-only"
               aria-label="Choose spreadsheet file"
               onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
