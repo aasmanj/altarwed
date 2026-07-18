@@ -9,15 +9,18 @@ export default function VendorDashboard() {
   const { user, logout } = useAuth()
   const { data: vendor } = useVendorProfile()
   const { data: inquiries = [] } = useVendorInquiries()
-  const { data: stats } = useVendorStats()
+  const { data: stats, isError: statsError } = useVendorStats()
   // Inquiry analytics are Pro-only; only fetch them once stats confirms the entitlement so we
-  // never trigger a 403 for a free-tier vendor.
+  // never trigger a 402 for a free-tier vendor.
   const { data: analytics } = useVendorAnalytics(stats?.proAnalytics === true)
   const { data: sub } = useVendorSubscription()
 
   const displayName = vendor?.businessName ?? user?.email ?? ''
   const unreadCount = inquiries.filter(i => !i.isRead).length
-  const analyticsCard = analyticsCardCopy(stats, analytics)
+  const analyticsCard = analyticsCardCopy(stats, analytics, {
+    statsError,
+    pastDue: sub?.status === 'PAST_DUE',
+  })
 
   return (
     <div className="min-h-screen bg-[#fdfaf6]">
@@ -157,7 +160,7 @@ function DashboardCard({ title, description, href, live, comingSoon, passive, ba
   const isLive = live && href !== '#'
   const cardCls = 'block rounded-xl border bg-white p-6 transition ' +
     (isLive
-      ? 'border-[#d4af6a] hover:shadow-md cursor-pointer'
+      ? 'border-[#d4af6a] hover:shadow-md cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af6a] focus-visible:ring-offset-2'
       : passive
         ? 'border-[#e8dcc8] cursor-default'
         : 'border-[#e8dcc8] opacity-60 cursor-not-allowed')

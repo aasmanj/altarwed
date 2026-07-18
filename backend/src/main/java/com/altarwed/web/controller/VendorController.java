@@ -218,7 +218,7 @@ public class VendorController {
     }
 
     // Pro-only analytics (inquiry totals). The service enforces the entitlement and throws
-    // AnalyticsNotEntitledException (403) for a non-Pro vendor, so this is a paywalled resource.
+    // AnalyticsNotEntitledException (402) for a non-Pro vendor, so this is a paywalled resource.
     @GetMapping("/me/analytics")
     public ResponseEntity<VendorAnalyticsResponse> getMyAnalytics(Authentication authentication) {
         var vendor = vendorService.getByEmail(authentication.getName());

@@ -202,7 +202,7 @@ public class VendorService {
 
     // Pro-only analytics: inquiry totals on top of the view count. The entitlement is enforced HERE,
     // server-side, so a crafted request from a non-Pro vendor cannot read the paid data even if the
-    // frontend gate is bypassed. A non-entitled caller gets AnalyticsNotEntitledException (403).
+    // frontend gate is bypassed. A non-entitled caller gets AnalyticsNotEntitledException (402).
     @Transactional(readOnly = true)
     public VendorAnalyticsResponse getAnalytics(UUID vendorId) {
         Vendor vendor = getById(vendorId);

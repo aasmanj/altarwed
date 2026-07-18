@@ -47,11 +47,12 @@ export interface VendorStats {
   proAnalytics: boolean
 }
 
-// Pro-only analytics. Fetched from the gated endpoint, which returns 403 for non-Pro vendors.
+// Pro-only analytics. Fetched from the gated endpoint, which returns 402 (payment required)
+// for non-Pro vendors. The backend also returns unreadInquiryCount; it is intentionally not
+// declared here because nothing renders it (the unread badge comes from the inquiry list).
 export interface VendorAnalytics {
   viewCount: number
   inquiryCount: number
-  unreadInquiryCount: number
 }
 
 export function useVendorStats() {
@@ -62,8 +63,11 @@ export function useVendorStats() {
 }
 
 // Only enabled once we know (from stats) that the vendor is Pro-entitled, so we never fire a
-// request the backend would reject with 403. The server-side check in getAnalytics is the real
-// enforcement; this `enabled` gate just avoids a guaranteed-failing call for free-tier vendors.
+// request the backend would reject with 402. It is 402 (not 403) on purpose: the axios
+// interceptor in core/api/client.ts treats 401/403 as an expired session and fires a silent
+// token-refresh + retry, which a paywall response must not trigger. The server-side check in
+// getAnalytics is the real enforcement; this `enabled` gate just avoids a guaranteed-failing
+// call for free-tier vendors.
 export function useVendorAnalytics(enabled: boolean) {
   return useQuery<VendorAnalytics>({
     queryKey: ['vendor', 'analytics'],

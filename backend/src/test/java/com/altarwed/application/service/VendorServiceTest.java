@@ -332,6 +332,37 @@ class VendorServiceTest {
     }
 
     @Test
+    void getAnalytics_deniesCancelledVendor() {
+        UUID vendorId = UUID.randomUUID();
+        when(vendorRepository.findById(vendorId)).thenReturn(Optional.of(vendorWithLogo(vendorId, null)));
+        // The churned vendor is the highest-value deny case: entitlement must end with the
+        // subscription, or cancelling is free Pro forever.
+        when(subscriptionRepository.findByVendorId(vendorId))
+                .thenReturn(Optional.of(subscription(vendorId, SubscriptionStatus.CANCELLED, "sub_123")));
+
+        assertThatThrownBy(() -> vendorService.getAnalytics(vendorId))
+                .isInstanceOf(AnalyticsNotEntitledException.class);
+
+        verify(inquiryRepository, never()).countByVendorId(vendorId);
+        verify(inquiryRepository, never()).countUnreadByVendorId(vendorId);
+    }
+
+    @Test
+    void getAnalytics_deniesPendingVendor() {
+        UUID vendorId = UUID.randomUUID();
+        when(vendorRepository.findById(vendorId)).thenReturn(Optional.of(vendorWithLogo(vendorId, null)));
+        // PENDING means checkout started but Stripe has not confirmed payment; not yet entitled.
+        when(subscriptionRepository.findByVendorId(vendorId))
+                .thenReturn(Optional.of(subscription(vendorId, SubscriptionStatus.PENDING, "sub_123")));
+
+        assertThatThrownBy(() -> vendorService.getAnalytics(vendorId))
+                .isInstanceOf(AnalyticsNotEntitledException.class);
+
+        verify(inquiryRepository, never()).countByVendorId(vendorId);
+        verify(inquiryRepository, never()).countUnreadByVendorId(vendorId);
+    }
+
+    @Test
     void getAnalytics_allowsPaidProVendorAndReturnsInquiryCounts() {
         UUID vendorId = UUID.randomUUID();
         when(vendorRepository.findById(vendorId))
