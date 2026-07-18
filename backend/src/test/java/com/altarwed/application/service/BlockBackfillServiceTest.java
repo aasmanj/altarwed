@@ -174,6 +174,7 @@ class BlockBackfillServiceTest {
                 null, null, null, null,
                 null,
                 null, null, null, null, null, null, null, null, null, null,  // reception venue + titles (V90), nameFont (V91), seatingBoardTitle (V92)
+                null, null,  // heroOverlayDarkness, heroLayout (V96)
                 false, null, null, null
         );
     }

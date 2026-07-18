@@ -209,9 +209,49 @@ class WeddingWebsiteServiceTest {
         assertThat(kept.seatingBoardTitle()).isEqualTo(existing.seatingBoardTitle());
     }
 
+    @Test
+    void update_heroOverlayAndLayout_appliedWhenSet_keptOnNull() {
+        // V96 (issue #360): heroOverlayDarkness and heroLayout are plain patch-merge fields.
+        // A non-null value is applied; a null leaves the existing value untouched. The
+        // @Min/@Max and @Pattern on the request already clamp/allowlist the values, so the
+        // service persists them verbatim.
+        UUID coupleId = UUID.randomUUID();
+        WeddingWebsite existing = websiteWithFlags(false, false);
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.of(existing));
+        when(websiteRepository.save(ArgumentMatchers.any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // both applied when provided
+        WeddingWebsite applied = weddingWebsiteService.update(coupleId, heroRequest(30, "framed"));
+        assertThat(applied.heroOverlayDarkness()).isEqualTo(30);
+        assertThat(applied.heroLayout()).isEqualTo("framed");
+
+        // null keeps existing (null on a fresh site => defaults still apply at render time)
+        WeddingWebsite kept = weddingWebsiteService.update(coupleId, heroRequest(null, null));
+        assertThat(kept.heroOverlayDarkness()).isEqualTo(existing.heroOverlayDarkness());
+        assertThat(kept.heroLayout()).isEqualTo(existing.heroLayout());
+    }
+
+    // Builds an UpdateWeddingWebsiteRequest with only the two V96 hero fields set; all others
+    // are null so they are omitted from the patch.
+    private static UpdateWeddingWebsiteRequest heroRequest(Integer heroOverlayDarkness, String heroLayout) {
+        return new UpdateWeddingWebsiteRequest(
+                null, null, null, null,
+                null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null,
+                null, null, null,
+                null, null, null, null, null, null,
+                null, null, null, null,
+                null, null, null, null,
+                null, null, null, null, null, null, null, null, null,
+                null, null,
+                null,
+                heroOverlayDarkness, heroLayout
+        );
+    }
+
     // Builds an UpdateWeddingWebsiteRequest with only seatingBoardTitle set; all other
     // fields are null so they are omitted from the patch.
-    // Field order mirrors UpdateWeddingWebsiteRequest (48 params total):
+    // Field order mirrors UpdateWeddingWebsiteRequest (50 params total):
     //   1-4:  partnerOneName, partnerTwoName, weddingDate, engagementDate
     //   5-9:  heroPhotoUrl, heroTagline, heroFocalPointX, heroFocalPointY, heroTaglineColor
     //   10-19: ourStory, scriptureRef, scriptureText, scriptureTranslation, venueName,
@@ -224,6 +264,7 @@ class WeddingWebsiteServiceTest {
     //          receptionVenueAdditionalInfo, ceremonyVenueTitle
     //   46-47: receptionVenueTitle, nameFont
     //   48:    seatingBoardTitle
+    //   49-50: heroOverlayDarkness, heroLayout (V96)
     private static UpdateWeddingWebsiteRequest titleRequest(String seatingBoardTitle) {
         return new UpdateWeddingWebsiteRequest(
                 null, null, null, null,
@@ -235,7 +276,8 @@ class WeddingWebsiteServiceTest {
                 null, null, null, null,
                 null, null, null, null, null, null, null, null, null,
                 null, null,
-                seatingBoardTitle
+                seatingBoardTitle,
+                null, null  // heroOverlayDarkness, heroLayout (V96)
         );
     }
 
@@ -253,6 +295,7 @@ class WeddingWebsiteServiceTest {
                 null, null, null, null,
                 null,
                 null, null, null, null, null, null, null, null, null, null,  // reception venue + titles (V90), nameFont (V91), seatingBoardTitle (V92)
+                null, null,  // heroOverlayDarkness, heroLayout (V96)
                 deleted, null, null, null
         );
     }
@@ -284,6 +327,7 @@ class WeddingWebsiteServiceTest {
                 null, null, null, null,
                 null,
                 null, null, null, null, null, null, null, null, null, null,  // reception venue + titles (V90), nameFont (V91), seatingBoardTitle (V92)
+                null, null,  // heroOverlayDarkness, heroLayout (V96)
                 false, null, null, null
         );
     }
