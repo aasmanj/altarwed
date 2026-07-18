@@ -10,6 +10,7 @@ import com.altarwed.domain.exception.InvalidRefreshTokenException;
 import com.altarwed.domain.model.Couple;
 import com.altarwed.domain.model.RefreshToken;
 import com.altarwed.domain.port.CoupleRepository;
+import com.altarwed.domain.port.LoginBackoffPort;
 import com.altarwed.domain.port.RefreshTokenRepository;
 import com.altarwed.infrastructure.observability.LogSanitizer;
 import com.altarwed.infrastructure.security.JwtService;
@@ -17,6 +18,7 @@ import io.jsonwebtoken.Claims;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Locale;
 
 @Service
 public class AuthService {
@@ -38,6 +41,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final AsyncEmailService asyncEmailService;
     private final VendorAuthService vendorAuthService;
+    private final LoginBackoffPort loginBackoff;
 
     public AuthService(
             CoupleRepository coupleRepository,
@@ -46,7 +50,8 @@ public class AuthService {
             JwtService jwtService,
             AuthenticationManager authenticationManager,
             AsyncEmailService asyncEmailService,
-            VendorAuthService vendorAuthService
+            VendorAuthService vendorAuthService,
+            LoginBackoffPort loginBackoff
     ) {
         this.coupleRepository = coupleRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -55,6 +60,7 @@ public class AuthService {
         this.authenticationManager = authenticationManager;
         this.asyncEmailService = asyncEmailService;
         this.vendorAuthService = vendorAuthService;
+        this.loginBackoff = loginBackoff;
     }
 
     @Transactional
@@ -106,6 +112,41 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
+        // Per-account backoff (issue #249). Keyed on the normalized email so case/whitespace
+        // variants of one address share a single failure budget (an attacker cannot mint fresh
+        // budgets by re-casing the email), and checked BEFORE any repository or BCrypt work so a
+        // cooling-down key costs us nothing. This is the single enforcement point for every
+        // credential login: couples, the vendor fallback below, and nonexistent emails all pass
+        // through here, so real and unknown accounts accrue identical backoff state.
+        String backoffKey = normalizeEmail(request.email());
+        if (loginBackoff.isLockedOut(backoffKey)) {
+            // Anti-oracle: the SAME generic 401 the handler returns for a wrong password or an
+            // unknown email. A distinct 429/"account locked" response would confirm to an
+            // attacker both that the backoff engaged and (if only real accounts were tracked)
+            // that the account exists. The operational detail lives in this WARN, masked.
+            log.warn("login rejected, reason=per-account backoff active, email={}",
+                    LogSanitizer.maskEmail(request.email()));
+            throw new BadCredentialsException("Invalid email or password");
+        }
+
+        try {
+            AuthResponse response = authenticate(request);
+            // Success clears the failure history so a user who finally remembered their
+            // password is never one slip away from an escalated cool-down.
+            loginBackoff.recordSuccess(backoffKey);
+            return response;
+        } catch (AuthenticationException ex) {
+            // Covers BadCredentialsException from both the couple path (AuthenticationManager)
+            // and the vendor fallback (unknown email or wrong password), plus DisabledException
+            // et al. Recording happens in memory, so the @Transactional rollback triggered by
+            // this rethrow cannot undo it (a same-transaction DB counter would silently lose
+            // every increment to that rollback).
+            loginBackoff.recordFailure(backoffKey);
+            throw ex;
+        }
+    }
+
+    private AuthResponse authenticate(LoginRequest request) {
         // Delegate to vendor login when the email isn't a couple account.
         // AuthenticationManager is wired to the couples UserDetailsService;
         // using it for vendor credentials would always fail.
@@ -185,6 +226,14 @@ public class AuthService {
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    // Backoff key normalization: trim + lower-case so "Foo@X.com" and " foo@x.com " share one
+    // failure budget. Root locale keeps the fold deterministic regardless of server locale
+    // (the Turkish-i problem). Login credential matching itself is untouched; this only
+    // canonicalizes the tracking key.
+    private static String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+    }
 
     // Map the optional wire DTO to the domain value object, normalising blanks to
     // null and truncating over-long values. A missing acquisition block (the common
