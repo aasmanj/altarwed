@@ -9,12 +9,18 @@ import com.altarwed.domain.model.EmailRecipient;
 import com.altarwed.domain.model.Guest;
 import com.altarwed.domain.model.GuestRsvpStatus;
 import com.altarwed.domain.model.RsvpInviteBulkSend;
+import com.altarwed.domain.model.RsvpInviteRecipient;
 import com.altarwed.domain.model.RsvpInviteToken;
 import com.altarwed.domain.model.SaveTheDateSend;
 import com.altarwed.domain.model.WeddingWebsite;
 import com.altarwed.application.dto.RsvpFindResult;
+import com.altarwed.application.dto.PartyMemberInfo;
+import com.altarwed.application.dto.RsvpPageDataResponse;
 import com.altarwed.domain.exception.CaptchaVerificationFailedException;
+import com.altarwed.domain.exception.RsvpSearchThrottledException;
 import com.altarwed.domain.port.CaptchaVerificationPort;
+import com.altarwed.domain.port.RsvpSearchThrottlePort;
+import com.altarwed.infrastructure.security.InMemoryRsvpSearchThrottleAdapter;
 import com.altarwed.domain.port.CoupleRepository;
 import com.altarwed.domain.port.GuestRepository;
 import com.altarwed.domain.port.RsvpInviteTokenRepository;
@@ -70,8 +76,15 @@ class GuestServiceTest {
     @Mock private SaveTheDateSendRepository saveTheDateSendRepository;
     @Mock private RsvpInviteBulkSendRepository rsvpInviteBulkSendRepository;
 
+    // Real in-memory throttle, not a mock: it is a pure value object with no external deps, so
+    // exercising the concrete Bucket4j-backed adapter tests the actual anti-enumeration behavior
+    // (issue #89) end to end through the service rather than asserting against a scripted mock.
+    // Fresh per test method (JUnit default per-method lifecycle) via setUp, so state never leaks.
+    private RsvpSearchThrottlePort searchThrottle;
+
     @BeforeEach
     void setUp() {
+        searchThrottle = new InMemoryRsvpSearchThrottleAdapter();
         // Sends batch the suppression lookup via reasonsByHash; default to "nothing
         // suppressed" so the happy-path send tests queue every valid guest. Lenient
         // because the invite-rejection test throws before it reaches this call.
@@ -85,7 +98,16 @@ class GuestServiceTest {
     private GuestService service() {
         return new GuestService(guestRepository, tokenRepository, websiteRepository,
                 coupleRepository, asyncEmailService, suppressionService, customRsvpQuestionService,
-                captchaVerificationPort, saveTheDateSendRepository, rsvpInviteBulkSendRepository);
+                captchaVerificationPort, saveTheDateSendRepository, rsvpInviteBulkSendRepository,
+                searchThrottle);
+    }
+
+    // Typed captor for the batched RSVP invite recipient list. The unchecked cast is unavoidable
+    // when capturing a generic List with Mockito's Class-based forClass; isolated here so the
+    // suppression does not spread across the individual tests.
+    @SuppressWarnings("unchecked")
+    private static ArgumentCaptor<List<RsvpInviteRecipient>> batchCaptor() {
+        return ArgumentCaptor.forClass(List.class);
     }
 
     private Guest guest(UUID coupleId, String name, String email) {
@@ -423,9 +445,13 @@ class GuestServiceTest {
 
         // Each eligible guest got a fresh invite token persisted; the over-cap guest did not.
         verify(tokenRepository, times(2)).save(any());
-        // No invite email queued for the over-cap guest's address.
-        verify(asyncEmailService, never()).sendRsvpInviteEmail(
-                eq("bo@example.com"), any(), any(), any(), any(), any(), any(), any());
+        // One batched Resend call carries only the two eligible guests; the over-cap guest's
+        // address is never queued (issue #378, invite-all now fans out through /emails/batch).
+        ArgumentCaptor<List<RsvpInviteRecipient>> batch = batchCaptor();
+        verify(asyncEmailService).sendRsvpInviteEmails(batch.capture(), any(), any(), any(), any());
+        assertThat(batch.getValue()).extracting(RsvpInviteRecipient::email)
+                .containsExactlyInAnyOrder("anna@example.com", "cy@example.com")
+                .doesNotContain("bo@example.com");
     }
 
     @Test
@@ -481,8 +507,11 @@ class GuestServiceTest {
         assertThat(result.skipped()).isZero();
         assertThat(result.skippedGuests()).isEmpty();
         verify(tokenRepository, times(2)).save(any());
-        verify(asyncEmailService, times(2))
-                .sendRsvpInviteEmail(any(), any(), any(), any(), any(), any(), any(), any());
+        // Both eligible guests ride ONE batched Resend call, not two single sends (issue #378).
+        ArgumentCaptor<List<RsvpInviteRecipient>> batch = batchCaptor();
+        verify(asyncEmailService).sendRsvpInviteEmails(batch.capture(), any(), any(), any(), any());
+        assertThat(batch.getValue()).extracting(RsvpInviteRecipient::email)
+                .containsExactlyInAnyOrder("anna@example.com", "bo@example.com");
     }
 
     @Test
@@ -506,9 +535,11 @@ class GuestServiceTest {
                     assertThat(s.guestId()).isEqualTo(noEmail.id());
                     assertThat(s.reason()).isEqualTo("no_email");
                 });
-        // The no-email guest never gets a token or an email.
-        verify(asyncEmailService, never())
-                .sendRsvpInviteEmail(eq(null), any(), any(), any(), any(), any(), any(), any());
+        // The no-email guest never gets a token or a place in the batched send.
+        ArgumentCaptor<List<RsvpInviteRecipient>> batch = batchCaptor();
+        verify(asyncEmailService).sendRsvpInviteEmails(batch.capture(), any(), any(), any(), any());
+        assertThat(batch.getValue()).extracting(RsvpInviteRecipient::email)
+                .containsExactly("anna@example.com");
     }
 
     @Test
@@ -531,8 +562,12 @@ class GuestServiceTest {
                     assertThat(s.guestId()).isEqualTo(responded.id());
                     assertThat(s.reason()).isEqualTo("already_responded");
                 });
-        verify(asyncEmailService, never()).sendRsvpInviteEmail(
-                eq("bo@example.com"), any(), any(), any(), any(), any(), any(), any());
+        // The skipped guest is never placed in the batched send; only the eligible guest is.
+        ArgumentCaptor<List<RsvpInviteRecipient>> batch = batchCaptor();
+        verify(asyncEmailService).sendRsvpInviteEmails(batch.capture(), any(), any(), any(), any());
+        assertThat(batch.getValue()).extracting(RsvpInviteRecipient::email)
+                .containsExactly("anna@example.com")
+                .doesNotContain("bo@example.com");
     }
 
     @Test
@@ -555,8 +590,12 @@ class GuestServiceTest {
                     assertThat(s.guestId()).isEqualTo(overCap.id());
                     assertThat(s.reason()).isEqualTo("cap_reached");
                 });
-        verify(asyncEmailService, never()).sendRsvpInviteEmail(
-                eq("bo@example.com"), any(), any(), any(), any(), any(), any(), any());
+        // The skipped guest is never placed in the batched send; only the eligible guest is.
+        ArgumentCaptor<List<RsvpInviteRecipient>> batch = batchCaptor();
+        verify(asyncEmailService).sendRsvpInviteEmails(batch.capture(), any(), any(), any(), any());
+        assertThat(batch.getValue()).extracting(RsvpInviteRecipient::email)
+                .containsExactly("anna@example.com")
+                .doesNotContain("bo@example.com");
     }
 
     @Test
@@ -583,8 +622,12 @@ class GuestServiceTest {
                     assertThat(s.guestId()).isEqualTo(unsub.id());
                     assertThat(s.reason()).isEqualTo("unsubscribed");
                 });
-        verify(asyncEmailService, never()).sendRsvpInviteEmail(
-                eq("bo@example.com"), any(), any(), any(), any(), any(), any(), any());
+        // The skipped guest is never placed in the batched send; only the eligible guest is.
+        ArgumentCaptor<List<RsvpInviteRecipient>> batch = batchCaptor();
+        verify(asyncEmailService).sendRsvpInviteEmails(batch.capture(), any(), any(), any(), any());
+        assertThat(batch.getValue()).extracting(RsvpInviteRecipient::email)
+                .containsExactly("anna@example.com")
+                .doesNotContain("bo@example.com");
     }
 
     @Test
@@ -603,7 +646,7 @@ class GuestServiceTest {
         verify(tokenRepository, never()).save(any());
         verify(guestRepository, never()).save(any());
         verify(asyncEmailService, never())
-                .sendRsvpInviteEmail(any(), any(), any(), any(), any(), any(), any(), any());
+                .sendRsvpInviteEmails(any(), any(), any(), any(), any());
     }
 
     // ---------------------------------------------------------------------------
@@ -651,8 +694,9 @@ class GuestServiceTest {
         assertThat(receipt.getValue().idempotencyKey()).isEqualTo("key-2");
         assertThat(receipt.getValue().sentCount()).isEqualTo(1);
         assertThat(receipt.getValue().skippedCount()).isZero();
+        // The single eligible guest is dispatched via one batched Resend call (issue #378).
         verify(asyncEmailService, times(1))
-                .sendRsvpInviteEmail(any(), any(), any(), any(), any(), any(), any(), any());
+                .sendRsvpInviteEmails(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -676,7 +720,7 @@ class GuestServiceTest {
         // The loser never mails the batch.
         verify(tokenRepository, never()).save(any());
         verify(asyncEmailService, never())
-                .sendRsvpInviteEmail(any(), any(), any(), any(), any(), any(), any(), any());
+                .sendRsvpInviteEmails(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -720,6 +764,249 @@ class GuestServiceTest {
                 .isInstanceOf(CaptchaVerificationFailedException.class);
 
         verifyNoInteractions(websiteRepository, guestRepository, tokenRepository);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Issue #89: PII redaction on a SEARCH-sourced RSVP view. A token minted from a bare name
+    // search carries no possession factor, so the RSVP page must not disclose the private
+    // noteForCouple or other party members' dietary/song. A token from the emailed invite (the
+    // email on file IS the possession factor) keeps full disclosure, unchanged.
+    // ---------------------------------------------------------------------------
+
+    // A guest in a party, with private fields populated, for the disclosure tests.
+    private Guest partyGuest(UUID coupleId, UUID partyId, String name,
+                             String dietary, String song, String note) {
+        return new Guest(
+                UUID.randomUUID(), coupleId, name, name.toLowerCase() + "@example.com", null,
+                GuestRsvpStatus.ATTENDING, false, null, dietary, song,
+                null, null, null,
+                null, null, null, null, null,
+                note, 0,
+                null, null, null, null, null, null,
+                partyId, "The " + name + " Party", false,
+                null, false);
+    }
+
+    private RsvpPageDataResponse rsvpViewForTokenSource(String source) {
+        UUID coupleId = UUID.randomUUID();
+        UUID partyId = UUID.randomUUID();
+        Guest holder = partyGuest(coupleId, partyId, "Jordan",
+                "no shellfish", "Canon in D", "please seat us near the front");
+        Guest otherMember = partyGuest(coupleId, partyId, "Eden",
+                "vegetarian", "Ode to Joy", "the private note of another member");
+
+        RsvpInviteToken token = new RsvpInviteToken(
+                UUID.randomUUID(), "tokenhash", holder.id(),
+                LocalDateTime.now().plusHours(1), false, null, source);
+
+        when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(token));
+        when(guestRepository.findById(holder.id())).thenReturn(Optional.of(holder));
+        when(guestRepository.findAllByPartyId(partyId)).thenReturn(List.of(holder, otherMember));
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
+
+        return service().getRsvpPageData("raw-token");
+    }
+
+    @Test
+    void getRsvpPageData_redactsPrivateFields_forSearchSourcedToken() {
+        RsvpPageDataResponse view = rsvpViewForTokenSource(RsvpInviteToken.SOURCE_SEARCH);
+
+        // The private note left for the couple is never disclosed to a bare name match.
+        assertThat(view.currentNoteForCouple()).isNull();
+
+        // The token holder's own dietary/song stay so their own form pre-fills.
+        assertThat(view.currentDietary()).isEqualTo("no shellfish");
+        assertThat(view.currentSongRequest()).isEqualTo("Canon in D");
+
+        // Other party members keep name + rsvpStatus (household toggles still render) but their
+        // private dietary/song are nulled.
+        assertThat(view.partyMembers()).hasSize(1);
+        PartyMemberInfo other = view.partyMembers().get(0);
+        assertThat(other.name()).isEqualTo("Eden");
+        assertThat(other.currentRsvpStatus()).isEqualTo("ATTENDING");
+        assertThat(other.currentDietary()).isNull();
+        assertThat(other.currentSongRequest()).isNull();
+    }
+
+    @Test
+    void getRsvpPageData_fullDisclosure_forInviteSourcedToken() {
+        RsvpPageDataResponse view = rsvpViewForTokenSource(RsvpInviteToken.SOURCE_INVITE);
+
+        // Emailed-link (possession factor) view is unchanged: everything is populated.
+        assertThat(view.currentNoteForCouple()).isEqualTo("please seat us near the front");
+        assertThat(view.currentDietary()).isEqualTo("no shellfish");
+        assertThat(view.currentSongRequest()).isEqualTo("Canon in D");
+
+        assertThat(view.partyMembers()).hasSize(1);
+        PartyMemberInfo other = view.partyMembers().get(0);
+        assertThat(other.name()).isEqualTo("Eden");
+        assertThat(other.currentRsvpStatus()).isEqualTo("ATTENDING");
+        assertThat(other.currentDietary()).isEqualTo("vegetarian");
+        assertThat(other.currentSongRequest()).isEqualTo("Ode to Joy");
+    }
+
+    @Test
+    void getRsvpPageData_fullDisclosure_forLegacyNullSourceToken() {
+        // Edge branch: a legacy token predating the source discriminator has source == null. It is
+        // NOT redacted, because any null-source token that still resolves is a long-lived INVITE
+        // token (search tokens expire in one hour and resolveToken rejects expired ones), so
+        // redacting on null would silently gut a real emailed link. Treated exactly like INVITE.
+        RsvpPageDataResponse view = rsvpViewForTokenSource(null);
+
+        assertThat(view.currentNoteForCouple()).isEqualTo("please seat us near the front");
+        assertThat(view.currentDietary()).isEqualTo("no shellfish");
+        assertThat(view.currentSongRequest()).isEqualTo("Canon in D");
+
+        assertThat(view.partyMembers()).hasSize(1);
+        PartyMemberInfo other = view.partyMembers().get(0);
+        assertThat(other.currentDietary()).isEqualTo("vegetarian");
+        assertThat(other.currentSongRequest()).isEqualTo("Ode to Joy");
+    }
+
+    @Test
+    void getRsvpPageData_searchView_soloGuest_noNpe_andNullsNote() {
+        // Edge branch: a SEARCH view on a guest with partyId == null must not NPE on the party
+        // block (partyMembers stays null, partyName stays null) and still redacts the private note.
+        UUID coupleId = UUID.randomUUID();
+        Guest solo = new Guest(
+                UUID.randomUUID(), coupleId, "Jordan", "jordan@example.com", null,
+                GuestRsvpStatus.ATTENDING, false, null, "no shellfish", "Canon in D",
+                null, null, null,
+                null, null, null, null, null,
+                "please seat us near the front", 0,
+                null, null, null, null, null, null,
+                null, null, false,   // partyId == null: solo guest
+                null, false);
+
+        RsvpInviteToken token = new RsvpInviteToken(
+                UUID.randomUUID(), "tokenhash", solo.id(),
+                LocalDateTime.now().plusHours(1), false, null, RsvpInviteToken.SOURCE_SEARCH);
+
+        when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(token));
+        when(guestRepository.findById(solo.id())).thenReturn(Optional.of(solo));
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
+
+        RsvpPageDataResponse view = service().getRsvpPageData("raw-token");
+
+        assertThat(view.partyMembers()).isNull();
+        assertThat(view.partyName()).isNull();
+        // Private note redacted on the SEARCH view; the holder's own dietary/song still pre-fill.
+        assertThat(view.currentNoteForCouple()).isNull();
+        assertThat(view.currentDietary()).isEqualTo("no shellfish");
+        assertThat(view.currentSongRequest()).isEqualTo("Canon in D");
+        // findAllByPartyId must never be called for a solo guest.
+        verify(guestRepository, never()).findAllByPartyId(any());
+    }
+
+    // ---------------------------------------------------------------------------
+    // Issue #89 (H1/H2): per-wedding anti-enumeration lockout. EVERY find attempt is charged
+    // against the wedding's budget (hit or miss) with no reset-on-success, so a harvester walking
+    // name substrings (each hit returning up to five masked names + live tokens) is bounded, not
+    // exempt. The budget keys on the canonical coupleId, so recased/whitespace slug variants for
+    // the same wedding share one bucket instead of each getting a fresh budget (H2). Throttling is
+    // per wedding, not per source IP (the per-IP filter is XFF-bypassable, #41).
+    // ---------------------------------------------------------------------------
+
+    // Mirrors InMemoryRsvpSearchThrottleAdapter.SEARCH_BUDGET (package-private, not visible from
+    // this test's package). Kept in sync deliberately: if the adapter's budget changes, this test's
+    // exact-count assertions should be revisited with it.
+    private static final int SEARCH_BUDGET = 20;
+
+    @Test
+    void findGuestsByName_locksOutWedding_afterBudgetOfFailedSearches() {
+        String slug = "jordan-and-eden";
+        UUID coupleId = UUID.randomUUID();
+        WeddingWebsite website = mock(WeddingWebsite.class);
+        when(website.isPublished()).thenReturn(true);
+        when(website.coupleId()).thenReturn(coupleId);
+        when(websiteRepository.findBySlug(slug)).thenReturn(Optional.of(website));
+        // Every search is a miss (zero results): still charged against the wedding's budget.
+        when(guestRepository.findByCoupleIdAndNameContaining(eq(coupleId), anyString()))
+                .thenReturn(List.of());
+
+        // Drive searches until the wedding locks out. It must lock exactly after the adapter's
+        // SEARCH_BUDGET attempts are spent; earlier searches return empty without throwing.
+        int succeededBeforeLock = 0;
+        boolean lockedOut = false;
+        GuestService svc = service();
+        for (int i = 0; i < SEARCH_BUDGET * 3; i++) {
+            try {
+                List<RsvpFindResult> r = svc.findGuestsByName(slug, "Ghost", "captcha", "203.0.113." + i);
+                assertThat(r).isEmpty();
+                succeededBeforeLock++;
+            } catch (RsvpSearchThrottledException e) {
+                lockedOut = true;
+                break;
+            }
+        }
+
+        assertThat(lockedOut).isTrue();
+        assertThat(succeededBeforeLock).isEqualTo(SEARCH_BUDGET);
+    }
+
+    @Test
+    void findGuestsByName_successfulSearchesAlsoConsumeBudget_andEventuallyLockOut() {
+        // H1 regression: a successful substring match is the harvest path (returns up to five masked
+        // names + live RSVP tokens), so it MUST consume budget and MUST NOT reset it. After
+        // SEARCH_BUDGET successful searches the wedding locks out just as a run of misses would.
+        String slug = "jordan-and-eden";
+        UUID coupleId = UUID.randomUUID();
+        Guest match = guest(coupleId, "Jordan Aasman", null);
+        WeddingWebsite website = mock(WeddingWebsite.class);
+        when(website.isPublished()).thenReturn(true);
+        when(website.coupleId()).thenReturn(coupleId);
+        when(websiteRepository.findBySlug(slug)).thenReturn(Optional.of(website));
+        when(guestRepository.findByCoupleIdAndNameContaining(eq(coupleId), anyString()))
+                .thenReturn(List.of(match));
+        when(tokenRepository.findValidSearchToken(any(), any())).thenReturn(Optional.empty());
+        when(tokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        GuestService svc = service();
+        int matchedBeforeLock = 0;
+        boolean lockedOut = false;
+        for (int i = 0; i < SEARCH_BUDGET * 3; i++) {
+            try {
+                assertThat(svc.findGuestsByName(slug, "Jordan", "captcha", "203.0.113." + i)).hasSize(1);
+                matchedBeforeLock++;
+            } catch (RsvpSearchThrottledException e) {
+                lockedOut = true;
+                break;
+            }
+        }
+
+        assertThat(lockedOut).as("harvest path must be throttled, not exempt").isTrue();
+        assertThat(matchedBeforeLock).isEqualTo(SEARCH_BUDGET);
+    }
+
+    @Test
+    void findGuestsByName_caseAndWhitespaceSlugVariants_shareOneWeddingBudget() {
+        // H2 regression: findBySlug resolves under case-insensitive collation, so these three slug
+        // strings are the SAME wedding. The throttle keys on the resolved coupleId, so the variants
+        // draw down ONE shared budget; an attacker cannot multiply the harvest ceiling by recasing
+        // or padding the slug. Simulate the collation by mapping every variant to the same website.
+        UUID coupleId = UUID.randomUUID();
+        WeddingWebsite website = mock(WeddingWebsite.class);
+        when(website.isPublished()).thenReturn(true);
+        when(website.coupleId()).thenReturn(coupleId);
+        String[] variants = {"Jordan-Eden", "jordan-eden", " jordan-eden"};
+        for (String v : variants) {
+            when(websiteRepository.findBySlug(v)).thenReturn(Optional.of(website));
+        }
+        when(guestRepository.findByCoupleIdAndNameContaining(eq(coupleId), anyString()))
+                .thenReturn(List.of());
+
+        GuestService svc = service();
+        // Spend the whole budget across a mix of the three variants (round-robin).
+        for (int i = 0; i < SEARCH_BUDGET; i++) {
+            String v = variants[i % variants.length];
+            assertThat(svc.findGuestsByName(v, "Ghost", "captcha", "203.0.113." + i)).isEmpty();
+        }
+        // A different-cased variant is now locked out too: the budget was shared, not per-slug.
+        // (All three variants resolve to the same wedding, so any of them hits the same drained bucket.)
+        assertThatThrownBy(() -> svc.findGuestsByName("Jordan-Eden", "Ghost", "captcha", "203.0.113.250"))
+                .isInstanceOf(RsvpSearchThrottledException.class);
     }
 
     // ---------------------------------------------------------------------------

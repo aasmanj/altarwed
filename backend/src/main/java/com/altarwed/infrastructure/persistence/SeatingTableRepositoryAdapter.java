@@ -43,8 +43,11 @@ public class SeatingTableRepositoryAdapter implements SeatingTableRepository {
     }
 
     private SeatingTable toDomain(SeatingTableEntity e) {
+        // The shape column is NOT NULL with a DEFAULT (V92), so a read is never null; this fallback
+        // is a defensive belt-and-suspenders so the API always emits a valid shape.
+        String shape = e.getShape() != null ? e.getShape() : SeatingTable.DEFAULT_SHAPE;
         return new SeatingTable(e.getId(), e.getCoupleId(), e.getName(),
-                e.getCapacity(), e.getSortOrder(), e.getCreatedAt(), e.getUpdatedAt());
+                e.getCapacity(), e.getSortOrder(), shape, e.getCreatedAt(), e.getUpdatedAt());
     }
 
     private SeatingTableEntity toEntity(SeatingTable t) {
@@ -54,6 +57,7 @@ public class SeatingTableRepositoryAdapter implements SeatingTableRepository {
                 .name(t.name())
                 .capacity(t.capacity())
                 .sortOrder(t.sortOrder())
+                .shape(t.shape())
                 .createdAt(t.createdAt())
                 .updatedAt(t.updatedAt())
                 .build();

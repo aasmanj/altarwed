@@ -63,6 +63,8 @@ export interface WeddingWebsite {
   receptionVenueTitle: string | null
   // V91: allowlisted font key for the couple's names on the public hero. null = default serif.
   nameFont: string | null
+  // V92: optional custom headline on the printable seating board. null = "Welcome".
+  seatingBoardTitle: string | null
 }
 
 export interface CreateWebsitePayload {

@@ -48,7 +48,11 @@ public interface PrintMailPort {
             // when present; the adapter falls back to an AltarWed default verse when both are blank,
             // so a couple who never picked one still gets a scripture line.
             String verseText,
-            String verseReference
+            String verseReference,
+            // Issue #362: the couple's website accentColor, reused as the card accent on the non-photo
+            // templates (label, divider, borders). A CSS hex string the adapter sanitizes before it
+            // reaches inline card CSS; null or an unrecognized value falls back to the default gold.
+            String accentColor
     ) {}
 
     record FromAddress(String name, String addressLine1, String addressLine2,

@@ -109,6 +109,13 @@ jobs:
       - name: Build frontend-public
         working-directory: ./frontend-public
         run: npm run build
+      # Boot smoke test (issue #421): a green `next build` does not prove the
+      # router can serve a request. The 2026-07-13 outage (sibling dynamic
+      # segments [id] vs [category]) built green and 500ed every request at
+      # runtime. Hermetic checks only, no backend dependency, so it can't flake.
+      - name: Smoke test the built server boots and routes
+        working-directory: ./frontend-public
+        run: bash scripts/smoke.sh
 
   frontend-app-build:
     runs-on: ubuntu-latest

@@ -80,3 +80,45 @@ describe('payment gate UI wiring (issue #59/#53)', () => {
     expect(src).not.toContain(EM_DASH)
   })
 })
+
+describe('print card templates + accent + position picker (issue #362)', () => {
+  const src = read('features/couple/communications/CommunicationsPage.tsx')
+  const helpers = read('features/couple/communications/printTemplate.ts')
+
+  it('offers the new Minimal, Botanical, and Dark elegant templates', () => {
+    expect(src).toContain('SAVE_THE_DATE_MINIMAL')
+    expect(src).toContain('SAVE_THE_DATE_BOTANICAL')
+    expect(src).toContain('SAVE_THE_DATE_DARK_ELEGANT')
+    expect(src).toContain('INVITATION_MINIMAL')
+    expect(src).toContain('INVITATION_BOTANICAL')
+    expect(src).toContain('INVITATION_DARK_ELEGANT')
+  })
+
+  it('sends the composed templateKey (base plus overlay suffix) to the backend', () => {
+    expect(src).toContain('composePrintTemplateKey(templateKey, textPosition, overlayTheme)')
+    expect(src).toContain('templateKey: composedTemplateKey')
+  })
+
+  it('drives the card accent from the couple website accentColor, sanitized', () => {
+    expect(src).toContain('sanitizeAccent(website?.accentColor)')
+    expect(helpers).not.toContain('accentColor') // helpers stay pure; accent is applied in the page
+  })
+
+  it('renders the 3x3 position picker and light/dark overlay toggle for photo cards', () => {
+    expect(src).toContain('TEXT_POSITIONS.map')
+    expect(src).toContain("role=\"radiogroup\"")
+    expect(src).toContain('setTextPosition(pos)')
+    expect(src).toContain('setOverlayTheme(o.key)')
+    // The picker only shows for a photo template.
+    expect(src).toContain('{isPhoto && (')
+  })
+
+  it('rotates the idempotency key when the overlay position or theme changes', () => {
+    expect(src).toContain('[orderType, templateKey, cardSize, textPosition, overlayTheme, selectedIds]')
+  })
+
+  it('has no em dashes in the new template files', () => {
+    expect(src).not.toContain(EM_DASH)
+    expect(helpers).not.toContain(EM_DASH)
+  })
+})

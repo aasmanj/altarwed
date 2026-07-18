@@ -16,6 +16,7 @@ export default function SiteHeader() {
           <NavLink href="/vendors">Find Vendors</NavLink>
           <NavLink href="/blog">Blog</NavLink>
           <NavLink href="/resources">Resources</NavLink>
+          <NavLink href="/for-vendors">For Vendors</NavLink>
         </nav>
 
         {/* Mobile-only Find a Wedding link (full nav is desktop-only) */}
@@ -35,12 +36,12 @@ export default function SiteHeader() {
           >
             Start planning
           </a>
-          <a
-            href="https://app.altarwed.com/register/vendor"
+          <Link
+            href="/for-vendors"
             className="hidden md:block rounded-lg border border-[#d4af6a] px-4 py-2 text-sm font-semibold text-[#3b2f2f] hover:bg-[#d4af6a]/10 transition"
           >
             For vendors
-          </a>
+          </Link>
         </div>
       </div>
     </header>

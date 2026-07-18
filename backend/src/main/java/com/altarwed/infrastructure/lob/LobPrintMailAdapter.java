@@ -1,5 +1,8 @@
 package com.altarwed.infrastructure.lob;
 
+import com.altarwed.domain.model.PrintOverlayTextTheme;
+import com.altarwed.domain.model.PrintTemplate;
+import com.altarwed.domain.model.PrintTextPosition;
 import com.altarwed.domain.port.PrintMailPort;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -379,49 +382,129 @@ public class LobPrintMailAdapter implements PrintMailPort {
 
     String renderFront(PostcardRequest req) {
         CardDims dims = dimsFor(req.cardSize());
-        boolean saveTheDate = req.templateKey() == null || req.templateKey().startsWith("SAVE_THE_DATE");
+        // Issue #362: templateKey may carry a PHOTO overlay suffix (~position~theme). Parse it once
+        // through the domain allowlist so the layout branch, headline, and photo-overlay knobs all
+        // read from the same validated source instead of substring-matching the raw key.
+        PrintTemplate.Parsed parsed = PrintTemplate.parse(req.templateKey());
+        // A null parse means the key was not on the allowlist. PrintOrderService rejects those long
+        // before the async Lob batch builds a PostcardRequest, so this only guards a direct call
+        // with a bad key: fall back to the classic save-the-date layout rather than NPE.
+        String base = parsed != null ? parsed.baseKey() : "SAVE_THE_DATE_CLASSIC";
+        boolean saveTheDate = base.startsWith("SAVE_THE_DATE");
         String headline = saveTheDate ? "Save the Date" : "You're Invited";
         String verse = verseLine(req);
+        String accent = sanitizeAccent(req.accentColor());
 
-        // Only PHOTO variants use the hero image. CLASSIC variants always render the cream/gold
-        // gradient regardless of whether a hero photo exists -- the template description says "no
-        // photo" and couples choose Classic specifically for that.
+        // Only PHOTO variants use the hero image. The other styles always render their own
+        // background regardless of whether a hero photo exists -- couples pick those specifically
+        // for a no-photo card.
         String safePhotoUrl = req.heroPhotoUrl() == null ? null
                 : escape(req.heroPhotoUrl()).replace("\\", "%5C").replace("'", "%27");
-        boolean usePhoto = safePhotoUrl != null
-                && req.templateKey() != null
-                && req.templateKey().endsWith("_PHOTO");
+        boolean usePhoto = safePhotoUrl != null && base.endsWith("_PHOTO");
 
-        return usePhoto
-                ? renderPhotoFront(dims, headline, req, safePhotoUrl, verse)
-                : renderClassicFront(dims, headline, req, verse);
+        if (usePhoto) {
+            PrintTextPosition position = parsed.position() != null ? parsed.position() : PrintTextPosition.DEFAULT;
+            PrintOverlayTextTheme theme = parsed.theme() != null ? parsed.theme() : PrintOverlayTextTheme.DEFAULT;
+            return renderPhotoFront(dims, headline, req, safePhotoUrl, verse, position, theme);
+        }
+        // Non-photo styles share the centered layout family but differ in palette/ornament. A PHOTO
+        // base with no hero photo falls through to CLASSIC (a photo card must never render a blank
+        // hero); the frontend blocks paying for a photo card without a photo, so this is defensive.
+        return switch (styleOf(base)) {
+            case "MINIMAL" -> renderMinimalFront(dims, headline, req, verse, accent);
+            case "BOTANICAL" -> renderBotanicalFront(dims, headline, req, verse, accent);
+            case "DARK_ELEGANT" -> renderDarkElegantFront(dims, headline, req, verse, accent);
+            default -> renderClassicFront(dims, headline, req, verse, accent);
+        };
     }
 
-    // PHOTO front: names/date/verse sit in a bottom gradient band, NOT centered over the whole
-    // photo, so the couple's faces (the upper portion of the hero) stay clear and unobscured
-    // (family feedback: "make it so the words aren't over your beautiful faces"). The scripture
-    // uses a distinct warm gold so it reads as its own line instead of blending into the names
-    // ("a different color for the bible verse to see it"). Two-stop gradients only (no % stops):
-    // a literal % in the CSS would collide with String.formatted's format specifiers.
+    // The style token after the {SAVE_THE_DATE|INVITATION}_ prefix (CLASSIC, PHOTO, MINIMAL,
+    // BOTANICAL, DARK_ELEGANT). Anything unexpected collapses to CLASSIC.
+    private static String styleOf(String base) {
+        if (base.startsWith("SAVE_THE_DATE_")) return base.substring("SAVE_THE_DATE_".length());
+        if (base.startsWith("INVITATION_")) return base.substring("INVITATION_".length());
+        return "CLASSIC";
+    }
+
+    // The accent used on the non-photo templates, sourced from the couple's website accentColor.
+    // Default is the original gold, so an unset/legacy accent renders exactly as before.
+    private static final String DEFAULT_ACCENT = "#a08060";
+
+    // accentColor is couple-controlled and gets interpolated straight into inline card CSS, so it
+    // must be validated to a strict hex literal (#RGB / #RRGGBB / #RRGGBBAA) before use. Anything
+    // else (a CSS keyword, a url(), an unclosed value, null) collapses to the default gold rather
+    // than letting arbitrary text reach the style attribute.
+    private static String sanitizeAccent(String accent) {
+        if (accent == null) return DEFAULT_ACCENT;
+        String a = accent.trim();
+        return a.matches("#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})") ? a : DEFAULT_ACCENT;
+    }
+
+    // Small palette knobs the PHOTO overlay computes from the chosen text position + light/dark
+    // theme. Kept as one record so renderPhotoFront stays a single formatted template.
+    private record PhotoOverlay(String cardColor, String cardShadow, String scrimCss,
+                                String contentAnchor, String textAlign,
+                                String labelColor, String verseColor) {}
+
+    // Issue #362: the couple's 3x3 position + light/dark toggle become concrete CSS here. LIGHT is
+    // light type over a dark scrim (the proven default); DARK is dark type over a light scrim for a
+    // bright photo. The scrim is anchored to the same edge the text is (top band, centered veil, or
+    // bottom band) so the couple's faces stay clear wherever the text sits. Two-stop gradients only
+    // (no % stops): a literal % would collide with String.formatted's specifiers.
+    private static PhotoOverlay photoOverlay(CardDims dims, PrintTextPosition position, PrintOverlayTextTheme theme) {
+        boolean light = theme != PrintOverlayTextTheme.DARK;
+        String cardColor = light ? "#fff" : "#2a2018";
+        String cardShadow = light ? "0 2px 10px rgba(0,0,0,0.6)" : "0 1px 6px rgba(255,255,255,0.55)";
+        String labelColor = light ? "#f5e9d4" : "#5b4a34";
+        String verseColor = light ? "#f0c674" : "#7a531c";
+        String strong = light ? "rgba(0,0,0,0.82)" : "rgba(255,255,255,0.85)";
+        String fade = light ? "rgba(0,0,0,0)" : "rgba(255,255,255,0)";
+        String veil = light ? "rgba(0,0,0,0.42)" : "rgba(255,255,255,0.5)";
+
+        String scrimCss;
+        String contentAnchor;
+        if (position.isTop()) {
+            scrimCss = "position:absolute; left:0; right:0; top:0; height:" + dims.scrimHeight()
+                    + "; background:linear-gradient(to bottom, " + strong + ", " + fade + ");";
+            contentAnchor = "left:0; right:0; top:0;";
+        } else if (position.isMiddle()) {
+            scrimCss = "position:absolute; left:0; right:0; top:0; bottom:0; background:" + veil + ";";
+            contentAnchor = "left:0; right:0; top:0; bottom:0; display:flex; flex-direction:column; justify-content:center;";
+        } else {
+            // BOTTOM (default): keep the exact anchor the original card used so nothing regresses.
+            scrimCss = "position:absolute; left:0; right:0; bottom:0; height:" + dims.scrimHeight()
+                    + "; background:linear-gradient(to top, " + strong + ", " + fade + ");";
+            contentAnchor = "left:0; right:0; bottom:0;";
+        }
+        String textAlign = position.isLeft() ? "left" : position.isRight() ? "right" : "center";
+        return new PhotoOverlay(cardColor, cardShadow, scrimCss, contentAnchor, textAlign, labelColor, verseColor);
+    }
+
+    // PHOTO front: names/date/verse sit in a scrim band anchored to the couple's chosen position
+    // (issue #362), NOT centered over the whole photo by default, so the couple's faces stay clear
+    // and unobscured (family feedback: "make it so the words aren't over your beautiful faces").
+    // The scripture keeps a distinct warm color so it reads as its own line instead of blending
+    // into the names ("a different color for the bible verse to see it").
     // Dimensions are the Lob BLEED size for the chosen shape (see dimsFor); the background fills
     // the full bleed so there is no white edge after trimming. charset=utf-8 prevents U+00B7
     // (middle dot in venue names) from being mis-decoded as Latin-1 mojibake.
     private String renderPhotoFront(CardDims dims, String headline, PostcardRequest req,
-                                    String safePhotoUrl, String verse) {
+                                    String safePhotoUrl, String verse,
+                                    PrintTextPosition position, PrintOverlayTextTheme theme) {
+        PhotoOverlay o = photoOverlay(dims, position, theme);
         return """
                 <html><head><meta charset="utf-8"><style>
                   @page { size: %s; margin: 0; }
                   body { margin:0; font-family: Georgia, serif; width:%s; height:%s; }
                   .card { width:%s; height:%s; position:relative; background-image:url('%s');
-                          background-size:cover; background-position:center; color:#fff;
-                          text-shadow:0 2px 10px rgba(0,0,0,0.6); }
-                  .scrim { position:absolute; left:0; right:0; bottom:0; height:%s;
-                           background:linear-gradient(to top, rgba(0,0,0,0.82), rgba(0,0,0,0)); }
-                  .content { position:absolute; left:0; right:0; bottom:0; padding:%s; text-align:center; }
-                  .label { font-size:13pt; letter-spacing:0.4em; text-transform:uppercase; color:#f5e9d4; margin-bottom:0.12in; }
+                          background-size:cover; background-position:center; color:%s;
+                          text-shadow:%s; }
+                  .scrim { %s }
+                  .content { position:absolute; %s padding:%s; text-align:%s; }
+                  .label { font-size:13pt; letter-spacing:0.4em; text-transform:uppercase; color:%s; margin-bottom:0.12in; }
                   .names { font-size:%s; margin:0; font-weight:bold; line-height:1.1; }
                   .date { font-size:17pt; margin-top:0.14in; }
-                  .verse { font-size:11pt; color:#f0c674; font-style:italic; margin-top:0.18in; }
+                  .verse { font-size:11pt; color:%s; font-style:italic; margin-top:0.18in; }
                 </style></head><body>
                   <div class="card">
                     <div class="scrim"></div>
@@ -435,14 +518,15 @@ public class LobPrintMailAdapter implements PrintMailPort {
                 </body></html>
                 """.formatted(dims.pageSize(), dims.widthIn(), dims.heightIn(),
                         dims.widthIn(), dims.heightIn(), safePhotoUrl,
-                        dims.scrimHeight(), dims.pad(), dims.namesPt(),
+                        o.cardColor(), o.cardShadow(), o.scrimCss(), o.contentAnchor(), dims.pad(), o.textAlign(),
+                        o.labelColor(), dims.namesPt(), o.verseColor(),
                         headline, escape(req.coupleNames()), escape(req.weddingDate()), verse);
     }
 
     // CLASSIC front: cream + gold, centered -- there are no faces to clear, so the elegant
-    // centered layout stays. The scripture gets its own deeper-gold footer line so it is clearly
-    // legible against the cream (same "see the verse" feedback as the photo card).
-    private String renderClassicFront(CardDims dims, String headline, PostcardRequest req, String verse) {
+    // centered layout stays. The eyebrow label and a thin rule under the names carry the couple's
+    // accent (issue #362); the scripture keeps its deeper-gold footer line for legibility on cream.
+    private String renderClassicFront(CardDims dims, String headline, PostcardRequest req, String verse, String accent) {
         return """
                 <html><head><meta charset="utf-8"><style>
                   @page { size: %s; margin: 0; }
@@ -451,22 +535,127 @@ public class LobPrintMailAdapter implements PrintMailPort {
                           background:linear-gradient(135deg,#fdfaf6,#f5e9d4); color:#3b2f2f; }
                   .content { position:absolute; inset:0; display:flex; flex-direction:column;
                              align-items:center; justify-content:center; padding:%s; text-align:center; }
-                  .label { font-size:14pt; letter-spacing:0.4em; text-transform:uppercase; color:#a08060; margin-bottom:0.2in; }
+                  .label { font-size:14pt; letter-spacing:0.4em; text-transform:uppercase; color:%s; margin-bottom:0.2in; }
                   .names { font-size:%s; margin:0; font-weight:bold; line-height:1.1; }
-                  .date { font-size:20pt; margin-top:0.28in; }
+                  .rule { width:1.6in; height:2px; margin:0.18in auto 0; background:%s; }
+                  .date { font-size:20pt; margin-top:0.24in; }
                   .verse { position:absolute; bottom:0.45in; left:0; right:0; font-size:12pt; color:#9c7434; font-style:italic; }
                 </style></head><body>
                   <div class="card">
                     <div class="content">
                       <div class="label">%s</div>
                       <div class="names">%s</div>
+                      <div class="rule"></div>
                       <div class="date">%s</div>
                     </div>
                     <div class="verse">%s</div>
                   </div>
                 </body></html>
                 """.formatted(dims.pageSize(), dims.widthIn(), dims.heightIn(),
-                        dims.widthIn(), dims.heightIn(), dims.pad(), dims.namesPt(),
+                        dims.widthIn(), dims.heightIn(), dims.pad(), accent, dims.namesPt(), accent,
+                        headline, escape(req.coupleNames()), escape(req.weddingDate()), verse);
+    }
+
+    // MINIMAL front (issue #362): a lot of white space, a hairline accent frame, and a thin accent
+    // rule under the names. No gradient, no ornament -- the accent is the only color, so a couple's
+    // accentColor is unmistakably what drives the look.
+    private String renderMinimalFront(CardDims dims, String headline, PostcardRequest req, String verse, String accent) {
+        return """
+                <html><head><meta charset="utf-8"><style>
+                  @page { size: %s; margin: 0; }
+                  body { margin:0; font-family: Georgia, serif; width:%s; height:%s; }
+                  .card { width:%s; height:%s; position:relative; background:#ffffff; color:#2b2b2b; }
+                  .frame { position:absolute; inset:0.28in; border:1px solid %s; }
+                  .content { position:absolute; inset:0; display:flex; flex-direction:column;
+                             align-items:center; justify-content:center; padding:%s; text-align:center; }
+                  .label { font-size:11pt; letter-spacing:0.5em; text-transform:uppercase; color:%s; margin-bottom:0.22in; }
+                  .names { font-size:%s; margin:0; font-weight:normal; line-height:1.15; letter-spacing:0.02em; }
+                  .rule { width:1.1in; height:1px; margin:0.2in auto; background:%s; }
+                  .date { font-size:15pt; letter-spacing:0.2em; text-transform:uppercase; color:#555; }
+                  .verse { position:absolute; bottom:0.5in; left:0; right:0; font-size:11pt; color:#8a6a4a; font-style:italic; }
+                </style></head><body>
+                  <div class="card">
+                    <div class="frame"></div>
+                    <div class="content">
+                      <div class="label">%s</div>
+                      <div class="names">%s</div>
+                      <div class="rule"></div>
+                      <div class="date">%s</div>
+                    </div>
+                    <div class="verse">%s</div>
+                  </div>
+                </body></html>
+                """.formatted(dims.pageSize(), dims.widthIn(), dims.heightIn(),
+                        dims.widthIn(), dims.heightIn(), accent, dims.pad(), accent, dims.namesPt(), accent,
+                        headline, escape(req.coupleNames()), escape(req.weddingDate()), verse);
+    }
+
+    // BOTANICAL front (issue #362): a warm ivory card with a double accent border frame and accent
+    // corner ticks standing in for a botanical wreath, plus the accent eyebrow. Keeps the couple's
+    // accent front and center while reading softer and more organic than CLASSIC.
+    private String renderBotanicalFront(CardDims dims, String headline, PostcardRequest req, String verse, String accent) {
+        return """
+                <html><head><meta charset="utf-8"><style>
+                  @page { size: %s; margin: 0; }
+                  body { margin:0; font-family: Georgia, serif; width:%s; height:%s; }
+                  .card { width:%s; height:%s; position:relative; background:#f7f3ea; color:#33413a; }
+                  .frame { position:absolute; inset:0.24in; border:2px solid %s; }
+                  .frame2 { position:absolute; inset:0.34in; border:1px solid %s; opacity:0.55; }
+                  .content { position:absolute; inset:0; display:flex; flex-direction:column;
+                             align-items:center; justify-content:center; padding:%s; text-align:center; }
+                  .label { font-size:12pt; letter-spacing:0.42em; text-transform:uppercase; color:%s; margin-bottom:0.2in; }
+                  .names { font-size:%s; margin:0; font-weight:bold; line-height:1.1; }
+                  .sprig { color:%s; font-size:16pt; margin:0.14in 0 0.06in; letter-spacing:0.3em; }
+                  .date { font-size:18pt; margin-top:0.06in; color:#4a5a4a; }
+                  .verse { position:absolute; bottom:0.46in; left:0; right:0; font-size:12pt; color:#5a7a55; font-style:italic; }
+                </style></head><body>
+                  <div class="card">
+                    <div class="frame"></div>
+                    <div class="frame2"></div>
+                    <div class="content">
+                      <div class="label">%s</div>
+                      <div class="names">%s</div>
+                      <div class="sprig">&#8901; &#10047; &#8901;</div>
+                      <div class="date">%s</div>
+                    </div>
+                    <div class="verse">%s</div>
+                  </div>
+                </body></html>
+                """.formatted(dims.pageSize(), dims.widthIn(), dims.heightIn(),
+                        dims.widthIn(), dims.heightIn(), accent, accent, dims.pad(), accent, dims.namesPt(), accent,
+                        headline, escape(req.coupleNames()), escape(req.weddingDate()), verse);
+    }
+
+    // DARK ELEGANT front (issue #362): deep charcoal card with light cream type and the couple's
+    // accent as the eyebrow + divider. The dramatic dark palette is the point; the accent keeps it
+    // personal. Verse in a soft gold so it stays legible on the dark ground.
+    private String renderDarkElegantFront(CardDims dims, String headline, PostcardRequest req, String verse, String accent) {
+        return """
+                <html><head><meta charset="utf-8"><style>
+                  @page { size: %s; margin: 0; }
+                  body { margin:0; font-family: Georgia, serif; width:%s; height:%s; }
+                  .card { width:%s; height:%s; position:relative;
+                          background:linear-gradient(150deg,#241f1b,#12100e); color:#f3ece0; }
+                  .content { position:absolute; inset:0; display:flex; flex-direction:column;
+                             align-items:center; justify-content:center; padding:%s; text-align:center; }
+                  .label { font-size:13pt; letter-spacing:0.46em; text-transform:uppercase; color:%s; margin-bottom:0.2in; }
+                  .names { font-size:%s; margin:0; font-weight:bold; line-height:1.1; }
+                  .rule { width:1.5in; height:2px; margin:0.18in auto 0; background:%s; }
+                  .date { font-size:19pt; margin-top:0.22in; color:#d8ccb8; }
+                  .verse { position:absolute; bottom:0.45in; left:0; right:0; font-size:12pt; color:#d9b877; font-style:italic; }
+                </style></head><body>
+                  <div class="card">
+                    <div class="content">
+                      <div class="label">%s</div>
+                      <div class="names">%s</div>
+                      <div class="rule"></div>
+                      <div class="date">%s</div>
+                    </div>
+                    <div class="verse">%s</div>
+                  </div>
+                </body></html>
+                """.formatted(dims.pageSize(), dims.widthIn(), dims.heightIn(),
+                        dims.widthIn(), dims.heightIn(), dims.pad(), accent, dims.namesPt(), accent,
                         headline, escape(req.coupleNames()), escape(req.weddingDate()), verse);
     }
 
@@ -506,6 +695,9 @@ public class LobPrintMailAdapter implements PrintMailPort {
                 ? "<div style='margin-top:6pt;font-size:12pt;'>" + escape(req.venueLine()) + "</div>"
                 : "";
         String url = req.weddingUrl() != null ? escape(req.weddingUrl()) : "altarwed.com";
+        // Issue #362: carry the couple's accent onto the back's label/url/QR caption too, so the
+        // whole card reads as one accented set. Defaults to the original gold when unset.
+        String accent = sanitizeAccent(req.accentColor());
 
         String qrHtml = qrBase64 != null
                 ? "<div class=\"qr\"><img src=\"data:image/png;base64," + qrBase64
@@ -513,27 +705,27 @@ public class LobPrintMailAdapter implements PrintMailPort {
                 : "";
 
         return dims.portrait()
-                ? renderPortraitBack(dims, req, venueLine, url, qrHtml)
-                : renderLandscapeBack(dims, req, venueLine, url, qrHtml);
+                ? renderPortraitBack(dims, req, venueLine, url, qrHtml, accent)
+                : renderLandscapeBack(dims, req, venueLine, url, qrHtml, accent);
     }
 
     // LANDSCAPE back: the left half carries our message; the right half is left blank so Lob can
     // print the recipient address block + barcode there (Lob reserves the right side of a
     // landscape postcard back for addressing). Bleed dimensions per dimsFor. charset=utf-8 --
     // same U+00B7 mojibake reason as the front.
-    private String renderLandscapeBack(CardDims dims, PostcardRequest req, String venueLine, String url, String qrHtml) {
+    private String renderLandscapeBack(CardDims dims, PostcardRequest req, String venueLine, String url, String qrHtml, String accent) {
         return """
                 <html><head><meta charset="utf-8"><style>
                   @page { size: %s; margin: 0; }
                   body { margin:0; font-family: Georgia, serif; width:%s; height:%s; color:#3b2f2f; }
                   .left { position:absolute; left:0; top:0; width:5.5in; height:%s; padding:0.5in; box-sizing:border-box; background:#fdfaf6; }
-                  .label { font-size:10pt; letter-spacing:0.3em; text-transform:uppercase; color:#a08060; }
+                  .label { font-size:10pt; letter-spacing:0.3em; text-transform:uppercase; color:%s; }
                   .title { font-size:22pt; margin:0.1in 0; }
                   .body { font-size:12pt; line-height:1.6; }
-                  .url { margin-top:0.4in; font-size:14pt; color:#a08060; }
+                  .url { margin-top:0.4in; font-size:14pt; color:%s; }
                   .qr { margin-top:0.25in; }
                   .qr img { width:1.1in; height:1.1in; display:block; }
-                  .qr-label { font-size:9pt; color:#a08060; margin:3pt 0 0; }
+                  .qr-label { font-size:9pt; color:%s; margin:3pt 0 0; }
                 </style></head><body>
                   <div class="left">
                     <div class="label">From the desk of</div>
@@ -549,7 +741,7 @@ public class LobPrintMailAdapter implements PrintMailPort {
                   </div>
                 </body></html>
                 """.formatted(dims.pageSize(), dims.widthIn(), dims.heightIn(),
-                        dims.heightIn(), escape(req.coupleNames()), venueLine, url, qrHtml);
+                        dims.heightIn(), accent, accent, accent, escape(req.coupleNames()), venueLine, url, qrHtml);
     }
 
     // PORTRAIT back: USPS/Lob place the recipient address block + barcode along the BOTTOM of a
@@ -557,20 +749,20 @@ public class LobPrintMailAdapter implements PrintMailPort {
     // blank for Lob to address. Keeping the message strictly in the top band leaves a generous
     // ink-free zone below. NOTE: portrait sizes need one live Lob test-mode send verified before
     // prod use (the address zone can't be asserted in a unit test) -- see the PR's manual steps.
-    private String renderPortraitBack(CardDims dims, PostcardRequest req, String venueLine, String url, String qrHtml) {
+    private String renderPortraitBack(CardDims dims, PostcardRequest req, String venueLine, String url, String qrHtml, String accent) {
         String topHeight = "5x7".equals(dims.lobSize()) ? "3.2in" : "4.2in";
         return """
                 <html><head><meta charset="utf-8"><style>
                   @page { size: %s; margin: 0; }
                   body { margin:0; font-family: Georgia, serif; width:%s; height:%s; color:#3b2f2f; }
                   .top { position:absolute; left:0; top:0; right:0; height:%s; padding:0.45in 0.5in; box-sizing:border-box; background:#fdfaf6; }
-                  .label { font-size:10pt; letter-spacing:0.3em; text-transform:uppercase; color:#a08060; }
+                  .label { font-size:10pt; letter-spacing:0.3em; text-transform:uppercase; color:%s; }
                   .title { font-size:20pt; margin:0.08in 0; }
                   .body { font-size:11pt; line-height:1.5; }
-                  .url { margin-top:0.16in; font-size:13pt; color:#a08060; }
+                  .url { margin-top:0.16in; font-size:13pt; color:%s; }
                   .qr { margin-top:0.16in; }
                   .qr img { width:0.95in; height:0.95in; display:block; }
-                  .qr-label { font-size:8pt; color:#a08060; margin:3pt 0 0; }
+                  .qr-label { font-size:8pt; color:%s; margin:3pt 0 0; }
                 </style></head><body>
                   <div class="top">
                     <div class="label">From the desk of</div>
@@ -586,7 +778,7 @@ public class LobPrintMailAdapter implements PrintMailPort {
                   </div>
                 </body></html>
                 """.formatted(dims.pageSize(), dims.widthIn(), dims.heightIn(),
-                        topHeight, escape(req.coupleNames()), venueLine, url, qrHtml);
+                        topHeight, accent, accent, accent, escape(req.coupleNames()), venueLine, url, qrHtml);
     }
 
     private String generateQrCodeBase64(String url) {

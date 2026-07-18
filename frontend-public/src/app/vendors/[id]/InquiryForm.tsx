@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { trackPixelEvent } from '@/lib/pixel'
 
 interface Props {
   vendorId: string
@@ -46,6 +47,11 @@ export default function InquiryForm({ vendorId, vendorBusinessName }: Props) {
 
       if (res.ok) {
         setState({ kind: 'success' })
+        // inquiry_sent is the key marketplace-liquidity conversion. Fire Meta's
+        // standard Lead event so campaigns can optimize for couples who actually
+        // reach out, not cheap pageviews. Consent + GPC are enforced inside
+        // trackPixelEvent; params carry only a coarse category, never PII.
+        trackPixelEvent('Lead', { content_category: 'vendor_inquiry' })
         return
       }
 

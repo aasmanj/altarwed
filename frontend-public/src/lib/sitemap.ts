@@ -101,6 +101,11 @@ export const STATIC_PAGES: SitemapUrl[] = [
     priority: 0.7,
   },
   {
+    url: `${BASE_URL}/for-vendors`,
+    changeFrequency: 'monthly',
+    priority: 0.7,
+  },
+  {
     url: `${BASE_URL}/resources`,
     changeFrequency: 'monthly',
     priority: 0.6,

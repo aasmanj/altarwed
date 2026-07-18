@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Printer, ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
@@ -5,6 +6,15 @@ import { useCeremonySections } from './useCeremonySections'
 import { useWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 import { useWeddingParty } from '@/features/couple/weddingparty/useWeddingParty'
 import { formatWeddingDate } from '@/lib/date'
+import {
+  CEREMONY_STYLE_OPTIONS,
+  loadCeremonyStyleKey,
+  resolveCeremonyStyle,
+  resolveCeremonyStyleKey,
+  safeAccent,
+  saveCeremonyStyleKey,
+  type CeremonyStyleKey,
+} from './ceremonyStyle'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Printable ceremony program
@@ -43,6 +53,25 @@ export default function CeremonyProgramPage() {
   const canPrint = hasContent && !anyLoading && !anyError
   const retry = () => { refetchWebsite(); refetchSections() }
 
+  // Accent color: reuse the couple's already-saved website.accentColor (same field the
+  // public site uses). safeAccent guards the style sink; null keeps the stone default so a
+  // couple who never set an accent sees the unchanged program.
+  const accent = safeAccent(website?.accentColor, null)
+  const accentBorder = accent ? { borderColor: accent } : undefined
+  const accentText = accent ? { color: accent } : undefined
+
+  // Program typography preset. Persisted per couple in localStorage (no backend column,
+  // no Flyway migration for a print-only preference). Lazy initializer reads storage once.
+  const [styleKey, setStyleKey] = useState<CeremonyStyleKey>(() =>
+    loadCeremonyStyleKey(typeof window !== 'undefined' ? window.localStorage : undefined, coupleId),
+  )
+  const style = resolveCeremonyStyle(styleKey)
+  const onStyleChange = (next: string) => {
+    const key = resolveCeremonyStyleKey(next)
+    setStyleKey(key)
+    saveCeremonyStyleKey(typeof window !== 'undefined' ? window.localStorage : undefined, coupleId, key)
+  }
+
   return (
     <div className="min-h-screen bg-stone-100 print:bg-white">
       {/* Screen-only toolbar */}
@@ -54,14 +83,29 @@ export default function CeremonyProgramPage() {
           >
             <ArrowLeft size={16} /> Back to ceremony builder
           </Link>
-          <button
-            onClick={() => window.print()}
-            disabled={!canPrint}
-            className="inline-flex items-center gap-2 rounded-lg bg-brown px-4 py-2 text-sm font-semibold text-white hover:bg-brown/90 disabled:opacity-60 transition"
-          >
-            <Printer size={16} />
-            Print / Save as PDF
-          </button>
+          <div className="flex items-center gap-3">
+            <label htmlFor="program-style" className="flex items-center gap-2 text-sm text-stone-600">
+              <span className="hidden sm:inline">Style</span>
+              <select
+                id="program-style"
+                value={styleKey}
+                onChange={(e) => onStyleChange(e.target.value)}
+                className="rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+              >
+                {CEREMONY_STYLE_OPTIONS.map((o) => (
+                  <option key={o.key} value={o.key}>{o.label}</option>
+                ))}
+              </select>
+            </label>
+            <button
+              onClick={() => window.print()}
+              disabled={!canPrint}
+              className="inline-flex items-center gap-2 rounded-lg bg-brown px-4 py-2 text-sm font-semibold text-white hover:bg-brown/90 disabled:opacity-60 transition"
+            >
+              <Printer size={16} />
+              Print / Save as PDF
+            </button>
+          </div>
         </div>
       </div>
 
@@ -83,11 +127,11 @@ export default function CeremonyProgramPage() {
       <article className="mx-auto my-6 print:my-0 bg-white text-stone-900 shadow-lg print:shadow-none w-[8.5in] max-w-full min-h-[11in] px-12 py-14 print:px-10 print:py-12 program-page">
 
         {/* Cover header */}
-        <header className="text-center border-b-2 border-double border-stone-400 pb-6 mb-8">
+        <header className="text-center border-b-2 border-double border-stone-400 pb-6 mb-8" style={accentBorder}>
           <p className="text-xs uppercase tracking-[0.4em] text-stone-500 mb-3">The Wedding Of</p>
-          <h1 className="font-serif text-4xl font-bold text-stone-900 leading-tight">{coupleLine}</h1>
+          <h1 className={`${style.displayFont} text-4xl font-bold text-stone-900 leading-tight`}>{coupleLine}</h1>
           {dateLine && (
-            <p className="font-serif text-base text-stone-600 italic mt-3">{dateLine}</p>
+            <p className={`${style.bodyFont} text-base text-stone-600 italic mt-3`}>{dateLine}</p>
           )}
           {(venueLine || venueCityLine) && (
             <p className="text-sm text-stone-500 mt-1">
@@ -103,7 +147,7 @@ export default function CeremonyProgramPage() {
         {(website?.scriptureText || website?.scriptureReference) && (
           <section className="text-center mb-8 px-6">
             {website.scriptureText && (
-              <p className="font-serif italic text-stone-700 text-base leading-relaxed">
+              <p className={`${style.bodyFont} italic text-stone-700 text-base leading-relaxed`}>
                 "{website.scriptureText}"
               </p>
             )}
@@ -118,18 +162,18 @@ export default function CeremonyProgramPage() {
         {/* Order of Service */}
         {sections.length > 0 && (
           <section className="mb-10">
-            <h2 className="text-center text-xs uppercase tracking-[0.3em] text-stone-500 mb-4 pb-2 border-b border-stone-300">
+            <h2 className="text-center text-xs uppercase tracking-[0.3em] text-stone-500 mb-4 pb-2 border-b border-stone-300" style={accentBorder}>
               Order of Service
             </h2>
             <ol className="space-y-3">
               {sections.map((s, i) => (
                 <li key={s.id} className="flex items-baseline gap-3 break-inside-avoid">
-                  <span className="font-serif text-stone-400 text-sm w-6 text-right flex-shrink-0">
+                  <span className={`${style.numeralFont} text-stone-400 text-sm w-6 text-right flex-shrink-0`} style={accentText}>
                     {String(i + 1).padStart(2, '0')}
                   </span>
                   <div className="flex-1 border-b border-dotted border-stone-300 pb-1.5">
                     <div className="flex items-baseline justify-between gap-3">
-                      <p className="font-serif font-semibold text-stone-800 text-sm">{s.title}</p>
+                      <p className={`${style.bodyFont} font-semibold text-stone-800 text-sm`}>{s.title}</p>
                       {s.content && (
                         <p className="text-xs text-stone-500 italic text-right max-w-[55%] whitespace-normal break-words">{s.content}</p>
                       )}
@@ -144,14 +188,14 @@ export default function CeremonyProgramPage() {
         {/* Ceremony team (officiant, musicians, readers) */}
         {ceremonyTeam.length > 0 && (
           <section className="mb-10 break-inside-avoid">
-            <h2 className="text-center text-xs uppercase tracking-[0.3em] text-stone-500 mb-4 pb-2 border-b border-stone-300">
+            <h2 className="text-center text-xs uppercase tracking-[0.3em] text-stone-500 mb-4 pb-2 border-b border-stone-300" style={accentBorder}>
               Officiant, Musicians & Readers
             </h2>
             <ul className="grid grid-cols-2 gap-x-8 gap-y-2">
               {ceremonyTeam.map(m => (
                 <li key={m.id} className="flex items-baseline justify-between gap-2 text-sm">
                   <span className="text-stone-500 italic">{m.role}</span>
-                  <span className="font-serif font-medium text-stone-800 text-right">{m.name}</span>
+                  <span className={`${style.bodyFont} font-medium text-stone-800 text-right`}>{m.name}</span>
                 </li>
               ))}
             </ul>
@@ -161,31 +205,31 @@ export default function CeremonyProgramPage() {
         {/* Wedding Party, two columns */}
         {(brideParty.length > 0 || groomParty.length > 0) && (
           <section className="mb-10 break-inside-avoid">
-            <h2 className="text-center text-xs uppercase tracking-[0.3em] text-stone-500 mb-4 pb-2 border-b border-stone-300">
+            <h2 className="text-center text-xs uppercase tracking-[0.3em] text-stone-500 mb-4 pb-2 border-b border-stone-300" style={accentBorder}>
               Wedding Party
             </h2>
             <div className="grid grid-cols-2 gap-x-10">
               <div>
-                <p className="font-serif text-center text-sm font-semibold text-stone-700 mb-3 uppercase tracking-wide">
+                <p className={`${style.displayFont} text-center text-sm font-semibold text-stone-700 mb-3 uppercase tracking-wide`}>
                   {website?.partnerTwoName ? `${website.partnerTwoName}'s Side` : "Bride's Side"}
                 </p>
                 <ul className="space-y-1.5">
                   {brideParty.map(m => (
                     <li key={m.id} className="text-center text-sm">
-                      <p className="font-serif font-medium text-stone-800">{m.name}</p>
+                      <p className={`${style.bodyFont} font-medium text-stone-800`}>{m.name}</p>
                       <p className="text-xs text-stone-500 italic">{m.role}</p>
                     </li>
                   ))}
                 </ul>
               </div>
               <div>
-                <p className="font-serif text-center text-sm font-semibold text-stone-700 mb-3 uppercase tracking-wide">
+                <p className={`${style.displayFont} text-center text-sm font-semibold text-stone-700 mb-3 uppercase tracking-wide`}>
                   {website?.partnerOneName ? `${website.partnerOneName}'s Side` : "Groom's Side"}
                 </p>
                 <ul className="space-y-1.5">
                   {groomParty.map(m => (
                     <li key={m.id} className="text-center text-sm">
-                      <p className="font-serif font-medium text-stone-800">{m.name}</p>
+                      <p className={`${style.bodyFont} font-medium text-stone-800`}>{m.name}</p>
                       <p className="text-xs text-stone-500 italic">{m.role}</p>
                     </li>
                   ))}
@@ -196,8 +240,8 @@ export default function CeremonyProgramPage() {
         )}
 
         {/* Closing */}
-        <footer className="text-center mt-12 pt-6 border-t-2 border-double border-stone-400">
-          <p className="font-serif italic text-stone-600 text-sm">
+        <footer className="text-center mt-12 pt-6 border-t-2 border-double border-stone-400" style={accentBorder}>
+          <p className={`${style.displayFont} italic text-stone-600 text-sm`}>
             {website
               ? `Thank you for celebrating the marriage of ${coupleLine}.`
               : 'Thank you for celebrating with us today.'}

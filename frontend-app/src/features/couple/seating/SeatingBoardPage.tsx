@@ -1,9 +1,12 @@
+import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Printer, ArrowLeft } from 'lucide-react'
+import { Printer, ArrowLeft, Pencil, Check, X } from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
 import QueryErrorState from '@/components/QueryErrorState'
 import { useGuests, type Guest } from '@/features/couple/guests/useGuests'
 import { useSeatingTables } from './useSeatingTables'
+import TableShapeIcon from './TableShapeIcon'
+import { useWeddingWebsite, useUpdateWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Printable seating board
@@ -34,14 +37,51 @@ interface BoardRow {
   tableLabel: string
 }
 
+const DEFAULT_TITLE = 'Welcome'
+const DEFAULT_ACCENT = '#d4af6a'
+
 export default function SeatingBoardPage() {
   const { user } = useAuth()
   const coupleId = user?.id ?? ''
   const { data: guests = [], isLoading: guestsLoading, isError: guestsError, refetch: refetchGuests } = useGuests(coupleId)
   const { data: tables = [], isLoading: tablesLoading, isError: tablesError, refetch: refetchTables } = useSeatingTables(coupleId)
+  const { data: website } = useWeddingWebsite(coupleId)
+  const updateWebsite = useUpdateWeddingWebsite(coupleId)
+
   const isLoading = guestsLoading || tablesLoading
   const isError = guestsError || tablesError
   const refetch = () => { refetchGuests(); refetchTables() }
+
+  const accentColor = website?.accentColor ?? DEFAULT_ACCENT
+  const savedTitle = website?.seatingBoardTitle ?? DEFAULT_TITLE
+
+  // Inline title editing (screen-only; hidden on print)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editing) {
+      setDraft(website?.seatingBoardTitle ?? '')
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }
+    // Intentionally omit website?.seatingBoardTitle: a background refetch must not
+    // overwrite a draft the couple is actively typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing])
+
+  function commitTitle() {
+    // Send the raw trimmed value. Backend blankToNull semantics: "" clears to null
+    // (reverts to "Welcome"); non-empty sets the title; null would mean "no change"
+    // and would prevent clearing a custom title back to the default.
+    updateWebsite.mutate({ seatingBoardTitle: draft.trim() })
+    setEditing(false)
+  }
+
+  function cancelEdit() {
+    setEditing(false)
+  }
 
   const tableNameFor = (g: Guest): string | null => {
     if (!g.tableNumber) return null
@@ -120,9 +160,57 @@ export default function SeatingBoardPage() {
         <article className="mx-auto my-6 print:my-0 bg-white text-stone-900 shadow-lg print:shadow-none w-[8.5in] max-w-full min-h-[11in] px-12 py-14 print:px-10 print:py-12 board-page">
 
           {/* Find your seat, alphabetical */}
-          <header className="text-center border-b-2 border-double border-stone-400 pb-6 mb-8">
+          <header
+            className="text-center border-b-2 border-double pb-6 mb-8"
+            style={{ borderColor: accentColor }}
+          >
             <p className="text-xs uppercase tracking-[0.4em] text-stone-500 mb-3">Please Find Your Seat</p>
-            <h1 className="font-serif text-4xl font-bold text-stone-900">Welcome</h1>
+
+            {/* Editable board title -- pencil button is screen-only, hidden on print */}
+            <div className="inline-flex items-center gap-2 group">
+              {editing ? (
+                <>
+                  <input
+                    ref={inputRef}
+                    value={draft}
+                    onChange={e => setDraft(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') commitTitle()
+                      if (e.key === 'Escape') cancelEdit()
+                    }}
+                    maxLength={100}
+                    placeholder={DEFAULT_TITLE}
+                    className="font-serif text-4xl font-bold text-stone-900 border-b-2 border-stone-400 focus:border-stone-700 outline-none bg-transparent text-center w-72"
+                    aria-label="Board title"
+                  />
+                  <button
+                    onClick={commitTitle}
+                    className="print:hidden text-green-700 hover:text-green-900 transition"
+                    aria-label="Save board title"
+                  >
+                    <Check size={18} />
+                  </button>
+                  <button
+                    onClick={cancelEdit}
+                    className="print:hidden text-stone-400 hover:text-stone-700 transition"
+                    aria-label="Cancel editing"
+                  >
+                    <X size={18} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h1 className="font-serif text-4xl font-bold text-stone-900">{savedTitle}</h1>
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="print:hidden opacity-0 group-hover:opacity-100 text-stone-400 hover:text-stone-700 transition"
+                    aria-label="Edit board title"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                </>
+              )}
+            </div>
           </header>
 
           <section className="mb-12">
@@ -148,8 +236,12 @@ export default function SeatingBoardPage() {
                 if (seated.length === 0) return null
                 return (
                   <div key={t.id} className="break-inside-avoid">
-                    <p className="font-serif font-semibold text-stone-800 mb-1.5 pb-1 border-b border-stone-200">
-                      {t.name}{' '}
+                    <p
+                      className="font-serif font-semibold text-stone-800 mb-1.5 pb-1 border-b flex items-center gap-1.5"
+                      style={{ borderColor: accentColor }}
+                    >
+                      <TableShapeIcon shape={t.shape} capacity={t.capacity} size={18} className="text-stone-500 flex-shrink-0" />
+                      <span>{t.name}</span>{' '}
                       <span className="text-xs font-normal text-stone-400">({seated.length}/{t.capacity})</span>
                     </p>
                     <ul className="space-y-0.5">
@@ -165,7 +257,10 @@ export default function SeatingBoardPage() {
             </div>
           </section>
 
-          <footer className="text-center mt-12 pt-6 border-t-2 border-double border-stone-400">
+          <footer
+            className="text-center mt-12 pt-6 border-t-2 border-double"
+            style={{ borderColor: accentColor }}
+          >
             <p className="text-[10px] text-stone-400 uppercase tracking-widest">Created with AltarWed</p>
           </footer>
         </article>

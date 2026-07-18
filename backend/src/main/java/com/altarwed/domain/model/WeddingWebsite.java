@@ -104,6 +104,9 @@ public record WeddingWebsite(
         // font-family. null = the default serif (Playfair).
         String nameFont,
 
+        // V92: optional custom headline on the printable seating board. null = "Welcome".
+        String seatingBoardTitle,
+
         boolean isDeleted,
         LocalDateTime deletedAt,
 
@@ -124,7 +127,7 @@ public record WeddingWebsite(
                 stdImageUrl,
                 receptionVenueName, receptionVenueAddress, receptionVenueCity, receptionVenueState,
                 receptionTime, receptionVenueAdditionalInfo, ceremonyVenueTitle, receptionVenueTitle,
-                nameFont,
+                nameFont, seatingBoardTitle,
                 isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
@@ -142,7 +145,7 @@ public record WeddingWebsite(
                 stdImageUrl,
                 receptionVenueName, receptionVenueAddress, receptionVenueCity, receptionVenueState,
                 receptionTime, receptionVenueAdditionalInfo, ceremonyVenueTitle, receptionVenueTitle,
-                nameFont,
+                nameFont, seatingBoardTitle,
                 isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
@@ -160,7 +163,7 @@ public record WeddingWebsite(
                 stdImageUrl,
                 receptionVenueName, receptionVenueAddress, receptionVenueCity, receptionVenueState,
                 receptionTime, receptionVenueAdditionalInfo, ceremonyVenueTitle, receptionVenueTitle,
-                nameFont,
+                nameFont, seatingBoardTitle,
                 true, LocalDateTime.now(), createdAt, LocalDateTime.now());
     }
 }

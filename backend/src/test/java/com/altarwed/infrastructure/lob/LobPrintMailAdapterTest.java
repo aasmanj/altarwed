@@ -38,9 +38,15 @@ class LobPrintMailAdapterTest {
     }
 
     // Full overload for tests that exercise the card shape (cardSize) and the couple's own
-    // scripture (verseText/verseReference).
+    // scripture (verseText/verseReference). accentColor defaults to null (the original gold).
     private static PostcardRequest request(String templateKey, ToAddress to,
                                            String cardSize, String verseText, String verseReference) {
+        return request(templateKey, to, cardSize, verseText, verseReference, null);
+    }
+
+    // Fullest overload: adds the couple's website accentColor (issue #362).
+    private static PostcardRequest request(String templateKey, ToAddress to, String cardSize,
+                                           String verseText, String verseReference, String accentColor) {
         return new PostcardRequest(
                 templateKey,
                 "Emily & Jordan",
@@ -52,7 +58,8 @@ class LobPrintMailAdapterTest {
                 to,
                 cardSize,
                 verseText,
-                verseReference
+                verseReference,
+                accentColor
         );
     }
 
@@ -196,6 +203,103 @@ class LobPrintMailAdapterTest {
     void front_headline_switches_on_template_key() {
         assertThat(adapter.renderFront(request("SAVE_THE_DATE_CLASSIC"))).contains("Save the Date");
         assertThat(adapter.renderFront(request("INVITATION_CLASSIC"))).contains("You're Invited");
+    }
+
+    // ── Issue #362: additional templates, accent-driven colors, 3x3 position, light/dark theme ──
+
+    // Every new base template must still render at the Lob bleed size (a wrong dimension 422s the
+    // whole order, exactly as the CLASSIC/PHOTO cards do) and carry its distinctive markup.
+    @Test
+    void new_templates_render_at_lob_bleed_dimensions_and_switch_headline() {
+        for (String key : new String[] {
+                "SAVE_THE_DATE_MINIMAL", "INVITATION_MINIMAL",
+                "SAVE_THE_DATE_BOTANICAL", "INVITATION_BOTANICAL",
+                "SAVE_THE_DATE_DARK_ELEGANT", "INVITATION_DARK_ELEGANT" }) {
+            String front = adapter.renderFront(request(key));
+            assertThat(front).contains("@page { size: 11.25in 6.25in;");
+            assertThat(front).contains("width:11.25in; height:6.25in;");
+            assertThat(front).contains(key.startsWith("SAVE_THE_DATE") ? "Save the Date" : "You're Invited");
+        }
+    }
+
+    @Test
+    void minimal_and_botanical_render_their_own_ornament() {
+        assertThat(adapter.renderFront(request("SAVE_THE_DATE_MINIMAL"))).contains(".frame {");
+        assertThat(adapter.renderFront(request("INVITATION_BOTANICAL"))).contains(".sprig {");
+        // Dark elegant uses the dark charcoal background, not the cream classic gradient.
+        assertThat(adapter.renderFront(request("SAVE_THE_DATE_DARK_ELEGANT")))
+                .contains("linear-gradient(150deg,#241f1b,#12100e)");
+    }
+
+    // Accent-driven colors: a valid website accentColor must reach the non-photo card CSS.
+    @Test
+    void accent_color_from_website_applies_to_non_photo_templates() {
+        String front = adapter.renderFront(
+                request("INVITATION_MINIMAL", US_RECIPIENT, null, null, null, "#2E86DE"));
+        assertThat(front).contains("#2E86DE");
+        // And the classic card too (label + rule).
+        assertThat(adapter.renderFront(request("SAVE_THE_DATE_CLASSIC", US_RECIPIENT, null, null, null, "#2E86DE")))
+                .contains("#2E86DE");
+    }
+
+    // A missing accent renders exactly as before (the original gold), so unset couples don't regress.
+    @Test
+    void accent_color_defaults_to_gold_when_website_has_none() {
+        String front = adapter.renderFront(request("SAVE_THE_DATE_CLASSIC", US_RECIPIENT, null, null, null, null));
+        assertThat(front).contains("#a08060");
+    }
+
+    // A couple-controlled accent that is not a strict hex literal must never reach inline CSS; it
+    // falls back to the default gold rather than injecting arbitrary text into the style attribute.
+    @Test
+    void accent_color_rejects_non_hex_injection_and_falls_back() {
+        String malicious = "red; background:url(javascript:alert(1))";
+        String front = adapter.renderFront(request("INVITATION_MINIMAL", US_RECIPIENT, null, null, null, malicious));
+        assertThat(front).doesNotContain("javascript:");
+        assertThat(front).contains("#a08060");
+    }
+
+    // 3x3 position picker: the chosen position must move the photo text block. BOTTOM stays the
+    // proven default anchor; TOP anchors the content (and scrim) to the top; a LEFT position
+    // left-aligns the text.
+    @Test
+    void photo_text_position_anchors_the_overlay_where_the_couple_chose() {
+        String bottom = adapter.renderFront(request("SAVE_THE_DATE_PHOTO~BOTTOM_CENTER~LIGHT"));
+        assertThat(bottom).contains(".content { position:absolute; left:0; right:0; bottom:0;");
+        assertThat(bottom).contains("text-align:center;");
+
+        String topLeft = adapter.renderFront(request("SAVE_THE_DATE_PHOTO~TOP_LEFT~LIGHT"));
+        assertThat(topLeft).contains(".content { position:absolute; left:0; right:0; top:0;");
+        assertThat(topLeft).contains("text-align:left;");
+        // The scrim follows the text to the top edge (gradient now fades downward).
+        assertThat(topLeft).contains("linear-gradient(to bottom,");
+
+        String middleRight = adapter.renderFront(request("INVITATION_PHOTO~MIDDLE_RIGHT~LIGHT"));
+        assertThat(middleRight).contains("text-align:right;");
+        assertThat(middleRight).contains("justify-content:center;");
+    }
+
+    // Light/dark overlay toggle: DARK flips the text to dark type over a light scrim so it reads on
+    // a bright photo; LIGHT keeps the original light type over a dark scrim.
+    @Test
+    void photo_overlay_theme_flips_text_and_scrim_colors() {
+        String light = adapter.renderFront(request("SAVE_THE_DATE_PHOTO~BOTTOM_CENTER~LIGHT"));
+        assertThat(light).contains("color:#fff;");
+        assertThat(light).contains("rgba(0,0,0,0.82)");
+
+        String dark = adapter.renderFront(request("SAVE_THE_DATE_PHOTO~BOTTOM_CENTER~DARK"));
+        assertThat(dark).contains("color:#2a2018;");
+        assertThat(dark).contains("rgba(255,255,255,0.85)");
+    }
+
+    // A bare PHOTO key (no overlay suffix) must still render the proven default: bottom-center,
+    // light type. This is the backward-compatibility guard for existing/legacy orders.
+    @Test
+    void bare_photo_key_still_renders_the_default_bottom_center_light() {
+        String front = adapter.renderFront(request("INVITATION_PHOTO"));
+        assertThat(front).contains(".content { position:absolute; left:0; right:0; bottom:0;");
+        assertThat(front).contains("color:#fff;");
+        assertThat(front).contains(".verse { font-size:11pt; color:#f0c674;");
     }
 
     @Test

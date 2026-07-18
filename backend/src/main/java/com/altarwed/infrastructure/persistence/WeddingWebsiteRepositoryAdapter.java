@@ -96,7 +96,7 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 e.getStdImageUrl(),
                 e.getReceptionVenueName(), e.getReceptionVenueAddress(), e.getReceptionVenueCity(), e.getReceptionVenueState(),
                 e.getReceptionTime(), e.getReceptionVenueAdditionalInfo(), e.getCeremonyVenueTitle(), e.getReceptionVenueTitle(),
-                e.getNameFont(),
+                e.getNameFont(), e.getSeatingBoardTitle(),
                 e.isDeleted(), e.getDeletedAt(),
                 e.getCreatedAt(), e.getUpdatedAt()
         );
@@ -156,6 +156,7 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
                 .ceremonyVenueTitle(w.ceremonyVenueTitle())
                 .receptionVenueTitle(w.receptionVenueTitle())
                 .nameFont(w.nameFont())
+                .seatingBoardTitle(w.seatingBoardTitle())
                 .isDeleted(w.isDeleted())
                 .deletedAt(w.deletedAt())
                 .createdAt(w.createdAt())

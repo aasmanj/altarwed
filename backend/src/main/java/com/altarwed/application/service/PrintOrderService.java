@@ -172,6 +172,16 @@ public class PrintOrderService {
      */
     public CreateOrderResult createOrder(UUID coupleId, CreatePrintOrderRequest req) {
         PrintOrderType orderType = PrintOrderType.valueOf(req.orderType());
+        // Issue #352: templateKey is fully couple-controlled, selects a layout branch + headline,
+        // and is concatenated into Lob's description metadata. Validate it against the closed
+        // allowlist before doing anything else so an unknown/mismatched value is a clean 400 rather
+        // than a silently-accepted order. WARN (expected domain-rule rejection, not an error), and
+        // deliberately do NOT log the raw key to avoid log injection from a rogue client.
+        if (!PrintTemplate.isAllowedTemplateKey(req.templateKey())) {
+            log.warn("print order rejected, unknown templateKey, coupleId={}", coupleId);
+            throw new IllegalArgumentException(
+                    "Unknown print template. Choose one of the available card designs.");
+        }
         String idempotencyKey = req.idempotencyKey();
         log.info("print order requested, coupleId={}, orderType={}, templateKey={}, recipients={}",
                  coupleId, orderType, req.templateKey(), req.guestIds().size());
@@ -428,6 +438,10 @@ public class PrintOrderService {
         // hardcoded verse. The adapter falls back to an AltarWed default when both are blank.
         String verseText = websiteOpt.map(WeddingWebsite::scriptureText).orElse(null);
         String verseReference = websiteOpt.map(WeddingWebsite::scriptureReference).orElse(null);
+        // Issue #362: reuse the couple's own website accent as the card accent on non-photo
+        // templates. Read here (not persisted on the order) so the printed card always matches the
+        // couple's current website accent; the adapter sanitizes it before it reaches inline CSS.
+        String accentColor = websiteOpt.map(WeddingWebsite::accentColor).orElse(null);
 
         FromAddress from = new FromAddress(
                 order.returnName(), order.returnAddressLine1(), order.returnAddressLine2(),
@@ -458,7 +472,7 @@ public class PrintOrderService {
             );
             PostcardRequest postcard = new PostcardRequest(
                     order.templateKey(), coupleNames, weddingDate, weddingUrl, heroPhotoUrl, venueLine, from, to,
-                    order.cardSize(), verseText, verseReference
+                    order.cardSize(), verseText, verseReference, accentColor
             );
             try {
                 String lobId = printMailPort.sendPostcard(postcard);

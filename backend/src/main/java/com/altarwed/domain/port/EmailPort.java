@@ -1,6 +1,7 @@
 package com.altarwed.domain.port;
 
 import com.altarwed.domain.model.EmailRecipient;
+import com.altarwed.domain.model.RsvpInviteRecipient;
 
 import java.util.List;
 import java.util.UUID;
@@ -38,6 +39,18 @@ public interface EmailPort {
     void sendSaveTheDateEmails(List<EmailRecipient> recipients, UUID coupleId, String coupleNames,
                                String weddingDate, String weddingUrl, String stdImageUrl,
                                String coupleReplyToEmail);
+
+    // Bulk RSVP invite send. Implementations fan the recipients out through the provider's
+    // /emails/batch API so a 300-guest invite-all is a handful of API calls rather than 300,
+    // instead of tripping the per-second rate limit (a spring-season invite burst would otherwise
+    // sit in an hours-long backlog and arrive late or be dropped on the next deploy). Each
+    // recipient carries its own rsvpToken because, unlike a save-the-date, every RSVP link is
+    // per-guest; shared fields (coupleNames, weddingDate) are identical for every recipient.
+    // coupleId plus each recipient's guestId tag the message for delivery-webhook mapping, and
+    // coupleReplyToEmail routes guest replies to this couple's own inbox (Reply-To).
+    void sendRsvpInviteEmails(List<RsvpInviteRecipient> recipients, UUID coupleId, String coupleNames,
+                              String weddingDate, String coupleReplyToEmail);
+
     // Notifies the couple that a guest responded. guestReplyToEmail is the guest's own
     // address, set as Reply-To so the couple hitting reply reaches THAT guest, not the
     // shared from-address. Null when the guest has no email (e.g. an RSVP found by name);

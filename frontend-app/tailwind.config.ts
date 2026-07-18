@@ -20,6 +20,8 @@ export default {
       fontFamily: {
         serif: ['Playfair Display', 'Georgia', 'serif'],
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        // Script face for the ceremony-program "Script accent" style (issue #355).
+        script: ['Great Vibes', 'cursive'],
       },
     },
   },

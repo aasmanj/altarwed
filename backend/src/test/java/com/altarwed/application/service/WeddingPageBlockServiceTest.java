@@ -180,7 +180,7 @@ class WeddingPageBlockServiceTest {
                 null, null, null, null,
                 null, null, null, null,
                 null,
-                null, null, null, null, null, null, null, null, null,  // reception venue + titles (V90), nameFont (V91)
+                null, null, null, null, null, null, null, null, null, null,  // reception venue + titles (V90), nameFont (V91), seatingBoardTitle (V92)
                 false, null, null, null
         );
     }

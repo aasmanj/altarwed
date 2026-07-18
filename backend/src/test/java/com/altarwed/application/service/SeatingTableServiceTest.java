@@ -1,6 +1,7 @@
 package com.altarwed.application.service;
 
 import com.altarwed.application.dto.CreateSeatingTableRequest;
+import com.altarwed.application.dto.UpdateSeatingTableRequest;
 import com.altarwed.domain.exception.SeatingTableNotFoundException;
 import com.altarwed.domain.model.SeatingTable;
 import com.altarwed.domain.port.GuestRepository;
@@ -35,7 +36,7 @@ class SeatingTableServiceTest {
     }
 
     private SeatingTable table(UUID coupleId, int sortOrder) {
-        return new SeatingTable(UUID.randomUUID(), coupleId, "Table", 8, sortOrder, null, null);
+        return new SeatingTable(UUID.randomUUID(), coupleId, "Table", 8, sortOrder, SeatingTable.SHAPE_ROUND, null, null);
     }
 
     @Test
@@ -45,7 +46,7 @@ class SeatingTableServiceTest {
                 .thenReturn(List.of(table(coupleId, 0), table(coupleId, 2)));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        service().create(coupleId, new CreateSeatingTableRequest("Head Table", 10));
+        service().create(coupleId, new CreateSeatingTableRequest("Head Table", 10, SeatingTable.SHAPE_HEAD));
 
         ArgumentCaptor<SeatingTable> saved = ArgumentCaptor.forClass(SeatingTable.class);
         verify(repository).save(saved.capture());
@@ -58,11 +59,74 @@ class SeatingTableServiceTest {
         when(repository.findAllByCoupleId(coupleId)).thenReturn(List.of());
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        service().create(coupleId, new CreateSeatingTableRequest("Sweetheart", 2));
+        service().create(coupleId, new CreateSeatingTableRequest("Sweetheart", 2, SeatingTable.SHAPE_ROUND));
 
         ArgumentCaptor<SeatingTable> saved = ArgumentCaptor.forClass(SeatingTable.class);
         verify(repository).save(saved.capture());
         assertThat(saved.getValue().sortOrder()).isZero();
+    }
+
+    // ── shape + capacity: carried through the create/update path (issue #356) ──
+
+    @Test
+    void create_persistsChosenShapeAndCapacityPreset() {
+        UUID coupleId = UUID.randomUUID();
+        when(repository.findAllByCoupleId(coupleId)).thenReturn(List.of());
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Capacity 12 is one of the presets the modal offers; shape is a rectangle banquet table.
+        service().create(coupleId, new CreateSeatingTableRequest("Banquet", 12, SeatingTable.SHAPE_RECTANGLE));
+
+        ArgumentCaptor<SeatingTable> saved = ArgumentCaptor.forClass(SeatingTable.class);
+        verify(repository).save(saved.capture());
+        assertThat(saved.getValue().capacity()).isEqualTo(12);
+        assertThat(saved.getValue().shape()).isEqualTo(SeatingTable.SHAPE_RECTANGLE);
+    }
+
+    @Test
+    void create_defaultsShapeToRound_whenNotProvided() {
+        UUID coupleId = UUID.randomUUID();
+        when(repository.findAllByCoupleId(coupleId)).thenReturn(List.of());
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service().create(coupleId, new CreateSeatingTableRequest("Family", 8, null));
+
+        ArgumentCaptor<SeatingTable> saved = ArgumentCaptor.forClass(SeatingTable.class);
+        verify(repository).save(saved.capture());
+        assertThat(saved.getValue().shape()).isEqualTo(SeatingTable.SHAPE_ROUND);
+    }
+
+    @Test
+    void update_changesShapeAndCapacity_whenProvided() {
+        UUID coupleId = UUID.randomUUID();
+        SeatingTable existing = table(coupleId, 0); // ROUND, capacity 8
+        when(repository.findById(existing.id())).thenReturn(java.util.Optional.of(existing));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service().update(coupleId, existing.id(),
+                new UpdateSeatingTableRequest(null, 10, null, SeatingTable.SHAPE_HEAD));
+
+        ArgumentCaptor<SeatingTable> saved = ArgumentCaptor.forClass(SeatingTable.class);
+        verify(repository).save(saved.capture());
+        assertThat(saved.getValue().shape()).isEqualTo(SeatingTable.SHAPE_HEAD);
+        assertThat(saved.getValue().capacity()).isEqualTo(10);
+    }
+
+    @Test
+    void update_preservesExistingShape_whenShapeOmitted() {
+        UUID coupleId = UUID.randomUUID();
+        SeatingTable existing = new SeatingTable(
+                UUID.randomUUID(), coupleId, "Head", 8, 0, SeatingTable.SHAPE_HEAD, null, null);
+        when(repository.findById(existing.id())).thenReturn(java.util.Optional.of(existing));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Renaming only; shape must not silently reset to the default.
+        service().update(coupleId, existing.id(),
+                new UpdateSeatingTableRequest("Head Table", null, null, null));
+
+        ArgumentCaptor<SeatingTable> saved = ArgumentCaptor.forClass(SeatingTable.class);
+        verify(repository).save(saved.capture());
+        assertThat(saved.getValue().shape()).isEqualTo(SeatingTable.SHAPE_HEAD);
     }
 
     // ── delete: reindex guests (two bulk UPDATEs) so a mid-list delete never scrambles the board ──

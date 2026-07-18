@@ -171,6 +171,31 @@ class PrintOrderServiceTest {
     }
 
     @Test
+    void createOrder_rejectsUnknownTemplateKey_beforeChargingOrPersisting() {
+        // Issue #352: everything else about this request is valid (real couple, deliverable guest,
+        // stubbed persistence + Stripe), so WITHOUT the server-side allowlist the order would sail
+        // through to save() + Checkout. The only defect is a bogus, couple-supplied templateKey.
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple()));
+        UUID guestId = UUID.randomUUID();
+        when(guestRepository.findById(guestId)).thenReturn(Optional.of(domesticGuest(guestId, "Guest One")));
+        when(printMailPort.verifyAddress(any())).thenReturn(new AddressVerificationResult(true, null));
+        stubSuccessfulOrderPersistence();
+
+        var req = new CreatePrintOrderRequest(
+                "SAVE_THE_DATE", "SAVE_THE_DATE_HACKER", List.of(guestId),
+                "The Couple", "1 Return Way", null, "Chicago", "il", "60601", "idem-352", null);
+
+        assertThatThrownBy(() -> service.createOrder(coupleId, req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("template");
+
+        // Rejected before any durable side-effect: no order row, no recipient rows, no charge.
+        verify(printOrderRepository, never()).save(any());
+        verify(printOrderRepository, never()).appendRecipient(any(), any());
+        verifyNoInteractions(stripePort);
+    }
+
+    @Test
     void createOrder_throwsWhenCoupleNotFound() {
         when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
 
