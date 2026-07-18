@@ -327,11 +327,10 @@ public class StripeService {
      * reconciliation job.
      */
     public boolean failPrintOrderPayment(UUID orderId, String errorMessage) {
-        boolean won = printOrderRepository.markPaymentFailed(orderId, errorMessage);
-        if (won) {
-            log.info("print order payment failed, orderId={}", orderId);
-        }
-        return won;
+        // No success log here: each caller logs its own context-specific line (the expired
+        // webhook handler keeps its pre-#209 "print order payment expired" string verbatim so
+        // any App Insights query keyed on it stays intact; the reconciler logs a WARN).
+        return printOrderRepository.markPaymentFailed(orderId, errorMessage);
     }
 
     // Issue #59: fires if the couple abandons the hosted Checkout page (Stripe's 24h default
@@ -356,7 +355,9 @@ public class StripeService {
         boolean won = failPrintOrderPayment(orderId, CHECKOUT_EXPIRED_MESSAGE);
         if (!won) {
             log.info("stripe checkout.session.expired ignored, order already resolved, orderId={}", orderId);
+            return;
         }
+        log.info("print order payment expired, orderId={}", orderId);
     }
 
     // Issue #209: shared by the expired-webhook handler and the reconciliation job so an order

@@ -121,6 +121,26 @@ class PrintOrderPaymentReconciliationServiceTest {
     }
 
     @Test
+    void paidOrder_winsOverAnExpiredSession_neverMarkedFailed() {
+        // A session can be expired AND paid (the couple paid, then the session object aged out
+        // of "complete" reporting oddly, or a race between expiry and completion). The money
+        // truth (payment_status) must always win over the session lifecycle: a charged couple
+        // converges to fulfillment, never to FAILED.
+        UUID orderId = UUID.randomUUID();
+        when(printOrderRepository.findPendingPaymentCreatedBefore(any()))
+                .thenReturn(List.of(stuckOrder(orderId, "cs_1")));
+        when(stripePort.retrieveCheckoutSessionStatus("cs_1"))
+                .thenReturn(new CheckoutSessionStatus("expired", "paid", "pi_9"));
+        when(printOrderRepository.markPaymentConfirmed(orderId, "pi_9")).thenReturn(true);
+
+        service.reconcileStuckOrders();
+
+        verify(printOrderRepository).markPaymentConfirmed(orderId, "pi_9");
+        verify(printOrderService).submitBatchAsync(orderId);
+        verify(printOrderRepository, never()).markPaymentFailed(any(), any());
+    }
+
+    @Test
     void paidStuckOrder_doesNotTriggerTheBatchWhenALateWebhookAlreadyWon() {
         // The lost webhook finally lands between our stuck-order query and the CAS: the CAS
         // returns false and the reconciler must treat the order as already resolved.
