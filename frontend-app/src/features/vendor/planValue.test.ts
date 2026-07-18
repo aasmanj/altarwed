@@ -2,10 +2,28 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   PLAN_MONTHLY_VALUE,
   PLAN_ANNUAL_VALUE,
+  PLAN_PREMIUM_MONTHLY_VALUE,
+  PLAN_PREMIUM_ANNUAL_VALUE,
   planValueForPrice,
   rememberCheckoutValue,
   takeCheckoutValue,
+  type PlanPriceIds,
 } from './planValue'
+
+// Ladder-shaped price id fixtures (issue #370). `proOnly` mirrors prod today: Premium ids
+// blank, so value resolution must behave exactly as before the ladder shipped.
+const fullLadder: PlanPriceIds = {
+  proMonthly: 'price_monthly',
+  proAnnual: 'price_annual',
+  premiumMonthly: 'price_premium_monthly',
+  premiumAnnual: 'price_premium_annual',
+}
+const proOnly: PlanPriceIds = {
+  proMonthly: 'price_monthly',
+  proAnnual: 'price_annual',
+  premiumMonthly: null,
+  premiumAnnual: null,
+}
 
 // Minimal in-memory sessionStorage so the stash round trip can be asserted
 // without a browser.
@@ -29,16 +47,31 @@ afterEach(() => {
 })
 
 describe('planValueForPrice (issue #372, value-based lookalikes)', () => {
-  it('resolves the annual value when the price id matches the annual plan', () => {
-    expect(planValueForPrice('price_annual', 'price_monthly', 'price_annual')).toBe(PLAN_ANNUAL_VALUE)
+  it('resolves the annual value when the price id matches the Pro annual plan', () => {
+    expect(planValueForPrice('price_annual', proOnly)).toBe(PLAN_ANNUAL_VALUE)
   })
 
-  it('resolves the monthly value when the price id matches the monthly plan', () => {
-    expect(planValueForPrice('price_monthly', 'price_monthly', 'price_annual')).toBe(PLAN_MONTHLY_VALUE)
+  it('resolves the monthly value when the price id matches the Pro monthly plan', () => {
+    expect(planValueForPrice('price_monthly', proOnly)).toBe(PLAN_MONTHLY_VALUE)
   })
 
   it('defaults to the monthly value (never NaN) on an unknown or missing price id', () => {
-    expect(planValueForPrice('price_unknown', null, null)).toBe(PLAN_MONTHLY_VALUE)
+    expect(planValueForPrice('price_unknown', {
+      proMonthly: null, proAnnual: null, premiumMonthly: null, premiumAnnual: null,
+    })).toBe(PLAN_MONTHLY_VALUE)
+  })
+
+  it('resolves the Premium values when the ladder is configured (issue #370)', () => {
+    expect(planValueForPrice('price_premium_monthly', fullLadder)).toBe(PLAN_PREMIUM_MONTHLY_VALUE)
+    expect(planValueForPrice('price_premium_annual', fullLadder)).toBe(PLAN_PREMIUM_ANNUAL_VALUE)
+    // Pro resolution is unchanged by the presence of Premium ids.
+    expect(planValueForPrice('price_annual', fullLadder)).toBe(PLAN_ANNUAL_VALUE)
+    expect(planValueForPrice('price_monthly', fullLadder)).toBe(PLAN_MONTHLY_VALUE)
+  })
+
+  it('never resolves a Premium value while the Premium ids are blank (prod-today invariant)', () => {
+    expect(planValueForPrice('price_premium_monthly', proOnly)).toBe(PLAN_MONTHLY_VALUE)
+    expect(planValueForPrice('price_premium_annual', proOnly)).toBe(PLAN_MONTHLY_VALUE)
   })
 })
 

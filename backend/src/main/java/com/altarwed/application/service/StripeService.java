@@ -18,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +36,14 @@ public class StripeService {
     private final String appBaseUrl;
     private final String priceProMonthly;
     private final String priceProAnnual;
+    private final String pricePremiumMonthly;
+    private final String pricePremiumAnnual;
+    // Issue #370 pricing ladder: every configured (non-blank) price id and the tier it buys, in
+    // one map so the checkout allow-list and the webhook tier mapping can never disagree. A tier
+    // whose price ids are blank simply has no entries: its checkout is rejected (fail closed,
+    // same as issue #45) and it never renders in the UI. Built once in the constructor because
+    // the ids are immutable @Value config.
+    private final Map<String, PlanTier> configuredPrices;
 
     public StripeService(
             StripePort stripePort,
@@ -43,7 +53,9 @@ public class StripeService {
             PrintOrderService printOrderService,
             @Value("${altarwed.app.base-url:https://app.altarwed.com}") String appBaseUrl,
             @Value("${altarwed.stripe.prices.pro-monthly:}") String priceProMonthly,
-            @Value("${altarwed.stripe.prices.pro-annual:}") String priceProAnnual
+            @Value("${altarwed.stripe.prices.pro-annual:}") String priceProAnnual,
+            @Value("${altarwed.stripe.prices.premium-monthly:}") String pricePremiumMonthly,
+            @Value("${altarwed.stripe.prices.premium-annual:}") String pricePremiumAnnual
     ) {
         this.stripePort = stripePort;
         this.subscriptionRepository = subscriptionRepository;
@@ -53,12 +65,29 @@ public class StripeService {
         this.appBaseUrl = appBaseUrl;
         this.priceProMonthly = priceProMonthly;
         this.priceProAnnual = priceProAnnual;
+        this.pricePremiumMonthly = pricePremiumMonthly;
+        this.pricePremiumAnnual = pricePremiumAnnual;
+        // LinkedHashMap + putIfAbsent (not Map.of, which throws on duplicate keys): if the same
+        // price id is mistakenly configured for two tiers, the LOWER tier registered first wins,
+        // so a config mistake can never grant a higher tier than the vendor paid for.
+        Map<String, PlanTier> prices = new LinkedHashMap<>();
+        registerPrice(prices, priceProMonthly, PlanTier.FEATURED);
+        registerPrice(prices, priceProAnnual, PlanTier.FEATURED);
+        registerPrice(prices, pricePremiumMonthly, PlanTier.PREMIUM);
+        registerPrice(prices, pricePremiumAnnual, PlanTier.PREMIUM);
+        this.configuredPrices = Map.copyOf(prices);
+    }
+
+    private static void registerPrice(Map<String, PlanTier> prices, String priceId, PlanTier tier) {
+        if (priceId != null && !priceId.isBlank()) {
+            prices.putIfAbsent(priceId, tier);
+        }
     }
 
     @Transactional
     public String createCheckoutSession(UUID vendorId, String vendorEmail, String priceId) {
-        // Issue #45: the client supplies priceId, so reject anything outside our two
-        // configured plans before it ever reaches Stripe. The tier is re-derived
+        // Issue #45: the client supplies priceId, so reject anything outside the configured
+        // plan allow-list before it ever reaches Stripe. The tier is re-derived
         // server-side from the webhook regardless (planTierFromPriceId), so this was not
         // an escalation today, but an unvalidated priceId is unvalidated financial input
         // one refactor away from opening a checkout session against the wrong product, a
@@ -122,8 +151,10 @@ public class StripeService {
         return subscriptionRepository.findByVendorId(vendorId).orElse(null);
     }
 
-    public String getPriceProMonthly() { return priceProMonthly; }
-    public String getPriceProAnnual()  { return priceProAnnual; }
+    public String getPriceProMonthly()      { return priceProMonthly; }
+    public String getPriceProAnnual()       { return priceProAnnual; }
+    public String getPricePremiumMonthly()  { return pricePremiumMonthly; }
+    public String getPricePremiumAnnual()   { return pricePremiumAnnual; }
 
     // -------------------------------------------------------------------------
     // Webhook handlers
@@ -336,16 +367,12 @@ public class StripeService {
     // -------------------------------------------------------------------------
 
     private boolean isAllowedPriceId(String priceId) {
-        if (priceId == null || priceId.isBlank()) return false;
-        return (!priceProMonthly.isBlank() && priceId.equals(priceProMonthly))
-                || (!priceProAnnual.isBlank() && priceId.equals(priceProAnnual));
+        return priceId != null && configuredPrices.containsKey(priceId);
     }
 
     private PlanTier planTierFromPriceId(String priceId) {
-        if (priceId == null || priceId.isBlank()) return PlanTier.BASIC;
-        if (!priceProMonthly.isBlank() && priceId.equals(priceProMonthly)) return PlanTier.FEATURED;
-        if (!priceProAnnual.isBlank() && priceId.equals(priceProAnnual)) return PlanTier.FEATURED;
-        return PlanTier.BASIC;
+        if (priceId == null) return PlanTier.BASIC;
+        return configuredPrices.getOrDefault(priceId, PlanTier.BASIC);
     }
 
     private SubscriptionStatus statusFromStripe(String stripeStatus) {

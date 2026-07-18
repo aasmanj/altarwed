@@ -33,6 +33,28 @@ public record VendorSubscription(
      * domain logic with no Spring/JPA dependency, so both the service and its unit tests can call it.
      */
     public boolean hasProAnalyticsAccess() {
+        return hasActiveEntitlements();
+    }
+
+    /**
+     * Whether this subscription currently confers any paid entitlements at all: ACTIVE or
+     * TRIALING, exactly the rule documented on {@link #hasProAnalyticsAccess()} (which delegates
+     * here so the two can never drift). Extracted for issue #370: the pricing ladder adds
+     * tier-scoped entitlements (portfolio cap, directory placement) that need the same
+     * "is this subscription live" gate without implying anything about analytics.
+     */
+    public boolean hasActiveEntitlements() {
         return status == SubscriptionStatus.ACTIVE || status == SubscriptionStatus.TRIALING;
+    }
+
+    /**
+     * The tier whose entitlements currently apply. A lapsed subscription (PENDING, PAST_DUE,
+     * CANCELLED) keeps its stored planTier for billing history, but entitlement checks must
+     * treat it as BASIC the moment the webhook flips the status, so tier-scoped features
+     * (issue #370: PREMIUM portfolio cap, top-of-category placement) degrade in lockstep with
+     * the analytics entitlement above.
+     */
+    public PlanTier effectivePlanTier() {
+        return hasActiveEntitlements() ? planTier : PlanTier.BASIC;
     }
 }

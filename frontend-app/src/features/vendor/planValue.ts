@@ -2,26 +2,32 @@
 // Subscribe so campaigns can build value-based lookalikes instead of optimizing
 // for a valueless conversion. This is NOT a billing source of truth: Stripe stays
 // authoritative for what a vendor is actually charged. If pricing changes, update
-// these constants (they mirror the $29 / month and $290 / year plans shown in the
-// UI). No PII, just an amount and a currency.
+// these constants (they mirror the plans shown in the UI: Pro $29 / month and
+// $290 / year, Premium $79 / month and $790 / year). No PII, just an amount and
+// a currency.
 export const PLAN_MONTHLY_VALUE = 29
 export const PLAN_ANNUAL_VALUE = 290
+export const PLAN_PREMIUM_MONTHLY_VALUE = 79
+export const PLAN_PREMIUM_ANNUAL_VALUE = 790
 export const PLAN_CURRENCY = 'USD'
 
+// The loaded Stripe price ids for every rung of the pricing ladder (issue #370). Null means
+// that plan is not configured; a whole tier of nulls means the tier is not offered.
+export interface PlanPriceIds {
+  proMonthly: string | null
+  proAnnual: string | null
+  premiumMonthly: string | null
+  premiumAnnual: string | null
+}
+
 // Resolves the plan value for a Stripe price id by matching it against the loaded
-// monthly / annual price ids. Defaults to the monthly value when the id does not
-// match the annual one, so a config skew never produces a NaN value or a throw.
-// monthlyPriceId is accepted (and passed by callers) for a symmetric, self-
-// documenting call site, though only the annual id needs matching: anything that
-// is not the annual plan is treated as monthly, which also keeps a config skew
-// from producing a NaN value.
-export function planValueForPrice(
-  priceId: string,
-  monthlyPriceId: string | null,
-  annualPriceId: string | null,
-): number {
-  void monthlyPriceId
-  if (annualPriceId && priceId === annualPriceId) return PLAN_ANNUAL_VALUE
+// price ids. Defaults to the Pro monthly value when nothing matches, so a config
+// skew never produces a NaN value or a throw (the historical behavior, kept as the
+// ladder's cheapest and therefore most conservative analytics value).
+export function planValueForPrice(priceId: string, ids: PlanPriceIds): number {
+  if (ids.premiumAnnual && priceId === ids.premiumAnnual) return PLAN_PREMIUM_ANNUAL_VALUE
+  if (ids.premiumMonthly && priceId === ids.premiumMonthly) return PLAN_PREMIUM_MONTHLY_VALUE
+  if (ids.proAnnual && priceId === ids.proAnnual) return PLAN_ANNUAL_VALUE
   return PLAN_MONTHLY_VALUE
 }
 

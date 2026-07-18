@@ -1,8 +1,11 @@
 package com.altarwed.application.service;
 
 import com.altarwed.domain.exception.PortfolioCapExceededException;
+import com.altarwed.domain.model.PlanTier;
 import com.altarwed.domain.model.VendorPortfolioPhoto;
+import com.altarwed.domain.model.VendorSubscription;
 import com.altarwed.domain.port.VendorPortfolioPhotoRepository;
+import com.altarwed.domain.port.VendorSubscriptionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
@@ -18,26 +21,43 @@ import java.util.UUID;
 public class VendorPortfolioPhotoService {
 
     private static final Logger log = LoggerFactory.getLogger(VendorPortfolioPhotoService.class);
-    private static final int PHOTO_CAP = 10;
 
     private final VendorPortfolioPhotoRepository repository;
     private final MediaUploadService mediaUploadService;
+    private final VendorSubscriptionRepository subscriptionRepository;
 
     public VendorPortfolioPhotoService(
             VendorPortfolioPhotoRepository repository,
-            MediaUploadService mediaUploadService
+            MediaUploadService mediaUploadService,
+            VendorSubscriptionRepository subscriptionRepository
     ) {
         this.repository = repository;
         this.mediaUploadService = mediaUploadService;
+        this.subscriptionRepository = subscriptionRepository;
+    }
+
+    /**
+     * Issue #370 pricing ladder: the portfolio cap follows the vendor's EFFECTIVE tier (25 for an
+     * ACTIVE/TRIALING Premium, 10 otherwise, including no subscription row at all), so a lapsed
+     * Premium stops accruing photos beyond the base cap the moment the webhook downgrades it.
+     * Photos already uploaded above a shrunken cap are kept (the cap gates adds, it never deletes
+     * paid-for content); the vendor just cannot add more until below the cap again.
+     */
+    private int photoCapFor(UUID vendorId) {
+        return subscriptionRepository.findByVendorId(vendorId)
+                .map(VendorSubscription::effectivePlanTier)
+                .orElse(PlanTier.BASIC)
+                .portfolioPhotoCap();
     }
 
     @Transactional
     public VendorPortfolioPhoto addPhoto(UUID vendorId, MultipartFile file, String caption) throws IOException {
         log.info("vendor portfolio photo upload started, vendorId={}", vendorId);
+        int cap = photoCapFor(vendorId);
         int current = repository.countByVendorId(vendorId);
-        if (current >= PHOTO_CAP) {
-            log.warn("vendor portfolio cap exceeded, vendorId={}", vendorId);
-            throw new PortfolioCapExceededException();
+        if (current >= cap) {
+            log.warn("vendor portfolio cap exceeded, vendorId={}, cap={}", vendorId, cap);
+            throw new PortfolioCapExceededException(cap);
         }
         // Server-authoritative append position: max(sortOrder)+1, not the photo count. After a
         // middle photo is deleted the count no longer equals the next free slot, so a count-based

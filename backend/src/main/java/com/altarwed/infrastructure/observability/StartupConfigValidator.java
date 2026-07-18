@@ -34,6 +34,12 @@ import java.util.Map;
  * empty value is a deliberate "reject" of a specific request rather than "feature off" for
  * everyone, so warning about them here would be misleading; they stay out of scope.
  *
+ * <p>Issue #370: the Premium ladder price vars (STRIPE_PRICE_PREMIUM_MONTHLY/ANNUAL) are
+ * deliberately NOT checked here. Blank means the Premium rung of the pricing ladder is not
+ * offered yet: the tier does not render anywhere and its checkout fails closed. That is an
+ * intentional product state, not missing config, so warning on it every startup until the tier
+ * launches would be pure warning fatigue.
+ *
  * <p>Gated to the {@code prod} profile: in local/CI these vars are normally unset, so warning there
  * is warning fatigue (backend/CLAUDE.md observability rule 12).
  */

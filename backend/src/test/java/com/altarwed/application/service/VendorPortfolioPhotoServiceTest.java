@@ -1,8 +1,12 @@
 package com.altarwed.application.service;
 
 import com.altarwed.domain.exception.PortfolioCapExceededException;
+import com.altarwed.domain.model.PlanTier;
+import com.altarwed.domain.model.SubscriptionStatus;
 import com.altarwed.domain.model.VendorPortfolioPhoto;
+import com.altarwed.domain.model.VendorSubscription;
 import com.altarwed.domain.port.VendorPortfolioPhotoRepository;
+import com.altarwed.domain.port.VendorSubscriptionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -11,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,9 +38,16 @@ class VendorPortfolioPhotoServiceTest {
 
     @Mock private VendorPortfolioPhotoRepository repository;
     @Mock private MediaUploadService mediaUploadService;
+    @Mock private VendorSubscriptionRepository subscriptionRepository;
 
     private VendorPortfolioPhotoService service() {
-        return new VendorPortfolioPhotoService(repository, mediaUploadService);
+        return new VendorPortfolioPhotoService(repository, mediaUploadService, subscriptionRepository);
+    }
+
+    private VendorSubscription subscription(UUID vendorId, PlanTier tier, SubscriptionStatus status) {
+        return new VendorSubscription(
+                UUID.randomUUID(), vendorId, tier, status,
+                "cus_1", "sub_1", null, null, null, null, null, null);
     }
 
     private VendorPortfolioPhoto photo(UUID vendorId, int sortOrder) {
@@ -91,6 +103,68 @@ class VendorPortfolioPhotoServiceTest {
                 .isInstanceOf(PortfolioCapExceededException.class);
 
         verify(mediaUploadService, never()).uploadVendorPortfolioPhoto(any(), any());
+        verify(repository, never()).save(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // Issue #370 pricing ladder: tier-scoped portfolio cap (10 Basic/Pro, 25 Premium)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void addPhoto_activeProVendorAtTenPhotos_isStillRejected() {
+        // Blank-ladder invariant: an ACTIVE Pro (FEATURED) subscription keeps the historical
+        // cap of 10, so shipping the ladder changes nothing for every existing paying vendor.
+        UUID vendorId = UUID.randomUUID();
+        when(subscriptionRepository.findByVendorId(vendorId))
+                .thenReturn(Optional.of(subscription(vendorId, PlanTier.FEATURED, SubscriptionStatus.ACTIVE)));
+        when(repository.countByVendorId(vendorId)).thenReturn(10);
+
+        assertThatThrownBy(() -> service().addPhoto(vendorId, mock(MultipartFile.class), null))
+                .isInstanceOf(PortfolioCapExceededException.class);
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void addPhoto_activePremiumVendorAtTenPhotos_isAllowedUpToTwentyFive() throws Exception {
+        UUID vendorId = UUID.randomUUID();
+        when(subscriptionRepository.findByVendorId(vendorId))
+                .thenReturn(Optional.of(subscription(vendorId, PlanTier.PREMIUM, SubscriptionStatus.ACTIVE)));
+        when(repository.countByVendorId(vendorId)).thenReturn(10);
+        when(repository.findAllByVendorId(vendorId)).thenReturn(List.of());
+        when(mediaUploadService.uploadVendorPortfolioPhoto(any(), any())).thenReturn("https://x/p11.png");
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service().addPhoto(vendorId, mock(MultipartFile.class), null);
+
+        verify(repository).save(any());
+    }
+
+    @Test
+    void addPhoto_activePremiumVendorAtTwentyFivePhotos_isRejected() {
+        UUID vendorId = UUID.randomUUID();
+        when(subscriptionRepository.findByVendorId(vendorId))
+                .thenReturn(Optional.of(subscription(vendorId, PlanTier.PREMIUM, SubscriptionStatus.ACTIVE)));
+        when(repository.countByVendorId(vendorId)).thenReturn(25);
+
+        assertThatThrownBy(() -> service().addPhoto(vendorId, mock(MultipartFile.class), null))
+                .isInstanceOf(PortfolioCapExceededException.class);
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void addPhoto_lapsedPremiumVendorFallsBackToTheBaseCap() {
+        // A CANCELLED Premium keeps its stored tier for history but its EFFECTIVE tier is
+        // BASIC, so the 25-photo entitlement ends the moment the webhook downgrades it.
+        UUID vendorId = UUID.randomUUID();
+        when(subscriptionRepository.findByVendorId(vendorId))
+                .thenReturn(Optional.of(subscription(vendorId, PlanTier.PREMIUM, SubscriptionStatus.CANCELLED)));
+        when(repository.countByVendorId(vendorId)).thenReturn(10);
+
+        assertThatThrownBy(() -> service().addPhoto(vendorId, mock(MultipartFile.class), null))
+                .isInstanceOf(PortfolioCapExceededException.class);
+
         verify(repository, never()).save(any());
     }
 }

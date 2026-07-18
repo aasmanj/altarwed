@@ -19,6 +19,13 @@ export interface SubscriptionInfo {
   currentPeriodEnd: string | null
   proMonthlyPriceId: string | null
   proAnnualPriceId: string | null
+  // Issue #370 pricing ladder: Premium tier price ids. Null/blank until Jordan creates the
+  // Premium prices in Stripe; the subscription page then simply does not render the tier.
+  premiumMonthlyPriceId: string | null
+  premiumAnnualPriceId: string | null
+  // Backend-enforced portfolio photo cap for the vendor's effective tier (10 Basic/Pro,
+  // 25 active Premium). The listing page's copy and upload gate follow this value.
+  portfolioPhotoCap: number
   // True when the listing was comped via a promo code (no Stripe). Drives the "Comped" UI and
   // hides billing management, since a comped vendor has no Stripe customer to manage.
   comped: boolean

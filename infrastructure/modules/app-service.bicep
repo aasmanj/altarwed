@@ -171,6 +171,23 @@ var appSettings = [
     value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=STRIPE-PRICE-PRO-ANNUAL)'
   }
   {
+    // Issue #370 pricing ladder: Premium tier Stripe price ids. Deliberately EMPTY (not a Key
+    // Vault reference) until Jordan creates the Premium product/prices in the Stripe dashboard:
+    // an unresolved Key Vault reference would surface the literal reference string as the env
+    // var value, which the backend would treat as a configured (garbage) price id and the UI
+    // would render a Premium tier whose checkout can only fail. Blank keeps the tier fully
+    // hidden (backend allow-list fails closed, subscription page never renders the tier), so
+    // prod behavior is unchanged until launch. To launch: create the Key Vault secrets
+    // STRIPE-PRICE-PREMIUM-MONTHLY / STRIPE-PRICE-PREMIUM-ANNUAL, then replace these values
+    // with Key Vault references matching STRIPE_PRICE_PRO_MONTHLY above.
+    name: 'STRIPE_PRICE_PREMIUM_MONTHLY'
+    value: ''
+  }
+  {
+    name: 'STRIPE_PRICE_PREMIUM_ANNUAL'
+    value: ''
+  }
+  {
     // Vendor comp promo code. Not a secret (shared with friends/first vendors), so a plain
     // value, not a Key Vault reference. Change here (or override the app setting) to rotate.
     // application.yml defaults this to FREEVENDOR, so the feature is live even before infra apply.

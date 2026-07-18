@@ -213,11 +213,12 @@ export default function RegisterVendorPage() {
                   onCheckout={priceId =>
                     checkout.mutate({
                       priceId,
-                      planValue: planValueForPrice(
-                        priceId,
-                        sub?.proMonthlyPriceId ?? null,
-                        sub?.proAnnualPriceId ?? null,
-                      ),
+                      planValue: planValueForPrice(priceId, {
+                        proMonthly: sub?.proMonthlyPriceId ?? null,
+                        proAnnual: sub?.proAnnualPriceId ?? null,
+                        premiumMonthly: sub?.premiumMonthlyPriceId ?? null,
+                        premiumAnnual: sub?.premiumAnnualPriceId ?? null,
+                      }),
                     })
                   }
                   onRedeemed={() => navigate('/vendor')}

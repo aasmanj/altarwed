@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useVendorProfile, useUpdateVendorProfile, useUploadVendorLogo, useSetListingActive } from './useVendor'
+import { useVendorSubscription } from './useSubscription'
 import {
   usePortfolioPhotos,
   useUploadPortfolioPhoto,
@@ -55,6 +56,12 @@ export default function VendorListingPage() {
   const uploadLogo = useUploadVendorLogo()
   const setListingActive = useSetListingActive()
   const portfolioPhotos = usePortfolioPhotos(vendor?.id)
+  // Issue #370 pricing ladder: the portfolio cap is tier-dependent (10 Basic/Pro, 25 active
+  // Premium) and enforced by the backend; the UI reads the backend-served cap so the copy and
+  // the upload gate can never drift from what the server will actually accept. Falls back to
+  // 10 (the strictest cap) while the subscription is still loading.
+  const { data: subscription } = useVendorSubscription()
+  const photoCap = subscription?.portfolioPhotoCap ?? 10
   const uploadPortfolioPhoto = useUploadPortfolioPhoto()
   const deletePortfolioPhoto = useDeletePortfolioPhoto()
   const reorderPortfolioPhotos = useReorderPortfolioPhotos()
@@ -430,7 +437,7 @@ export default function VendorListingPage() {
         <div className="bg-white rounded-2xl border border-[#e8dcc8] p-5 sm:p-8 space-y-5 mt-6">
           <div>
             <h2 className="font-serif text-lg font-semibold text-[#3b2f2f]">Portfolio</h2>
-            <p className="text-sm text-[#6b5344] mt-0.5">Add photos to showcase your work (max 10)</p>
+            <p className="text-sm text-[#6b5344] mt-0.5">Add photos to showcase your work (max {photoCap})</p>
           </div>
 
           {portfolioPhotos.isLoading && (
@@ -551,8 +558,8 @@ export default function VendorListingPage() {
             }}
           />
 
-          {(portfolioPhotos.data?.length ?? 0) >= 10 ? (
-            <p className="text-sm text-[#8a6a4a]">Portfolio full (10/10). Delete a photo to add another.</p>
+          {(portfolioPhotos.data?.length ?? 0) >= photoCap ? (
+            <p className="text-sm text-[#8a6a4a]">Portfolio full ({photoCap}/{photoCap}). Delete a photo to add another.</p>
           ) : (
             <button
               type="button"

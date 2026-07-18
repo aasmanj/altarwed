@@ -149,6 +149,12 @@ altarwed:
     prices:
       pro-monthly: ${STRIPE_PRICE_PRO_MONTHLY:}
       pro-annual: ${STRIPE_PRICE_PRO_ANNUAL:}
+      # Issue #370 pricing ladder: Premium tier price ids. Empty default = the Premium tier is
+      # not offered: checkout rejects its price ids (fail closed) and the UI never renders the
+      # tier. Deliberately NOT in StartupConfigValidator's missing-config WARN list: blank here
+      # is the intentional "ladder rung not launched yet" state, not a misconfiguration.
+      premium-monthly: ${STRIPE_PRICE_PREMIUM_MONTHLY:}
+      premium-annual: ${STRIPE_PRICE_PREMIUM_ANNUAL:}
 
   pricing:
     # Monthly price (in cents) of a paid vendor plan, used only to compute the display-only
