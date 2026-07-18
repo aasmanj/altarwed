@@ -2,7 +2,6 @@ package com.altarwed.infrastructure.azure;
 
 import com.altarwed.domain.exception.StorageNotConfiguredException;
 import com.altarwed.domain.port.BlobStoragePort;
-import com.azure.core.util.BinaryData;
 import com.azure.core.util.Context;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
@@ -97,7 +96,16 @@ public class AzureBlobStorageAdapter implements BlobStoragePort {
             // the default application/octet-stream Content-Type, which is exactly the sniffable
             // state a polyglot upload needs; it also cost a second round-trip and could leave a
             // permanently header-less blob if the process died between the two calls.
-            var options = new BlobParallelUploadOptions(BinaryData.fromStream(data, length))
+            //
+            // The (InputStream, long) options constructor is @Deprecated ("length no longer
+            // necessary") but used deliberately: it is the exact code path the previous
+            // blobClient.upload(data, length, true) delegated to internally, so streaming,
+            // chunk-buffering-for-retry, and the known-length single-PUT behavior are unchanged.
+            // The non-deprecated alternatives change behavior: BinaryData eagerly materializes
+            // the whole file into memory at options construction, and the length-less constructor
+            // switches to unknown-length chunked staging.
+            @SuppressWarnings("deprecation")
+            var options = new BlobParallelUploadOptions(data, length)
                     .setHeaders(buildHeaders(blobName, contentType));
             // No request conditions: overwrite allowed, same semantics as the previous
             // upload(data, length, true).

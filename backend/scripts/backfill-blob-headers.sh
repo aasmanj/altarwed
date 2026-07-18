@@ -33,6 +33,13 @@
 # Example (dry run first, then apply):
 #   ./backfill-blob-headers.sh --account-name altarwedprodstorage
 #   ./backfill-blob-headers.sh --account-name altarwedprodstorage --apply
+#
+# Note: the dry run never invokes "az storage blob update", so the first --apply run is the
+# first time the flags are exercised. --content-cache needs a recent az CLI (older releases
+# call it --content-cache-control). After the first applied blob, spot-check it with
+#   az storage blob show --account-name <acct> --container-name <c> --name <blob> \
+#     --auth-mode login --query properties.contentSettings
+# before letting the loop finish, and verify contentMd5 round-tripped unchanged.
 
 set -euo pipefail
 
@@ -142,6 +149,9 @@ while IFS= read -r row; do
   [[ -n "$content_encoding" ]] && extra_args+=(--content-encoding "$content_encoding")
   [[ -n "$content_language" ]] && extra_args+=(--content-language "$content_language")
 
+  # ${extra_args[@]+...} guards the common empty-array case, which trips "unbound variable"
+  # under set -u on bash < 4.4 (stock macOS ships 3.2). </dev/null stops az from ever consuming
+  # the while-loop's stdin.
   if az storage blob update \
       --account-name "$ACCOUNT_NAME" \
       --container-name "$CONTAINER" \
@@ -150,8 +160,8 @@ while IFS= read -r row; do
       --content-type "$target_type" \
       --content-cache "$CACHE_CONTROL" \
       --content-disposition "$disposition" \
-      "${extra_args[@]}" \
-      --output none; then
+      ${extra_args[@]+"${extra_args[@]}"} \
+      --output none </dev/null; then
     echo "UPDATED: $name"
     UPDATED=$((UPDATED + 1))
   else

@@ -114,11 +114,29 @@ dependencies {
 
 // Default test task, unit and application-layer tests only.
 // Excludes the schema-validation integration test because that test
-// requires a live SQL Server instance (only available in CI).
+// requires a live SQL Server instance (only available in CI), and the
+// azurite blob-storage integration test because it needs Docker.
 tasks.named<Test>("test") {
     useJUnitPlatform {
-        excludeTags("schema-validation")
+        excludeTags("schema-validation", "azurite")
     }
+}
+
+// Blob-storage integration task, runs ONLY the @Tag("azurite") tests (issue #75).
+// Spins up the official Azurite storage emulator via Testcontainers and exercises the
+// REAL Azure SDK upload path (uploadWithResponse + BlobHttpHeaders), which the default
+// unit suite cannot reach. Requires Docker. Run locally: ./gradlew azuriteBlobTest
+tasks.register<Test>("azuriteBlobTest") {
+    description = "Runs the AzureBlobStorageAdapter integration tests against an Azurite container (requires Docker)."
+    group = "verification"
+    // Same classpath wiring as schemaValidationTest: a registered Test task does not
+    // inherit the test source set, and without this it silently matches zero tests.
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform {
+        includeTags("azurite")
+    }
+    shouldRunAfter("test")
 }
 
 // Schema validation task, runs ONLY the @Tag("schema-validation") tests.
