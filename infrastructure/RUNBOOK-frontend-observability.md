@@ -74,9 +74,14 @@ directly, so the "no connection string committed" acceptance criterion holds.
    ```kusto
    union traces, requests, exceptions
    | where timestamp > ago(15m)
+   | where cloud_RoleName == 'altarwed-landing'
    | order by timestamp desc
    ```
-   SSR requests/traces should appear within a few minutes. If nothing shows after ~10 minutes,
+   SSR requests/traces should appear within a few minutes, under the `altarwed-landing`
+   role. If rows appear only under a `staticwebapps-<guid>` role, the SDK started but the
+   explicit resource in `frontend-public/src/instrumentation.ts` is not being applied
+   (the Azure resource detector names the role from `WEBSITE_SITE_NAME` unless an explicit
+   resource outranks it; see the comment in that file). If nothing shows after ~10 minutes,
    the SWA may need a redeploy to pick up the new setting (push a no-op commit or re-run
    `deploy-landing.yml`).
 

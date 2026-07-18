@@ -12,8 +12,15 @@ const contentSecurityPolicy = buildContentSecurityPolicy({
 const nextConfig: NextConfig = {
   // Application Insights (OpenTelemetry-based) must not be bundled by Next; bundling
   // breaks its runtime instrumentation. Keep it external so src/instrumentation.ts can
-  // start it in the Node SSR runtime (issue #422).
-  serverExternalPackages: ['applicationinsights'],
+  // start it in the Node SSR runtime (issue #422). The two @opentelemetry packages
+  // must be external for the same reason plus one more: instrumentation.ts builds a
+  // Resource with them, and a bundled copy would be a different class than the one
+  // the externalized SDK merges it into.
+  serverExternalPackages: [
+    'applicationinsights',
+    '@opentelemetry/resources',
+    '@opentelemetry/semantic-conventions',
+  ],
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
