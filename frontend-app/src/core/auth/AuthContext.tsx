@@ -28,7 +28,9 @@ interface AuthContextValue extends AuthState {
   // Returns the created couple so the caller can gate/boot analytics on the
   // freshly persisted marketingConsent flag without waiting for a re-render.
   register: (payload: RegisterCouplePayload) => Promise<{ user: AuthUser }>
-  registerVendor: (payload: RegisterVendorPayload) => Promise<void>
+  // Returns the created vendor so the caller can identify + fire the vendor_signed_up
+  // funnel event against the fresh user id without waiting for a re-render.
+  registerVendor: (payload: RegisterVendorPayload) => Promise<{ user: AuthUser }>
   logout: () => Promise<void>
   refreshAccessToken: () => Promise<string | null>
   isAuthenticated: boolean
@@ -79,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { accessToken, user } = await authApi.registerVendor(payload)
     localStorage.setItem(SESSION_HINT_KEY, '1')
     setState({ user, accessToken })
+    return { user }
   }, [])
 
   const logout = useCallback(async () => {

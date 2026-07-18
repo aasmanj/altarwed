@@ -17,10 +17,11 @@ import {
 } from './vendorLanding'
 import { BASE_URL } from './sitemap'
 
-// Issue #369: indexable /vendors/[category]/[city] SEO landing pages. This module
-// is framework-free, so these unit tests exercise every load-bearing rule (slug
+// Issue #369 (re-landed under /wedding-vendors in #419): indexable
+// /wedding-vendors/[category]/[city] SEO landing pages. This module is
+// framework-free, so these unit tests exercise every load-bearing rule (slug
 // round-tripping, keyword metadata, ItemList JSON-LD, sitemap URLs) directly in
-// CI with no Next runtime. They import the new @/lib/vendorLanding module, so they
+// CI with no Next runtime. They import the @/lib/vendorLanding module, so they
 // fail to resolve before the change and pass after it lands.
 
 describe('category slugs', () => {
@@ -60,9 +61,9 @@ describe('city slugs and landing eligibility', () => {
     expect(isLandingEligibleCity('Winston-Salem')).toBe(false)
   })
 
-  it('vendorLandingPath returns a path for eligible cities and null otherwise', () => {
-    expect(vendorLandingPath('PHOTOGRAPHER', 'Dallas')).toBe('/vendors/photographer/dallas')
-    expect(vendorLandingPath('HAIR_AND_MAKEUP', 'Fort Worth')).toBe('/vendors/hair-and-makeup/fort-worth')
+  it('vendorLandingPath returns a /wedding-vendors path for eligible cities and null otherwise', () => {
+    expect(vendorLandingPath('PHOTOGRAPHER', 'Dallas')).toBe('/wedding-vendors/photographer/dallas')
+    expect(vendorLandingPath('HAIR_AND_MAKEUP', 'Fort Worth')).toBe('/wedding-vendors/hair-and-makeup/fort-worth')
     expect(vendorLandingPath('PHOTOGRAPHER', 'St. Louis')).toBeNull()
   })
 })
@@ -95,15 +96,15 @@ describe('metadata copy', () => {
     expect(desc.toLowerCase()).toContain('christian')
   })
 
-  it('builds an absolute canonical URL on the apex host', () => {
+  it('builds an absolute canonical URL on the apex host under /wedding-vendors', () => {
     expect(landingCanonical('photographer', 'dallas')).toBe(
-      `${BASE_URL}/vendors/photographer/dallas`,
+      `${BASE_URL}/wedding-vendors/photographer/dallas`,
     )
   })
 })
 
 describe('ItemList JSON-LD', () => {
-  it('emits a positioned ItemList that links each vendor to its detail page', () => {
+  it('emits a positioned ItemList that links each vendor to its /vendors/[id] detail page', () => {
     const jsonLd = buildLandingItemListJsonLd('PHOTOGRAPHER', 'Dallas, TX', [
       { id: 'v1', businessName: 'Grace Photography' },
       { id: 'v2', businessName: 'Covenant Studios' },
@@ -139,13 +140,13 @@ describe('sitemap combos', () => {
     ])
   })
 
-  it('builds weekly sitemap URLs on the apex host for each combo', () => {
+  it('builds weekly /wedding-vendors sitemap URLs on the apex host for each combo', () => {
     const urls = buildVendorLandingUrls([
       { categorySlug: 'photographer', citySlug: 'dallas' },
     ])
     expect(urls).toHaveLength(1)
     expect(urls[0]).toMatchObject({
-      url: `${BASE_URL}/vendors/photographer/dallas`,
+      url: `${BASE_URL}/wedding-vendors/photographer/dallas`,
       changeFrequency: 'weekly',
       priority: 0.7,
     })

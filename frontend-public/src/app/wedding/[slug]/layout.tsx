@@ -332,30 +332,36 @@ export default async function WeddingLayout({
 
       {/* Footer */}
       <footer className="border-t border-[#e8dcc8] py-12 text-center text-sm text-[#8a6a4a] space-y-4">
-        {/* Pinterest share closes the organic loop for the paid Pinterest channel
-            (issue #374): a guest pins the site with the couple's hero image and the
-            Article rich-pin meta above carries names + AltarWed attribution back. */}
-        <div>
-          <p className="text-[#6b5344] mb-3">Love this wedding? Save it to Pinterest.</p>
-          <PinterestShareButton
-            url={`https://www.altarwed.com/wedding/${slug}`}
-            media={heroImageAbsolute}
-            description={`${wedding.partnerTwoName} & ${wedding.partnerOneName}'s Christian wedding on AltarWed`}
-          />
-        </div>
-        <p className="text-xs uppercase tracking-widest text-[#c4a882] font-medium">
-          Created on AltarWed
-        </p>
-        <div>
-          <p className="text-[#6b5344] mb-3">
-            Getting married? Create your Christian wedding website for free.
-          </p>
-          <a
-            href="https://app.altarwed.com/register?utm_source=wedding-site&utm_medium=referral&utm_campaign=viral-footer"
-            className="inline-block px-6 py-2.5 rounded-full bg-[#3b2f2f] text-white text-xs font-semibold hover:bg-[#5c4033] transition"
-          >
-            Start for free →
-          </a>
+        {/* Pinterest share (left) sits beside the AltarWed attribution + signup CTA
+            (right) from sm up; below sm the two blocks stack. The share closes the
+            organic loop for the paid Pinterest channel (issue #374): a guest pins the
+            site with the couple's hero image and the Article rich-pin meta above
+            carries names + AltarWed attribution back. */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-16">
+          <div>
+            <p className="text-[#6b5344] mb-3">Love this wedding? Save it to Pinterest.</p>
+            <PinterestShareButton
+              url={`https://www.altarwed.com/wedding/${slug}`}
+              media={heroImageAbsolute}
+              description={`${wedding.partnerTwoName} & ${wedding.partnerOneName}'s Christian wedding on AltarWed`}
+            />
+          </div>
+          <div className="space-y-4">
+            <p className="text-xs uppercase tracking-widest text-[#c4a882] font-medium">
+              Created on AltarWed
+            </p>
+            <div>
+              <p className="text-[#6b5344] mb-3">
+                Getting married? Create your Christian wedding website for free.
+              </p>
+              <a
+                href="https://app.altarwed.com/register?utm_source=wedding-site&utm_medium=referral&utm_campaign=viral-footer"
+                className="inline-block px-6 py-2.5 rounded-full bg-[#3b2f2f] text-white text-xs font-semibold hover:bg-[#5c4033] transition"
+              >
+                Start for free →
+              </a>
+            </div>
+          </div>
         </div>
         <div className="pt-2 flex items-center justify-center gap-4 text-xs text-[#c4a882]">
           <a href="https://www.altarwed.com" className="hover:text-[#3b2f2f] transition">AltarWed</a>

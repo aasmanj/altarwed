@@ -110,6 +110,44 @@ describe('CompleteRegistration conversion (issue #221)', () => {
   })
 })
 
+describe('vendor money-path standard events (issue #372)', () => {
+  it('fires InitiateCheckout only after the pixel is enabled', async () => {
+    stubBrowser({})
+    const { initPixel, trackInitiateCheckout } = await loadPixel()
+
+    // Before init the pixel is disabled, so the event is dropped.
+    trackInitiateCheckout()
+    expect(fbq).not.toHaveBeenCalled()
+
+    initPixel()
+    trackInitiateCheckout()
+    expect(fbq).toHaveBeenCalledWith('track', 'InitiateCheckout', undefined)
+  })
+
+  it('fires Subscribe only after the pixel is enabled', async () => {
+    stubBrowser({})
+    const { initPixel, trackSubscribe } = await loadPixel()
+
+    trackSubscribe()
+    expect(fbq).not.toHaveBeenCalled()
+
+    initPixel()
+    trackSubscribe()
+    expect(fbq).toHaveBeenCalledWith('track', 'Subscribe', undefined)
+  })
+
+  it('drops the money-path events under Global Privacy Control', async () => {
+    stubBrowser({ globalPrivacyControl: true })
+    const { initPixel, trackInitiateCheckout, trackSubscribe } = await loadPixel()
+
+    initPixel()
+    trackInitiateCheckout()
+    trackSubscribe()
+
+    expect(fbq).not.toHaveBeenCalled()
+  })
+})
+
 describe('logout teardown (issue #221)', () => {
   it('never fires CompleteRegistration after logout has disabled the pixel', async () => {
     stubBrowser({})

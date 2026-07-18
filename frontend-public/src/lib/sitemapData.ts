@@ -78,7 +78,7 @@ async function fetchPublishedWeddingSites(apiUrl: string): Promise<SlugSummary[]
 
 // Directory row we care about for landing-page discovery. The public vendor
 // directory returns far more per vendor, but only category + city drive the
-// /vendors/[category]/[city] URLs.
+// /wedding-vendors/[category]/[city] URLs.
 interface VendorDirectoryRow {
   category: string
   city: string

@@ -1,8 +1,13 @@
-// Helpers for the indexable /vendors/[category]/[city] SEO landing pages (issue
-// #369). These pages target the highest-intent searches ("christian wedding
-// photographer dallas"), which the query-param-only directory (/vendors?...)
-// can never rank for, and they give the paid "priority placement" tier a page
-// that actually ranks.
+// Helpers for the indexable /wedding-vendors/[category]/[city] SEO landing pages
+// (issue #369, re-landed under a collision-safe route in #419). These pages target
+// the highest-intent searches ("christian wedding photographer dallas"), which the
+// query-param-only directory (/vendors?...) can never rank for, and they give the
+// paid "priority placement" tier a page that actually ranks.
+//
+// The route lives at /wedding-vendors/ (NOT /vendors/) on purpose: Next.js forbids
+// two different dynamic slug names at the same path segment, so a second dynamic
+// route under /vendors/ (which already owns /vendors/[id]) throws at runtime on
+// every request. /wedding-vendors is also a keyword-rich, SEO-valuable URL.
 //
 // This module is intentionally framework-free (no next imports) so the slug math,
 // title/description copy, and JSON-LD builder can be unit tested directly in CI
@@ -111,7 +116,7 @@ export function vendorLandingPath(category: string, city: string): string | null
   if (!isLandingEligibleCity(city)) {
     return null
   }
-  return `/vendors/${categorySlug(category)}/${citySlug(city)}`
+  return `/wedding-vendors/${categorySlug(category)}/${citySlug(city)}`
 }
 
 // Human "City" or "City, ST" display label. When every matched vendor sits in the
@@ -147,7 +152,7 @@ export function landingDescription(category: string, location: string): string {
 
 // Absolute canonical URL for a landing page.
 export function landingCanonical(categoryPathSlug: string, cityPathSlug: string): string {
-  return `${BASE_URL}/vendors/${categoryPathSlug}/${cityPathSlug}`
+  return `${BASE_URL}/wedding-vendors/${categoryPathSlug}/${cityPathSlug}`
 }
 
 export interface LandingListVendor {
@@ -157,8 +162,9 @@ export interface LandingListVendor {
 
 // schema.org ItemList JSON-LD for the landing page. An ItemList of the vendor
 // listings is the correct type for a curated directory page (each ListItem points
-// at the vendor's own LocalBusiness detail page), and it is what earns the
-// rich-result eligibility that a bare query-param page cannot.
+// at the vendor's own LocalBusiness detail page at /vendors/[id], which is a real
+// indexed route), and it is what earns the rich-result eligibility that a bare
+// query-param page cannot.
 export function buildLandingItemListJsonLd(
   category: string,
   location: string,
@@ -212,7 +218,7 @@ export function toVendorLandingCombos(
 // high-intent local searches.
 export function buildVendorLandingUrls(combos: VendorLandingCombo[]): SitemapUrl[] {
   return combos.map((combo) => ({
-    url: `${BASE_URL}/vendors/${combo.categorySlug}/${combo.citySlug}`,
+    url: `${BASE_URL}/wedding-vendors/${combo.categorySlug}/${combo.citySlug}`,
     changeFrequency: 'weekly' as const,
     priority: 0.7,
   }))

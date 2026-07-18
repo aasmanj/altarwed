@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { GET as getChild } from '@/app/sitemap/[id]/route'
 import { loadSitemapUrls } from './sitemapData'
 
-// Issue #369: the /vendors/[category]/[city] landing pages must be discoverable in
-// the sitemap. This wires the real loadSitemapUrls + child-sitemap route against a
-// mocked vendor directory and asserts the landing URLs land in the emitted XML. It
-// exercises the new vendor-combo walk in sitemapData, so it fails before the change
-// (no such URLs) and passes after.
+// Issue #369 (re-landed in #419): the /wedding-vendors/[category]/[city] landing
+// pages must be discoverable in the sitemap. This wires the real loadSitemapUrls +
+// child-sitemap route against a mocked vendor directory and asserts the landing
+// URLs land in the emitted XML. It exercises the vendor-combo walk in sitemapData,
+// so it fails before the change (no such URLs) and passes after.
 
 // Mock the three feeds loadSitemapUrls hits. The vendor directory returns two
 // Dallas photographers plus one lossy-city (St. Louis) florist. The published and
@@ -61,25 +61,25 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe('sitemap includes vendor category/city landing pages (#369)', () => {
-  it('emits a landing URL for a real (category, city) combo', async () => {
+describe('sitemap includes vendor category/city landing pages (#369, #419)', () => {
+  it('emits a /wedding-vendors landing URL for a real (category, city) combo', async () => {
     vi.stubGlobal('fetch', mockFetch())
     const urls = await loadSitemapUrls()
     const paths = urls.map((u) => u.url)
-    expect(paths).toContain('https://www.altarwed.com/vendors/photographer/dallas')
+    expect(paths).toContain('https://www.altarwed.com/wedding-vendors/photographer/dallas')
   })
 
   it('dedupes duplicate vendors into a single landing URL', async () => {
     vi.stubGlobal('fetch', mockFetch())
     const urls = await loadSitemapUrls()
-    const dallas = urls.filter((u) => u.url === 'https://www.altarwed.com/vendors/photographer/dallas')
+    const dallas = urls.filter((u) => u.url === 'https://www.altarwed.com/wedding-vendors/photographer/dallas')
     expect(dallas).toHaveLength(1)
   })
 
   it('excludes lossy-slug cities that a landing page could not render', async () => {
     vi.stubGlobal('fetch', mockFetch())
     const urls = await loadSitemapUrls()
-    expect(urls.some((u) => u.url.includes('/vendors/florist/'))).toBe(false)
+    expect(urls.some((u) => u.url.includes('/wedding-vendors/florist/'))).toBe(false)
   })
 
   it('serves the landing URL inside the rendered child sitemap XML', async () => {
@@ -88,6 +88,6 @@ describe('sitemap includes vendor category/city landing pages (#369)', () => {
       params: Promise.resolve({ id: '0.xml' }),
     })
     const xml = await res.text()
-    expect(xml).toContain('<loc>https://www.altarwed.com/vendors/photographer/dallas</loc>')
+    expect(xml).toContain('<loc>https://www.altarwed.com/wedding-vendors/photographer/dallas</loc>')
   })
 })

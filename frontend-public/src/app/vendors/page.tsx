@@ -114,10 +114,11 @@ export default async function VendorsPage({
   const nextHref = buildHref({ page: page + 1 })
 
   // When a city filter is active, point the category chips at the indexable
-  // /vendors/[category]/[city] landing page instead of a query string (issue #369),
-  // so crawlers and users follow the canonical, rankable URL. Cities whose slug is
-  // lossy (punctuation) are not landing-eligible, so we fall back to the query-param
-  // directory for those to avoid linking to a page that would 404.
+  // /wedding-vendors/[category]/[city] landing page instead of a query string
+  // (issue #369, re-landed in #419), so crawlers and users follow the canonical,
+  // rankable URL. Cities whose slug is lossy (punctuation) are not landing-eligible,
+  // so we fall back to the query-param directory for those to avoid linking to a
+  // page that would 404.
   const categoryHref = (val: string) => {
     if (city) {
       const landing = vendorLandingPath(val, city)
