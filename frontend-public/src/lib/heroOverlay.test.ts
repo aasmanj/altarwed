@@ -64,9 +64,15 @@ describe('safeHeroLayout (issue #360)', () => {
     expect(safeHeroLayout('gallery')).toBe('full')
   })
 
-  it('accepts the two allowlisted keys', () => {
+  it('accepts the allowlisted keys, including names-below (issue #457)', () => {
     expect(safeHeroLayout('full')).toBe('full')
     expect(safeHeroLayout('framed')).toBe('framed')
+    expect(safeHeroLayout('names-below')).toBe('names-below')
+  })
+
+  it('falls back to "full" for invalid or null input (issue #457)', () => {
+    expect(safeHeroLayout('invalid')).toBe('full')
+    expect(safeHeroLayout(null)).toBe('full')
   })
 
   it('does not leak a hostile string through', () => {
