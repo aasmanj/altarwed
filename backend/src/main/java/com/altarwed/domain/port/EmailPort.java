@@ -95,4 +95,17 @@ public interface EmailPort {
                                 String vendorProfileUrl);
     void sendVendorInquiryConfirmation(String coupleEmail, String coupleName,
                                        String vendorBusinessName, String vendorProfileUrl);
+
+    // Sent ~30 days before the wedding to guests who have not yet RSVPd (PENDING status).
+    // Includes venue details, a fresh RSVP link, and a Google Calendar add-to-calendar URL.
+    void sendNonresponderReminderEmail(String toEmail, String guestName, String coupleNames,
+                                       String weddingDate, String venueAddress, String venueCity,
+                                       String venueState, String ceremonyTime, String rsvpToken,
+                                       String googleCalendarUrl);
+
+    // Sent ~7 days before the wedding to attending guests (ATTENDING status) with venue
+    // details and a Google Calendar add-to-calendar URL. No RSVP link (already attending).
+    void sendAttendingReminderEmail(String toEmail, String guestName, String coupleNames,
+                                    String weddingDate, String venueAddress, String venueCity,
+                                    String venueState, String ceremonyTime, String googleCalendarUrl);
 }
