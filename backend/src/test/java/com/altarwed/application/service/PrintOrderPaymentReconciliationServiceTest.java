@@ -67,7 +67,7 @@ class PrintOrderPaymentReconciliationServiceTest {
     void setUp() {
         StripeService stripeService = new StripeService(stripePort, subscriptionRepository, vendorService,
                 printOrderRepository, printOrderService,
-                "https://app.altarwed.com", "price_monthly", "price_annual");
+                "https://app.altarwed.com", "price_monthly", "price_annual", "", "");
         service = new PrintOrderPaymentReconciliationService(
                 printOrderRepository, stripePort, stripeService, GRACE_MINUTES, ABANDON_HOURS);
     }
