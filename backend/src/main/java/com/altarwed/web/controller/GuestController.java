@@ -167,7 +167,8 @@ public class GuestController {
      * filter level; results are capped at 5 and names are masked to limit enumeration risk.
      * A Turnstile captchaToken must verify before the service does any DB work (issue #89);
      * required=false because a missing token still fails verification cleanly (400) once
-     * Turnstile is configured, and no-ops (200) while it is not.
+     * Turnstile is configured, and no-ops (200) while it is not (dev/CI). In the prod profile
+     * an unconfigured secret fails closed instead: every request 503s generically (issue #413).
      */
     @GetMapping("/rsvp/find")
     public ResponseEntity<List<com.altarwed.application.dto.RsvpFindResult>> findRsvp(

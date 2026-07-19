@@ -2,11 +2,13 @@ package com.altarwed.infrastructure.azure;
 
 import com.altarwed.domain.exception.StorageNotConfiguredException;
 import com.altarwed.domain.port.BlobStoragePort;
+import com.azure.core.util.Context;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.models.BlobHttpHeaders;
 import com.azure.storage.blob.models.BlobStorageException;
+import com.azure.storage.blob.options.BlobParallelUploadOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +22,17 @@ import java.nio.charset.StandardCharsets;
 public class AzureBlobStorageAdapter implements BlobStoragePort {
 
     private static final Logger log = LoggerFactory.getLogger(AzureBlobStorageAdapter.class);
+
+    // Blob names embed a fresh random UUID per upload ("{prefix}/{ownerId}/{UUID}.{ext}", see
+    // MediaUploadService), so a given blob URL's bytes never change: replacing an image stores a
+    // NEW blob name and the old one is deleted. That makes "immutable" correct and lets the CDN
+    // (Cloudflare in front of media.altarwed.com, see infrastructure/docs DECISION-cdn-front-door)
+    // and browsers cache for a full year without ever serving a stale image after a replace.
+    static final String CACHE_CONTROL_IMMUTABLE = "public, max-age=31536000, immutable";
+
+    // Longest Content-Disposition filename we will emit. Blob-derived names are UUID-based
+    // (~41 chars), so this is a pure defensive bound, not a functional limit.
+    private static final int MAX_DISPOSITION_FILENAME_LENGTH = 100;
 
     private final String connectionString;
     private final String containerName;
@@ -78,9 +91,25 @@ public class AzureBlobStorageAdapter implements BlobStoragePort {
         log.info("blob upload started, blobName={}, sizeBytes={}, contentType={}", blobName, length, contentType);
         try {
             var blobClient = container().getBlobClient(blobName);
-            var headers = new BlobHttpHeaders().setContentType(contentType);
-            blobClient.upload(data, length, true);
-            blobClient.setHttpHeaders(headers);
+            // Headers are set atomically in the SAME write (issue #75), not in a follow-up
+            // setHttpHeaders() call. The old two-step left a window where the blob was live with
+            // the default application/octet-stream Content-Type, which is exactly the sniffable
+            // state a polyglot upload needs; it also cost a second round-trip and could leave a
+            // permanently header-less blob if the process died between the two calls.
+            //
+            // The (InputStream, long) options constructor is @Deprecated ("length no longer
+            // necessary") but used deliberately: it is the exact code path the previous
+            // blobClient.upload(data, length, true) delegated to internally, so streaming,
+            // chunk-buffering-for-retry, and the known-length single-PUT behavior are unchanged.
+            // The non-deprecated alternatives change behavior: BinaryData eagerly materializes
+            // the whole file into memory at options construction, and the length-less constructor
+            // switches to unknown-length chunked staging.
+            @SuppressWarnings("deprecation")
+            var options = new BlobParallelUploadOptions(data, length)
+                    .setHeaders(buildHeaders(blobName, contentType));
+            // No request conditions: overwrite allowed, same semantics as the previous
+            // upload(data, length, true).
+            blobClient.uploadWithResponse(options, null, Context.NONE);
             log.info("blob upload succeeded, blobName={}", blobName);
             String blobUrl = blobClient.getBlobUrl();
             if (!publicBaseUrl.isBlank()) {
@@ -100,6 +129,66 @@ public class AzureBlobStorageAdapter implements BlobStoragePort {
             log.error("blob upload failed, blobName={}, statusCode={}", blobName, ex.getStatusCode(), ex);
             throw ex;
         }
+    }
+
+    // Builds the per-blob response headers stored with the blob and replayed by Azure on every GET
+    // (issue #75, the polyglot / stored-XSS half of #35):
+    //  - Content-Type: the caller-supplied type, which MediaUploadService derives from the file's
+    //    magic bytes and requires to EQUAL the declared multipart type, so the stored type always
+    //    matches the real bytes and is never the client's unverified claim.
+    //  - Content-Disposition: inline, with a filename derived from OUR blob name (a server-generated
+    //    UUID, never the client's original filename) and defensively sanitized. "inline" and not
+    //    "attachment" because: (a) the blob origin (media.altarwed.com / *.blob.core.windows.net) is
+    //    a separate cookieless host, so even a rendered payload has no app session to steal; (b) the
+    //    strict image Content-Type plus nosniff at the CDN edge already stops HTML interpretation;
+    //    (c) "attachment" would force-download photos that guests open in a new tab or that email
+    //    clients fetch, breaking the product's core photo-viewing UX for no additional protection.
+    //  - Cache-Control: immutable, safe because blob URLs are write-once (see CACHE_CONTROL_IMMUTABLE).
+    // X-Content-Type-Options: nosniff intentionally does NOT appear here: BlobHttpHeaders has no
+    // arbitrary-header hook and Azure Storage will not emit it per blob. It must be added at the
+    // serving edge (Cloudflare response-header rule on media.altarwed.com, or a Front Door rules
+    // engine); the manual step is documented in the PR for issue #75.
+    // Package-private for tests.
+    static BlobHttpHeaders buildHeaders(String blobName, String contentType) {
+        return new BlobHttpHeaders()
+                .setContentType(contentType)
+                .setContentDisposition("inline; filename=\"" + dispositionFilename(blobName) + "\"")
+                .setCacheControl(CACHE_CONTROL_IMMUTABLE);
+    }
+
+    // Reduces a blob name to a filename that is safe to embed in a quoted Content-Disposition
+    // value. Today blob names are server-generated ("{prefix}/{uuid}/{uuid}.{ext}"), so this is
+    // defense in depth for any future caller of BlobStoragePort: an allowlist (keep only
+    // [A-Za-z0-9._-]) structurally removes header-injection characters (CR/LF), quote breakouts
+    // ("), separators (; and ,), path bits (/ and \) and every other control or non-ASCII byte,
+    // instead of trying to enumerate bad characters. Package-private for tests.
+    static String dispositionFilename(String blobName) {
+        String name = blobName == null ? "" : blobName;
+        // Last path segment only: strip both separator styles before filtering.
+        int slash = Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\'));
+        if (slash >= 0) {
+            name = name.substring(slash + 1);
+        }
+        StringBuilder safe = new StringBuilder(name.length());
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            boolean allowed = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+                    || (c >= '0' && c <= '9') || c == '.' || c == '_' || c == '-';
+            if (allowed) {
+                safe.append(c);
+            }
+        }
+        // No leading dots: prevents hidden-file names and ".."-style relatives after filtering.
+        int start = 0;
+        while (start < safe.length() && safe.charAt(start) == '.') {
+            start++;
+        }
+        String result = safe.substring(start);
+        if (result.length() > MAX_DISPOSITION_FILENAME_LENGTH) {
+            // Keep the tail so the ".ext" suffix survives truncation.
+            result = result.substring(result.length() - MAX_DISPOSITION_FILENAME_LENGTH);
+        }
+        return result.isEmpty() ? "download" : result;
     }
 
     @Override

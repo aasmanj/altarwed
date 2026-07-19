@@ -40,7 +40,11 @@ const FB_TRACK_ORIGIN = 'https://www.facebook.com'
 const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com'
 
 // Couple photos, vendor logos and og images are served from Azure Blob Storage.
-const BLOB_STORAGE = 'https://*.blob.core.windows.net'
+// Pinned to our single storage account, not the *.blob.core.windows.net wildcard
+// (issue #98): the wildcard covered every Azure customer's storage account, so an
+// attacker-hosted blob would have passed. The host is stable prod config (see
+// infrastructure/CLAUDE.md); exported so tests can assert the narrowing holds.
+export const BLOB_STORAGE = 'https://altarwedprodstorage.blob.core.windows.net'
 
 /** Reduce a full URL (may include a path) to its scheme+host origin. */
 function originOf(url: string | undefined, fallback: string): string {
