@@ -1,6 +1,7 @@
 package com.altarwed.application.service;
 
 import com.altarwed.application.dto.CreatePrintOrderRequest;
+import com.altarwed.application.dto.CreateTestPrintOrderRequest;
 import com.altarwed.domain.model.*;
 import com.altarwed.domain.port.*;
 import com.altarwed.domain.port.PrintMailPort.AddressVerificationResult;
@@ -473,5 +474,127 @@ class PrintOrderServiceTest {
         service.submitBatchAsync(orderId);
 
         verify(printOrderRepository).finalizeOrder(eq(orderId), eq(PrintOrderStatus.FAILED), any(), any(), eq(0));
+    }
+
+    // ── Issue #208: single self-addressed test-proof postcard ───────────────────────────────────
+
+    private CreateTestPrintOrderRequest testProofRequest() {
+        return new CreateTestPrintOrderRequest(
+                "SAVE_THE_DATE_CLASSIC",
+                "The Couple", "1 Return Way", null, "Chicago", "il", "60601", "idem-test-1", null);
+    }
+
+    @Test
+    void createTestProofOrder_createsPendingPaymentOrderForExactlyOneSelfAddressedPostcard() {
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple()));
+        when(printMailPort.verifyAddress(any())).thenReturn(new AddressVerificationResult(true, null));
+        stubSuccessfulOrderPersistence();
+        when(stripePort.createOneTimeCheckoutSession(any(), any(), anyLong(), any(), any(), any()))
+                .thenReturn(new StripePort.CheckoutSession("cs_test_proof", "https://checkout.stripe.com/c/pay/cs_test_proof#fragment"));
+
+        var result = service.createTestProofOrder(coupleId, testProofRequest());
+
+        // The order is a real PENDING_PAYMENT PrintOrder, honestly typed TEST_PROOF, charged the
+        // same 200 cents/postcard as a batch order -- there is no free or discounted path.
+        ArgumentCaptor<PrintOrder> orderCaptor = ArgumentCaptor.forClass(PrintOrder.class);
+        verify(printOrderRepository).save(orderCaptor.capture());
+        assertThat(orderCaptor.getValue().orderType()).isEqualTo(PrintOrderType.TEST_PROOF);
+        assertThat(orderCaptor.getValue().status()).isEqualTo(PrintOrderStatus.PENDING_PAYMENT);
+        assertThat(orderCaptor.getValue().recipientCount()).isEqualTo(1);
+        assertThat(orderCaptor.getValue().amountChargedCents()).isEqualTo(200);
+        verify(stripePort).createOneTimeCheckoutSession(any(), any(), eq(200L), any(), any(), any());
+        assertThat(result.checkoutUrl()).isEqualTo("https://checkout.stripe.com/c/pay/cs_test_proof#fragment");
+
+        // Exactly one recipient row, with NO guest behind it (the couple themselves), still
+        // PENDING -- nothing reaches Lob until Stripe confirms payment.
+        ArgumentCaptor<PrintOrderRecipient> recipientCaptor = ArgumentCaptor.forClass(PrintOrderRecipient.class);
+        verify(printOrderRepository).appendRecipient(eq(orderId), recipientCaptor.capture());
+        assertThat(recipientCaptor.getValue().guestId()).isNull();
+        assertThat(recipientCaptor.getValue().deliveryStatus()).isEqualTo("PENDING");
+        verify(printMailPort, never()).sendPostcard(any());
+    }
+
+    @Test
+    void createTestProofOrder_verifiesTheCouplesOwnAddressAndRejectsUndeliverable_beforeCharging() {
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple()));
+        when(printMailPort.verifyAddress(any()))
+                .thenReturn(new AddressVerificationResult(false, "This address could not be verified as a valid USPS deliverable address."));
+
+        assertThatThrownBy(() -> service.createTestProofOrder(coupleId, testProofRequest()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("USPS deliverable");
+
+        // Rejected before any durable side-effect: no order row, no recipient row, no charge.
+        verify(printOrderRepository, never()).save(any());
+        verify(printOrderRepository, never()).appendRecipient(any(), any());
+        verifyNoInteractions(stripePort);
+
+        // And the address it verified is the couple's OWN (state uppercased), not a guest's.
+        ArgumentCaptor<ToAddress> addressCaptor = ArgumentCaptor.forClass(ToAddress.class);
+        verify(printMailPort).verifyAddress(addressCaptor.capture());
+        assertThat(addressCaptor.getValue().name()).isEqualTo("The Couple");
+        assertThat(addressCaptor.getValue().state()).isEqualTo("IL");
+    }
+
+    @Test
+    void createTestProofOrder_replaysIdempotentRequest_withoutTouchingStripe() {
+        PrintOrder existing = orderWith(List.of());
+        when(printOrderRepository.findByCoupleIdAndIdempotencyKey(coupleId, "idem-test-1"))
+                .thenReturn(Optional.of(existing));
+
+        var result = service.createTestProofOrder(coupleId, testProofRequest());
+
+        assertThat(result.order()).isEqualTo(existing);
+        assertThat(result.checkoutUrl()).isNull();
+        verifyNoInteractions(stripePort);
+        verify(printOrderRepository, never()).save(any());
+    }
+
+    @Test
+    void createTestProofOrder_rejectsUnknownTemplateKey_beforeChargingOrPersisting() {
+        var req = new CreateTestPrintOrderRequest(
+                "SAVE_THE_DATE_HACKER",
+                "The Couple", "1 Return Way", null, "Chicago", "il", "60601", "idem-test-2", null);
+
+        assertThatThrownBy(() -> service.createTestProofOrder(coupleId, req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("template");
+
+        verify(printOrderRepository, never()).save(any());
+        verifyNoInteractions(stripePort);
+    }
+
+    @Test
+    void submitBatchAsync_sendsTestProofToTheCouplesOwnReturnAddress() {
+        // A TEST_PROOF recipient has no guestId; the batch must address it to the order's
+        // persisted return_* block and never consult the guest repository for it.
+        var selfRecipient = new PrintOrderRecipient(UUID.randomUUID(), orderId, null, null, "PENDING", null, null, null);
+        PrintOrder proofOrder = new PrintOrder(orderId, coupleId, PrintOrderType.TEST_PROOF, PrintOrderStatus.PROCESSING,
+                "SAVE_THE_DATE_CLASSIC", 1, 0, null, LocalDateTime.now(), null,
+                List.of(selfRecipient), "idem-test-1", "cs_1", "pi_1", 200, 0,
+                "The Couple", "1 Return Way", "Apt 2", "Chicago", "IL", "60601", null);
+        when(printOrderRepository.findById(orderId)).thenReturn(Optional.of(proofOrder));
+        when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple()));
+        when(websiteRepository.findByCoupleId(coupleId)).thenReturn(Optional.empty());
+        when(printMailPort.sendPostcard(any())).thenReturn("lob_proof_1");
+
+        service.submitBatchAsync(orderId);
+
+        ArgumentCaptor<PrintMailPort.PostcardRequest> postcardCaptor =
+                ArgumentCaptor.forClass(PrintMailPort.PostcardRequest.class);
+        verify(printMailPort).sendPostcard(postcardCaptor.capture());
+        ToAddress to = postcardCaptor.getValue().to();
+        assertThat(to.name()).isEqualTo("The Couple");
+        assertThat(to.addressLine1()).isEqualTo("1 Return Way");
+        assertThat(to.addressLine2()).isEqualTo("Apt 2");
+        assertThat(to.city()).isEqualTo("Chicago");
+        assertThat(to.state()).isEqualTo("IL");
+        assertThat(to.zip()).isEqualTo("60601");
+        verifyNoInteractions(guestRepository);
+
+        verify(printOrderRepository).updateRecipientOutcome(selfRecipient.id(), "lob_proof_1", "SUBMITTED", null);
+        verify(printOrderRepository).finalizeOrder(eq(orderId), eq(PrintOrderStatus.SUBMITTED), any(), any(), eq(200));
+        // Charged 200, sent 200 worth -- no refund due.
+        verify(stripePort, never()).refundPayment(any(), anyLong(), any());
     }
 }
