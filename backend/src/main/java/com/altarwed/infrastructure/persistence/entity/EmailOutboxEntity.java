@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * JPA entity for the email_outbox table (V96). The domain type is
+ * JPA entity for the email_outbox table (V98). The domain type is
  * {@link com.altarwed.domain.model.email.EmailOutboxEntry}; mapping lives in
  * {@link com.altarwed.infrastructure.persistence.EmailOutboxRepositoryAdapter}.
  *
