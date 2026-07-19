@@ -7,6 +7,7 @@ import com.altarwed.infrastructure.persistence.repository.RefreshTokenJpaReposit
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -36,6 +37,16 @@ public class RefreshTokenRepositoryAdapter implements RefreshTokenRepository {
         jpaRepository.deleteAllByUserId(userId);
     }
 
+    @Override
+    public void deleteAllByFamilyId(UUID familyId) {
+        jpaRepository.deleteAllByFamilyId(familyId);
+    }
+
+    @Override
+    public void deleteAllByUserIdAndExpiresAtBefore(UUID userId, LocalDateTime cutoff) {
+        jpaRepository.deleteAllByUserIdAndExpiresAtBefore(userId, cutoff);
+    }
+
     // -------------------------------------------------------------------------
     // Mapping
     // -------------------------------------------------------------------------
@@ -46,6 +57,7 @@ public class RefreshTokenRepositoryAdapter implements RefreshTokenRepository {
                 e.getTokenHash(),
                 e.getUserId(),
                 e.getUserRole(),
+                e.getFamilyId(),
                 e.getExpiresAt(),
                 e.isRevoked(),
                 e.getCreatedAt()
@@ -58,6 +70,7 @@ public class RefreshTokenRepositoryAdapter implements RefreshTokenRepository {
                 .tokenHash(r.tokenHash())
                 .userId(r.userId())
                 .userRole(r.userRole())
+                .familyId(r.familyId())
                 .expiresAt(r.expiresAt())
                 .revoked(r.revoked())
                 .createdAt(r.createdAt())

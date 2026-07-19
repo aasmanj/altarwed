@@ -21,6 +21,7 @@ import com.altarwed.domain.exception.InvalidPromoCodeException;
 import com.altarwed.domain.exception.InvalidRefreshTokenException;
 import com.altarwed.domain.exception.InvalidRsvpTokenException;
 import com.altarwed.domain.exception.RsvpSearchThrottledException;
+import com.altarwed.domain.exception.CaptchaUnavailableException;
 import com.altarwed.domain.exception.CaptchaVerificationFailedException;
 import com.altarwed.domain.exception.DenominationNotFoundException;
 import com.altarwed.domain.exception.EmailAlreadyExistsException;
@@ -125,6 +126,21 @@ public class GlobalExceptionHandler {
         pd.setType(URI.create("https://altarwed.com/problems/rate-limit-exceeded"));
         pd.setTitle("Too Many Requests");
         pd.setDetail(ex.getMessage());
+        return pd;
+    }
+
+    // Prod fail-closed with no Turnstile secret configured (issue #413). Deliberately generic,
+    // mirroring handleStorageNotConfigured: the detail never echoes ex.getMessage(), so the
+    // response carries no hint about which defense layer is down or why (no config oracle).
+    // No log here: this is guest-triggerable, so a per-request ERROR would spam the paging
+    // signal. The adapter logs one WARN per rejection and TurnstileStartupValidator already
+    // logged the unmet launch gate at ERROR once at boot.
+    @ExceptionHandler(CaptchaUnavailableException.class)
+    public ProblemDetail handleCaptchaUnavailable(CaptchaUnavailableException ex) {
+        var pd = ProblemDetail.forStatus(HttpStatus.SERVICE_UNAVAILABLE);
+        pd.setType(URI.create("https://altarwed.com/problems/rsvp-lookup-unavailable"));
+        pd.setTitle("RSVP Lookup Unavailable");
+        pd.setDetail("Invitation lookup is temporarily unavailable. Please try again later or contact the couple.");
         return pd;
     }
 

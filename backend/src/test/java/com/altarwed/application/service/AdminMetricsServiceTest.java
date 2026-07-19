@@ -28,7 +28,7 @@ class AdminMetricsServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AdminMetricsService(metricsRepository, ADMIN, PRICE_CENTS);
+        service = new AdminMetricsService(metricsRepository, new AdminAccessGuard(ADMIN), PRICE_CENTS);
     }
 
     @Test

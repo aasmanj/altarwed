@@ -1,0 +1,14 @@
+-- V96: Track refresh-token families (rotation chains) so that replaying an
+-- already-rotated token can revoke every live descendant (issue #250).
+--
+-- Additive only. Existing rows keep family_id NULL; they adopt a family lazily
+-- on their next rotation (the superseded row is stamped with its own id as the
+-- family id). Code treats a NULL family on a revoked row as "revoke all of the
+-- user's tokens", the strictly safer fallback.
+--
+-- The supporting index lives in V97: SQL Server resolves column names at parse
+-- time, so a statement referencing a freshly added column must not share a
+-- migration with the ALTER that adds it (see backend/CLAUDE.md). Inline INDEX
+-- on ALTER TABLE ADD is not an option either, SQL Server only allows it on
+-- memory-optimized tables (verified against mssql/server:2022, Msg 10785).
+ALTER TABLE refresh_tokens ADD family_id UNIQUEIDENTIFIER NULL;
