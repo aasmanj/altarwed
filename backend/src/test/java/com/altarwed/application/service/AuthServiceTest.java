@@ -64,6 +64,7 @@ class AuthServiceTest {
     @Mock private AuthenticationManager authenticationManager;
     @Mock private AsyncEmailService asyncEmailService;
     @Mock private VendorAuthService vendorAuthService;
+    @Mock private com.altarwed.domain.port.LoginBackoffPort loginBackoff;
 
     private AuthService authService;
     private final UUID userId = UUID.randomUUID();
@@ -75,7 +76,7 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         authService = new AuthService(coupleRepository, refreshTokenRepository, passwordEncoder,
-                jwtService, authenticationManager, asyncEmailService, vendorAuthService);
+                jwtService, authenticationManager, asyncEmailService, vendorAuthService, loginBackoff);
 
         // capture the security log so the WARN tripwire can be asserted
         logAppender = new ListAppender<>();
