@@ -44,10 +44,27 @@ import java.time.Duration;
 public class InMemoryRsvpSearchThrottleAdapter implements RsvpSearchThrottlePort {
 
     // Total find attempts (hit or miss) allowed for one wedding within the window before it enters
-    // cooldown. 20 is generous enough that a real household looking itself up a handful of times is
-    // never blocked, tight enough that dictionary-walking a guest list (each hit yielding up to five
-    // masked names + live RSVP tokens) stalls quickly.
-    static final int SEARCH_BUDGET = 20;
+    // cooldown. Deliberately generous, because the budget is keyed PER WEDDING (issue #89 / H1), so
+    // it is shared by every guest of that wedding at once: right after an invite blast a crowd of
+    // legitimate guests search simultaneously and must not collectively trip a 429 and get locked
+    // out. The number was raised from 20 to 40 for issue #415 to widen that legit-guest headroom
+    // (a real guest fumbling typos can now retry more times before the shared bucket drains).
+    //
+    // Raising it does not reopen the harvest hole that #89 closed, because two stronger controls now
+    // sit in front of this throttle: (1) every find attempt must first pass a Turnstile captcha
+    // (GuestService.findGuestsByName), so bulk enumeration costs one captcha solve per search, and
+    // (2) as of #415 a SEARCH-sourced token view (GuestService.getRsvpPageData) discloses only the
+    // guessed guest plus a MASKED household roster ("{First} {LastInitial}.", no RSVP status), not
+    // every household member's full name and attendance. Before #415 a single successful search
+    // could disclose up to five whole households (roughly a 5 x SEARCH_BUDGET full-household
+    // ceiling); after #415 each search yields at most five masked identities with no status, so the
+    // per-window disclosure VALUE fell even as the attempt count rose. This throttle is therefore
+    // now a volume backstop, not the primary anti-enumeration control.
+    //
+    // Deferred (out of scope for #415, would need the RsvpSearchThrottlePort signature to carry the
+    // query so distinct-name enumeration could be penalized harder than a legit guest's repeated
+    // self-lookup): a per-wedding distinct-name cap split from this per-window attempt budget.
+    static final int SEARCH_BUDGET = 40;
     // Budget refills fully over this window (greedy, so partial refill accrues continuously).
     static final Duration REFILL_WINDOW = Duration.ofMinutes(10);
 
