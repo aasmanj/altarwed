@@ -1,5 +1,6 @@
 package com.altarwed.infrastructure.security;
 
+import com.altarwed.domain.exception.CaptchaUnavailableException;
 import com.altarwed.domain.port.CaptchaVerificationPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,22 +25,39 @@ public class CloudflareTurnstileAdapter implements CaptchaVerificationPort {
     private static final String VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
     private final String secretKey;
+    private final boolean failClosed;
     private final RestClient restClient;
 
-    public CloudflareTurnstileAdapter(@Value("${altarwed.turnstile.secret-key:}") String secretKey) {
+    // failClosed is profile-driven, not env-driven: application.yml sets it true only in the
+    // prod profile document (the same mechanism that disables Swagger in prod), so no deploy
+    // environment can toggle it by accident and local/CI need no configuration at all.
+    public CloudflareTurnstileAdapter(
+            @Value("${altarwed.turnstile.secret-key:}") String secretKey,
+            @Value("${altarwed.turnstile.fail-closed:false}") boolean failClosed) {
         this.secretKey = secretKey;
+        this.failClosed = failClosed;
         this.restClient = RestClient.builder().build();
-        if (secretKey == null || secretKey.isBlank()) {
+        if ((secretKey == null || secretKey.isBlank()) && !failClosed) {
             log.warn("turnstile captcha disabled, no altarwed.turnstile.secret-key configured");
         }
+        // The blank-and-fail-closed case logs at ERROR in TurnstileStartupValidator, which owns
+        // the loud launch-gate message; no duplicate log here.
     }
 
     @Override
     public boolean verify(String token, String remoteIp) {
-        // Not configured (local/dev, or before the Cloudflare site exists yet): verify
-        // everything rather than breaking the feature. Once the secret is set (Key
-        // Vault in prod) verification activates automatically, no code change needed.
         if (secretKey == null || secretKey.isBlank()) {
+            // Fail-closed profile (prod, issue #413): a blank secret must reject rather than
+            // silently disabling the human-check that #89's threat model assumes is live.
+            // Thrown, not returned false, so the web layer can answer 503 (operator problem,
+            // retry later) instead of 400 (caller problem, retry now).
+            if (failClosed) {
+                log.warn("turnstile verification rejected, reason=fail-closed with no secret configured");
+                throw new CaptchaUnavailableException();
+            }
+            // Not configured elsewhere (local/dev/CI, or before the Cloudflare site exists):
+            // verify everything rather than breaking the feature. Once the secret is set (Key
+            // Vault in prod) verification activates automatically, no code change needed.
             return true;
         }
         if (token == null || token.isBlank()) {

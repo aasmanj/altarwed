@@ -318,19 +318,50 @@ public class StripeService {
             log.warn("stripe checkout.session.completed: no print order found, orderId={}", orderId);
             return;
         }
-        // Idempotency: Stripe redelivers webhooks at-least-once, and can deliver the same event
-        // concurrently. This is a compare-and-swap (only transitions a row currently
-        // PENDING_PAYMENT to PROCESSING) -- a plain "read status, then write" check-then-act would
-        // let two concurrent deliveries both read PENDING_PAYMENT before either commits, both
-        // transition, and both trigger the batch below (double-mail, double Lob charge). Only the
-        // delivery that actually wins the atomic transition (returns true) may trigger it.
-        boolean won = printOrderRepository.markPaymentConfirmed(orderId, event.stripePaymentIntentId());
+        boolean won = confirmPrintOrderPayment(orderId, event.stripePaymentIntentId());
         if (!won) {
             log.info("stripe checkout.session.completed ignored, order already confirmed, orderId={}", orderId);
-            return;
+        }
+    }
+
+    /**
+     * Issue #59/#209: the single converge path from PENDING_PAYMENT to PROCESSING + async Lob
+     * batch. Called by the checkout.session.completed webhook handler above AND by
+     * PrintOrderPaymentReconciliationService when it recovers a paid order whose webhook was
+     * lost -- both callers MUST share this method so a reconciled order behaves identically to a
+     * webhook-delivered one.
+     *
+     * Idempotency: Stripe redelivers webhooks at-least-once, can deliver the same event
+     * concurrently, and the reconciler can race a late webhook. markPaymentConfirmed is a
+     * compare-and-swap (only transitions a row currently PENDING_PAYMENT to PROCESSING) -- a
+     * plain "read status, then write" check-then-act would let two concurrent callers both read
+     * PENDING_PAYMENT before either commits, both transition, and both trigger the batch below
+     * (double-mail, double Lob charge). Only the caller that actually wins the atomic transition
+     * (returns true here) triggers it; submitBatchAsync's own PROCESSING status check is a second
+     * defensive layer behind that.
+     */
+    public boolean confirmPrintOrderPayment(UUID orderId, String stripePaymentIntentId) {
+        boolean won = printOrderRepository.markPaymentConfirmed(orderId, stripePaymentIntentId);
+        if (!won) {
+            return false;
         }
         log.info("print order payment confirmed, orderId={}", orderId);
         printOrderService.submitBatchAsync(orderId);
+        return true;
+    }
+
+    /**
+     * Issue #59/#209: the single terminal-failure path for an unpaid order (Checkout Session
+     * expired or abandoned). Same compare-and-swap reasoning as
+     * {@link #confirmPrintOrderPayment}; no charge was ever captured, so no Lob call happens and
+     * no refund is needed. Shared by the checkout.session.expired webhook handler and the
+     * reconciliation job.
+     */
+    public boolean failPrintOrderPayment(UUID orderId, String errorMessage) {
+        // No success log here: each caller logs its own context-specific line (the expired
+        // webhook handler keeps its pre-#209 "print order payment expired" string verbatim so
+        // any App Insights query keyed on it stays intact; the reconciler logs a WARN).
+        return printOrderRepository.markPaymentFailed(orderId, errorMessage);
     }
 
     // Issue #59: fires if the couple abandons the hosted Checkout page (Stripe's 24h default
@@ -352,15 +383,18 @@ public class StripeService {
             log.info("stripe checkout.session.expired ignored, order not found, orderId={}", orderId);
             return;
         }
-        // Same compare-and-swap reasoning as handlePrintOrderPaymentCompleted above.
-        boolean won = printOrderRepository.markPaymentFailed(orderId,
-                "Payment was not completed before the checkout link expired.");
+        boolean won = failPrintOrderPayment(orderId, CHECKOUT_EXPIRED_MESSAGE);
         if (!won) {
             log.info("stripe checkout.session.expired ignored, order already resolved, orderId={}", orderId);
             return;
         }
         log.info("print order payment expired, orderId={}", orderId);
     }
+
+    // Issue #209: shared by the expired-webhook handler and the reconciliation job so an order
+    // abandoned via a lost webhook reads identically to one abandoned via a delivered webhook.
+    public static final String CHECKOUT_EXPIRED_MESSAGE =
+            "Payment was not completed before the checkout link expired.";
 
     // -------------------------------------------------------------------------
     // Mapping helpers

@@ -907,6 +907,12 @@ export default function SideBySideEditor() {
                 // scripture banner is server-rendered, not patched via postMessage).
                 updateWebsite.mutate({ scriptureBackgroundColor: color }, { onSuccess: bumpPreview })
               }}
+              onOverlayDarknessSave={(darkness) =>
+                // The hero scrim is a server-rendered gradient, so reload the iframe on save
+                // (same posture as the scripture banner) rather than a postMessage patch.
+                updateWebsite.mutate({ heroOverlayDarkness: darkness }, { onSuccess: bumpPreview })}
+              onHeroLayoutSave={(layout) =>
+                updateWebsite.mutate({ heroLayout: layout }, { onSuccess: bumpPreview })}
             />
           )}
 
@@ -1601,6 +1607,8 @@ function DesignPanel({
   onTaglineColorSave,
   onTaglineColorLive,
   onScriptureBgColorSave,
+  onOverlayDarknessSave,
+  onHeroLayoutSave,
 }: {
   website: WeddingWebsite
   onClose: () => void
@@ -1609,6 +1617,8 @@ function DesignPanel({
   onTaglineColorSave: (color: string | null) => void
   onTaglineColorLive: (color: string) => void
   onScriptureBgColorSave: (color: string) => void
+  onOverlayDarknessSave: (darkness: number) => void
+  onHeroLayoutSave: (layout: string) => void
 }) {
   const [accentColor, setAccentColor] = useState(website.accentColor ?? '#d4af6a')
   const scheduleAccentSave = useDebouncedSave((v: string) => onAccentColorSave(v))
@@ -1626,6 +1636,16 @@ function DesignPanel({
   const [scriptureBgColor, setScriptureBgColor] = useState(website.scriptureBackgroundColor ?? '')
   const scheduleScriptureBgColorSave = useDebouncedSave((v: string) => onScriptureBgColorSave(v))
   useEffect(() => { setScriptureBgColor(website.scriptureBackgroundColor ?? '') }, [website.scriptureBackgroundColor])
+
+  // V96 (issue #360): hero scrim intensity. Default 70 matches the pre-#360 gradient, so a
+  // fresh site shows the slider where it always effectively sat. The slider debounce-saves
+  // (the scrim is a server-rendered gradient, so the save reloads the preview iframe).
+  const [overlayDarkness, setOverlayDarkness] = useState(website.heroOverlayDarkness ?? 70)
+  const scheduleOverlayDarknessSave = useDebouncedSave((v: number) => onOverlayDarknessSave(v))
+  useEffect(() => { setOverlayDarkness(website.heroOverlayDarkness ?? 70) }, [website.heroOverlayDarkness])
+
+  // V96 (issue #360): full-bleed vs framed hero. Default "full" preserves the original crop.
+  const heroLayout = website.heroLayout === 'framed' ? 'framed' : 'full'
 
   return (
     <div className="border-b border-stone-200 bg-stone-50 px-4 py-3 max-h-80 overflow-y-auto">
@@ -1775,6 +1795,82 @@ function DesignPanel({
           Sets the color of the tagline text over your hero photo.
         </p>
       </div>
+
+      {/* Hero overlay darkness (issue #360): a labelled, keyboard-operable range slider that
+          scales the dark scrim over the hero photo so the white names stay legible on a bright
+          photo. Debounce-saves; the preview reloads because the gradient is server-rendered. */}
+      <div className="mt-3 rounded border border-stone-200 bg-white px-2.5 py-2">
+        <label htmlFor="design-overlay-darkness" className="text-[11px] font-medium text-brown block mb-1.5">
+          Hero overlay darkness
+        </label>
+        <div className="flex items-center gap-2">
+          <input
+            id="design-overlay-darkness"
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={overlayDarkness}
+            aria-valuetext={`${overlayDarkness} percent`}
+            onChange={e => {
+              const v = Number(e.target.value)
+              setOverlayDarkness(v)
+              scheduleOverlayDarknessSave(v)
+            }}
+            className="flex-1 accent-amber-600 cursor-pointer"
+          />
+          <span className="text-[11px] tabular-nums text-stone-500 w-9 text-right" aria-hidden="true">
+            {overlayDarkness}%
+          </span>
+          <button
+            type="button"
+            onClick={() => { setOverlayDarkness(70); onOverlayDarknessSave(70) }}
+            className="text-[10px] text-stone-400 hover:text-stone-700 underline"
+            title="Reset to default darkness"
+          >
+            Reset
+          </button>
+        </div>
+        <p className="text-[10px] text-stone-400 mt-1 leading-snug">
+          Darker keeps your names readable on bright photos. Lighter shows more of the photo.
+        </p>
+      </div>
+
+      {/* Hero photo layout (issue #360): full-bleed cover crop vs a framed fit that shows the
+          whole photo. Framed avoids the hard crop that portrait heroes get in the full-bleed
+          hero. Radio group so it is keyboard-operable and screen-reader labelled. */}
+      <fieldset className="mt-3 rounded border border-stone-200 bg-white px-2.5 py-2">
+        <legend className="text-[11px] font-medium text-brown px-1">Hero photo layout</legend>
+        <div className="space-y-1">
+          {[
+            { key: 'full', label: 'Full bleed', description: 'Fills the hero, cropping to fit (best for landscape photos).' },
+            { key: 'framed', label: 'Framed', description: 'Shows the whole photo without cropping (best for portrait photos).' },
+          ].map(option => {
+            const isSelected = heroLayout === option.key
+            return (
+              <label
+                key={option.key}
+                className={`flex items-start gap-2 rounded border px-2 py-1.5 cursor-pointer transition ${
+                  isSelected ? 'border-brown bg-stone-50' : 'border-stone-200 hover:border-stone-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="design-hero-layout"
+                  value={option.key}
+                  checked={isSelected}
+                  onChange={() => onHeroLayoutSave(option.key)}
+                  className="mt-0.5 accent-amber-600"
+                />
+                <span className="min-w-0">
+                  <span className="block text-[11px] font-medium text-brown leading-tight">{option.label}</span>
+                  <span className="block text-[10px] text-stone-500 leading-snug">{option.description}</span>
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      </fieldset>
 
       {/* Scripture banner color: only meaningful once a verse is set, so mirror the old
           conditional. When no verse is set we show a hint instead of a dead control. */}

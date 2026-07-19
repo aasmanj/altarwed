@@ -119,11 +119,16 @@ altarwed:
     # Cloudflare Turnstile secret key, guards the RSVP find-invitation endpoint against
     # scripted enumeration (issue #89). Blank is intentional OUTSIDE prod: with no secret
     # configured, CloudflareTurnstileAdapter verifies every request (captcha effectively
-    # disabled) so local dev and any environment without a Cloudflare site yet keep working.
-    # In the prod profile blank is fatal: TurnstileStartupValidator refuses to boot so the
-    # captcha cannot silently fail open (issue #220). Set in Key Vault once the Turnstile
-    # site exists.
+    # disabled) so local dev, CI, and any environment without a Cloudflare site yet keep
+    # working. In the prod profile (fail-closed: true below) a blank secret instead rejects
+    # every find-invitation request with a generic 503 and logs an ERROR at boot, so the
+    # captcha can neither silently fail open (issues #220, #413) nor take the whole app down.
+    # Set in Key Vault once the Turnstile site exists (issue #247).
     secret-key: ${TURNSTILE_SECRET_KEY:}
+    # Profile-driven, deliberately NOT an env var (mirrors the springdoc prod toggle): only the
+    # prod profile document flips it, so no deploy setting can accidentally fail dev open in
+    # prod or fail CI closed.
+    fail-closed: false
 
   google:
     # Empty defaults: a missing client id/secret disables Google Sheets sync (degrades at
@@ -259,3 +264,12 @@ springdoc:
     enabled: false
   swagger-ui:
     enabled: false
+
+altarwed:
+  turnstile:
+    # Prod is the one environment where the RSVP captcha must never silently fail open (issues
+    # #220, #413): with a blank secret the adapter rejects every anonymous find-invitation
+    # request (generic 503) instead of verifying everything, and TurnstileStartupValidator
+    # logs the unmet launch gate at ERROR on boot. The app itself still starts and serves
+    # everything else.
+    fail-closed: true

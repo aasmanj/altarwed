@@ -122,6 +122,25 @@ public class StripeAdapter implements StripePort {
         }
     }
 
+    // Issue #209: read-only session lookup for the PENDING_PAYMENT reconciliation job. Logs the
+    // observability triplet but never the session's amounts or customer details -- only Stripe's
+    // opaque session id (already logged throughout this adapter) and the two status strings the
+    // reconciler's decision is based on.
+    @Override
+    public CheckoutSessionStatus retrieveCheckoutSessionStatus(String sessionId) {
+        requireClient();
+        log.info("stripe checkout session retrieving, sessionId={}", sessionId);
+        try {
+            com.stripe.model.checkout.Session session = client.checkout().sessions().retrieve(sessionId);
+            log.info("stripe checkout session retrieved, sessionId={}, status={}, paymentStatus={}",
+                     sessionId, session.getStatus(), session.getPaymentStatus());
+            return new CheckoutSessionStatus(session.getStatus(), session.getPaymentStatus(), session.getPaymentIntent());
+        } catch (com.stripe.exception.StripeException e) {
+            log.error("stripe checkout session retrieve failed, sessionId={}", sessionId, e);
+            throw new StripeCallException("Failed to retrieve Stripe checkout session", e);
+        }
+    }
+
     @Override
     public String createPortalSession(String stripeCustomerId, String returnUrl) {
         requireClient();

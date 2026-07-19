@@ -79,6 +79,8 @@ function bareWedding(overrides: Partial<WeddingWebsite> = {}): WeddingWebsite {
     ceremonyVenueTitle: null,
     receptionVenueTitle: null,
     nameFont: null,
+    heroOverlayDarkness: null,
+    heroLayout: null,
     ...overrides,
   }
 }

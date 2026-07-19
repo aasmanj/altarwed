@@ -126,6 +126,7 @@ public class WeddingWebsiteService {
                 null, null,                    // ceremony + reception venue titles (V90)
                 null,                          // nameFont (V91)
                 null,                          // seatingBoardTitle (V92)
+                null, null,                    // heroOverlayDarkness, heroLayout (V96) -> defaults
                 false, null,
                 LocalDateTime.now(), LocalDateTime.now()
         );
@@ -356,6 +357,12 @@ public class WeddingWebsiteService {
                 req.nameFont()                     != null ? req.nameFont()                     : existing.nameFont(),
                 blankToNull(req.seatingBoardTitle(), existing.seatingBoardTitle()),
 
+                // V96: hero presentation. Both are simple patch-merge (null = no change). The
+                // @Min/@Max and @Pattern on the request already clamp/allowlist the values, so
+                // by the time we reach here they are safe to persist verbatim.
+                req.heroOverlayDarkness()          != null ? req.heroOverlayDarkness()          : existing.heroOverlayDarkness(),
+                req.heroLayout()                   != null ? req.heroLayout()                   : existing.heroLayout(),
+
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(),
                 LocalDateTime.now()
@@ -393,6 +400,7 @@ public class WeddingWebsiteService {
                 existing.receptionVenueName(), existing.receptionVenueAddress(), existing.receptionVenueCity(), existing.receptionVenueState(),
                 existing.receptionTime(), existing.receptionVenueAdditionalInfo(), existing.ceremonyVenueTitle(), existing.receptionVenueTitle(),
                 existing.nameFont(), existing.seatingBoardTitle(),
+                existing.heroOverlayDarkness(), existing.heroLayout(),
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );
@@ -429,6 +437,7 @@ public class WeddingWebsiteService {
                 existing.receptionVenueName(), existing.receptionVenueAddress(), existing.receptionVenueCity(), existing.receptionVenueState(),
                 existing.receptionTime(), existing.receptionVenueAdditionalInfo(), existing.ceremonyVenueTitle(), existing.receptionVenueTitle(),
                 existing.nameFont(), existing.seatingBoardTitle(),
+                existing.heroOverlayDarkness(), existing.heroLayout(),
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );
@@ -466,6 +475,7 @@ public class WeddingWebsiteService {
                 existing.receptionVenueName(), existing.receptionVenueAddress(), existing.receptionVenueCity(), existing.receptionVenueState(),
                 existing.receptionTime(), existing.receptionVenueAdditionalInfo(), existing.ceremonyVenueTitle(), existing.receptionVenueTitle(),
                 existing.nameFont(), existing.seatingBoardTitle(),
+                existing.heroOverlayDarkness(), existing.heroLayout(),
                 existing.isDeleted(), existing.deletedAt(),
                 existing.createdAt(), LocalDateTime.now()
         );
