@@ -63,7 +63,7 @@ class RsvpReminderServiceTest {
                 LocalDateTime.now().minusMinutes(5), // remindAt due
                 null, null,
                 null, null, null,
-                null, false);
+                null, false, null, null);
     }
 
     @Test

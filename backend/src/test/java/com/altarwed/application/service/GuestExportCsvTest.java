@@ -102,7 +102,7 @@ class GuestExportCsvTest {
                 null, 0, null, null, null, null,
                 LocalDateTime.now(), LocalDateTime.now(),
                 null, null, false, null, false
-        );
+        , null, null);
         when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(guest));
 
         String csv = stripBom(service().exportGuestsCsv(coupleId));
@@ -211,6 +211,6 @@ class GuestExportCsvTest {
                 null, 0, null, null, null, null,
                 LocalDateTime.now(), LocalDateTime.now(),
                 null, "Smiths", false, null, false
-        );
+        , null, null);
     }
 }

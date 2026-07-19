@@ -28,6 +28,16 @@ public interface WeddingWebsiteJpaRepository extends JpaRepository<WeddingWebsit
 
     boolean existsByCoupleId(UUID coupleId);
 
+    // Non-deleted weddings with a date inside the inclusive window. Backs CampaignReminderService
+    // (issue #458). Excludes soft-deleted sites so a deleted wedding never triggers reminders.
+    @Query("""
+            SELECT w FROM WeddingWebsiteEntity w
+            WHERE w.isDeleted = false
+            AND w.weddingDate >= :start AND w.weddingDate <= :end
+            """)
+    List<WeddingWebsiteEntity> findByWeddingDateBetween(@Param("start") LocalDate start,
+                                                        @Param("end") LocalDate end);
+
     @Query("""
             SELECT w FROM WeddingWebsiteEntity w
             WHERE w.isPublished = true AND w.isDeleted = false

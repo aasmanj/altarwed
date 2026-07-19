@@ -68,4 +68,19 @@ public final class OutboxPayloads {
 
     public record VendorInquiryConfirmation(String coupleEmail, String coupleName,
                                             String vendorBusinessName, String vendorProfileUrl) {}
+
+    // Date-offset RSVP campaign reminders (issue #458). weddingDate is the display string
+    // ("June 20, 2026"); the venue and ceremonyTime fields carry the details the reminder
+    // renders; googleCalendarUrl is the prebuilt add-to-calendar link. rsvpToken is the fresh
+    // RSVP link token for the nonresponder nudge (null for the attending reminder, which carries
+    // no RSVP action). ceremonyTime is the couple's free-form string (e.g. "4:00 PM") or null.
+    public record RsvpNonresponderReminder(String toEmail, String guestName, String coupleNames,
+                                           String weddingDate, String venueAddress, String venueCity,
+                                           String venueState, String ceremonyTime, String rsvpToken,
+                                           String googleCalendarUrl) {}
+
+    public record AttendingReminder(String toEmail, String guestName, String coupleNames,
+                                    String weddingDate, String venueAddress, String venueCity,
+                                    String venueState, String ceremonyTime,
+                                    String googleCalendarUrl) {}
 }

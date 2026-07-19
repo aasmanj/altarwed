@@ -193,6 +193,18 @@ public class EmailOutboxSender {
                 emailPort.sendVendorInquiryConfirmation(p.coupleEmail(), p.coupleName(),
                         p.vendorBusinessName(), p.vendorProfileUrl());
             }
+            case RSVP_NONRESPONDER_REMINDER -> {
+                var p = objectMapper.readValue(json, OutboxPayloads.RsvpNonresponderReminder.class);
+                emailPort.sendNonresponderReminderEmail(p.toEmail(), p.guestName(), p.coupleNames(),
+                        p.weddingDate(), p.venueAddress(), p.venueCity(), p.venueState(),
+                        p.ceremonyTime(), p.rsvpToken(), p.googleCalendarUrl());
+            }
+            case ATTENDING_REMINDER -> {
+                var p = objectMapper.readValue(json, OutboxPayloads.AttendingReminder.class);
+                emailPort.sendAttendingReminderEmail(p.toEmail(), p.guestName(), p.coupleNames(),
+                        p.weddingDate(), p.venueAddress(), p.venueCity(), p.venueState(),
+                        p.ceremonyTime(), p.googleCalendarUrl());
+            }
         }
     }
 

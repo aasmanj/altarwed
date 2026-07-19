@@ -394,7 +394,7 @@ class GoogleSheetSyncServiceTest {
                 null, 0,
                 null, null, null, null, null, null,
                 null, null, null,
-                null, false);
+                null, false, null, null);
     }
 
     private List<SeatingTable> tables(UUID coupleId, int count) {
@@ -414,6 +414,6 @@ class GoogleSheetSyncServiceTest {
                 null, 0,
                 null, null, null, null, null, null,
                 null, null, null,
-                sheetSyncId, syncedFromSheet);
+                sheetSyncId, syncedFromSheet, null, null);
     }
 }
