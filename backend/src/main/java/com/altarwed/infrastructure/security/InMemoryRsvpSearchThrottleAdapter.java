@@ -47,7 +47,9 @@ import org.springframework.stereotype.Component;
 public class InMemoryRsvpSearchThrottleAdapter implements RsvpSearchThrottlePort {
 
     // Budget and refill window are defined on the port (SEARCH_BUDGET / REFILL_WINDOW), the
-    // single source of truth shared with the Redis adapter so the two can never drift.
+    // single source of truth shared with the Redis adapter so the two can never drift. The
+    // budget's sizing rationale (raised 20 to 40 for issue #415) lives with the constants on
+    // RsvpSearchThrottlePort.
 
     // Bounded + TTL-evicting, matching RateLimitingFilter's rationale: an unbounded map keyed by
     // caller-influenced input is itself a memory-exhaustion vector. The TTL is longer than the

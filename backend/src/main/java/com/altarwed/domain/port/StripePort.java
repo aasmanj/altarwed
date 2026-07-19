@@ -33,6 +33,25 @@ public interface StripePort {
      */
     void refundPayment(String paymentIntentId, long amountCents, String idempotencyKey);
 
+    /**
+     * Issue #209: read-only lookup of a Checkout Session's current payment state, used by the
+     * reconciliation job to converge print orders stuck in PENDING_PAYMENT after a lost
+     * checkout.session.completed webhook. Webhooks are at-most-once from our perspective (Stripe
+     * retries for a while, but delivery is never guaranteed), so the source of truth for "did the
+     * couple actually pay" is Stripe's session object itself, not our webhook history. This call
+     * mutates nothing on Stripe's side.
+     */
+    CheckoutSessionStatus retrieveCheckoutSessionStatus(String sessionId);
+
+    /**
+     * Issue #209: only the three fields the reconciler's decision needs (no amounts, no customer
+     * details -- they must never reach logs or callers that do not need them).
+     * sessionStatus is Stripe's session lifecycle: open | complete | expired.
+     * paymentStatus is the money truth: paid | unpaid | no_payment_required.
+     * paymentIntentId is only populated once the couple actually paid.
+     */
+    record CheckoutSessionStatus(String sessionStatus, String paymentStatus, String paymentIntentId) {}
+
     StripeEventData constructEvent(byte[] payload, String sigHeader);
 
     record StripeEventData(

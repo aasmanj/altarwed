@@ -68,6 +68,30 @@ describe('Design panel grouping (issue #359)', () => {
     expect(SRC).toContain('withFontTheme(website.customTabLabels')
   })
 
+  it('the DesignPanel exposes the hero overlay darkness slider and layout control (issue #360)', () => {
+    const design = fnBody('DesignPanel')
+    // Overlay darkness: a labelled, keyboard-operable range slider (not a div-onClick).
+    expect(design).toContain('Hero overlay darkness')
+    expect(design).toContain('id="design-overlay-darkness"')
+    expect(design).toContain('type="range"')
+    // htmlFor wiring gives the slider a programmatic label for screen readers.
+    expect(design).toContain('htmlFor="design-overlay-darkness"')
+    // Full vs framed layout: an accessible radio group with both allowlisted keys.
+    expect(design).toContain('Hero photo layout')
+    expect(design).toContain('name="design-hero-layout"')
+    expect(design).toContain("key: 'full'")
+    expect(design).toContain("key: 'framed'")
+    // Both persist through new website-record callbacks.
+    expect(design).toContain('onOverlayDarknessSave')
+    expect(design).toContain('onHeroLayoutSave')
+  })
+
+  it('the hero controls save through the website record and reload the preview (issue #360)', () => {
+    // The scrim + layout are server-rendered, so the save reloads the preview iframe.
+    expect(SRC).toContain('heroOverlayDarkness: darkness')
+    expect(SRC).toContain('heroLayout: layout')
+  })
+
   it('the Tabs panel is now hide/rename only (theme controls moved out)', () => {
     const tabs = fnBody('TabSettingsPanel')
     // Accent presets and the font theme no longer live in the Tabs panel.

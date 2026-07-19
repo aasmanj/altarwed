@@ -36,6 +36,20 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void captchaUnavailable_maps_to_a_generic_503_with_no_config_oracle() {
+        // Issue #413: prod fail-closed with a blank Turnstile secret. The guest-facing body
+        // must read as a plain temporary outage; nothing may hint at captcha, Turnstile,
+        // secrets, or which defense layer is down.
+        ProblemDetail pd = handler.handleCaptchaUnavailable(
+                new com.altarwed.domain.exception.CaptchaUnavailableException());
+
+        assertThat(pd.getStatus()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE.value());
+        String visible = (pd.getTitle() + " " + pd.getDetail() + " " + pd.getType()).toLowerCase();
+        assertThat(visible).doesNotContain("captcha", "turnstile", "secret", "config", "key vault", "env");
+        assertThat(pd.getDetail()).contains("temporarily unavailable");
+    }
+
+    @Test
     void detects_broken_pipe_as_client_disconnect() {
         assertThat(GlobalExceptionHandler.isClientDisconnect(new IOException("Broken pipe"))).isTrue();
     }

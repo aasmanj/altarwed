@@ -11,6 +11,7 @@ import { safeColor } from '@/lib/safeColor'
 import { safeNameFont, safeNameFontWeight } from '@/lib/safeFont'
 import { safeFontTheme } from '@/lib/safeFontTheme'
 import { accentColorTokens } from '@/lib/accentColorTokens'
+import { safeHeroOverlayGradient, safeHeroLayout } from '@/lib/heroOverlay'
 
 // NOTE: intentionally NO generateStaticParams here. Pre-rendering the published catalog
 // at build was considered as a 504 mitigation but rejected: the per-slug prerender calls
@@ -191,6 +192,11 @@ export default async function WeddingLayout({
   // inline style), so the theme drives section headings and body copy, not the couple's
   // names on the hero.
   const fontTheme = safeFontTheme(wedding.customTabLabels)
+  // Couple-chosen hero scrim + fill mode (issue #360). Both are sanitised before reaching a
+  // style sink: safeHeroOverlayGradient clamps the darkness to 0-100 and builds the gradient
+  // from that bounded number; safeHeroLayout maps to an allowlisted "full" | "framed" key.
+  const heroOverlayGradient = safeHeroOverlayGradient(wedding.heroOverlayDarkness)
+  const heroLayout = safeHeroLayout(wedding.heroLayout)
 
   return (
     <div className="aw-fonts min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]" style={{ fontFamily: 'var(--body-font)' }}>
@@ -215,16 +221,21 @@ export default async function WeddingLayout({
       )}
 
       {/* ── Hero ── */}
-      <section className="relative h-[85vh] min-h-[520px] flex items-end justify-center overflow-hidden">
+      {/* Layout (issue #360): "full" is the original full-bleed cover crop; "framed" contains
+          the whole photo (object-contain) against a dark backdrop so a portrait hero is shown
+          in full instead of being cropped hard at the fixed hero height. */}
+      <section className={`relative h-[85vh] min-h-[520px] flex items-end justify-center overflow-hidden${heroLayout === 'framed' ? ' bg-[#1c1917]' : ''}`}>
         <Image
           src={heroImage}
           alt={`${wedding.partnerTwoName} and ${wedding.partnerOneName}`}
-          fill sizes="100vw" className="object-cover" priority
+          fill sizes="100vw" className={heroLayout === 'framed' ? 'object-contain' : 'object-cover'} priority
           style={{
             objectPosition: `${(wedding.heroFocalPointX ?? 0.5) * 100}% ${(wedding.heroFocalPointY ?? 0.5) * 100}%`,
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/10" />
+        {/* Scrim intensity (issue #360): gradient derived from the clamped darkness value so the
+            white couple names stay legible over a bright photo. */}
+        <div className="absolute inset-0" style={{ backgroundImage: heroOverlayGradient }} />
 
         <div className="relative z-10 text-center pb-14 px-6 w-full max-w-4xl mx-auto">
           {/* Tagline supports three states: empty string (user cleared, render nothing),

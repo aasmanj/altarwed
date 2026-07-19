@@ -25,12 +25,19 @@ public interface RsvpSearchThrottlePort {
      * Total find attempts (hit or miss) allowed for one wedding within {@link #REFILL_WINDOW}
      * before it enters cooldown. The budget is business policy, not an adapter detail, so it
      * lives on the port: every adapter must enforce the same number or the throttle's strength
-     * would silently depend on which storage backend is configured. 20 is generous enough that
-     * a real household looking itself up a handful of times is never blocked, tight enough
-     * that dictionary-walking a guest list (each hit yielding up to five masked names + live
-     * RSVP tokens) stalls quickly.
+     * would silently depend on which storage backend is configured.
+     *
+     * <p>Raised from 20 to 40 for issue #415 to widen legit-guest headroom: the budget is keyed
+     * PER WEDDING, so right after an invite blast a crowd of legitimate guests share one bucket
+     * and must not collectively trip a 429. Raising it does not reopen the #89 harvest hole,
+     * because two stronger controls now sit in front of this throttle: every find attempt must
+     * first pass a Turnstile captcha, and a SEARCH-sourced token view discloses only the guessed
+     * guest plus a masked, status-less household roster (issue #415). The throttle is therefore a
+     * volume backstop, not the primary anti-enumeration control. Deferred idea: a per-wedding
+     * distinct-name cap (would need this port's signature to carry the query) so enumeration is
+     * penalized harder than a legit guest's repeated self-lookup.
      */
-    int SEARCH_BUDGET = 20;
+    int SEARCH_BUDGET = 40;
 
     /**
      * The budget refills fully over this window (greedily, so partial refill accrues
