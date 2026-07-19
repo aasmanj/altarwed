@@ -87,6 +87,10 @@ public record WeddingWebsiteResponse(
         // V92: optional custom headline for the printable seating board. null = "Welcome".
         String seatingBoardTitle,
 
+        // V96: hero presentation controls (issue #360). null = defaults (70 / "full").
+        Integer heroOverlayDarkness,
+        String heroLayout,
+
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {}

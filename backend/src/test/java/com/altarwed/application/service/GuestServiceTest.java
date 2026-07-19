@@ -790,9 +790,9 @@ class GuestServiceTest {
     private RsvpPageDataResponse rsvpViewForTokenSource(String source) {
         UUID coupleId = UUID.randomUUID();
         UUID partyId = UUID.randomUUID();
-        Guest holder = partyGuest(coupleId, partyId, "Jordan",
+        Guest holder = partyGuest(coupleId, partyId, "Jordan Aasman",
                 "no shellfish", "Canon in D", "please seat us near the front");
-        Guest otherMember = partyGuest(coupleId, partyId, "Eden",
+        Guest otherMember = partyGuest(coupleId, partyId, "Eden Aasman",
                 "vegetarian", "Ode to Joy", "the private note of another member");
 
         RsvpInviteToken token = new RsvpInviteToken(
@@ -815,16 +815,22 @@ class GuestServiceTest {
         // The private note left for the couple is never disclosed to a bare name match.
         assertThat(view.currentNoteForCouple()).isNull();
 
-        // The token holder's own dietary/song stay so their own form pre-fills.
+        // The token holder's own full name stays (they selected their own masked entry and need a
+        // clear "this is your invitation" confirmation) and their own dietary/song pre-fill.
+        assertThat(view.guestName()).isEqualTo("Jordan Aasman");
         assertThat(view.currentDietary()).isEqualTo("no shellfish");
         assertThat(view.currentSongRequest()).isEqualTo("Canon in D");
 
-        // Other party members keep name + rsvpStatus (household toggles still render) but their
-        // private dietary/song are nulled.
+        // Issue #415: a bare name guess must NOT amplify into the whole household's real names and
+        // attendance. Other members' names are masked to "{First} {LastInitial}.", their RSVP
+        // status is withheld, and their private dietary/song stay nulled. The guestId is still
+        // present so the household toggle for that member can still render and be submitted.
         assertThat(view.partyMembers()).hasSize(1);
         PartyMemberInfo other = view.partyMembers().get(0);
-        assertThat(other.name()).isEqualTo("Eden");
-        assertThat(other.currentRsvpStatus()).isEqualTo("ATTENDING");
+        assertThat(other.guestId()).isNotNull();
+        assertThat(other.name()).isEqualTo("Eden A.");
+        assertThat(other.name()).doesNotContain("Aasman");
+        assertThat(other.currentRsvpStatus()).isNull();
         assertThat(other.currentDietary()).isNull();
         assertThat(other.currentSongRequest()).isNull();
     }
@@ -840,7 +846,8 @@ class GuestServiceTest {
 
         assertThat(view.partyMembers()).hasSize(1);
         PartyMemberInfo other = view.partyMembers().get(0);
-        assertThat(other.name()).isEqualTo("Eden");
+        // Emailed-link view keeps full disclosure: unmasked name and rsvpStatus unchanged (#415).
+        assertThat(other.name()).isEqualTo("Eden Aasman");
         assertThat(other.currentRsvpStatus()).isEqualTo("ATTENDING");
         assertThat(other.currentDietary()).isEqualTo("vegetarian");
         assertThat(other.currentSongRequest()).isEqualTo("Ode to Joy");
@@ -860,6 +867,9 @@ class GuestServiceTest {
 
         assertThat(view.partyMembers()).hasSize(1);
         PartyMemberInfo other = view.partyMembers().get(0);
+        // Legacy null-source is treated as INVITE: full name and status stay unmasked (#415).
+        assertThat(other.name()).isEqualTo("Eden Aasman");
+        assertThat(other.currentRsvpStatus()).isEqualTo("ATTENDING");
         assertThat(other.currentDietary()).isEqualTo("vegetarian");
         assertThat(other.currentSongRequest()).isEqualTo("Ode to Joy");
     }
@@ -911,8 +921,9 @@ class GuestServiceTest {
 
     // Mirrors InMemoryRsvpSearchThrottleAdapter.SEARCH_BUDGET (package-private, not visible from
     // this test's package). Kept in sync deliberately: if the adapter's budget changes, this test's
-    // exact-count assertions should be revisited with it.
-    private static final int SEARCH_BUDGET = 20;
+    // exact-count assertions should be revisited with it. Raised from 20 to 40 alongside the adapter
+    // for issue #415 (wider legit-guest headroom; disclosure per search was cut by the masking below).
+    private static final int SEARCH_BUDGET = 40;
 
     @Test
     void findGuestsByName_locksOutWedding_afterBudgetOfFailedSearches() {

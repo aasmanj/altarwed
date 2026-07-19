@@ -861,12 +861,18 @@ public class GuestService {
             partyName = guest.partyName();
             partyMembers = guestRepository.findAllByPartyId(guest.partyId()).stream()
                     .filter(m -> !m.id().equals(guest.id()))
-                    // On a SEARCH-sourced view, keep each member's name and rsvpStatus (the
-                    // household toggles still render) but null out their dietary and song, which
-                    // are private to that member and must not leak to a bare name search (#89).
+                    // On a SEARCH-sourced view the household toggles must still render, so each
+                    // member's guestId is preserved, but the view must not amplify a bare name
+                    // guess into the whole household's real names and attendance (issue #415).
+                    // So other members' names are masked to the same "{First} {LastInitial}." form
+                    // the find endpoint returns, their rsvpStatus is withheld (whether a relative
+                    // has responded is not something an unauthenticated name-guesser needs), and
+                    // their private dietary/song stay nulled (issue #89). An INVITE-sourced view
+                    // (the emailed link is the possession factor) keeps full disclosure unchanged.
                     .map(m -> new com.altarwed.application.dto.PartyMemberInfo(
-                            m.id(), m.name(),
-                            m.rsvpStatus() != null ? m.rsvpStatus().name() : null,
+                            m.id(),
+                            redactPrivate ? maskName(m.name()) : m.name(),
+                            redactPrivate ? null : (m.rsvpStatus() != null ? m.rsvpStatus().name() : null),
                             redactPrivate ? null : m.dietaryRestrictions(),
                             redactPrivate ? null : m.songRequest()))
                     .toList();

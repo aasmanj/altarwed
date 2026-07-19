@@ -65,6 +65,10 @@ export interface WeddingWebsite {
   nameFont: string | null
   // V92: optional custom headline on the printable seating board. null = "Welcome".
   seatingBoardTitle: string | null
+  // V96: hero scrim intensity 0-100 (issue #360). null = default (70).
+  heroOverlayDarkness: number | null
+  // V96: hero fill mode "full" | "framed" (issue #360). null = "full".
+  heroLayout: string | null
 }
 
 export interface CreateWebsitePayload {

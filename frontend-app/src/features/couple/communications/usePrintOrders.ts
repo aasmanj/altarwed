@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/core/api/client'
 
-export type PrintOrderType = 'SAVE_THE_DATE' | 'INVITATION'
+// TEST_PROOF (issue #208): a single self-addressed proof postcard the couple mails to
+// themselves (paid, same Stripe path) before committing to the full guest batch.
+export type PrintOrderType = 'SAVE_THE_DATE' | 'INVITATION' | 'TEST_PROOF'
 // Printed-card shape/size the couple can choose. LANDSCAPE_6X11 is the original default; the two
 // PORTRAIT options are the fiancee-requested upright cards. Kept in sync with the backend
 // card_size CHECK constraint (V89) and the Lob adapter's dimsFor().
@@ -19,7 +21,9 @@ export type PrintOrderStatus =
   | 'MAILED'
 
 export interface PrintOrderRecipient {
-  guestId: string
+  // Null for a TEST_PROOF order's recipient (issue #208): the postcard goes to the couple's
+  // own return address, there is no guest behind it.
+  guestId: string | null
   lobPostcardId: string | null
   deliveryStatus: string | null
   errorMessage: string | null
@@ -96,6 +100,37 @@ export function useCreatePrintOrder(coupleId: string) {
     mutationFn: (payload: CreatePrintOrderPayload) =>
       apiClient
         .post(`/api/v1/print-orders/couple/${coupleId}`, payload)
+        .then(r => r.data as CreatePrintOrderResult),
+    onSuccess: result => {
+      qc.setQueryData<PrintOrder[]>(key(coupleId), old =>
+        old ? [result.order, ...old] : [result.order])
+    },
+  })
+}
+
+// Issue #208: a single test postcard mailed to the couple's own address to proof the real
+// printed card before the full batch. No guestIds -- the backend addresses it to the return
+// address block. Same paid Stripe Checkout contract as the batch order.
+export interface CreateTestPrintOrderPayload {
+  templateKey: string
+  returnName: string
+  returnAddressLine1: string
+  returnAddressLine2?: string
+  returnCity: string
+  returnState: string
+  returnZip: string
+  // Per-submit dedup token, SEPARATE from the batch key: a test and a batch of the same design
+  // must never collide into one order server-side.
+  idempotencyKey: string
+  cardSize: CardSize
+}
+
+export function useCreateTestPrintOrder(coupleId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: CreateTestPrintOrderPayload) =>
+      apiClient
+        .post(`/api/v1/print-orders/couple/${coupleId}/test-proof`, payload)
         .then(r => r.data as CreatePrintOrderResult),
     onSuccess: result => {
       qc.setQueryData<PrintOrder[]>(key(coupleId), old =>
