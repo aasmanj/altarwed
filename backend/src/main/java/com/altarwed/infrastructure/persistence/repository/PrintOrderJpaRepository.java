@@ -17,6 +17,11 @@ public interface PrintOrderJpaRepository extends JpaRepository<PrintOrderEntity,
     Optional<PrintOrderEntity> findByCoupleIdAndIdempotencyKey(UUID coupleId, String idempotencyKey);
     void deleteAllByCoupleId(UUID coupleId);
 
+    // Issue #209: candidates for the lost-webhook reconciliation job. Status lives as a plain
+    // NVARCHAR (no @Enumerated column), so the derived query takes the status name as a String,
+    // consistent with the native queries below.
+    List<PrintOrderEntity> findAllByStatusAndCreatedAtBeforeOrderByCreatedAtAsc(String status, LocalDateTime cutoff);
+
     // Issue #59/#53: these four target only the specific columns they touch, native SQL,
     // deliberately bypassing the @OneToMany aggregate cascade/orphanRemoval on `recipients` (see
     // PrintOrderJpaAdapter's javadoc) so a payment/status transition or an incremental recipient

@@ -71,6 +71,10 @@ export interface WeddingWebsite {
   receptionVenueTitle: string | null
   // V91: allowlisted font key for the couple's names. null = default serif.
   nameFont: string | null
+  // V96: hero scrim intensity 0-100. null = default (70). Clamped again at render time.
+  heroOverlayDarkness: number | null
+  // V96: hero fill mode "full" | "framed". null = "full" (full-bleed cover crop).
+  heroLayout: string | null
 }
 
 // Parsed view of the per-couple tab customisations. The raw fields above are

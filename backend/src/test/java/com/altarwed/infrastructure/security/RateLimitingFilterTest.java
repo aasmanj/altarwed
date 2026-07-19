@@ -1,5 +1,6 @@
 package com.altarwed.infrastructure.security;
 
+import com.altarwed.infrastructure.sharedstate.InMemoryRateLimitBucketStore;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -25,7 +26,7 @@ class RateLimitingFilterTest {
 
     @Test
     void resolvesTheRealClientIpFromTheRightmostForwardedHop() throws Exception {
-        RateLimitingFilter filter = new RateLimitingFilter();
+        RateLimitingFilter filter = new RateLimitingFilter(new InMemoryRateLimitBucketStore());
         FilterChain chain = mock(FilterChain.class);
 
         // An attacker rotates the leftmost, spoofable entry on every request but
@@ -61,7 +62,7 @@ class RateLimitingFilterTest {
         // ephemeral source port from the OS every time, with no header spoofing
         // at all. If the resolved key still carries that port, every single
         // request looks like a brand-new client and throttling never engages.
-        RateLimitingFilter filter = new RateLimitingFilter();
+        RateLimitingFilter filter = new RateLimitingFilter(new InMemoryRateLimitBucketStore());
         FilterChain chain = mock(FilterChain.class);
         String ip = "203.0.113.201";
 
@@ -81,7 +82,7 @@ class RateLimitingFilterTest {
 
     @Test
     void fallsBackToRemoteAddrWhenNoForwardedHeaderIsPresent() throws Exception {
-        RateLimitingFilter filter = new RateLimitingFilter();
+        RateLimitingFilter filter = new RateLimitingFilter(new InMemoryRateLimitBucketStore());
         FilterChain chain = mock(FilterChain.class);
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", PATH);
@@ -96,7 +97,7 @@ class RateLimitingFilterTest {
 
     @Test
     void allowsExactlyTheBucketCapacityBeforeThrottling() throws Exception {
-        RateLimitingFilter filter = new RateLimitingFilter();
+        RateLimitingFilter filter = new RateLimitingFilter(new InMemoryRateLimitBucketStore());
         FilterChain chain = mock(FilterChain.class);
         String ip = "203.0.113.55";
 
@@ -130,7 +131,7 @@ class RateLimitingFilterTest {
         // /rsvp/find, so the filter was skipped entirely for the token and submit
         // paths. shouldNotFilter must now return false (i.e. DO filter) for both,
         // while still filtering /find and leaving unrelated read paths alone.
-        RateLimitingFilter filter = new RateLimitingFilter();
+        RateLimitingFilter filter = new RateLimitingFilter(new InMemoryRateLimitBucketStore());
 
         assertThat(filter.shouldNotFilter(new MockHttpServletRequest("GET", TOKEN_PATH))).isFalse();
         assertThat(filter.shouldNotFilter(new MockHttpServletRequest("POST", SUBMIT_PATH))).isFalse();
@@ -146,7 +147,7 @@ class RateLimitingFilterTest {
         // so GET /rsvp/{token} was never throttled and this loop would let all 22
         // requests through. The RSVP tier bucket capacity is 20, so exactly 20 of
         // the same-IP requests succeed and the rest are throttled.
-        RateLimitingFilter filter = new RateLimitingFilter();
+        RateLimitingFilter filter = new RateLimitingFilter(new InMemoryRateLimitBucketStore());
         FilterChain chain = mock(FilterChain.class);
         String ip = "203.0.113.30";
 
@@ -168,7 +169,7 @@ class RateLimitingFilterTest {
     void rateLimitsTheRsvpSubmitPath() throws Exception {
         // POST /rsvp (the submit path) must also be throttled. Capacity 20, same
         // as the GET token path, since both share the RSVP tier.
-        RateLimitingFilter filter = new RateLimitingFilter();
+        RateLimitingFilter filter = new RateLimitingFilter(new InMemoryRateLimitBucketStore());
         FilterChain chain = mock(FilterChain.class);
         String ip = "203.0.113.31";
 
@@ -191,7 +192,7 @@ class RateLimitingFilterTest {
         // The GET token path and POST submit path draw from the SAME per-IP RSVP
         // bucket, so a client cannot double its allowance by alternating verbs.
         // Drain the bucket with 20 GETs, then a POST from the same IP is throttled.
-        RateLimitingFilter filter = new RateLimitingFilter();
+        RateLimitingFilter filter = new RateLimitingFilter(new InMemoryRateLimitBucketStore());
         FilterChain chain = mock(FilterChain.class);
         String ip = "203.0.113.32";
 
@@ -214,7 +215,7 @@ class RateLimitingFilterTest {
         // The /find bucket keeps its stricter 10-token limit and is a distinct
         // bucket from the generous RSVP tier: exhausting /find for an IP must not
         // consume any of that IP's RSVP token-resolution allowance.
-        RateLimitingFilter filter = new RateLimitingFilter();
+        RateLimitingFilter filter = new RateLimitingFilter(new InMemoryRateLimitBucketStore());
         FilterChain chain = mock(FilterChain.class);
         String ip = "203.0.113.33";
 
@@ -251,7 +252,7 @@ class RateLimitingFilterTest {
         // able to repeatedly dump a couple's full guest list. The EXPORT tier is
         // 6 req/min per IP, so exactly 6 export requests from one real IP succeed
         // and the 7th is throttled with a 429.
-        RateLimitingFilter filter = new RateLimitingFilter();
+        RateLimitingFilter filter = new RateLimitingFilter(new InMemoryRateLimitBucketStore());
         FilterChain chain = mock(FilterChain.class);
         String ip = "203.0.113.77";
 
@@ -275,7 +276,7 @@ class RateLimitingFilterTest {
         // DEFAULT tier (e.g. auth brute force) from an IP must NOT pre-consume the
         // export allowance for that same IP, and vice versa. Drain DEFAULT to
         // empty, then prove a first export from the same IP still succeeds.
-        RateLimitingFilter filter = new RateLimitingFilter();
+        RateLimitingFilter filter = new RateLimitingFilter(new InMemoryRateLimitBucketStore());
         FilterChain chain = mock(FilterChain.class);
         String ip = "203.0.113.88";
 
@@ -297,7 +298,7 @@ class RateLimitingFilterTest {
     void coupleExportPathsAreNotSkippedByTheFilter() {
         // shouldNotFilter must return false for export paths, or doFilterInternal
         // never runs and the throttle above is dead code (issue #335 regression).
-        RateLimitingFilter filter = new RateLimitingFilter();
+        RateLimitingFilter filter = new RateLimitingFilter(new InMemoryRateLimitBucketStore());
 
         MockHttpServletRequest guests = new MockHttpServletRequest("GET", EXPORT_GUESTS);
         MockHttpServletRequest website = new MockHttpServletRequest("GET", EXPORT_WEBSITE);

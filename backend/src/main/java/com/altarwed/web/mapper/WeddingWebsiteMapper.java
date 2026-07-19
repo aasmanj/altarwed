@@ -40,6 +40,7 @@ public class WeddingWebsiteMapper {
                 w.receptionVenueName(), w.receptionVenueAddress(), w.receptionVenueCity(), w.receptionVenueState(),
                 w.receptionTime(), w.receptionVenueAdditionalInfo(), w.ceremonyVenueTitle(), w.receptionVenueTitle(),
                 w.nameFont(),
+                w.heroOverlayDarkness(), w.heroLayout(),
                 w.createdAt(), w.updatedAt()
         );
     }

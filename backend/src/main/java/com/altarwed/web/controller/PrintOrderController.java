@@ -1,6 +1,7 @@
 package com.altarwed.web.controller;
 
 import com.altarwed.application.dto.CreatePrintOrderRequest;
+import com.altarwed.application.dto.CreateTestPrintOrderRequest;
 import com.altarwed.application.dto.PrintOrderCreateResponse;
 import com.altarwed.application.dto.PrintOrderResponse;
 import com.altarwed.application.service.PrintOrderService;
@@ -38,6 +39,20 @@ public class PrintOrderController {
         accessGuard.assertOwns(coupleId, email);
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(PrintOrderMapper.toCreateResponse(printOrderService.createOrder(coupleId, req)));
+    }
+
+    // Issue #208: single self-addressed test postcard so the couple can proof the real printed
+    // card before ordering the full batch. Same 202 + Stripe Checkout contract as create above --
+    // the proof is a real paid order and nothing mails until payment completes.
+    @PostMapping("/couple/{coupleId}/test-proof")
+    public ResponseEntity<PrintOrderCreateResponse> createTestProof(
+            @PathVariable UUID coupleId,
+            @Valid @RequestBody CreateTestPrintOrderRequest req,
+            @AuthenticationPrincipal String email
+    ) {
+        accessGuard.assertOwns(coupleId, email);
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(PrintOrderMapper.toCreateResponse(printOrderService.createTestProofOrder(coupleId, req)));
     }
 
     @GetMapping("/couple/{coupleId}")

@@ -1,6 +1,8 @@
 package com.altarwed.application.dto;
 
 import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -96,5 +98,14 @@ public record UpdateWeddingWebsiteRequest(
         @Pattern(regexp = "^(playfair|cinzel|greatvibes|dancingscript|montserrat)$") @Size(max = 40) String nameFont,
 
         // V92: optional custom headline for the printable seating board. null = no change; blank = clear (revert to "Welcome").
-        @Size(max = 100) String seatingBoardTitle
+        @Size(max = 100) String seatingBoardTitle,
+
+        // V96: hero scrim intensity (issue #360). 0-100, clamped server-side so a crafted PATCH
+        // cannot inject an out-of-range value; the public renderer derives the gradient alpha
+        // from this bounded integer, never a raw string. null = no change (default 70 applies).
+        @Min(0) @Max(100) Integer heroOverlayDarkness,
+
+        // V96: hero fill mode (issue #360). Allowlisted key; @Pattern rejects anything else so a
+        // raw CSS value can never reach the public style path. null = no change (default "full").
+        @Pattern(regexp = "^(full|framed)$") @Size(max = 20) String heroLayout
 ) {}

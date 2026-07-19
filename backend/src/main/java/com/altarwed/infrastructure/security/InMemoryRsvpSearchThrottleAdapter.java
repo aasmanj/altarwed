@@ -1,13 +1,13 @@
 package com.altarwed.infrastructure.security;
 
 import com.altarwed.domain.port.RsvpSearchThrottlePort;
+import com.altarwed.infrastructure.sharedstate.RedisNotConfiguredCondition;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Component;
-
-import java.time.Duration;
 
 /**
  * In-memory, per-wedding anti-enumeration throttle for the public find-invitation search
@@ -37,19 +37,19 @@ import java.time.Duration;
  * fresh budget each (issue #89 / H2). This adapter treats the key as an opaque string; canonicalizing
  * it is the service's job.
  *
- * <p>In-memory and per instance, exactly like {@link RateLimitingFilter}. Multi-instance
- * coordination is out of scope here (it is for the whole rate-limit story) and is noted on the PR.
+ * <p>In-memory and per instance. This is the default adapter, active only while
+ * {@code altarwed.redis.url} is blank; setting {@code REDIS_URL} swaps in
+ * {@link RedisRsvpSearchThrottleAdapter} (same budget constants, shared store) for
+ * multi-instance coordination (issue #414).
  */
 @Component
+@Conditional(RedisNotConfiguredCondition.class)
 public class InMemoryRsvpSearchThrottleAdapter implements RsvpSearchThrottlePort {
 
-    // Total find attempts (hit or miss) allowed for one wedding within the window before it enters
-    // cooldown. 20 is generous enough that a real household looking itself up a handful of times is
-    // never blocked, tight enough that dictionary-walking a guest list (each hit yielding up to five
-    // masked names + live RSVP tokens) stalls quickly.
-    static final int SEARCH_BUDGET = 20;
-    // Budget refills fully over this window (greedy, so partial refill accrues continuously).
-    static final Duration REFILL_WINDOW = Duration.ofMinutes(10);
+    // Budget and refill window are defined on the port (SEARCH_BUDGET / REFILL_WINDOW), the
+    // single source of truth shared with the Redis adapter so the two can never drift. The
+    // budget's sizing rationale (raised 20 to 40 for issue #415) lives with the constants on
+    // RsvpSearchThrottlePort.
 
     // Bounded + TTL-evicting, matching RateLimitingFilter's rationale: an unbounded map keyed by
     // caller-influenced input is itself a memory-exhaustion vector. The TTL is longer than the
