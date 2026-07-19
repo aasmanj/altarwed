@@ -46,6 +46,7 @@ class WeddingWebsiteMapperTest {
                 "The Grand Hall", "500 River Rd", "Round Rock", "TX", "6:00 PM", "Dinner and dancing to follow",
                 "The Ceremony", "The Reception",
                 "cinzel", "Our Day",
+                40, "framed",
                 false, null,
                 LocalDateTime.of(2026, 1, 1, 0, 0), LocalDateTime.of(2026, 1, 2, 0, 0)
         );
@@ -109,6 +110,9 @@ class WeddingWebsiteMapperTest {
         assertThat(response.ceremonyVenueTitle()).isEqualTo(w.ceremonyVenueTitle());
         assertThat(response.receptionVenueTitle()).isEqualTo(w.receptionVenueTitle());
         assertThat(response.nameFont()).isEqualTo(w.nameFont());
+        // V96: hero presentation controls must survive the public mapping too.
+        assertThat(response.heroOverlayDarkness()).isEqualTo(w.heroOverlayDarkness());
+        assertThat(response.heroLayout()).isEqualTo(w.heroLayout());
         assertThat(response.createdAt()).isEqualTo(w.createdAt());
         assertThat(response.updatedAt()).isEqualTo(w.updatedAt());
     }

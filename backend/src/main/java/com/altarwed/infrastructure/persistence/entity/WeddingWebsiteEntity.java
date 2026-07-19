@@ -191,6 +191,14 @@ public class WeddingWebsiteEntity {
     @Column(name = "seating_board_title", length = 100)
     private String seatingBoardTitle;
 
+    // V96: 0-100 intensity of the dark scrim over the hero photo (issue #360). null = default (70).
+    @Column(name = "hero_overlay_darkness")
+    private Integer heroOverlayDarkness;
+
+    // V96: hero fill mode, allowlisted key "full" | "framed" (issue #360). null = "full".
+    @Column(name = "hero_layout", length = 20)
+    private String heroLayout;
+
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted;
 

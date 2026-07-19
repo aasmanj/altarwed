@@ -1,6 +1,7 @@
 package com.altarwed.application.service;
 
 import com.altarwed.application.dto.CreatePrintOrderRequest;
+import com.altarwed.application.dto.CreateTestPrintOrderRequest;
 import com.altarwed.domain.model.*;
 import com.altarwed.domain.port.*;
 import com.altarwed.domain.port.PrintMailPort.FromAddress;
@@ -322,6 +323,108 @@ public class PrintOrderService {
         return new CreateOrderResult(result, checkoutSession.url(), warnings, excluded);
     }
 
+    // ── Issue #208: single self-addressed test postcard (a proof of the real printed card) ──────
+
+    /**
+     * Creates a TEST_PROOF order: exactly one postcard, addressed to the couple's own return
+     * address, at the same per-postcard price as a normal batch. Deliberately reuses the exact
+     * payment-gated lifecycle unchanged: the order lands in PENDING_PAYMENT with a Stripe
+     * Checkout Session, and nothing reaches Lob until StripeService's webhook handler confirms
+     * the charge and triggers submitBatchAsync (whose recipient loop resolves a null-guestId
+     * recipient to the order's return address, see runBatch). There is intentionally no free/$0
+     * path -- Lob bills us ~$1.50 per real card, so a test send must stay paid.
+     *
+     * Deliberately NOT @Transactional, for the same reason as createOrder above: the address
+     * verification and Stripe calls are external HTTP and must never pin a DB connection; each
+     * repository call is its own short Spring Data transaction.
+     */
+    public CreateOrderResult createTestProofOrder(UUID coupleId, CreateTestPrintOrderRequest req) {
+        // Same closed-allowlist templateKey validation as createOrder (issue #352): reject an
+        // unknown key with a clean 400 before persisting or charging anything.
+        if (!PrintTemplate.isAllowedTemplateKey(req.templateKey())) {
+            log.warn("test print order rejected, unknown templateKey, coupleId={}", coupleId);
+            throw new IllegalArgumentException(
+                    "Unknown print template. Choose one of the available card designs.");
+        }
+        String idempotencyKey = req.idempotencyKey();
+        log.info("test print order requested, coupleId={}, templateKey={}", coupleId, req.templateKey());
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<PrintOrder> replay = printOrderRepository.findByCoupleIdAndIdempotencyKey(coupleId, idempotencyKey);
+            if (replay.isPresent()) {
+                log.info("test print order idempotent replay, returning existing, coupleId={}, orderId={}, status={}",
+                         coupleId, replay.get().id(), replay.get().status());
+                return new CreateOrderResult(replay.get(), null, List.of(), List.of());
+            }
+        }
+
+        Couple couple = coupleRepository.findById(coupleId)
+                .orElseThrow(() -> new IllegalArgumentException("Couple not found"));
+
+        // The couple's own address is the single recipient. The return-address form is
+        // US-domestic only (2-letter state + ZIP), so it always gets the same pre-charge USPS
+        // deliverability check a domestic guest gets -- reject BEFORE any charge, not after.
+        ToAddress selfAddress = new ToAddress(
+                req.returnName(), req.returnAddressLine1(), req.returnAddressLine2(),
+                req.returnCity(), req.returnState().toUpperCase(Locale.ROOT), req.returnZip(), null);
+        PrintMailPort.AddressVerificationResult verification = printMailPort.verifyAddress(selfAddress);
+        if (!verification.deliverable()) {
+            log.warn("test print order rejected, undeliverable return address, coupleId={}", coupleId);
+            throw new IllegalArgumentException(verification.reason());
+        }
+
+        int amountChargedCents = COST_PER_POSTCARD_CENTS;
+
+        // Persist the PENDING_PAYMENT order before any Stripe side-effect (audit row + claims
+        // the idempotency key), exactly like createOrder's step 1.
+        PrintOrder draft;
+        try {
+            draft = printOrderRepository.save(new PrintOrder(
+                    null, coupleId, PrintOrderType.TEST_PROOF, PrintOrderStatus.PENDING_PAYMENT, req.templateKey(),
+                    1, 0, null, LocalDateTime.now(), null, List.of(), idempotencyKey,
+                    null, null, amountChargedCents, 0,
+                    req.returnName(), req.returnAddressLine1(), req.returnAddressLine2(),
+                    req.returnCity(), req.returnState().toUpperCase(Locale.ROOT), req.returnZip(),
+                    normalizeCardSize(req.cardSize())
+            ));
+        } catch (DataIntegrityViolationException race) {
+            log.warn("test print order idempotency race, returning concurrent order, coupleId={}", coupleId);
+            if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+                return new CreateOrderResult(
+                        printOrderRepository.findByCoupleIdAndIdempotencyKey(coupleId, idempotencyKey).orElseThrow(() -> race),
+                        null, List.of(), List.of());
+            }
+            throw race;
+        }
+        UUID orderId = draft.id();
+        log.info("test print order pending payment, orderId={}, coupleId={}, amountChargedCents={}",
+                 orderId, coupleId, amountChargedCents);
+
+        // One PENDING recipient with a null guestId: the async batch resolves it to the order's
+        // return address (see runBatch). Persisted like any other recipient so tracking, status
+        // refresh, and the Lob webhook all work identically for the proof card.
+        printOrderRepository.appendRecipient(orderId,
+                new PrintOrderRecipient(null, orderId, null, null, RECIPIENT_STATUS_PENDING, null, null, null));
+
+        String description = "1 test postcard proof (" + req.templateKey() + ")";
+        String successUrl = appBaseUrl + "/dashboard/communications?printOrder=success&orderId=" + orderId;
+        String cancelUrl = appBaseUrl + "/dashboard/communications?printOrder=cancelled&orderId=" + orderId;
+        StripePort.CheckoutSession checkoutSession;
+        try {
+            checkoutSession = stripePort.createOneTimeCheckoutSession(
+                    orderId, couple.email(), amountChargedCents, description, successUrl, cancelUrl);
+        } catch (StripePort.StripeCallException ex) {
+            // Same recovery contract as createOrder: the PENDING_PAYMENT row stays as an audit
+            // trail; a retry hits the same idempotency key and sees this stuck order.
+            log.error("test print order checkout session creation failed, orderId={}, coupleId={}", orderId, coupleId, ex);
+            throw ex;
+        }
+        printOrderRepository.attachCheckoutSession(orderId, checkoutSession.sessionId());
+
+        PrintOrder result = printOrderRepository.findById(orderId).orElseThrow();
+        return new CreateOrderResult(result, checkoutSession.url(), List.of(), List.of());
+    }
+
     private static List<String> duplicateAddressWarnings(Map<UUID, ValidatedGuest> valid) {
         Map<String, List<String>> byAddress = new LinkedHashMap<>();
         for (ValidatedGuest v : valid.values()) {
@@ -457,19 +560,30 @@ public class PrintOrderService {
                 if (RECIPIENT_STATUS_FAILED.equals(r.deliveryStatus())) failureCount++;
                 continue;
             }
-            // Re-fetch the guest fresh: the couple may have edited the address between payment and
-            // this async run, and mailing must go to the current address, not a stale snapshot.
-            Guest guest = guestRepository.findById(r.guestId()).orElse(null);
-            if (guest == null) {
-                printOrderRepository.updateRecipientOutcome(r.id(), null, RECIPIENT_STATUS_FAILED,
-                        "Guest was removed before this postcard could be sent.");
-                failureCount++;
-                continue;
+            ToAddress to;
+            if (r.guestId() == null) {
+                // Issue #208: a TEST_PROOF recipient is the couple themselves. The destination is
+                // the order's persisted return address (verified deliverable pre-charge in
+                // createTestProofOrder), so the proof card is addressed FROM and TO the couple.
+                to = new ToAddress(
+                        order.returnName(), order.returnAddressLine1(), order.returnAddressLine2(),
+                        order.returnCity(), order.returnState(), order.returnZip(), null
+                );
+            } else {
+                // Re-fetch the guest fresh: the couple may have edited the address between payment
+                // and this async run, and mailing must go to the current address, not a stale snapshot.
+                Guest guest = guestRepository.findById(r.guestId()).orElse(null);
+                if (guest == null) {
+                    printOrderRepository.updateRecipientOutcome(r.id(), null, RECIPIENT_STATUS_FAILED,
+                            "Guest was removed before this postcard could be sent.");
+                    failureCount++;
+                    continue;
+                }
+                to = new ToAddress(
+                        guest.name(), guest.mailLine1(), null,
+                        guest.mailCity(), guest.mailState(), guest.mailZip(), guest.mailCountry()
+                );
             }
-            ToAddress to = new ToAddress(
-                    guest.name(), guest.mailLine1(), null,
-                    guest.mailCity(), guest.mailState(), guest.mailZip(), guest.mailCountry()
-            );
             PostcardRequest postcard = new PostcardRequest(
                     order.templateKey(), coupleNames, weddingDate, weddingUrl, heroPhotoUrl, venueLine, from, to,
                     order.cardSize(), verseText, verseReference, accentColor
@@ -481,7 +595,8 @@ public class PrintOrderService {
             } catch (PrintMailPort.PrintMailException ex) {
                 // Same PII caution as before: log only domain IDs, never the exception
                 // message/cause (can echo submitted address fields).
-                log.warn("print recipient rejected, orderId={}, guestId={}", orderId, r.guestId());
+                // recipientId included so a failed TEST_PROOF send (guestId=null) stays filterable.
+                log.warn("print recipient rejected, orderId={}, recipientId={}, guestId={}", orderId, r.id(), r.guestId());
                 String detail = ex.userDetail() != null ? ex.userDetail() : ex.getMessage();
                 if (detail != null && detail.length() > 480) detail = detail.substring(0, 480);
                 printOrderRepository.updateRecipientOutcome(r.id(), null, RECIPIENT_STATUS_FAILED, detail);
