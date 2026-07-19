@@ -1912,7 +1912,7 @@ function DesignPanel({
         </div>
         <button
           type="button"
-          onClick={() => { setFocalX(50); setFocalY(50); onFocalPointSave(0.5, 0.5) }}
+          onClick={() => { setFocalX(50); setFocalY(50); scheduleFocalPointSave([50, 50]) }}
           className="mt-1.5 text-[10px] text-stone-400 hover:text-stone-700 underline"
           title="Recenter the photo"
         >
@@ -1932,7 +1932,7 @@ function DesignPanel({
           {[
             { key: 'full', label: 'Full bleed', description: 'Fills the hero, cropping to fit (best for landscape photos).' },
             { key: 'framed', label: 'Framed', description: 'Shows the whole photo without cropping (best for portrait photos).' },
-            { key: 'names-below', label: 'Names below photo', description: 'Couple names appear beneath the photo with no overlap' },
+            { key: 'names-below', label: 'Names below photo', description: 'Couple names appear beneath the photo with no overlap.' },
           ].map(option => {
             const isSelected = heroLayout === option.key
             return (
