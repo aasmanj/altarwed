@@ -36,5 +36,13 @@ public record SendInquiryRequest(
 
         @NotBlank(message = "A message is required")
         @Size(min = 10, max = 2000, message = "Message must be between 10 and 2000 characters")
-        String message
+        String message,
+
+        // Cloudflare Turnstile token (issue #100), verified server-side before any DB
+        // work, same posture as the RSVP find path (issue #89). Nullable rather than
+        // @NotBlank: while Turnstile is unconfigured the adapter verifies everything,
+        // and once the secret is set a missing token fails verification cleanly (400).
+        // Cloudflare documents tokens up to 2048 characters.
+        @Size(max = 2048)
+        String captchaToken
 ) {}

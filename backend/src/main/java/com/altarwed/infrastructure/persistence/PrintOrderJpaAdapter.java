@@ -55,6 +55,15 @@ public class PrintOrderJpaAdapter implements PrintOrderRepository {
         jpa.deleteAllByCoupleId(coupleId);
     }
 
+    // Issue #209: called from the reconciliation job's scheduler thread, where there is no
+    // open-session-in-view to fall back on -- recipients are FetchType.EAGER on the entity, so
+    // toDomain's recipient mapping is safe here regardless.
+    @Override
+    public List<PrintOrder> findPendingPaymentCreatedBefore(LocalDateTime cutoff) {
+        return jpa.findAllByStatusAndCreatedAtBeforeOrderByCreatedAtAsc(
+                PrintOrderStatus.PENDING_PAYMENT.name(), cutoff).stream().map(this::toDomain).toList();
+    }
+
     // REQUIRES_NEW on every method below (not the default REQUIRED): each must be independently,
     // immediately durable regardless of the caller's transactional context. This matters concretely
     // for markPaymentConfirmed/markPaymentFailed, called from StripeService.handleWebhook (itself

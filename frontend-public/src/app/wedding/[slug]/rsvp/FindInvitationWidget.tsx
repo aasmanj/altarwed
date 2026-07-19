@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
-import Script from 'next/script'
+import { useState, useRef } from 'react'
+import { useTurnstile } from '@/lib/useTurnstile'
 
 interface RsvpFindResult {
   maskedName: string
@@ -10,27 +10,6 @@ interface RsvpFindResult {
 
 interface Props {
   slug: string
-}
-
-// Cloudflare Turnstile's browser API. Declared narrowly to just the two calls
-// this widget uses (render, reset); see window.turnstile docs.
-interface TurnstileApi {
-  render: (
-    container: HTMLElement,
-    options: {
-      sitekey: string
-      callback: (token: string) => void
-      'error-callback'?: () => void
-      'expired-callback'?: () => void
-    },
-  ) => string
-  reset: (widgetId: string) => void
-}
-
-declare global {
-  interface Window {
-    turnstile?: TurnstileApi
-  }
 }
 
 export const MIN_QUERY_LENGTH = 4
@@ -45,83 +24,19 @@ export function buildFindUrl(apiBaseUrl: string, slug: string, name: string, cap
   return `${apiBaseUrl}/api/v1/guests/rsvp/find?${params.toString()}`
 }
 
-// A Managed Turnstile challenge normally resolves in well under this window; if
-// it hasn't by then (Cloudflare outage, network issue, aggressive blocker), stop
-// gating the button on it rather than leaving a guest permanently stuck. The
-// search itself still runs, backend-enforced: if a captcha secret is actually
-// configured, that one search 400s and the existing generic error path handles
-// it, which beats a form the guest can never submit.
-const TURNSTILE_READY_TIMEOUT_MS = 6000
-
 export default function FindInvitationWidget({ slug }: Props) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<RsvpFindResult[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [captchaToken, setCaptchaToken] = useState<string>('')
-  const [turnstileLoaded, setTurnstileLoaded] = useState(false)
-  const [turnstileGaveUp, setTurnstileGaveUp] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const turnstileContainerRef = useRef<HTMLDivElement>(null)
-  const widgetIdRef = useRef<string | null>(null)
 
   // Issue #89: a real captcha gates the one endpoint that mints an RSVP capability
   // token from a bare name match, so scripted mass-enumeration of a wedding's guest
-  // list is impractical. NEXT_PUBLIC_TURNSTILE_SITE_KEY is public by design (Cloudflare
-  // site keys are meant to ship to the browser); the secret half never leaves the
-  // backend. Unset in an environment with no Turnstile site configured yet, in which
-  // case this widget renders nothing and the backend (also unconfigured) verifies
-  // every request rather than breaking the feature -- see CloudflareTurnstileAdapter.
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
-
-  // Whether Turnstile has EVER produced a token this session. A ref, not state,
-  // because the timeout callback below needs its current value without
-  // re-running the effect that schedules it. Once true, the 6s "give up" timer
-  // must never re-latch turnstileGaveUp: Turnstile demonstrably works in this
-  // browser, so a later reset()-in-flight moment (between searches) should not
-  // be permanently treated the same as "the script never loaded at all".
-  const everReceivedTokenRef = useRef(false)
-
-  // Render the widget explicitly (rather than the implicit `cf-turnstile` div
-  // convention) so we can reset it after every search: a Turnstile token is
-  // single-use, and re-mounting a fresh widget per search would flash/reflow
-  // the layout on every attempt.
-  useEffect(() => {
-    if (!siteKey || !turnstileLoaded || !turnstileContainerRef.current || widgetIdRef.current) return
-    widgetIdRef.current = window.turnstile!.render(turnstileContainerRef.current, {
-      sitekey: siteKey,
-      callback: token => {
-        everReceivedTokenRef.current = true
-        setCaptchaToken(token)
-      },
-      'error-callback': () => setCaptchaToken(''),
-      'expired-callback': () => setCaptchaToken(''),
-    })
-  }, [siteKey, turnstileLoaded])
-
-  // Bounded wait for a token before giving up on gating the button (see
-  // TURNSTILE_READY_TIMEOUT_MS above). Cleared on unmount so it never fires
-  // after the widget has already produced a token or the page has moved on.
-  // Only actually gives up if no token has EVER arrived: without the ref check,
-  // this would also fire during the brief window after a post-search reset()
-  // (captchaToken momentarily empty again) and permanently disable the
-  // ready-gate for the rest of the session even though Turnstile is working fine.
-  useEffect(() => {
-    if (!siteKey) return
-    const timer = setTimeout(() => {
-      if (!everReceivedTokenRef.current) setTurnstileGaveUp(true)
-    }, TURNSTILE_READY_TIMEOUT_MS)
-    return () => clearTimeout(timer)
-  }, [siteKey])
-
-  const resetCaptcha = useCallback(() => {
-    if (siteKey && widgetIdRef.current && window.turnstile) {
-      window.turnstile.reset(widgetIdRef.current)
-    }
-    setCaptchaToken('')
-  }, [siteKey])
-
-  const waitingOnCaptcha = Boolean(siteKey) && !captchaToken && !turnstileGaveUp
+  // list is impractical. All widget mechanics (single-use token reset, bounded
+  // ready-gate, never-re-latch guard) live in the shared useTurnstile hook, also
+  // used by the vendor inquiry form (issue #100).
+  const { captchaToken, waitingOnCaptcha, resetCaptcha, turnstileSlot } = useTurnstile()
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -142,6 +57,13 @@ export default function FindInvitationWidget({ slug }: Props) {
         setError('Too many searches from your network. Please wait a minute and try again.')
         return
       }
+      // Backend fail-closed (issue #413): in prod with no Turnstile secret configured, every
+      // lookup 503s until an operator fixes the config. Retrying will not help the guest, so
+      // point them at the couple instead of the generic "try again" below.
+      if (res.status === 503) {
+        setError('Invitation lookup is temporarily unavailable. Please try again later or contact the couple directly.')
+        return
+      }
       if (!res.ok) throw new Error('Search failed')
       const data: RsvpFindResult[] = await res.json()
       setResults(data)
@@ -156,16 +78,7 @@ export default function FindInvitationWidget({ slug }: Props) {
 
   return (
     <div className="space-y-6">
-      {siteKey && (
-        <>
-          <Script
-            src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-            strategy="afterInteractive"
-            onLoad={() => setTurnstileLoaded(true)}
-          />
-          <div ref={turnstileContainerRef} />
-        </>
-      )}
+      {turnstileSlot}
 
       <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
         <input

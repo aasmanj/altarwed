@@ -8,6 +8,7 @@ import com.altarwed.domain.exception.GoogleAuthRevokedException;
 import com.altarwed.domain.model.GoogleOAuthToken;
 import com.altarwed.domain.port.CoupleRepository;
 import com.altarwed.domain.port.GoogleOAuthTokenRepository;
+import com.altarwed.domain.port.OAuthStateStorePort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,11 +24,11 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -92,18 +93,22 @@ public class GoogleOAuthService {
     @Value("${altarwed.google.picker.app-id:}")
     private String pickerAppId;
 
-    // In-memory state store: state token -> coupleId, expires after 10 minutes.
-    // Single-instance app (Azure App Service B2), so in-memory is fine.
-    private final ConcurrentHashMap<String, PendingState> pendingStates = new ConcurrentHashMap<>();
+    // How long a pending OAuth flow (issued state -> Google -> callback) stays valid.
+    private static final Duration STATE_TTL = Duration.ofMinutes(10);
 
-    private record PendingState(UUID coupleId, long expiresEpochMs) {}
+    // CSRF state store behind a port (issue #109): in-memory by default (identical to the
+    // ConcurrentHashMap that used to live here), Redis when REDIS_URL is set so the callback
+    // can land on any instance once the App Service scales past one.
+    private final OAuthStateStorePort stateStore;
 
     public GoogleOAuthService(
             GoogleOAuthTokenRepository tokenRepository,
-            CoupleRepository coupleRepository
+            CoupleRepository coupleRepository,
+            OAuthStateStorePort stateStore
     ) {
         this.tokenRepository = tokenRepository;
         this.coupleRepository = coupleRepository;
+        this.stateStore = stateStore;
         // Spring Boot 4 does not auto-expose RestClient.Builder as a bean.
         // SimpleClientHttpRequestFactory wraps HttpURLConnection which follows
         // 302 redirects automatically. JdkClientHttpRequestFactory does not.
@@ -133,8 +138,7 @@ public class GoogleOAuthService {
 
     public GoogleAuthUrlResponse generateAuthUrl(UUID coupleId) {
         String state = UUID.randomUUID().toString();
-        pendingStates.put(state, new PendingState(coupleId, System.currentTimeMillis() + 10 * 60 * 1000L));
-        cleanExpiredStates();
+        stateStore.store(state, coupleId, STATE_TTL);
 
         String scope = String.join(" ", SCOPES);
         String authUrl = UriComponentsBuilder.fromUriString(GOOGLE_AUTH_URL)
@@ -158,13 +162,14 @@ public class GoogleOAuthService {
 
     @Transactional
     public String handleCallback(String code, String state) {
-        PendingState pending = pendingStates.remove(state);
-        if (pending == null || System.currentTimeMillis() > pending.expiresEpochMs()) {
+        // consume() is one-time-use and atomic: unknown, expired, and replayed states all
+        // come back empty and are rejected identically.
+        UUID coupleId = stateStore.consume(state).orElse(null);
+        if (coupleId == null) {
             log.warn("google oauth callback received invalid or expired state");
             return appBaseUrl + "/dashboard/guests?google_error=invalid_state";
         }
 
-        UUID coupleId = pending.coupleId();
         log.info("google oauth callback received, coupleId={}", coupleId);
 
         try {
@@ -542,10 +547,5 @@ public class GoogleOAuthService {
     private String extractSpreadsheetId(String url) {
         Matcher m = SHEET_ID_PATTERN.matcher(url);
         return m.find() ? m.group(1) : null;
-    }
-
-    private void cleanExpiredStates() {
-        long now = System.currentTimeMillis();
-        pendingStates.entrySet().removeIf(e -> e.getValue().expiresEpochMs() < now);
     }
 }

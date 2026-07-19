@@ -1,5 +1,5 @@
 import type { NextConfig } from 'next'
-import { buildContentSecurityPolicy } from './src/lib/csp'
+import { buildContentSecurityPolicy, BLOB_STORAGE } from './src/lib/csp'
 
 // Built once at config load. NEXT_PUBLIC_API_URL is inlined at build time and is
 // the origin client components fetch (RSVP find, vendor inquiry), so it must be on
@@ -10,6 +10,14 @@ const contentSecurityPolicy = buildContentSecurityPolicy({
 })
 
 const nextConfig: NextConfig = {
+  // Cap how long edges may serve STALE prerendered HTML (the SWR window in
+  // Cache-Control: s-maxage=..., stale-while-revalidate=...). The default is a
+  // YEAR, which let a first visitor after an idle spell get months-old HTML
+  // whose /_next/static/<oldBuild> CSS/JS no longer exist post-deploy, so the
+  // page rendered unstyled (giant images, black-and-white text, bare bullet
+  // lists). One hour keeps stale HTML younger than any plausible gap between
+  // deploys, so its asset references stay resolvable.
+  expireTime: 3600,
   // Application Insights (OpenTelemetry-based) must not be bundled by Next; bundling
   // breaks its runtime instrumentation. Keep it external so src/instrumentation.ts can
   // start it in the Node SSR runtime (issue #422). The two @opentelemetry packages
@@ -23,8 +31,14 @@ const nextConfig: NextConfig = {
   ],
   images: {
     formats: ['image/avif', 'image/webp'],
+    // Pinned to our storage account, not the *.blob.core.windows.net wildcard
+    // (issue #98): the wildcard let the image optimizer fetch and DECODE an image
+    // hosted on any Azure customer's account, so a decompression bomb on an
+    // attacker-controlled account could exhaust the shared SSR server. Derived
+    // from the same constant the CSP uses so the two can never drift. Dev is
+    // unaffected: local image URLs never matched the Azure wildcard either.
     remotePatterns: [
-      { protocol: 'https', hostname: '*.blob.core.windows.net' },
+      { protocol: 'https', hostname: new URL(BLOB_STORAGE).hostname },
     ],
   },
   // Canonical-host redirect: apex altarwed.com serves the same SWA as

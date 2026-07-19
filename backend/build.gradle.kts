@@ -67,8 +67,17 @@ dependencies {
     // Actuator (health checks, metrics for Azure App Insights)
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 
-    // Rate limiting, token bucket algorithm, no Redis required (in-memory per instance)
+    // Rate limiting, token bucket algorithm; in-memory per instance by default
     implementation("com.bucket4j:bucket4j-core:$bucket4jVersion")
+
+    // Bucket4j Redis backend: shares the per-IP and per-wedding token buckets across
+    // instances when REDIS_URL is set (issues #109/#414); same Bucket4j API either way.
+    implementation("com.bucket4j:bucket4j-redis:$bucket4jVersion")
+
+    // Lettuce Redis client, backs bucket4j-redis and the OAuth-state Redis adapter.
+    // Version managed by the Spring Boot BOM; no spring-data-redis starter on purpose
+    // (its autoconfiguration/health checks would fight the off-by-default design).
+    implementation("io.lettuce:lettuce-core")
 
     // Bounded, TTL-evicting cache for the rate-limit bucket map (issue #41): an
     // unbounded ConcurrentHashMap keyed by client IP is an OOM/DoS vector.
@@ -114,11 +123,29 @@ dependencies {
 
 // Default test task, unit and application-layer tests only.
 // Excludes the schema-validation integration test because that test
-// requires a live SQL Server instance (only available in CI).
+// requires a live SQL Server instance (only available in CI), and the
+// azurite blob-storage integration test because it needs Docker.
 tasks.named<Test>("test") {
     useJUnitPlatform {
-        excludeTags("schema-validation")
+        excludeTags("schema-validation", "azurite")
     }
+}
+
+// Blob-storage integration task, runs ONLY the @Tag("azurite") tests (issue #75).
+// Spins up the official Azurite storage emulator via Testcontainers and exercises the
+// REAL Azure SDK upload path (uploadWithResponse + BlobHttpHeaders), which the default
+// unit suite cannot reach. Requires Docker. Run locally: ./gradlew azuriteBlobTest
+tasks.register<Test>("azuriteBlobTest") {
+    description = "Runs the AzureBlobStorageAdapter integration tests against an Azurite container (requires Docker)."
+    group = "verification"
+    // Same classpath wiring as schemaValidationTest: a registered Test task does not
+    // inherit the test source set, and without this it silently matches zero tests.
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform {
+        includeTags("azurite")
+    }
+    shouldRunAfter("test")
 }
 
 // Schema validation task, runs ONLY the @Tag("schema-validation") tests.
