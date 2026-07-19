@@ -82,6 +82,16 @@ altarwed:
     secure: ${COOKIE_SECURE:false}        # true in prod (HTTPS); false default keeps dev (HTTP) working
     same-site: ${COOKIE_SAME_SITE:Strict}
 
+  redis:
+    # Shared-state Redis for the per-IP rate limiter, the per-wedding RSVP search
+    # throttle, and the Google OAuth CSRF state (issues #109/#414). Empty default:
+    # while blank the app keeps today's in-memory, per-instance stores and boots with
+    # zero Redis dependency (safe at App Service capacity 1; SharedStateStartupLogger
+    # WARNs in prod). Set to the Azure Cache for Redis connection URL, e.g.
+    # rediss://:{access-key}@{cache-name}.redis.cache.windows.net:6380/0, BEFORE
+    # scaling capacity past 1 so limits and OAuth callbacks are cross-instance.
+    url: ${REDIS_URL:}
+
   resend:
     # Empty default: a missing key disables email (degrades at runtime) instead of
     # crashing the JVM at startup before the health endpoint exists. StartupConfigValidator
