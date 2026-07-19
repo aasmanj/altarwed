@@ -1,5 +1,5 @@
 import type { NextConfig } from 'next'
-import { buildContentSecurityPolicy } from './src/lib/csp'
+import { buildContentSecurityPolicy, BLOB_STORAGE } from './src/lib/csp'
 
 // Built once at config load. NEXT_PUBLIC_API_URL is inlined at build time and is
 // the origin client components fetch (RSVP find, vendor inquiry), so it must be on
@@ -23,8 +23,14 @@ const nextConfig: NextConfig = {
   ],
   images: {
     formats: ['image/avif', 'image/webp'],
+    // Pinned to our storage account, not the *.blob.core.windows.net wildcard
+    // (issue #98): the wildcard let the image optimizer fetch and DECODE an image
+    // hosted on any Azure customer's account, so a decompression bomb on an
+    // attacker-controlled account could exhaust the shared SSR server. Derived
+    // from the same constant the CSP uses so the two can never drift. Dev is
+    // unaffected: local image URLs never matched the Azure wildcard either.
     remotePatterns: [
-      { protocol: 'https', hostname: '*.blob.core.windows.net' },
+      { protocol: 'https', hostname: new URL(BLOB_STORAGE).hostname },
     ],
   },
   // Canonical-host redirect: apex altarwed.com serves the same SWA as
