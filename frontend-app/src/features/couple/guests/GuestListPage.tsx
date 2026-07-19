@@ -1054,7 +1054,7 @@ function AddGuestModal({
           className="w-full rounded-xl border-2 border-gold/40 hover:border-gold bg-ivory/50 hover:bg-gold/5 px-5 py-4 text-left transition"
         >
           <p className="flex items-center gap-2 font-semibold text-brown text-sm"><FileSpreadsheet size={16} className="text-gold" /> Import from Excel or CSV</p>
-          <p className="text-xs text-brown-light mt-1">Upload an .xlsx, .xls, or .csv file to import guests in bulk.</p>
+          <p className="text-xs text-brown-light mt-1">Upload an .xlsx or .csv file to import guests in bulk.</p>
         </button>
         <button
           onClick={onManual}

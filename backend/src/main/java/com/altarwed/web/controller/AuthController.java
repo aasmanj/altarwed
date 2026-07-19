@@ -5,6 +5,7 @@ import com.altarwed.application.dto.LoginRequest;
 import com.altarwed.application.dto.RegisterCoupleRequest;
 import com.altarwed.application.service.AuthService;
 import com.altarwed.domain.exception.InvalidRefreshTokenException;
+import com.altarwed.web.security.AuthOriginGuard;
 import com.altarwed.web.security.CookieService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -24,10 +25,12 @@ public class AuthController {
 
     private final AuthService authService;
     private final CookieService cookieService;
+    private final AuthOriginGuard originGuard;
 
-    public AuthController(AuthService authService, CookieService cookieService) {
+    public AuthController(AuthService authService, CookieService cookieService, AuthOriginGuard originGuard) {
         this.authService = authService;
         this.cookieService = cookieService;
+        this.originGuard = originGuard;
     }
 
     @PostMapping("/register")
@@ -50,6 +53,10 @@ public class AuthController {
 
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(HttpServletRequest request, HttpServletResponse response) {
+        // CSRF guard (issue #116): refresh is authenticated by the httpOnly cookie alone,
+        // so a foreign page could force-rotate the token cross-site. Runs before any
+        // token handling so a rejected request touches nothing.
+        originGuard.assertTrustedOrigin(request, "refresh");
         String rawRefreshToken = cookieService.extractRefreshToken(request).orElseThrow(() -> {
             log.warn("token refresh rejected, reason=cookie absent");
             return new InvalidRefreshTokenException();
@@ -61,6 +68,10 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpServletRequest request, HttpServletResponse response) {
+        // CSRF guard (issue #116): without it a foreign page could force-logout the user
+        // (revoke the refresh token and clear the cookie) cross-site. Runs first so a
+        // rejected request neither revokes the token nor clears the cookie.
+        originGuard.assertTrustedOrigin(request, "logout");
         // Write the clear-cookie header unconditionally first so the browser
         // always loses the session cookie even if the DB call below throws.
         response.addHeader(HttpHeaders.SET_COOKIE, cookieService.clearRefreshCookie().toString());

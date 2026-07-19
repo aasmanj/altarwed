@@ -2,6 +2,7 @@ package com.altarwed.application.service;
 
 import com.altarwed.domain.port.BlobStoragePort;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -158,6 +159,31 @@ class MediaUploadServiceTest {
 
         assertThat(service.uploadBlockImage(id, file)).isEqualTo("https://blob/x.webp");
         verify(blobStorage).upload(any(), any(), anyLong(), any());
+    }
+
+    // --- Issue #75: the stored content type is the sniffed one, from validate(), not raw client input ---
+
+    @Test
+    void passes_the_validated_content_type_and_uuid_blob_name_to_storage() throws IOException {
+        // Pins the contract the blob headers depend on (issue #75): the type handed to
+        // BlobStoragePort.upload is validate()'s return value (sniffed from magic bytes), and the
+        // blob name is server-generated ({prefix}/{id}/{UUID}.{ext}), never the client's filename.
+        // Combined with the #87 mismatch rejections below, the stored Content-Type can never be an
+        // unverified client claim.
+        when(blobStorage.upload(any(), any(), anyLong(), any())).thenReturn("https://blob/x.png");
+        MultipartFile file = new MockMultipartFile(
+                "file", "../evil name\".png\r\n", "image/png", pngBytes());
+
+        service.uploadWeddingPhoto(id, file);
+
+        ArgumentCaptor<String> blobName = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> contentType = ArgumentCaptor.forClass(String.class);
+        verify(blobStorage).upload(blobName.capture(), any(), anyLong(), contentType.capture());
+        assertThat(contentType.getValue()).isEqualTo("image/png");
+        // Server-generated name: "wedding-photos/{websiteId}/{UUID}.png", no trace of the
+        // client-supplied filename (no spaces, quotes, path bits, or CR/LF).
+        assertThat(blobName.getValue()).matches(
+                "wedding-photos/" + id + "/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.png");
     }
 
     // --- Issue #87: declared Content-Type must equal the sniffed type ---

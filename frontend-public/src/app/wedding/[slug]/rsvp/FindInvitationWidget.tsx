@@ -142,6 +142,13 @@ export default function FindInvitationWidget({ slug }: Props) {
         setError('Too many searches from your network. Please wait a minute and try again.')
         return
       }
+      // Backend fail-closed (issue #413): in prod with no Turnstile secret configured, every
+      // lookup 503s until an operator fixes the config. Retrying will not help the guest, so
+      // point them at the couple instead of the generic "try again" below.
+      if (res.status === 503) {
+        setError('Invitation lookup is temporarily unavailable. Please try again later or contact the couple directly.')
+        return
+      }
       if (!res.ok) throw new Error('Search failed')
       const data: RsvpFindResult[] = await res.json()
       setResults(data)
