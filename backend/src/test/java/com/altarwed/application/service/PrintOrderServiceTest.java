@@ -58,7 +58,7 @@ class PrintOrderServiceTest {
                 null, null, null,
                 null, null, null,
                 null, null, null,
-                null, false);
+                null, false, null, null);
     }
 
     private Guest domesticGuest(UUID id, String name) {

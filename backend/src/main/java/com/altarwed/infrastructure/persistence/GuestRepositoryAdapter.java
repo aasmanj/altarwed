@@ -59,6 +59,18 @@ public class GuestRepositoryAdapter implements GuestRepository {
     }
 
     @Override
+    public List<Guest> findNonresponderReminderTargets(UUID coupleId) {
+        return jpa.findNonresponderReminderTargets(coupleId, GuestRsvpStatus.PENDING)
+                .stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public List<Guest> findAttendingReminderTargets(UUID coupleId) {
+        return jpa.findAttendingReminderTargets(coupleId, GuestRsvpStatus.ATTENDING)
+                .stream().map(this::toDomain).toList();
+    }
+
+    @Override
     public List<Guest> findByCoupleIdAndNameContaining(UUID coupleId, String name) {
         return jpa.findAllByCoupleIdAndNameContainingIgnoreCase(coupleId, name)
                   .stream().map(this::toDomain).toList();
@@ -97,7 +109,8 @@ public class GuestRepositoryAdapter implements GuestRepository {
                 e.getInviteSentAt(), e.getSaveTheDateSentAt(), e.getRespondedAt(), e.getRemindAt(),
                 e.getCreatedAt(), e.getUpdatedAt(),
                 e.getPartyId(), e.getPartyName(), e.getPartyContact(),
-                e.getSheetSyncId(), e.isSyncedFromSheet()
+                e.getSheetSyncId(), e.isSyncedFromSheet(),
+                e.getNonresponderReminderSentAt(), e.getAttendingReminderSentAt()
         );
     }
 
@@ -134,6 +147,8 @@ public class GuestRepositoryAdapter implements GuestRepository {
                 .partyContact(g.partyContact() != null ? g.partyContact() : false)
                 .sheetSyncId(g.sheetSyncId())
                 .syncedFromSheet(g.syncedFromSheet())
+                .nonresponderReminderSentAt(g.nonresponderReminderSentAt())
+                .attendingReminderSentAt(g.attendingReminderSentAt())
                 .build();
     }
 }

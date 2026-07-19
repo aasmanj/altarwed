@@ -24,5 +24,8 @@ public enum EmailType {
     VENDOR_REGISTRATION_ALERT,
     COUPLE_WEBSITE_CREATED_ALERT,
     VENDOR_INQUIRY,
-    VENDOR_INQUIRY_CONFIRMATION
+    VENDOR_INQUIRY_CONFIRMATION,
+    // Date-offset RSVP campaign reminders (issue #458), enqueued by CampaignReminderService.
+    RSVP_NONRESPONDER_REMINDER,
+    ATTENDING_REMINDER
 }

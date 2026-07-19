@@ -123,7 +123,7 @@ class GuestServiceTest {
                 null, inviteSendCount,
                 null, null, null, null, null, null,
                 null, null, null,
-                null, false);
+                null, false, null, null);
     }
 
     @Test
@@ -487,7 +487,7 @@ class GuestServiceTest {
                 null, 0,
                 null, null, LocalDateTime.now(), null, null, null,
                 null, null, null,
-                null, false);
+                null, false, null, null);
     }
 
     @Test
@@ -784,7 +784,7 @@ class GuestServiceTest {
                 note, 0,
                 null, null, null, null, null, null,
                 partyId, "The " + name + " Party", false,
-                null, false);
+                null, false, null, null);
     }
 
     private RsvpPageDataResponse rsvpViewForTokenSource(String source) {
@@ -887,7 +887,7 @@ class GuestServiceTest {
                 "please seat us near the front", 0,
                 null, null, null, null, null, null,
                 null, null, false,   // partyId == null: solo guest
-                null, false);
+                null, false, null, null);
 
         RsvpInviteToken token = new RsvpInviteToken(
                 UUID.randomUUID(), "tokenhash", solo.id(),
@@ -1037,7 +1037,7 @@ class GuestServiceTest {
                 null, null, null, remindAt,
                 null, null,
                 null, null, null,
-                null, false);
+                null, false, null, null);
     }
 
     @Test
