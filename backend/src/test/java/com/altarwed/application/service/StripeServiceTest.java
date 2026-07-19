@@ -58,7 +58,15 @@ class StripeServiceTest {
     void setUp() {
         service = new StripeService(stripePort, subscriptionRepository, vendorService,
                 printOrderRepository, printOrderService,
-                "https://app.altarwed.com", "price_monthly", "price_annual");
+                "https://app.altarwed.com", "price_monthly", "price_annual",
+                "price_premium_monthly", "price_premium_annual");
+    }
+
+    /** A service configured as prod is TODAY: Pro prices only, Premium blank (issue #370). */
+    private StripeService serviceWithoutPremiumConfigured() {
+        return new StripeService(stripePort, subscriptionRepository, vendorService,
+                printOrderRepository, printOrderService,
+                "https://app.altarwed.com", "price_monthly", "price_annual", "", "");
     }
 
     // -------------------------------------------------------------------------
@@ -108,6 +116,106 @@ class StripeServiceTest {
     }
 
     // -------------------------------------------------------------------------
+    // Issue #370: pricing ladder (Premium tier config, allow-list, tier mapping)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void createCheckoutSessionSucceedsForTheConfiguredPremiumPrices() {
+        when(subscriptionRepository.findByVendorId(vendorId)).thenReturn(Optional.of(activeSubscription(null)));
+        when(stripePort.createCheckoutSession(eq(vendorId), eq("vendor@example.com"), eq("price_premium_monthly"), any(), any()))
+                .thenReturn("https://checkout.stripe.com/session_3");
+        when(stripePort.createCheckoutSession(eq(vendorId), eq("vendor@example.com"), eq("price_premium_annual"), any(), any()))
+                .thenReturn("https://checkout.stripe.com/session_4");
+
+        assertThat(service.createCheckoutSession(vendorId, "vendor@example.com", "price_premium_monthly"))
+                .isEqualTo("https://checkout.stripe.com/session_3");
+        assertThat(service.createCheckoutSession(vendorId, "vendor@example.com", "price_premium_annual"))
+                .isEqualTo("https://checkout.stripe.com/session_4");
+    }
+
+    @Test
+    void blankPremiumConfigRejectsPremiumPriceIds_prodBehaviorUnchangedUntilConfigured() {
+        // The launch invariant: until Jordan sets the Premium price ids, a Premium-looking
+        // price id is NOT in the allow-list, so nothing about the current $29 flow changes
+        // and no crafted request can open a Premium checkout.
+        StripeService unconfigured = serviceWithoutPremiumConfigured();
+
+        assertThatThrownBy(() -> unconfigured.createCheckoutSession(vendorId, "vendor@example.com", "price_premium_monthly"))
+                .isInstanceOf(InvalidPriceIdException.class);
+        assertThatThrownBy(() -> unconfigured.createCheckoutSession(vendorId, "vendor@example.com", "price_premium_annual"))
+                .isInstanceOf(InvalidPriceIdException.class);
+
+        verifyNoInteractions(stripePort);
+        verify(subscriptionRepository, never()).save(any());
+    }
+
+    @Test
+    void webhookMapsAPremiumPriceIdToThePremiumTier() {
+        when(subscriptionRepository.findByVendorId(vendorId)).thenReturn(Optional.empty());
+        when(subscriptionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        StripeEventData event = subscriptionEvent(
+                "customer.subscription.created", "active", now, "price_premium_monthly");
+        when(stripePort.constructEvent(any(), any())).thenReturn(event);
+
+        service.handleWebhook(new byte[0], "sig");
+
+        ArgumentCaptor<VendorSubscription> captor = ArgumentCaptor.forClass(VendorSubscription.class);
+        verify(subscriptionRepository).save(captor.capture());
+        assertThat(captor.getValue().planTier()).isEqualTo(PlanTier.PREMIUM);
+        assertThat(captor.getValue().status()).isEqualTo(SubscriptionStatus.ACTIVE);
+    }
+
+    @Test
+    void webhookStillMapsAProPriceIdToTheFeaturedTier() {
+        when(subscriptionRepository.findByVendorId(vendorId)).thenReturn(Optional.empty());
+        when(subscriptionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        StripeEventData event = subscriptionEvent(
+                "customer.subscription.created", "active", now, "price_annual");
+        when(stripePort.constructEvent(any(), any())).thenReturn(event);
+
+        service.handleWebhook(new byte[0], "sig");
+
+        ArgumentCaptor<VendorSubscription> captor = ArgumentCaptor.forClass(VendorSubscription.class);
+        verify(subscriptionRepository).save(captor.capture());
+        assertThat(captor.getValue().planTier()).isEqualTo(PlanTier.FEATURED);
+    }
+
+    @Test
+    void webhookMapsAnUnknownPriceIdToBasicNotPremium() {
+        when(subscriptionRepository.findByVendorId(vendorId)).thenReturn(Optional.empty());
+        when(subscriptionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        StripeEventData event = subscriptionEvent(
+                "customer.subscription.created", "active", now, "price_someone_elses");
+        when(stripePort.constructEvent(any(), any())).thenReturn(event);
+
+        service.handleWebhook(new byte[0], "sig");
+
+        ArgumentCaptor<VendorSubscription> captor = ArgumentCaptor.forClass(VendorSubscription.class);
+        verify(subscriptionRepository).save(captor.capture());
+        assertThat(captor.getValue().planTier()).isEqualTo(PlanTier.BASIC);
+    }
+
+    @Test
+    void aPriceIdMistakenlyConfiguredForTwoTiersResolvesToTheLowerTier() {
+        // Misconfiguration guard: if the same Stripe price id is pasted into both a Pro and a
+        // Premium env var, the vendor must get the LOWER tier, never a free upgrade.
+        StripeService misconfigured = new StripeService(stripePort, subscriptionRepository, vendorService,
+                printOrderRepository, printOrderService,
+                "https://app.altarwed.com", "price_shared", "price_annual", "price_shared", "price_premium_annual");
+        when(subscriptionRepository.findByVendorId(vendorId)).thenReturn(Optional.empty());
+        when(subscriptionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        StripeEventData event = subscriptionEvent(
+                "customer.subscription.created", "active", now, "price_shared");
+        when(stripePort.constructEvent(any(), any())).thenReturn(event);
+
+        misconfigured.handleWebhook(new byte[0], "sig");
+
+        ArgumentCaptor<VendorSubscription> captor = ArgumentCaptor.forClass(VendorSubscription.class);
+        verify(subscriptionRepository).save(captor.capture());
+        assertThat(captor.getValue().planTier()).isEqualTo(PlanTier.FEATURED);
+    }
+
+    // -------------------------------------------------------------------------
     // #115: subscription webhook staleness guard
     // -------------------------------------------------------------------------
 
@@ -124,8 +232,13 @@ class StripeServiceTest {
     }
 
     private StripeEventData subscriptionEvent(String eventType, String stripeStatus, Instant eventCreatedAt) {
+        return subscriptionEvent(eventType, stripeStatus, eventCreatedAt, "price_monthly");
+    }
+
+    private StripeEventData subscriptionEvent(String eventType, String stripeStatus, Instant eventCreatedAt,
+                                              String priceId) {
         return new StripeEventData(
-                eventType, "sub_123", "cus_123", vendorId.toString(), "price_monthly", stripeStatus,
+                eventType, "sub_123", "cus_123", vendorId.toString(), priceId, stripeStatus,
                 now, now.plusSeconds(3600 * 24 * 30), null, eventCreatedAt,
                 null, null, null, null
         );

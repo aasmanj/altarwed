@@ -95,13 +95,16 @@ describe('vendor auto-renewal disclosure markup (#386)', () => {
 
   it('renders the disclosure heading and body in the upgrade panel', () => {
     expect(flat).toContain('{AUTO_RENEWAL_DISCLOSURE_HEADING}')
-    expect(flat).toContain('{AUTO_RENEWAL_DISCLOSURE_BODY}')
+    // Issue #370: the body is built per configured ladder (Pro-only vs Pro+Premium) so the
+    // disclosure names every purchasable plan's price and cadence. With Premium unconfigured
+    // the builder returns the exact pre-ladder copy (pinned in pricingLadder.test.ts).
+    expect(flat).toContain('{buildAutoRenewalDisclosureBody(premiumConfigured)}')
   })
 
   it('renders a consent checkbox wired to the disclosure copy', () => {
     expect(flat).toContain('type="checkbox"')
     expect(flat).toContain('checked={consented}')
-    expect(flat).toContain('{AUTO_RENEWAL_CONSENT_LABEL}')
+    expect(flat).toContain('{buildAutoRenewalConsentLabel(premiumConfigured)}')
   })
 
   it('gates the Subscribe button on the consent gate and links it to the disclosure', () => {

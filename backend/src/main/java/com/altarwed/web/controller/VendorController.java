@@ -23,6 +23,7 @@ import com.altarwed.application.service.VendorPortfolioPhotoService;
 import com.altarwed.application.service.VendorPromoService;
 import com.altarwed.application.service.VendorService;
 import com.altarwed.domain.exception.VendorNotFoundException;
+import com.altarwed.domain.model.PlanTier;
 import com.altarwed.domain.model.SubscriptionStatus;
 import com.altarwed.domain.model.VendorPortfolioPhoto;
 import com.altarwed.domain.model.VendorSubscription;
@@ -259,6 +260,11 @@ public class VendorController {
                 sub != null ? sub.currentPeriodEnd() : null,
                 stripeService.getPriceProMonthly(),
                 stripeService.getPriceProAnnual(),
+                stripeService.getPricePremiumMonthly(),
+                stripeService.getPricePremiumAnnual(),
+                // Effective tier, not stored tier: a lapsed Premium must fall back to the
+                // Basic/Pro cap of 10 the moment the webhook downgrades the status.
+                (sub != null ? sub.effectivePlanTier() : PlanTier.BASIC).portfolioPhotoCap(),
                 comped
         );
     }

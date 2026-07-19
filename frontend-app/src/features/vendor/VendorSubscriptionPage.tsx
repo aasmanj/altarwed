@@ -22,17 +22,55 @@ import { PLAN_CURRENCY, planValueForPrice, takeCheckoutValue } from './planValue
 // this copy as a placeholder that counsel must confirm before the marketing push.
 export const AUTO_RENEWAL_DISCLOSURE_HEADING = 'Automatic renewal terms'
 
-export const AUTO_RENEWAL_DISCLOSURE_BODY =
-  'Your AltarWed Pro subscription renews automatically. The monthly plan bills $29 every month; ' +
-  'the annual plan bills $290 every year. Billing recurs at the same price each period and ' +
+// Shared tail of the disclosure: renewal-until-cancel and how to cancel, identical for every
+// rung of the pricing ladder (issue #370), so the negative-option disclosure from PR #402
+// applies to ALL tiers, not just Pro.
+const AUTO_RENEWAL_DISCLOSURE_TAIL =
+  'Billing recurs at the same price each period and ' +
   'continues until you cancel. You can cancel anytime from the billing portal on this ' +
   'Subscription page; cancellation takes effect at the end of the current billing period, and ' +
   'partial periods are not refunded.'
 
-export const AUTO_RENEWAL_CONSENT_LABEL =
-  'I understand my AltarWed Pro subscription renews automatically at the price and interval ' +
-  'shown above, and I authorize AltarWed to charge my payment method on a recurring basis until ' +
-  'I cancel.'
+// The disclosure must name the recurring price and cadence of every plan the vendor can buy on
+// this page (FTC Negative Option Rule / CA ARL). With the Premium tier unconfigured this returns
+// the exact pre-ladder Pro-only copy, pinning the "blank config = current UI" invariant.
+export function buildAutoRenewalDisclosureBody(premiumConfigured: boolean): string {
+  if (!premiumConfigured) {
+    return (
+      'Your AltarWed Pro subscription renews automatically. The monthly plan bills $29 every month; ' +
+      'the annual plan bills $290 every year. ' + AUTO_RENEWAL_DISCLOSURE_TAIL
+    )
+  }
+  return (
+    'Your AltarWed subscription renews automatically. The Pro monthly plan bills $29 every month; ' +
+    'the Pro annual plan bills $290 every year. The Premium monthly plan bills $79 every month; ' +
+    'the Premium annual plan bills $790 every year. ' + AUTO_RENEWAL_DISCLOSURE_TAIL
+  )
+}
+
+export function buildAutoRenewalConsentLabel(premiumConfigured: boolean): string {
+  const planName = premiumConfigured ? 'AltarWed' : 'AltarWed Pro'
+  return (
+    `I understand my ${planName} subscription renews automatically at the price and interval ` +
+    'shown above, and I authorize AltarWed to charge my payment method on a recurring basis until ' +
+    'I cancel.'
+  )
+}
+
+export const AUTO_RENEWAL_DISCLOSURE_BODY = buildAutoRenewalDisclosureBody(false)
+
+export const AUTO_RENEWAL_CONSENT_LABEL = buildAutoRenewalConsentLabel(false)
+
+// Issue #370 pricing ladder: the Premium tier renders only once at least one of its Stripe price
+// ids is configured. Until Jordan creates the Premium prices (a founder pricing decision), this
+// is false everywhere and the page renders exactly the single-tier Pro UI it always has: graceful
+// absence, the same pattern as isBillingUnavailable below.
+export function isPremiumTierConfigured(
+  premiumMonthlyPriceId: string | null | undefined,
+  premiumAnnualPriceId: string | null | undefined,
+): boolean {
+  return !!premiumMonthlyPriceId || !!premiumAnnualPriceId
+}
 
 // Checkout may only begin once a valid Stripe price ID has loaded AND the vendor has given
 // affirmative consent to the recurring charge (negative-option compliance) AND no checkout
@@ -114,21 +152,29 @@ export default function VendorSubscriptionPage() {
           // customer, so the billing-portal panel below would not apply to it.
           <CompedPanel />
         ) : isPro && isActive ? (
-          <ActivePlanPanel sub={sub!} onManage={() => portal.mutate()} managing={portal.isPending} />
+          <ActivePlanPanel
+            sub={sub!}
+            premiumConfigured={isPremiumTierConfigured(sub?.premiumMonthlyPriceId, sub?.premiumAnnualPriceId)}
+            onManage={() => portal.mutate()}
+            managing={portal.isPending}
+          />
         ) : sub?.status === 'PAST_DUE' ? (
           <PastDuePanel onManage={() => portal.mutate()} managing={portal.isPending} />
         ) : (
           <UpgradePanel
             monthlyPriceId={sub?.proMonthlyPriceId ?? null}
             annualPriceId={sub?.proAnnualPriceId ?? null}
+            premiumMonthlyPriceId={sub?.premiumMonthlyPriceId ?? null}
+            premiumAnnualPriceId={sub?.premiumAnnualPriceId ?? null}
             onCheckout={(priceId) =>
               checkout.mutate({
                 priceId,
-                planValue: planValueForPrice(
-                  priceId,
-                  sub?.proMonthlyPriceId ?? null,
-                  sub?.proAnnualPriceId ?? null,
-                ),
+                planValue: planValueForPrice(priceId, {
+                  proMonthly: sub?.proMonthlyPriceId ?? null,
+                  proAnnual: sub?.proAnnualPriceId ?? null,
+                  premiumMonthly: sub?.premiumMonthlyPriceId ?? null,
+                  premiumAnnual: sub?.premiumAnnualPriceId ?? null,
+                }),
               })
             }
             loading={checkout.isPending}
@@ -142,10 +188,12 @@ export default function VendorSubscriptionPage() {
 
 function ActivePlanPanel({
   sub,
+  premiumConfigured,
   onManage,
   managing,
 }: {
-  sub: { currentPeriodEnd: string | null }
+  sub: { currentPeriodEnd: string | null; planTier?: 'BASIC' | 'FEATURED' | 'PREMIUM' }
+  premiumConfigured: boolean
   onManage: () => void
   managing: boolean
 }) {
@@ -154,19 +202,30 @@ function ActivePlanPanel({
         month: 'long', day: 'numeric', year: 'numeric',
       })
     : null
+  const isPremium = sub.planTier === 'PREMIUM'
 
   return (
     <div className="rounded-2xl border border-[#d4af6a] bg-white p-8">
       <div className="flex items-center gap-3 mb-4">
-        <span className="text-xl font-serif font-bold text-[#3b2f2f]">AltarWed Pro</span>
+        <span className="text-xl font-serif font-bold text-[#3b2f2f]">
+          {isPremium ? 'AltarWed Premium' : 'AltarWed Pro'}
+        </span>
         <span className="text-xs font-semibold bg-[#d4af6a] text-white px-2.5 py-1 rounded-full">
           Active
         </span>
       </div>
       <p className="text-[#6b5344] text-sm mb-6">
-        Your listing gets priority placement and detailed analytics.
+        {isPremium
+          ? 'Your listing ranks at the top of its category with an expanded portfolio and detailed analytics.'
+          : 'Your listing gets priority placement and detailed analytics.'}
         {renewDate && <> Renews {renewDate}.</>}
       </p>
+      {!isPremium && premiumConfigured && (
+        <p className="text-[#8a6a4a] text-xs mb-4">
+          Want top-of-category placement and a bigger portfolio? Switch to Premium from the
+          billing portal below.
+        </p>
+      )}
       <button
         onClick={onManage}
         disabled={managing}
@@ -216,26 +275,35 @@ function PastDuePanel({ onManage, managing }: { onManage: () => void; managing: 
 function UpgradePanel({
   monthlyPriceId,
   annualPriceId,
+  premiumMonthlyPriceId,
+  premiumAnnualPriceId,
   onCheckout,
   loading,
   onRedeemed,
 }: {
   monthlyPriceId: string | null
   annualPriceId: string | null
+  premiumMonthlyPriceId: string | null
+  premiumAnnualPriceId: string | null
   onCheckout: (priceId: string) => void
   loading: boolean
   onRedeemed: () => void
 }) {
   // Affirmative consent to the recurring charge. Checkout stays gated behind this so we
-  // never send a vendor to Stripe without capturing negative-option consent first.
+  // never send a vendor to Stripe without capturing negative-option consent first. One
+  // consent covers the whole ladder: the disclosure body names every purchasable plan's
+  // price and cadence, so the consent is informed for whichever plan the vendor picks.
   const [consented, setConsented] = useState(false)
   const disclosureId = useId()
   const consentId = useId()
+  const premiumConfigured = isPremiumTierConfigured(premiumMonthlyPriceId, premiumAnnualPriceId)
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-serif text-2xl font-bold text-[#3b2f2f] mb-1">Upgrade to Pro</h1>
+        <h1 className="font-serif text-2xl font-bold text-[#3b2f2f] mb-1">
+          {premiumConfigured ? 'Choose your plan' : 'Upgrade to Pro'}
+        </h1>
         <p className="text-[#8a6a4a] text-sm">
           Get in front of more couples with priority placement and analytics.
         </p>
@@ -248,7 +316,7 @@ function UpgradePanel({
         <p className="font-semibold text-[#3b2f2f] text-sm mb-1">
           {AUTO_RENEWAL_DISCLOSURE_HEADING}
         </p>
-        <p className="text-sm text-[#6b5344]">{AUTO_RENEWAL_DISCLOSURE_BODY}</p>
+        <p className="text-sm text-[#6b5344]">{buildAutoRenewalDisclosureBody(premiumConfigured)}</p>
         <label htmlFor={consentId} className="mt-4 flex items-start gap-2.5 cursor-pointer">
           <input
             id={consentId}
@@ -257,11 +325,14 @@ function UpgradePanel({
             onChange={(e) => setConsented(e.target.checked)}
             className="mt-0.5 h-4 w-4 shrink-0 accent-[#3b2f2f] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af6a]"
           />
-          <span className="text-sm text-[#3b2f2f]">{AUTO_RENEWAL_CONSENT_LABEL}</span>
+          <span className="text-sm text-[#3b2f2f]">{buildAutoRenewalConsentLabel(premiumConfigured)}</span>
         </label>
       </div>
 
       <div className="rounded-2xl border border-[#e8dcc8] bg-white divide-y divide-[#e8dcc8]">
+        {premiumConfigured && (
+          <p className="px-5 pt-4 pb-1 text-sm font-semibold text-[#3b2f2f]">Pro</p>
+        )}
         <PricingRow
           label="Monthly"
           price="$29 / month"
@@ -285,6 +356,33 @@ function UpgradePanel({
         />
       </div>
 
+      {premiumConfigured && (
+        <div className="rounded-2xl border border-[#d4af6a] bg-white divide-y divide-[#e8dcc8]">
+          <p className="px-5 pt-4 pb-1 text-sm font-semibold text-[#3b2f2f]">Premium</p>
+          <PricingRow
+            label="Monthly"
+            price="$79 / month"
+            description="Billed monthly, cancel anytime"
+            priceId={premiumMonthlyPriceId}
+            onCheckout={onCheckout}
+            loading={loading}
+            consented={consented}
+            disclosureId={disclosureId}
+          />
+          <PricingRow
+            label="Annual"
+            price="$790 / year"
+            description="Save 2 months vs. monthly"
+            badge="Top placement"
+            priceId={premiumAnnualPriceId}
+            onCheckout={onCheckout}
+            loading={loading}
+            consented={consented}
+            disclosureId={disclosureId}
+          />
+        </div>
+      )}
+
       <PromoCodeBox onRedeemed={onRedeemed} />
 
       <p className="text-xs text-[#8a6a4a] text-center">
@@ -300,6 +398,17 @@ function UpgradePanel({
           <li>More photos and richer profile</li>
         </ul>
       </div>
+
+      {premiumConfigured && (
+        <div className="rounded-xl bg-[#fdf6eb] border border-[#d4af6a] p-5">
+          <p className="font-semibold text-[#3b2f2f] text-sm mb-2">What you get with Premium</p>
+          <ul className="text-sm text-[#6b5344] space-y-1">
+            <li>Everything in Pro</li>
+            <li>Top-of-category placement: Premium listings rank first in your category and city</li>
+            <li>Expanded portfolio: up to 25 photos (Pro includes 10)</li>
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

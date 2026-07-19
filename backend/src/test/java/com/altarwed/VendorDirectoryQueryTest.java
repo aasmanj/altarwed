@@ -15,6 +15,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -102,6 +103,62 @@ class VendorDirectoryQueryTest {
         }
     }
 
+    /**
+     * Issue #370 pricing ladder: a vendor with a live PREMIUM subscription is pinned to the top
+     * of the directory (top-of-category placement, the tier's headline paid differentiator), in
+     * both the default popularity sort and the alphabetical sort, ahead of vendors with far more
+     * views. A CANCELLED premium subscription confers no placement. Runs against real SQL Server
+     * because the ORDER BY CASE WHEN EXISTS(...) correlated subquery must be proven on the prod
+     * dialect, and the placement must hold in the database (across pagination), not in memory.
+     */
+    @Test
+    void activePremiumVendorRanksFirstInBothSorts_cancelledPremiumDoesNot() {
+        String premiumName = "zzz-issue370-premium";
+        String cancelledName = "aaa-issue370-cancelled";
+        String popularName = "mmm-issue370-popular";
+        // A city only this test seeds, so the assertions are isolated from rows any other
+        // schema-validation test leaves behind and all three rows fit on page 0.
+        String city = "issue370ville";
+        List<VendorEntity> seed = List.of(
+                // Premium vendor: worst name-sort position and lowest view count, so only the
+                // placement band can put it first in either sort.
+                vendor(premiumName, "$", 1, city),
+                vendor(cancelledName, "$", 500, city),
+                vendor(popularName, "$", 2_000_000_000, city));
+        List<VendorEntity> saved = jpaRepository.saveAll(seed);
+
+        try {
+            UUID premiumId = saved.stream().filter(v -> premiumName.equals(v.getBusinessName()))
+                    .findFirst().orElseThrow().getId();
+            UUID cancelledId = saved.stream().filter(v -> cancelledName.equals(v.getBusinessName()))
+                    .findFirst().orElseThrow().getId();
+            jdbcTemplate.update(
+                    "INSERT INTO vendor_subscriptions (vendor_id, plan_tier, status) VALUES (?, 'PREMIUM', 'ACTIVE')",
+                    premiumId);
+            jdbcTemplate.update(
+                    "INSERT INTO vendor_subscriptions (vendor_id, plan_tier, status) VALUES (?, 'PREMIUM', 'CANCELLED')",
+                    cancelledId);
+
+            // Default (popularity) sort: premium first despite having 1 view, then the remaining
+            // band ordered by views, so the cancelled-premium vendor gets no placement boost.
+            VendorPageResult byViews = vendorService.getVendors(null, city, null, null, 0, 20);
+            assertThat(byViews.vendors())
+                    .as("active PREMIUM pins first; the rest fall back to most-viewed order")
+                    .extracting(Vendor::businessName)
+                    .containsExactly(premiumName, popularName, cancelledName);
+
+            // Alphabetical sort: premium still first even though its name sorts last.
+            VendorPageResult byName = vendorService.getVendors(null, city, null, "name", 0, 20);
+            assertThat(byName.vendors())
+                    .as("active PREMIUM pins first; the rest fall back to A-Z order")
+                    .extracting(Vendor::businessName)
+                    .containsExactly(premiumName, cancelledName, popularName);
+        } finally {
+            // vendor_subscriptions rows cascade with the vendor delete (fk ON DELETE CASCADE).
+            jdbcTemplate.update("DELETE FROM vendors WHERE email LIKE ?", "%" + MARKER_DOMAIN);
+        }
+    }
+
     @Test
     void directoryDefaultSortIndexExistsAfterMigration() {
         // Only the V79 migration creates an index with this name; a missing index returns 0.
@@ -115,10 +172,14 @@ class VendorDirectoryQueryTest {
     }
 
     private VendorEntity vendor(String businessName, String priceTier, int viewCount) {
+        return vendor(businessName, priceTier, viewCount, "Austin");
+    }
+
+    private VendorEntity vendor(String businessName, String priceTier, int viewCount, String city) {
         return VendorEntity.builder()
                 .businessName(businessName)
                 .category(VendorCategory.PHOTOGRAPHER)
-                .city("Austin")
+                .city(city)
                 .state("TX")
                 .email(businessName + MARKER_DOMAIN)
                 .passwordHash("hash")
