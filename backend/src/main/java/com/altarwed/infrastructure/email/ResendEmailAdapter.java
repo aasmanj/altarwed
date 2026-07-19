@@ -1212,7 +1212,7 @@ public class ResendEmailAdapter implements EmailPort {
                 calUrl.isEmpty() ? "" : "Add to Calendar: " + calUrl);
 
         Map<String, Object> body = new HashMap<>();
-        body.put("from", escapeHtml(coupleNames) + " <" + invitesFromEmail + ">");
+        body.put("from", coupleNames + " <" + invitesFromEmail + ">");
         body.put("to", List.of(EmailAddresses.normalize(toEmail)));
         body.put("subject", "RSVP reminder: " + coupleNames + "'s wedding");
         body.put("html", html + growthCtaHtml(viralCtaUrl) + unsubscribeFooterHtml(displayUnsubUrl));
@@ -1275,9 +1275,9 @@ public class ResendEmailAdapter implements EmailPort {
                 calUrl.isEmpty() ? "" : "Add to Calendar: " + calUrl);
 
         Map<String, Object> body = new HashMap<>();
-        body.put("from", escapeHtml(coupleNames) + " <" + invitesFromEmail + ">");
+        body.put("from", coupleNames + " <" + invitesFromEmail + ">");
         body.put("to", List.of(EmailAddresses.normalize(toEmail)));
-        body.put("subject", escapeHtml(coupleNames) + "'s wedding is almost here!");
+        body.put("subject", coupleNames + "'s wedding is almost here!");
         body.put("html", html + growthCtaHtml(viralCtaUrl) + unsubscribeFooterHtml(displayUnsubUrl));
         body.put("text", text + growthCtaText(viralCtaUrl) + unsubscribeFooterText(displayUnsubUrl));
         body.put("headers", Map.of(

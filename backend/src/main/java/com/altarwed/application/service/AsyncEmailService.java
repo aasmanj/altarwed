@@ -170,7 +170,7 @@ public class AsyncEmailService {
                                            String googleCalendarUrl) {
         enqueue(EmailType.ATTENDING_REMINDER, toEmail,
                 new OutboxPayloads.AttendingReminder(toEmail, guestName, coupleNames, weddingDate,
-                        venueAddress, venueCity, venueState, ceremonyTime, null, googleCalendarUrl));
+                        venueAddress, venueCity, venueState, ceremonyTime, googleCalendarUrl));
     }
 
     // Serialises the payload and writes one PENDING row. recipient is a single low-cardinality

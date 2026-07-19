@@ -81,6 +81,6 @@ public final class OutboxPayloads {
 
     public record AttendingReminder(String toEmail, String guestName, String coupleNames,
                                     String weddingDate, String venueAddress, String venueCity,
-                                    String venueState, String ceremonyTime, String rsvpToken,
+                                    String venueState, String ceremonyTime,
                                     String googleCalendarUrl) {}
 }

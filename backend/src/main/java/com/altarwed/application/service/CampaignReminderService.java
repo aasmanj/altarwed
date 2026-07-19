@@ -113,7 +113,7 @@ public class CampaignReminderService {
                     sent++;
                 } catch (Exception ex) {
                     failed++;
-                    log.error("campaign nonresponder reminder failed, runId={}, coupleId={}, guestId={}",
+                    log.warn("campaign nonresponder reminder failed, runId={}, coupleId={}, guestId={}",
                             runId, wedding.coupleId(), guest.id(), ex);
                 }
             }
@@ -150,7 +150,7 @@ public class CampaignReminderService {
                     sent++;
                 } catch (Exception ex) {
                     failed++;
-                    log.error("campaign attending reminder failed, runId={}, coupleId={}, guestId={}",
+                    log.warn("campaign attending reminder failed, runId={}, coupleId={}, guestId={}",
                             runId, wedding.coupleId(), guest.id(), ex);
                 }
             }
