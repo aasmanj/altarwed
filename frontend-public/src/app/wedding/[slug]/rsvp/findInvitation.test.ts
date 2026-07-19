@@ -44,13 +44,20 @@ describe('buildFindUrl (issue #89)', () => {
   })
 })
 
+// Issue #100 extracted the widget mechanics (script loading, single-use token
+// reset, bounded ready-gate, never-re-latch guard) into the shared useTurnstile
+// hook so the vendor inquiry form gets the identical behavior. The invariants
+// below are unchanged from #89; only where they live moved: hook-level
+// assertions now read lib/useTurnstile.tsx, form-level ones still read the widget.
 describe('FindInvitationWidget wiring (issue #89)', () => {
   const src = read('app/wedding/[slug]/rsvp/FindInvitationWidget.tsx')
+  const hookSrc = read('lib/useTurnstile.tsx')
 
   it('renders the Turnstile widget only when a site key is configured', () => {
-    expect(src).toContain('process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY')
-    expect(src).toContain('{siteKey && (')
-    expect(src).toContain('challenges.cloudflare.com/turnstile/v0/api.js')
+    expect(hookSrc).toContain('process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY')
+    expect(hookSrc).toContain('siteKey ? (')
+    expect(hookSrc).toContain('challenges.cloudflare.com/turnstile/v0/api.js')
+    expect(src).toContain('{turnstileSlot}')
   })
 
   it('resets the captcha widget after every search attempt (token is single-use)', () => {
@@ -67,10 +74,9 @@ describe('FindInvitationWidget wiring (issue #89)', () => {
     // challenge resolved and silently get a 400 with no useful explanation.
     // waitingOnCaptcha must gate the button AND time out rather than trap a
     // guest forever if Cloudflare's script never loads.
-    expect(src).toContain('waitingOnCaptcha')
     expect(src).toContain('|| waitingOnCaptcha')
-    expect(src).toContain('turnstileGaveUp')
-    expect(src).toContain('TURNSTILE_READY_TIMEOUT_MS')
+    expect(hookSrc).toContain('turnstileGaveUp')
+    expect(hookSrc).toContain('TURNSTILE_READY_TIMEOUT_MS')
   })
 
   it('shows a visible status while waiting on the captcha, not a silent disabled button', () => {
@@ -84,8 +90,8 @@ describe('FindInvitationWidget wiring (issue #89)', () => {
     // post-search resetCaptcha() briefly cleared the token. The fix tracks
     // whether a token has EVER arrived in a ref and only allows the timeout to
     // set turnstileGaveUp when that ref is still false.
-    expect(src).toContain('everReceivedTokenRef')
-    expect(src).toContain('if (!everReceivedTokenRef.current) setTurnstileGaveUp(true)')
+    expect(hookSrc).toContain('everReceivedTokenRef')
+    expect(hookSrc).toContain('if (!everReceivedTokenRef.current) setTurnstileGaveUp(true)')
   })
 })
 
