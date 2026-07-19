@@ -1,5 +1,7 @@
 package com.altarwed.infrastructure.security;
 
+import com.altarwed.domain.port.RsvpSearchThrottlePort;
+
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -12,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class InMemoryRsvpSearchThrottleAdapterTest {
 
-    private static final int BUDGET = InMemoryRsvpSearchThrottleAdapter.SEARCH_BUDGET;
+    private static final int BUDGET = RsvpSearchThrottlePort.SEARCH_BUDGET;
 
     @Test
     void locksOutOnlyAfterBudgetOfAttemptsIsSpent() {
