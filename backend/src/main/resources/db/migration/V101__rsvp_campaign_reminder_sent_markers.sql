@@ -14,3 +14,11 @@
 ALTER TABLE guests ADD
     nonresponder_reminder_sent_at DATETIMEOFFSET NULL,
     attending_reminder_sent_at DATETIMEOFFSET NULL;
+
+-- Supports the hourly CampaignReminderService window queries
+-- (WHERE is_deleted = 0 AND wedding_date BETWEEN ? AND ?). Without this, each
+-- job tick scans the full wedding_websites table. Filtered on is_deleted = 0 so
+-- the index stays small (deleted sites are rare in steady state).
+CREATE INDEX ix_wedding_websites_wedding_date
+    ON wedding_websites (wedding_date)
+    WHERE is_deleted = 0;
