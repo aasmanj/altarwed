@@ -10,6 +10,14 @@ const contentSecurityPolicy = buildContentSecurityPolicy({
 })
 
 const nextConfig: NextConfig = {
+  // Cap how long edges may serve STALE prerendered HTML (the SWR window in
+  // Cache-Control: s-maxage=..., stale-while-revalidate=...). The default is a
+  // YEAR, which let a first visitor after an idle spell get months-old HTML
+  // whose /_next/static/<oldBuild> CSS/JS no longer exist post-deploy, so the
+  // page rendered unstyled (giant images, black-and-white text, bare bullet
+  // lists). One hour keeps stale HTML younger than any plausible gap between
+  // deploys, so its asset references stay resolvable.
+  expireTime: 3600,
   // Application Insights (OpenTelemetry-based) must not be bundled by Next; bundling
   // breaks its runtime instrumentation. Keep it external so src/instrumentation.ts can
   // start it in the Node SSR runtime (issue #422). The two @opentelemetry packages
