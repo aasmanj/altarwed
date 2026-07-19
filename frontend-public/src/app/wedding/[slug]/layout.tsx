@@ -178,7 +178,16 @@ export default async function WeddingLayout({
   // TEXT stays legible on the dark panels and the light page, and button labels stay legible on
   // an accent fill, for ANY accent the couple picks. Decorative fills/dividers keep raw --accent.
   const accentTokens = accentColorTokens(accentColor)
-  const heroTaglineColor = safeColor(wedding.heroTaglineColor, 'rgba(255,255,255,0.7)')
+  // Hero layout (issue #360, extended #457). "names-below" moves the couple names into a block
+  // beneath the photo, so the default tagline color flips to a dark tone that is legible on the
+  // light page background instead of the near-white that reads over a photo. A couple's explicit
+  // choice still wins.
+  const heroLayout = safeHeroLayout(wedding.heroLayout)
+  const isNamesBelow = heroLayout === 'names-below'
+  const heroTaglineColor = safeColor(
+    wedding.heroTaglineColor,
+    isNamesBelow ? '#8a6a4a' : 'rgba(255,255,255,0.7)',
+  )
   const scriptureBackgroundColor = safeColor(wedding.scriptureBackgroundColor, undefined)
   // Couple-chosen font for the hero names. safeNameFont maps the stored key to an
   // allowlisted font-family stack (never the raw value) and defaults to the serif;
@@ -196,7 +205,70 @@ export default async function WeddingLayout({
   // style sink: safeHeroOverlayGradient clamps the darkness to 0-100 and builds the gradient
   // from that bounded number; safeHeroLayout maps to an allowlisted "full" | "framed" key.
   const heroOverlayGradient = safeHeroOverlayGradient(wedding.heroOverlayDarkness)
-  const heroLayout = safeHeroLayout(wedding.heroLayout)
+
+  // Couple names + tagline + date block. Shared by the overlay layouts (full/framed, names sit
+  // over the photo in white) and the names-below layout (issue #457, names sit under the photo
+  // in dark text on the light page). The only differences are text color and the container's
+  // bottom padding, so the markup is built once and parameterised on isNamesBelow rather than
+  // duplicated, keeping the two paths from drifting apart.
+  const nameTextClass = isNamesBelow ? 'text-[#3b2f2f]' : 'text-white'
+  const dateTextClass = isNamesBelow ? 'text-[#3b2f2f]/70' : 'text-white/85'
+  const accentTextClass = isNamesBelow ? 'text-[var(--accent-on-light)]' : 'text-[var(--accent-on-dark)]'
+  const heroNames = (
+    <div className={`relative z-10 text-center ${isNamesBelow ? '' : 'pb-14'} px-6 w-full max-w-4xl mx-auto`}>
+      {/* Tagline supports three states: empty string (user cleared, render nothing),
+          null/undefined (never set, show default), or any text (use as-is).
+          `||` would treat empty-string as falsy and force the default; we want
+          the user to be able to opt out entirely. */}
+      {wedding.heroTagline !== '' && (
+        <p
+          className="mb-3 text-xs uppercase tracking-[0.3em] font-light"
+          style={{ color: heroTaglineColor }}
+        >
+          {wedding.heroTagline ?? 'Together in covenant'}
+        </p>
+      )}
+      <h1
+        className={`font-serif text-4xl sm:text-6xl md:text-7xl font-bold ${nameTextClass} leading-tight break-words text-balance`}
+        style={{ fontFamily: 'var(--name-font)', fontWeight: 'var(--name-font-weight)' }}
+      >
+        {wedding.partnerTwoName}
+      </h1>
+      <div className="my-4 flex items-center justify-center gap-4">
+        <div className="h-px w-16 bg-[color-mix(in_srgb,var(--accent)_60%,transparent)]" />
+        <span
+          className={`font-serif text-2xl ${accentTextClass}`}
+          style={{ fontFamily: 'var(--name-font)' }}
+          aria-hidden="true"
+        >
+          &amp;
+        </span>
+        <div className="h-px w-16 bg-[color-mix(in_srgb,var(--accent)_60%,transparent)]" />
+      </div>
+      <p
+        className={`font-serif text-4xl sm:text-6xl md:text-7xl font-bold ${nameTextClass} leading-tight break-words text-balance`}
+        style={{ fontFamily: 'var(--name-font)', fontWeight: 'var(--name-font-weight)' }}
+      >
+        {wedding.partnerOneName}
+      </p>
+      {wedding.weddingDate && (
+        <p className={`mt-6 text-base sm:text-lg ${dateTextClass} tracking-wide`}>
+          {formatWeddingDate(wedding.weddingDate)}
+        </p>
+      )}
+      {countdown !== null && countdown > 0 && (
+        <p
+          className={`mt-2 ${accentTextClass} text-sm tracking-widest uppercase`}
+          aria-label={`${countdown} days until the wedding`}
+        >
+          {countdown} days away
+        </p>
+      )}
+      {countdown !== null && countdown <= 0 && (
+        <p className={`mt-2 ${accentTextClass} text-sm tracking-widest uppercase`}>Married!</p>
+      )}
+    </div>
+  )
 
   return (
     <div className="aw-fonts min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]" style={{ fontFamily: 'var(--body-font)' }}>
@@ -221,76 +293,46 @@ export default async function WeddingLayout({
       )}
 
       {/* ── Hero ── */}
-      {/* Layout (issue #360): "full" is the original full-bleed cover crop; "framed" contains
-          the whole photo (object-contain) against a dark backdrop so a portrait hero is shown
-          in full instead of being cropped hard at the fixed hero height. */}
-      <section className={`relative h-[85vh] min-h-[520px] flex items-end justify-center overflow-hidden${heroLayout === 'framed' ? ' bg-[#1c1917]' : ''}`}>
-        <Image
-          src={heroImage}
-          alt={`${wedding.partnerTwoName} and ${wedding.partnerOneName}`}
-          fill sizes="100vw" className={heroLayout === 'framed' ? 'object-contain' : 'object-cover'} priority
-          style={{
-            objectPosition: `${(wedding.heroFocalPointX ?? 0.5) * 100}% ${(wedding.heroFocalPointY ?? 0.5) * 100}%`,
-          }}
-        />
-        {/* Scrim intensity (issue #360): gradient derived from the clamped darkness value so the
-            white couple names stay legible over a bright photo. */}
-        <div className="absolute inset-0" style={{ backgroundImage: heroOverlayGradient }} />
+      {/* Layout (issue #360, extended #457): "full" is the original full-bleed cover crop;
+          "framed" contains the whole photo (object-contain) against a dark backdrop so a portrait
+          hero is shown in full; "names-below" puts the photo above and the couple names in a
+          block beneath it so nothing overlaps faces (and no scrim is needed, since no text sits
+          over the photo). */}
+      {isNamesBelow ? (
+        <>
+          <section className="relative h-[70vh] min-h-[420px] overflow-hidden">
+            <Image
+              src={heroImage}
+              alt={`${wedding.partnerTwoName} and ${wedding.partnerOneName}`}
+              fill sizes="100vw" className="object-cover" priority
+              style={{
+                objectPosition: `${(wedding.heroFocalPointX ?? 0.5) * 100}% ${(wedding.heroFocalPointY ?? 0.5) * 100}%`,
+              }}
+            />
+          </section>
+          {/* Names block below the photo. No scrim div here: the names sit on the light page
+              background, not over the photo, so there is nothing to keep legible over an image. */}
+          <section className="bg-[#fdfaf6] pt-12 pb-14 flex justify-center">
+            {heroNames}
+          </section>
+        </>
+      ) : (
+        <section className={`relative h-[85vh] min-h-[520px] flex items-end justify-center overflow-hidden${heroLayout === 'framed' ? ' bg-[#1c1917]' : ''}`}>
+          <Image
+            src={heroImage}
+            alt={`${wedding.partnerTwoName} and ${wedding.partnerOneName}`}
+            fill sizes="100vw" className={heroLayout === 'framed' ? 'object-contain' : 'object-cover'} priority
+            style={{
+              objectPosition: `${(wedding.heroFocalPointX ?? 0.5) * 100}% ${(wedding.heroFocalPointY ?? 0.5) * 100}%`,
+            }}
+          />
+          {/* Scrim intensity (issue #360): gradient derived from the clamped darkness value so the
+              white couple names stay legible over a bright photo. */}
+          <div className="absolute inset-0" style={{ backgroundImage: heroOverlayGradient }} />
 
-        <div className="relative z-10 text-center pb-14 px-6 w-full max-w-4xl mx-auto">
-          {/* Tagline supports three states: empty string (user cleared, render nothing),
-              null/undefined (never set, show default), or any text (use as-is).
-              `||` would treat empty-string as falsy and force the default; we want
-              the user to be able to opt out entirely. */}
-          {wedding.heroTagline !== '' && (
-            <p
-              className="mb-3 text-xs uppercase tracking-[0.3em] font-light"
-              style={{ color: heroTaglineColor }}
-            >
-              {wedding.heroTagline ?? 'Together in covenant'}
-            </p>
-          )}
-          <h1
-            className="font-serif text-4xl sm:text-6xl md:text-7xl font-bold text-white leading-tight break-words text-balance"
-            style={{ fontFamily: 'var(--name-font)', fontWeight: 'var(--name-font-weight)' }}
-          >
-            {wedding.partnerTwoName}
-          </h1>
-          <div className="my-4 flex items-center justify-center gap-4">
-            <div className="h-px w-16 bg-[color-mix(in_srgb,var(--accent)_60%,transparent)]" />
-            <span
-              className="font-serif text-2xl text-[var(--accent-on-dark)]"
-              style={{ fontFamily: 'var(--name-font)' }}
-              aria-hidden="true"
-            >
-              &amp;
-            </span>
-            <div className="h-px w-16 bg-[color-mix(in_srgb,var(--accent)_60%,transparent)]" />
-          </div>
-          <p
-            className="font-serif text-4xl sm:text-6xl md:text-7xl font-bold text-white leading-tight break-words text-balance"
-            style={{ fontFamily: 'var(--name-font)', fontWeight: 'var(--name-font-weight)' }}
-          >
-            {wedding.partnerOneName}
-          </p>
-          {wedding.weddingDate && (
-            <p className="mt-6 text-base sm:text-lg text-white/85 tracking-wide">
-              {formatWeddingDate(wedding.weddingDate)}
-            </p>
-          )}
-          {countdown !== null && countdown > 0 && (
-            <p
-              className="mt-2 text-[var(--accent-on-dark)] text-sm tracking-widest uppercase"
-              aria-label={`${countdown} days until the wedding`}
-            >
-              {countdown} days away
-            </p>
-          )}
-          {countdown !== null && countdown <= 0 && (
-            <p className="mt-2 text-[var(--accent-on-dark)] text-sm tracking-widest uppercase">Married!</p>
-          )}
-        </div>
-      </section>
+          {heroNames}
+        </section>
+      )}
 
       {/* ── Scripture banner, more prominent per couple feedback ── */}
       {(wedding.scriptureText || wedding.scriptureReference) && (
