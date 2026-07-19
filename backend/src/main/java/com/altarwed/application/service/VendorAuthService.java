@@ -171,6 +171,8 @@ public class VendorAuthService {
                 jwtService.hashToken(rawToken),
                 userId,
                 role,
+                // fresh login starts a new rotation family (issue #250)
+                UUID.randomUUID(),
                 LocalDateTime.now().plusSeconds(expiryMs / 1000),
                 false,
                 null
