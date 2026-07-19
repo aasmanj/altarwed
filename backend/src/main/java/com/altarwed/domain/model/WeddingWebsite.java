@@ -107,6 +107,17 @@ public record WeddingWebsite(
         // V92: optional custom headline on the printable seating board. null = "Welcome".
         String seatingBoardTitle,
 
+        // V96: hero presentation controls (issue #360).
+        // heroOverlayDarkness: 0-100 intensity of the dark scrim drawn over the hero photo so
+        // the white couple names stay legible on bright photos. null = the default (70). The
+        // value is clamped to [0,100] at the DTO boundary; the public renderer derives the
+        // gradient alpha stops from the clamped integer, never a raw string.
+        Integer heroOverlayDarkness,
+        // heroLayout: how the hero photo fills its section. "full" = full-bleed cover crop
+        // (default), "framed" = contain the whole photo so portrait heroes are not cropped
+        // hard. null = "full". Allowlisted key, never a raw CSS value.
+        String heroLayout,
+
         boolean isDeleted,
         LocalDateTime deletedAt,
 
@@ -128,6 +139,7 @@ public record WeddingWebsite(
                 receptionVenueName, receptionVenueAddress, receptionVenueCity, receptionVenueState,
                 receptionTime, receptionVenueAdditionalInfo, ceremonyVenueTitle, receptionVenueTitle,
                 nameFont, seatingBoardTitle,
+                heroOverlayDarkness, heroLayout,
                 isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
@@ -146,6 +158,7 @@ public record WeddingWebsite(
                 receptionVenueName, receptionVenueAddress, receptionVenueCity, receptionVenueState,
                 receptionTime, receptionVenueAdditionalInfo, ceremonyVenueTitle, receptionVenueTitle,
                 nameFont, seatingBoardTitle,
+                heroOverlayDarkness, heroLayout,
                 isDeleted, deletedAt, createdAt, LocalDateTime.now());
     }
 
@@ -164,6 +177,7 @@ public record WeddingWebsite(
                 receptionVenueName, receptionVenueAddress, receptionVenueCity, receptionVenueState,
                 receptionTime, receptionVenueAdditionalInfo, ceremonyVenueTitle, receptionVenueTitle,
                 nameFont, seatingBoardTitle,
+                heroOverlayDarkness, heroLayout,
                 true, LocalDateTime.now(), createdAt, LocalDateTime.now());
     }
 }

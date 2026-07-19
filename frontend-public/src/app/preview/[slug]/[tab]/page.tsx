@@ -17,6 +17,7 @@ import { formatWeddingDate, daysUntilDate } from '@/lib/date'
 import { safeColor } from '@/lib/safeColor'
 import { safeNameFont, safeNameFontWeight } from '@/lib/safeFont'
 import { safeFontTheme } from '@/lib/safeFontTheme'
+import { safeHeroOverlayGradient, safeHeroLayout } from '@/lib/heroOverlay'
 import HeroLive from './HeroLive'
 import BlockListLive from './BlockListLive'
 import TabSwitchListener from './TabSwitchListener'
@@ -104,6 +105,10 @@ export default async function PreviewPage({
 
   const accentColor = safeColor(wedding.accentColor, '#d4af6a')
   const scriptureBackgroundColor = safeColor(wedding.scriptureBackgroundColor, undefined)
+  // Hero scrim + fill mode (issue #360), sanitised the same way as the live public layout so
+  // the editor preview is true to life once it reloads after a save.
+  const heroOverlayGradient = safeHeroOverlayGradient(wedding.heroOverlayDarkness)
+  const heroLayout = safeHeroLayout(wedding.heroLayout)
   // Mirror the live layout's font vars so the dashboard preview reflects the chosen font.
   const nameFont = safeNameFont(wedding.nameFont)
   const nameFontWeight = safeNameFontWeight(wedding.nameFont)
@@ -166,16 +171,16 @@ export default async function PreviewPage({
 
       {/* Hero, compact for the editor iframe (smaller than the public site's
           85vh hero so the editor can see content blocks without scrolling) */}
-      <section className="relative h-[40vh] min-h-[260px] flex items-end justify-center overflow-hidden">
+      <section className={`relative h-[40vh] min-h-[260px] flex items-end justify-center overflow-hidden${heroLayout === 'framed' ? ' bg-[#1c1917]' : ''}`}>
         <Image
           src={heroImage}
           alt={`${wedding.partnerTwoName} and ${wedding.partnerOneName}`}
-          fill className="object-cover" priority
+          fill className={heroLayout === 'framed' ? 'object-contain' : 'object-cover'} priority
           style={{
             objectPosition: `${(wedding.heroFocalPointX ?? 0.5) * 100}% ${(wedding.heroFocalPointY ?? 0.5) * 100}%`,
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/10" />
+        <div className="absolute inset-0" style={{ backgroundImage: heroOverlayGradient }} />
 
         {/* Client component that listens for postMessage from the editor and updates
             tagline/names without a server round-trip. The editor sends an event on

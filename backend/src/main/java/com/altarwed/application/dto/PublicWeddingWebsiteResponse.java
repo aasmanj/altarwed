@@ -74,6 +74,10 @@ public record PublicWeddingWebsiteResponse(
         // V91: allowlisted font key for the couple's names. null = default serif.
         String nameFont,
 
+        // V96: hero presentation controls (issue #360). null = defaults (70 / "full").
+        Integer heroOverlayDarkness,
+        String heroLayout,
+
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {}
