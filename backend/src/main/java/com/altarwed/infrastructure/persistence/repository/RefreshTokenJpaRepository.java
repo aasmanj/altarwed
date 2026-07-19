@@ -3,6 +3,7 @@ package com.altarwed.infrastructure.persistence.repository;
 import com.altarwed.infrastructure.persistence.entity.RefreshTokenEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -10,4 +11,6 @@ public interface RefreshTokenJpaRepository extends JpaRepository<RefreshTokenEnt
     Optional<RefreshTokenEntity> findByTokenHash(String tokenHash);
     void deleteByTokenHash(String tokenHash);
     void deleteAllByUserId(UUID userId);
+    void deleteAllByFamilyId(UUID familyId);
+    void deleteAllByUserIdAndExpiresAtBefore(UUID userId, LocalDateTime cutoff);
 }

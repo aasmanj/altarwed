@@ -188,7 +188,9 @@ Vendor controllers use `authentication.getName()` to load the vendor by email, t
 - **New executor beans:** any new `@Bean` executor MUST call
   `setTaskDecorator(new MdcTaskDecorator())` or the MDC requestId vanishes on its threads.
 - **Admin whitelist:** `altarwed.admin.emails` (comma-separated) in application.yml gates
-  admin endpoints. Dev default `aasmanj@gmail.com`; prod value in Key Vault.
+  admin endpoints. Dev default `aasmanj@gmail.com`; prod value in Key Vault. Every admin
+  endpoint MUST call `AdminAccessGuard.assertAdmin(...)` (application layer, single owner of
+  the CSV parse, normalization, WARN denial log, and 403). Never re-implement the check inline.
 
 ## Observability Rules (logs reach Azure Application Insights)
 
