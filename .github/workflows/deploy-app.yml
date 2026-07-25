@@ -8,6 +8,15 @@ on:
       - '.github/workflows/deploy-app.yml'
   workflow_dispatch:
 
+# Least privilege (issue #117): the actual deploy authenticates with the Azure
+# SWA API token SECRET, not the workflow token, so a read-only contents token is
+# all any job needs and it cannot push code or edit releases. This workflow only
+# triggers on push to main + workflow_dispatch, so the SWA action's PR-comment
+# path never runs and no pull-requests scope is granted. If a pull_request
+# trigger is ever added for preview environments, add `pull-requests: write` then.
+permissions:
+  contents: read
+
 jobs:
   # Serialize deploys to the single prod Static Web App. On 2026-06-26 four merges
   # to main landed within ~25s; each fired its own deploy at the same SWA prod

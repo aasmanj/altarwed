@@ -20,6 +20,14 @@ concurrency:
   group: deploy-backend-prod
   cancel-in-progress: false
 
+# Least privilege (issue #117): this workflow only reads the repo, builds a JAR,
+# and deploys it with a publish-profile SECRET (not the workflow token). The
+# artifact upload/download between jobs uses the runner's own scoped token, not
+# these permissions. So a read-only contents token is all any job needs; it
+# cannot be used to push code or tamper with releases if a step is compromised.
+permissions:
+  contents: read
+
 jobs:
   # ── Job 0 ─────────────────────────────────────────────────────────────────
   # Sub-second filename sanity: duplicate Flyway versions, gaps, malformed
