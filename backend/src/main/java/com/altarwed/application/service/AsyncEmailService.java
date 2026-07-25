@@ -150,6 +150,29 @@ public class AsyncEmailService {
                 new OutboxPayloads.VendorVerified(toEmail, businessName, listingUrl, dashboardUrl));
     }
 
+    // Date-offset RSVP campaign reminders (issue #458). Same enqueue-only pattern as every other
+    // send here: one durable PENDING row per guest, drained off-thread by EmailOutboxSender.
+    // rsvpToken is the guest's fresh RSVP link token; the nonresponder nudge carries one, the
+    // attending reminder passes null (it prompts no RSVP action).
+    public void sendNonresponderReminderEmail(String toEmail, String guestName, String coupleNames,
+                                              String weddingDate, String venueAddress, String venueCity,
+                                              String venueState, String ceremonyTime, String rsvpToken,
+                                              String googleCalendarUrl) {
+        enqueue(EmailType.RSVP_NONRESPONDER_REMINDER, toEmail,
+                new OutboxPayloads.RsvpNonresponderReminder(toEmail, guestName, coupleNames,
+                        weddingDate, venueAddress, venueCity, venueState, ceremonyTime, rsvpToken,
+                        googleCalendarUrl));
+    }
+
+    public void sendAttendingReminderEmail(String toEmail, String guestName, String coupleNames,
+                                           String weddingDate, String venueAddress, String venueCity,
+                                           String venueState, String ceremonyTime,
+                                           String googleCalendarUrl) {
+        enqueue(EmailType.ATTENDING_REMINDER, toEmail,
+                new OutboxPayloads.AttendingReminder(toEmail, guestName, coupleNames, weddingDate,
+                        venueAddress, venueCity, venueState, ceremonyTime, googleCalendarUrl));
+    }
+
     // Serialises the payload and writes one PENDING row. recipient is a single low-cardinality
     // address kept only for operational queries (null for batch sends). We never log the address;
     // only the type and the internal outbox UUID reach the logs.

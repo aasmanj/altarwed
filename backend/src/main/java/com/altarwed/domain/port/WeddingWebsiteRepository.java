@@ -3,6 +3,7 @@ package com.altarwed.domain.port;
 import com.altarwed.domain.model.WeddingWebsite;
 import com.altarwed.domain.model.WeddingWebsiteSummary;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,4 +35,9 @@ public interface WeddingWebsiteRepository {
     boolean existsByCoupleId(UUID coupleId);
 
     List<WeddingWebsite> searchPublishedByNameAndYear(String name, Integer year);
+
+    // Non-deleted weddings whose date falls within [start, end] inclusive. Backs the hourly
+    // CampaignReminderService (issue #458), which processes only the couples entering a campaign
+    // window (about 30 days out, about 7 days out), never the whole table.
+    List<WeddingWebsite> findByWeddingDateBetween(LocalDate start, LocalDate end);
 }

@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
@@ -110,6 +111,14 @@ public class GuestEntity {
 
     @Column(name = "synced_from_sheet", nullable = false)
     private boolean syncedFromSheet;
+
+    // V101 (issue #458): campaign reminder sent-markers. DATETIMEOFFSET columns map to
+    // OffsetDateTime and need columnDefinition rather than length=n (SQL Server convention).
+    @Column(name = "nonresponder_reminder_sent_at", columnDefinition = "DATETIMEOFFSET")
+    private OffsetDateTime nonresponderReminderSentAt;
+
+    @Column(name = "attending_reminder_sent_at", columnDefinition = "DATETIMEOFFSET")
+    private OffsetDateTime attendingReminderSentAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

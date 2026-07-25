@@ -112,7 +112,8 @@ public class GuestService {
                 null, null, null, null, LocalDateTime.now(), LocalDateTime.now(),
                 req.partyId(), req.partyName(),
                 req.partyContact() != null ? req.partyContact() : false,
-                null, false  // sheetSyncId, syncedFromSheet: manually added guest
+                null, false,  // sheetSyncId, syncedFromSheet: manually added guest
+                null, null  // campaign reminder markers (issue #458): not yet reminded
         )).toList();
         List<Guest> saved = guestRepository.saveAll(guests);
         log.info("guest bulk import saved, coupleId={}, count={}", coupleId, saved.size());
@@ -136,7 +137,8 @@ public class GuestService {
                 req.partyName() != null && !req.partyName().isBlank() ? req.partyName() : null,
                 // Caller's choice wins; otherwise the first guest in a brand-new party is its contact.
                 req.partyContact() != null ? req.partyContact() : party.isNew(),
-                null, false  // sheetSyncId, syncedFromSheet: manually added guest
+                null, false,  // sheetSyncId, syncedFromSheet: manually added guest
+                null, null  // campaign reminder markers (issue #458): not yet reminded
         );
         return guestRepository.save(guest);
     }
@@ -165,7 +167,8 @@ public class GuestService {
                     null, 0,
                     null, null, null, null, LocalDateTime.now(), LocalDateTime.now(),
                     partyId, req.partyName(), isContact,
-                    null, false  // sheetSyncId, syncedFromSheet: manually added guest
+                    null, false,  // sheetSyncId, syncedFromSheet: manually added guest
+                    null, null  // campaign reminder markers (issue #458): not yet reminded
             ));
         }
         return guestRepository.saveAll(members);
@@ -324,7 +327,8 @@ public class GuestService {
                 existing.inviteSentAt(), existing.saveTheDateSentAt(), existing.respondedAt(), existing.remindAt(),
                 existing.createdAt(), LocalDateTime.now(),
                 newPartyId, newPartyName, newPartyContact,
-                existing.sheetSyncId(), existing.syncedFromSheet()
+                existing.sheetSyncId(), existing.syncedFromSheet(),
+                existing.nonresponderReminderSentAt(), existing.attendingReminderSentAt()
         );
         return guestRepository.save(updated);
     }
@@ -816,7 +820,8 @@ public class GuestService {
                 existing.inviteSentAt(), existing.saveTheDateSentAt(), existing.respondedAt(), existing.remindAt(),
                 existing.createdAt(), LocalDateTime.now(),
                 existing.partyId(), existing.partyName(), existing.partyContact(),
-                existing.sheetSyncId(), existing.syncedFromSheet()
+                existing.sheetSyncId(), existing.syncedFromSheet(),
+                existing.nonresponderReminderSentAt(), existing.attendingReminderSentAt()
         );
         return guestRepository.save(updated);
     }
@@ -944,7 +949,8 @@ public class GuestService {
                 guest.inviteSentAt(), guest.saveTheDateSentAt(), LocalDateTime.now(), remindAt,
                 guest.createdAt(), LocalDateTime.now(),
                 guest.partyId(), guest.partyName(), guest.partyContact(),
-                guest.sheetSyncId(), guest.syncedFromSheet()
+                guest.sheetSyncId(), guest.syncedFromSheet(),
+                guest.nonresponderReminderSentAt(), guest.attendingReminderSentAt()
         );
         guestRepository.save(responded);
 
@@ -977,7 +983,8 @@ public class GuestService {
                         member.inviteSentAt(), member.saveTheDateSentAt(), LocalDateTime.now(), memberRemindAt,
                         member.createdAt(), LocalDateTime.now(),
                         member.partyId(), member.partyName(), member.partyContact(),
-                        member.sheetSyncId(), member.syncedFromSheet()
+                        member.sheetSyncId(), member.syncedFromSheet(),
+                        member.nonresponderReminderSentAt(), member.attendingReminderSentAt()
                 );
                 guestRepository.save(memberResponded);
                 savedMembers++;
@@ -1072,7 +1079,8 @@ public class GuestService {
                 null, // clear remindAt so this guest can never re-qualify for a reminder
                 g.createdAt(), LocalDateTime.now(),
                 g.partyId(), g.partyName(), g.partyContact(),
-                g.sheetSyncId(), g.syncedFromSheet()
+                g.sheetSyncId(), g.syncedFromSheet(),
+                g.nonresponderReminderSentAt(), g.attendingReminderSentAt()
         );
     }
 
@@ -1179,7 +1187,8 @@ public class GuestService {
                 null, // clear remindAt, the reminder was just fulfilled
                 guest.createdAt(), LocalDateTime.now(),
                 guest.partyId(), guest.partyName(), guest.partyContact(),
-                guest.sheetSyncId(), guest.syncedFromSheet()
+                guest.sheetSyncId(), guest.syncedFromSheet(),
+                guest.nonresponderReminderSentAt(), guest.attendingReminderSentAt()
         );
         return new MintedInvite(guestRepository.save(updated), rawToken);
     }

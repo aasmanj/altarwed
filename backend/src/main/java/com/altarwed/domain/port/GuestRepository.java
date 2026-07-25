@@ -21,6 +21,12 @@ public interface GuestRepository {
     List<Guest> findDueReminders(LocalDateTime asOf, int maxInviteSends);
     // Returns all guests in a party (same party_id), sorted by createdAt.
     List<Guest> findAllByPartyId(UUID partyId);
+
+    // Campaign reminder targets (issue #458): guests of this couple with a usable email whose
+    // matching reminder has not been sent yet. Nonresponder targets are still PENDING; attending
+    // targets are ATTENDING. The scheduler has already narrowed to couples inside the date window.
+    List<Guest> findNonresponderReminderTargets(UUID coupleId);
+    List<Guest> findAttendingReminderTargets(UUID coupleId);
     // Saves a list of guests atomically (used when creating a new party).
     List<Guest> saveAll(List<Guest> guests);
     // Returns guests for a couple whose name contains the search term (case-insensitive).

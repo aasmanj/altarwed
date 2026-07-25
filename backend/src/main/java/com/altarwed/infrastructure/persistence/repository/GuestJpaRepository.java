@@ -31,6 +31,20 @@ public interface GuestJpaRepository extends JpaRepository<GuestEntity, UUID> {
 
     List<GuestEntity> findAllByPartyIdOrderByCreatedAt(UUID partyId);
 
+    // Campaign reminder targets (issue #458). Both queries require a usable email address and the
+    // matching sent-marker still NULL, so a guest is returned at most once per campaign until the
+    // marker is stamped. The reminder scheduler already narrows to couples in the date window, so
+    // these are per-couple.
+    @Query("SELECT g FROM GuestEntity g WHERE g.coupleId = :coupleId AND g.rsvpStatus = :status "
+            + "AND g.nonresponderReminderSentAt IS NULL AND g.email IS NOT NULL AND g.email <> ''")
+    List<GuestEntity> findNonresponderReminderTargets(@Param("coupleId") UUID coupleId,
+                                                      @Param("status") GuestRsvpStatus status);
+
+    @Query("SELECT g FROM GuestEntity g WHERE g.coupleId = :coupleId AND g.rsvpStatus = :status "
+            + "AND g.attendingReminderSentAt IS NULL AND g.email IS NOT NULL AND g.email <> ''")
+    List<GuestEntity> findAttendingReminderTargets(@Param("coupleId") UUID coupleId,
+                                                   @Param("status") GuestRsvpStatus status);
+
     List<GuestEntity> findAllByCoupleIdAndNameContainingIgnoreCase(UUID coupleId, String name);
 
     // Bulk stamp of save_the_date_sent_at for a batch of guests in one UPDATE.

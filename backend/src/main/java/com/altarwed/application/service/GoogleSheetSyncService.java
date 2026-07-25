@@ -545,7 +545,8 @@ public class GoogleSheetSyncService {
                         null, 0,    // noteForCouple, inviteSendCount
                         null, null, null, null, null, null,  // inviteSentAt, saveTheDateSentAt, respondedAt, remindAt, createdAt, updatedAt
                         rowPartyId, rowPartyName, rowPartyContact,  // party grouping from sheet
-                        syncId, true  // sheetSyncId, syncedFromSheet
+                        syncId, true,  // sheetSyncId, syncedFromSheet
+                        null, null  // campaign reminder markers (issue #458): new guest, not yet reminded
                 ));
                 added++;
             } else {
@@ -576,7 +577,8 @@ public class GoogleSheetSyncService {
                         hasPartyColumn ? rowPartyId      : g.partyId(),
                         hasPartyColumn ? rowPartyName    : g.partyName(),
                         hasPartyColumn ? rowPartyContact : g.partyContact(),
-                        syncId, g.syncedFromSheet()  // preserve creation provenance; the CSV-path delete filter still relies on it
+                        syncId, g.syncedFromSheet(),  // preserve creation provenance; the CSV-path delete filter still relies on it
+                        g.nonresponderReminderSentAt(), g.attendingReminderSentAt()  // preserve reminder markers across sync (issue #458)
                 );
                 // Consume from name map so a second row with the same name creates a new guest.
                 byNameFallback.remove(name.toLowerCase().trim());
@@ -742,7 +744,8 @@ public class GoogleSheetSyncService {
                         null, 0,
                         null, null, null, null, null, null,
                         rowPartyId, rowPartyName, rowPartyContact,  // party grouping from sheet
-                        null, true  // sheetSyncId (CSV can't write-back), syncedFromSheet
+                        null, true,  // sheetSyncId (CSV can't write-back), syncedFromSheet
+                        null, null  // campaign reminder markers (issue #458): new guest, not yet reminded
                 ));
                 added++;
             } else {
@@ -773,7 +776,8 @@ public class GoogleSheetSyncService {
                         hasPartyColumn ? rowPartyId      : g.partyId(),
                         hasPartyColumn ? rowPartyName    : g.partyName(),
                         hasPartyColumn ? rowPartyContact : g.partyContact(),
-                        g.sheetSyncId(), g.syncedFromSheet()  // preserve creation provenance; this path's delete filter relies on it
+                        g.sheetSyncId(), g.syncedFromSheet(),  // preserve creation provenance; this path's delete filter relies on it
+                        g.nonresponderReminderSentAt(), g.attendingReminderSentAt()  // preserve reminder markers across sync (issue #458)
                 );
                 if (!merged.equals(g)) {
                     toSave.add(merged);

@@ -66,6 +66,12 @@ public class WeddingWebsiteRepositoryAdapter implements WeddingWebsiteRepository
     }
 
     @Override
+    public List<WeddingWebsite> findByWeddingDateBetween(LocalDate start, LocalDate end) {
+        return jpaRepository.findByWeddingDateBetween(start, end)
+                .stream().map(this::toDomain).toList();
+    }
+
+    @Override
     public List<WeddingWebsite> searchPublishedByNameAndYear(String name, Integer year) {
         LocalDate yearStart = year != null ? LocalDate.of(year, 1, 1) : null;
         LocalDate yearEnd   = year != null ? LocalDate.of(year, 12, 31) : null;

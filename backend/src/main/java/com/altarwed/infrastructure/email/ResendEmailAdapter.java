@@ -1151,6 +1151,151 @@ public class ResendEmailAdapter implements EmailPort {
         postEmail("wedding-published", toEmail, body);
     }
 
+    @Override
+    public void sendNonresponderReminderEmail(String toEmail, String guestName, String coupleNames,
+                                              String weddingDate, String venueAddress, String venueCity,
+                                              String venueState, String ceremonyTime, String rsvpToken,
+                                              String googleCalendarUrl) {
+        if (!isValidEmailAddress(toEmail)) {
+            log.warn("nonresponder reminder skipped, invalid address, to={}", LogSanitizer.maskEmail(toEmail));
+            return;
+        }
+        String rsvpUrl = publicBaseUrl + "/rsvp/" + rsvpToken;
+        String venueDisplay = buildVenueDisplay(venueAddress, venueCity, venueState);
+        String timeDisplay = ceremonyTime != null ? escapeHtml(ceremonyTime) : "Time TBD";
+        String calUrl = googleCalendarUrl != null ? googleCalendarUrl : "";
+        String viralCtaUrl = growthCtaUrl("nonresponder_reminder");
+        String displayUnsubUrl = unsubscribeDisplayUrl(toEmail, null);
+        String oneClickUnsubUrl = unsubscribeOneClickUrl(toEmail, null);
+
+        String html = """
+                <div style="font-family:sans-serif;max-width:520px;margin:0 auto;">
+                  <h2 style="color:#4a1942;font-family:Georgia,serif;">You're still invited!</h2>
+                  <p>Dear %s,</p>
+                  <p><strong>%s</strong> are getting married on <strong>%s</strong>, and they would love to have you celebrate with them.</p>
+                  <p>They noticed you have not yet RSVP'd. Please let them know if you will be attending.</p>
+                  <p style="margin:4px 0;"><strong>When:</strong> %s at %s</p>
+                  <p style="margin:4px 0;"><strong>Where:</strong> %s</p>
+                  <div style="margin:20px 0;">
+                    <a href="%s"
+                       style="display:inline-block;padding:12px 28px;background:#4a1942;color:#fff;text-decoration:none;border-radius:6px;font-size:16px;margin-right:12px;">
+                      RSVP Now
+                    </a>
+                    %s
+                  </div>
+                  <p style="color:#888;font-size:13px;">If you have any questions, reply to this email.</p>
+                </div>
+                """.formatted(
+                escapeHtml(guestName), escapeHtml(coupleNames), escapeHtml(weddingDate),
+                escapeHtml(weddingDate), timeDisplay, escapeHtml(venueDisplay),
+                rsvpUrl,
+                calUrl.isEmpty() ? "" : "<a href=\"" + calUrl + "\" style=\"display:inline-block;padding:12px 20px;border:1px solid #4a1942;color:#4a1942;text-decoration:none;border-radius:6px;font-size:14px;\">Add to Calendar</a>");
+
+        String text = """
+                You're still invited!
+
+                Dear %s,
+
+                %s are getting married on %s. They noticed you have not yet RSVP'd.
+
+                When: %s at %s
+                Where: %s
+
+                RSVP here: %s
+                %s
+
+                If you have any questions, reply to this email.
+                """.formatted(
+                guestName, coupleNames, weddingDate,
+                weddingDate, ceremonyTime != null ? ceremonyTime : "Time TBD", venueDisplay,
+                rsvpUrl,
+                calUrl.isEmpty() ? "" : "Add to Calendar: " + calUrl);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("from", coupleNames + " <" + invitesFromEmail + ">");
+        body.put("to", List.of(EmailAddresses.normalize(toEmail)));
+        body.put("subject", "RSVP reminder: " + coupleNames + "'s wedding");
+        body.put("html", html + growthCtaHtml(viralCtaUrl) + unsubscribeFooterHtml(displayUnsubUrl));
+        body.put("text", text + growthCtaText(viralCtaUrl) + unsubscribeFooterText(displayUnsubUrl));
+        body.put("headers", Map.of(
+                "List-Unsubscribe", "<" + oneClickUnsubUrl + ">",
+                "List-Unsubscribe-Post", "List-Unsubscribe=One-Click"
+        ));
+        body.put("tags", guestTags(null, null, "nonresponder-reminder"));
+        postEmail("nonresponder-reminder", toEmail, body);
+    }
+
+    @Override
+    public void sendAttendingReminderEmail(String toEmail, String guestName, String coupleNames,
+                                           String weddingDate, String venueAddress, String venueCity,
+                                           String venueState, String ceremonyTime, String googleCalendarUrl) {
+        if (!isValidEmailAddress(toEmail)) {
+            log.warn("attending reminder skipped, invalid address, to={}", LogSanitizer.maskEmail(toEmail));
+            return;
+        }
+        String venueDisplay = buildVenueDisplay(venueAddress, venueCity, venueState);
+        String timeDisplay = ceremonyTime != null ? escapeHtml(ceremonyTime) : "Time TBD";
+        String calUrl = googleCalendarUrl != null ? googleCalendarUrl : "";
+        String viralCtaUrl = growthCtaUrl("attending_reminder");
+        String displayUnsubUrl = unsubscribeDisplayUrl(toEmail, null);
+        String oneClickUnsubUrl = unsubscribeOneClickUrl(toEmail, null);
+
+        String html = """
+                <div style="font-family:sans-serif;max-width:520px;margin:0 auto;">
+                  <h2 style="color:#4a1942;font-family:Georgia,serif;">The big day is almost here!</h2>
+                  <p>Dear %s,</p>
+                  <p>We're so excited to celebrate <strong>%s</strong>'s wedding with you next week! Here are the details you'll need on the day.</p>
+                  <p style="margin:4px 0;"><strong>Date:</strong> %s</p>
+                  <p style="margin:4px 0;"><strong>Time:</strong> %s</p>
+                  <p style="margin:4px 0;"><strong>Venue:</strong> %s</p>
+                  %s
+                  <p style="color:#888;font-size:13px;margin-top:20px;">We look forward to seeing you there! If you have any questions, reply to this email.</p>
+                </div>
+                """.formatted(
+                escapeHtml(guestName), escapeHtml(coupleNames),
+                escapeHtml(weddingDate), timeDisplay, escapeHtml(venueDisplay),
+                calUrl.isEmpty() ? "" : "<div style=\"margin:20px 0;\"><a href=\"" + calUrl + "\" style=\"display:inline-block;padding:12px 20px;background:#4a1942;color:#fff;text-decoration:none;border-radius:6px;font-size:14px;\">Add to Calendar</a></div>");
+
+        String text = """
+                The big day is almost here!
+
+                Dear %s,
+
+                We're so excited to celebrate %s's wedding with you next week! Here are the details:
+
+                Date: %s
+                Time: %s
+                Venue: %s
+                %s
+
+                We look forward to seeing you there!
+                """.formatted(
+                guestName, coupleNames,
+                weddingDate, ceremonyTime != null ? ceremonyTime : "Time TBD", venueDisplay,
+                calUrl.isEmpty() ? "" : "Add to Calendar: " + calUrl);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("from", coupleNames + " <" + invitesFromEmail + ">");
+        body.put("to", List.of(EmailAddresses.normalize(toEmail)));
+        body.put("subject", coupleNames + "'s wedding is almost here!");
+        body.put("html", html + growthCtaHtml(viralCtaUrl) + unsubscribeFooterHtml(displayUnsubUrl));
+        body.put("text", text + growthCtaText(viralCtaUrl) + unsubscribeFooterText(displayUnsubUrl));
+        body.put("headers", Map.of(
+                "List-Unsubscribe", "<" + oneClickUnsubUrl + ">",
+                "List-Unsubscribe-Post", "List-Unsubscribe=One-Click"
+        ));
+        body.put("tags", guestTags(null, null, "attending-reminder"));
+        postEmail("attending-reminder", toEmail, body);
+    }
+
+    private static String buildVenueDisplay(String address, String city, String state) {
+        StringBuilder sb = new StringBuilder();
+        if (address != null && !address.isBlank()) sb.append(address).append(", ");
+        if (city != null && !city.isBlank()) sb.append(city);
+        if (state != null && !state.isBlank()) sb.append(", ").append(state);
+        return sb.toString().replaceAll(",\\s*$", "").trim();
+    }
+
     // Marketing emails (save-the-date, welcome) check the suppression list first.
     // Transactional emails (password-reset, rsvp, vendor-inquiry, account-deleted)
     // bypass suppression: a user who opted out of marketing still needs to receive

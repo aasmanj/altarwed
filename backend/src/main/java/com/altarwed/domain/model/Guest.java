@@ -1,6 +1,7 @@
 package com.altarwed.domain.model;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public record Guest(
@@ -48,5 +49,12 @@ public record Guest(
         // true when this guest was created by the Google Sheets sync job (not manually added).
         // A guest is eligible for automatic deletion when its sheet row is removed if this
         // flag is true OR sheetSyncId is non-null (the row was the guest's sheet binding).
-        boolean syncedFromSheet
+        boolean syncedFromSheet,
+        // V101 (issue #458): date-offset RSVP campaign reminder markers. Each is stamped the
+        // moment its reminder is queued, so the hourly CampaignReminderService sends at most one
+        // per guest and re-running the job (or a guest re-save) never re-sends. Null = not sent.
+        // DATETIMEOFFSET-backed, so OffsetDateTime rather than the LocalDateTime the older
+        // timestamps use.
+        OffsetDateTime nonresponderReminderSentAt,
+        OffsetDateTime attendingReminderSentAt
 ) {}
