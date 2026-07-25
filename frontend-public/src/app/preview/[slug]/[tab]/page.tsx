@@ -109,6 +109,13 @@ export default async function PreviewPage({
   // the editor preview is true to life once it reloads after a save.
   const heroOverlayGradient = safeHeroOverlayGradient(wedding.heroOverlayDarkness)
   const heroLayout = safeHeroLayout(wedding.heroLayout)
+  // "names-below" (issue #457) moves the couple names into a block beneath the photo instead of
+  // overlaying them, so the preview must mirror the live layout's two-section structure here or
+  // the WYSIWYG preview silently diverges from the published page. The date/countdown blocks are
+  // passed into HeroLive as children, so their colors are chosen here to match the layout.
+  const isNamesBelow = heroLayout === 'names-below'
+  const heroDateClass = isNamesBelow ? 'text-[#3b2f2f]/70' : 'text-white/85'
+  const heroCountdownClass = isNamesBelow ? 'text-[#8a6a4a]' : 'text-[#d4af6a]'
   // Mirror the live layout's font vars so the dashboard preview reflects the chosen font.
   const nameFont = safeNameFont(wedding.nameFont)
   const nameFontWeight = safeNameFontWeight(wedding.nameFont)
@@ -170,40 +177,82 @@ export default async function PreviewPage({
       </nav>
 
       {/* Hero, compact for the editor iframe (smaller than the public site's
-          85vh hero so the editor can see content blocks without scrolling) */}
-      <section className={`relative h-[40vh] min-h-[260px] flex items-end justify-center overflow-hidden${heroLayout === 'framed' ? ' bg-[#1c1917]' : ''}`}>
-        <Image
-          src={heroImage}
-          alt={`${wedding.partnerTwoName} and ${wedding.partnerOneName}`}
-          fill className={heroLayout === 'framed' ? 'object-contain' : 'object-cover'} priority
-          style={{
-            objectPosition: `${(wedding.heroFocalPointX ?? 0.5) * 100}% ${(wedding.heroFocalPointY ?? 0.5) * 100}%`,
-          }}
-        />
-        <div className="absolute inset-0" style={{ backgroundImage: heroOverlayGradient }} />
+          85vh hero so the editor can see content blocks without scrolling).
+          Layout mirrors the live public page (issue #360, extended #457): "full"/"framed"
+          overlay the names on the photo; "names-below" puts the photo above and the names in
+          a block beneath it so nothing overlaps faces (and no scrim is drawn). The date and
+          countdown are passed into HeroLive as children so live name/tagline edits still patch
+          the DOM without an iframe reload in both layouts. */}
+      {isNamesBelow ? (
+        <>
+          <section className="relative h-[40vh] min-h-[260px] overflow-hidden">
+            <Image
+              src={heroImage}
+              alt={`${wedding.partnerTwoName} and ${wedding.partnerOneName}`}
+              fill className="object-cover" priority
+              style={{
+                objectPosition: `${(wedding.heroFocalPointX ?? 0.5) * 100}% ${(wedding.heroFocalPointY ?? 0.5) * 100}%`,
+              }}
+            />
+          </section>
+          {/* Names on the light page background, not over the photo, so no scrim is drawn. */}
+          <section className="bg-[#fdfaf6] pt-8 pb-10 flex justify-center">
+            <HeroLive
+              initialTagline={wedding.heroTagline}
+              initialTaglineColor={wedding.heroTaglineColor}
+              initialNameFont={wedding.nameFont}
+              partnerOneName={wedding.partnerOneName}
+              partnerTwoName={wedding.partnerTwoName}
+              isNamesBelow
+            >
+              {wedding.weddingDate && (
+                <p className={`mt-3 text-sm ${heroDateClass} tracking-wide`}>
+                  {formatWeddingDate(wedding.weddingDate)}
+                </p>
+              )}
+              {countdown !== null && countdown > 0 && (
+                <p className={`mt-1 ${heroCountdownClass} text-[10px] tracking-widest uppercase`}>
+                  {countdown} days away
+                </p>
+              )}
+            </HeroLive>
+          </section>
+        </>
+      ) : (
+        <section className={`relative h-[40vh] min-h-[260px] flex items-end justify-center overflow-hidden${heroLayout === 'framed' ? ' bg-[#1c1917]' : ''}`}>
+          <Image
+            src={heroImage}
+            alt={`${wedding.partnerTwoName} and ${wedding.partnerOneName}`}
+            fill className={heroLayout === 'framed' ? 'object-contain' : 'object-cover'} priority
+            style={{
+              objectPosition: `${(wedding.heroFocalPointX ?? 0.5) * 100}% ${(wedding.heroFocalPointY ?? 0.5) * 100}%`,
+            }}
+          />
+          <div className="absolute inset-0" style={{ backgroundImage: heroOverlayGradient }} />
 
-        {/* Client component that listens for postMessage from the editor and updates
-            tagline/names without a server round-trip. The editor sends an event on
-            every keystroke; this component patches the DOM directly. */}
-        <HeroLive
-          initialTagline={wedding.heroTagline}
-          initialTaglineColor={wedding.heroTaglineColor}
-          initialNameFont={wedding.nameFont}
-          partnerOneName={wedding.partnerOneName}
-          partnerTwoName={wedding.partnerTwoName}
-        >
-          {wedding.weddingDate && (
-            <p className="mt-3 text-sm text-white/85 tracking-wide">
-              {formatWeddingDate(wedding.weddingDate)}
-            </p>
-          )}
-          {countdown !== null && countdown > 0 && (
-            <p className="mt-1 text-[#d4af6a] text-[10px] tracking-widest uppercase">
-              {countdown} days away
-            </p>
-          )}
-        </HeroLive>
-      </section>
+          {/* Client component that listens for postMessage from the editor and updates
+              tagline/names without a server round-trip. The editor sends an event on
+              every keystroke; this component patches the DOM directly. */}
+          <HeroLive
+            initialTagline={wedding.heroTagline}
+            initialTaglineColor={wedding.heroTaglineColor}
+            initialNameFont={wedding.nameFont}
+            partnerOneName={wedding.partnerOneName}
+            partnerTwoName={wedding.partnerTwoName}
+          >
+            {wedding.weddingDate && (
+              <p className={`mt-3 text-sm ${heroDateClass} tracking-wide`}>
+                {formatWeddingDate(wedding.weddingDate)}
+              </p>
+            )}
+            {countdown !== null && countdown > 0 && (
+              <p className={`mt-1 ${heroCountdownClass} text-[10px] tracking-widest uppercase`}>
+                {countdown} days away
+              </p>
+            )}
+          </HeroLive>
+        </section>
+      )}
 
       {/* Scripture banner, same as the public site */}
       {(wedding.scriptureText || wedding.scriptureReference) && (
