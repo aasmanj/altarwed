@@ -22,8 +22,8 @@
 # ---------------------------------------------------------------------------
 # Seeded 2026-07-24 from the state of main when the gate was introduced (#117).
 # These are the pre-existing highs the gate must not retroactively red-fail on.
-# All are FIXABLE and tracked for remediation (see the SCA remediation issue),
-# so this list should shrink to empty, it is a backlog freeze, not an exemption.
+# All are FIXABLE and tracked for remediation in issue #532, so this list should
+# shrink to empty, it is a backlog freeze, not an exemption.
 # ---------------------------------------------------------------------------
 
 # frontend-public --------------------------------------------------------------
