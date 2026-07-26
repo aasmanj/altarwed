@@ -8,6 +8,16 @@ import { sanitizePostContent } from '@/lib/sanitizeHtml'
 
 export const revalidate = 3600
 
+// Empty on purpose: opts this dynamic segment into the on-demand ISR pipeline
+// without prerendering any post at build time. In Next 15 a [slug] route with no
+// generateStaticParams renders dynamically (Cache-Control: no-store) on every
+// request, defeating the revalidate above; declaring it (even empty) restores
+// first-request-then-cache behavior. Unknown slugs still work via dynamicParams
+// (default true) and notFound() below handles ones that do not exist.
+export function generateStaticParams(): { slug: string }[] {
+  return []
+}
+
 interface Post {
   id: string
   slug: string
