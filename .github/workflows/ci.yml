@@ -6,6 +6,14 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege (issue #117): CI only reads the repo, it never writes code,
+# comments, or statuses. Setting the token to read-only contents here means a
+# compromised action or dependency in any job cannot push commits, open PRs, or
+# tamper with releases using the workflow token. Jobs that need more must opt in
+# explicitly at the job level (none here do).
+permissions:
+  contents: read
+
 jobs:
   # ── Flyway filename sanity (sub-second, fails fast) ────────────────────────
   # Catches duplicate version numbers (two V33__*.sql), gaps, and malformed
@@ -138,3 +146,27 @@ jobs:
       - name: Build frontend-app
         working-directory: ./frontend-app
         run: npm run build
+
+  # ── SCA gate (issue #117) ──────────────────────────────────────────────────
+  # Fails on any NEW high/critical advisory in a production dependency of either
+  # frontend. `npm audit` runs in no other job, so dependency HIGHs (Next.js
+  # SSRF, axios, sharp/libvips) currently never surface in CI. The allowlist at
+  # .github/sca-allowlist.txt freezes the known backlog so main stays green while
+  # a separate effort remediates it; a brand-new high fails the build here.
+  # Installs are needed so npm audit resolves the full production tree.
+  sca-frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install frontend-public deps
+        working-directory: ./frontend-public
+        run: npm install --ignore-scripts
+      - name: Install frontend-app deps
+        working-directory: ./frontend-app
+        run: npm install --ignore-scripts
+      - name: SCA gate (fail on un-allowlisted high/critical in prod deps)
+        run: node .github/scripts/sca-audit.mjs frontend-public frontend-app

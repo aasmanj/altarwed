@@ -1,0 +1,51 @@
+# SCA allowlist (Software Composition Analysis)
+#
+# One GitHub advisory (GHSA) id per line. The CI "sca-frontend" job
+# (.github/workflows/ci.yml -> .github/scripts/sca-audit.mjs) fails the build on
+# ANY high or critical advisory in a production dependency UNLESS its GHSA id is
+# listed here. This is the SCA equivalent of the frontend-app lint
+# `--max-warnings=46` cap: it freezes the currently-known backlog so it cannot
+# grow, while a separate remediation effort works it down. Any brand-new high or
+# critical advisory fails CI immediately.
+#
+# Rules:
+#   - Add an id here ONLY after a human decision: the advisory is a false
+#     positive for our usage, or it is not yet fixable without a breaking upgrade
+#     that is scheduled separately. Never add one just to make CI green.
+#   - Every entry needs a one-line justification and, if fixable, a remediation
+#     pointer (issue / "npm audit fix" / target version).
+#   - When an advisory is fixed upstream and no longer appears, the job prints it
+#     as a "safe to remove" note (it does not fail). Prune it then.
+#   - Blank lines and `#` comments are ignored. Anything after `#` on a line is a
+#     comment, so you may annotate inline: GHSA-xxxx  # why
+#
+# ---------------------------------------------------------------------------
+# Seeded 2026-07-24 from the state of main when the gate was introduced (#117).
+# These are the pre-existing highs the gate must not retroactively red-fail on.
+# All are FIXABLE and tracked for remediation in issue #532, so this list should
+# shrink to empty, it is a backlog freeze, not an exemption.
+# ---------------------------------------------------------------------------
+
+# frontend-public --------------------------------------------------------------
+# Next.js high-severity advisories (SSRF in Server Actions / rewrites, App Router
+# DoS). Fix is a Next.js patch upgrade; verify the build + boot smoke gate after.
+GHSA-89xv-2m56-2m9x  # next: SSRF in Server Actions on custom servers
+GHSA-p9j2-gv94-2wf4  # next: SSRF in rewrites via attacker-controlled destination host
+GHSA-m99w-x7hq-7vfj  # next: DoS in App Router using Server Actions
+# postcss (transitive under next). Arbitrary file read / path traversal via
+# sourceMappingURL. Cleared by `npm audit fix` once next pulls a patched postcss.
+GHSA-6g55-p6wh-862q  # postcss: arbitrary file read via sourceMappingURL
+GHSA-r28c-9q8g-f849  # postcss: path traversal in source-map auto-loading
+# sharp: inherited libvips CVEs. Fix is a sharp minor bump (>=0.35.0).
+GHSA-f88m-g3jw-g9cj  # sharp: inherited libvips vulnerabilities
+# OpenTelemetry Jaeger propagator DoS via malformed header. We do not accept
+# untrusted Jaeger headers at the edge; fix is an otel dependency bump.
+GHSA-45rx-2jwx-cxfr  # @opentelemetry/propagator-jaeger: DoS on malformed header
+
+# frontend-app -----------------------------------------------------------------
+# axios high: proxy inherited after interceptor config cloning. Fix is an axios
+# patch bump; axios is a direct dependency so this is a clean upgrade.
+GHSA-gcfj-64vw-6mp9  # axios: inherited proxy after interceptor config cloning
+# brace-expansion DoS (transitive). Cleared by `npm audit fix`.
+GHSA-3jxr-9vmj-r5cp  # brace-expansion: DoS via exponential-time expansion
+GHSA-mh99-v99m-4gvg  # brace-expansion: DoS via unbounded expansion length
