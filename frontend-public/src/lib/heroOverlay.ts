@@ -10,12 +10,14 @@
 //     bounded number. No untrusted string can reach the returned gradient.
 //
 //   heroLayout -> safeHeroLayout(): an allowlisted key, "full" (default full-bleed cover
-//     crop) or "framed" (contain the whole photo so a portrait hero is not cropped hard).
+//     crop), "framed" (contain the whole photo so a portrait hero is not cropped hard), or
+//     "names-below" (issue #457: the photo sits above and the couple names render in a block
+//     beneath it, so the names never overlap faces and no scrim is needed).
 //     Unknown/null/hostile input falls back to "full".
 
-export type HeroLayout = 'full' | 'framed'
+export type HeroLayout = 'full' | 'framed' | 'names-below'
 
-const HERO_LAYOUTS: readonly HeroLayout[] = ['full', 'framed']
+const HERO_LAYOUTS: readonly HeroLayout[] = ['full', 'framed', 'names-below']
 
 // Pre-#360 default scrim. The original hero used a fixed Tailwind gradient
 // `from-black/70 via-black/20 to-black/10`; darkness 70 reproduces it exactly, so an

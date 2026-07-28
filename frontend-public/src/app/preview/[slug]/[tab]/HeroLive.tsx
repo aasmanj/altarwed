@@ -22,6 +22,11 @@ interface Props {
   initialNameFont: string | null
   partnerOneName: string
   partnerTwoName: string
+  // Hero layout is "names-below" (issue #457): the names sit in a block beneath the
+  // photo on the light page background rather than overlaid on it in white. Flips the
+  // name/tagline text colors so they stay legible off the photo. Defaults to the
+  // overlay treatment (false) to match the full/framed layouts.
+  isNamesBelow?: boolean
   // Wedding date + countdown blocks live under the names; pass them as children
   // so the parent owns the data fetching (they're not currently live-updated).
   children?: React.ReactNode
@@ -37,7 +42,7 @@ interface Props {
 //   - empty string  → render NOTHING (user intentionally cleared)
 //   - null          → render the default "Together in covenant"
 //   - any text      → render it as-is
-export default function HeroLive({ initialTagline, initialTaglineColor, initialNameFont, partnerOneName, partnerTwoName, children }: Props) {
+export default function HeroLive({ initialTagline, initialTaglineColor, initialNameFont, partnerOneName, partnerTwoName, isNamesBelow = false, children }: Props) {
   const [tagline, setTagline] = useState<string | null>(initialTagline)
   const [taglineColor, setTaglineColor] = useState<string | null>(initialTaglineColor)
   const [nameFont, setNameFont] = useState<string | null>(initialNameFont)
@@ -71,22 +76,29 @@ export default function HeroLive({ initialTagline, initialTaglineColor, initialN
   // true to life. The ampersand takes only the family (its size/weight are fixed).
   const nameStyle = { fontFamily: safeNameFont(nameFont), fontWeight: safeNameFontWeight(nameFont) }
 
+  // Names-below flips the text off the photo onto the light page, so names go dark and
+  // the default tagline tone shifts to the same brown the live layout uses (#8a6a4a).
+  // A couple's explicit tagline color still wins via safeColor's first arg. The gold
+  // ampersand rule reads on both backgrounds, so it is unchanged.
+  const nameColorClass = isNamesBelow ? 'text-[#3b2f2f]' : 'text-white'
+  const taglineDefaultColor = isNamesBelow ? '#8a6a4a' : 'rgba(255,255,255,0.7)'
+
   // Structure mirrors the production hero in frontend-public/src/app/wedding/
   // [slug]/layout.tsx (stacked names with a gold ampersand rule). Font sizes
   // are intentionally one step smaller because the preview renders inside a
   // smaller iframe viewport. If you change one hero, update the other so the
   // WYSIWYG promise of the editor stays intact.
   return (
-    <div className="relative z-10 text-center pb-8 px-6 w-full max-w-3xl mx-auto">
+    <div className={`relative z-10 text-center px-6 w-full max-w-3xl mx-auto${isNamesBelow ? '' : ' pb-8'}`}>
       {tagline !== '' && (
         <p
           className="mb-2 text-[10px] uppercase tracking-[0.3em] font-light"
-          style={{ color: safeColor(taglineColor, 'rgba(255,255,255,0.7)') }}
+          style={{ color: safeColor(taglineColor, taglineDefaultColor) }}
         >
           {tagline ?? 'Together in covenant'}
         </p>
       )}
-      <h1 className="font-serif text-3xl sm:text-5xl md:text-6xl font-bold text-white leading-tight break-words text-balance" style={nameStyle}>
+      <h1 className={`font-serif text-3xl sm:text-5xl md:text-6xl font-bold ${nameColorClass} leading-tight break-words text-balance`} style={nameStyle}>
         {names.two}
       </h1>
       <div className="my-3 flex items-center justify-center gap-3">
@@ -94,7 +106,7 @@ export default function HeroLive({ initialTagline, initialTaglineColor, initialN
         <span className="font-serif text-xl text-[#d4af6a]" style={{ fontFamily: nameStyle.fontFamily }} aria-hidden="true">&amp;</span>
         <div className="h-px w-12 bg-[#d4af6a]/60" />
       </div>
-      <p className="font-serif text-3xl sm:text-5xl md:text-6xl font-bold text-white leading-tight break-words text-balance" style={nameStyle}>
+      <p className={`font-serif text-3xl sm:text-5xl md:text-6xl font-bold ${nameColorClass} leading-tight break-words text-balance`} style={nameStyle}>
         {names.one}
       </p>
       {children}

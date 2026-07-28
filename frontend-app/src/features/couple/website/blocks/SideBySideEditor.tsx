@@ -913,6 +913,10 @@ export default function SideBySideEditor() {
                 updateWebsite.mutate({ heroOverlayDarkness: darkness }, { onSuccess: bumpPreview })}
               onHeroLayoutSave={(layout) =>
                 updateWebsite.mutate({ heroLayout: layout }, { onSuccess: bumpPreview })}
+              onFocalPointSave={(x, y) =>
+                // Focal point is server-rendered as objectPosition on the hero <Image>, so the
+                // save reloads the preview iframe (same posture as the overlay/layout controls).
+                updateWebsite.mutate({ heroFocalPointX: x, heroFocalPointY: y }, { onSuccess: bumpPreview })}
             />
           )}
 
@@ -1609,6 +1613,7 @@ function DesignPanel({
   onScriptureBgColorSave,
   onOverlayDarknessSave,
   onHeroLayoutSave,
+  onFocalPointSave,
 }: {
   website: WeddingWebsite
   onClose: () => void
@@ -1619,6 +1624,7 @@ function DesignPanel({
   onScriptureBgColorSave: (color: string) => void
   onOverlayDarknessSave: (darkness: number) => void
   onHeroLayoutSave: (layout: string) => void
+  onFocalPointSave: (x: number, y: number) => void
 }) {
   const [accentColor, setAccentColor] = useState(website.accentColor ?? '#d4af6a')
   const scheduleAccentSave = useDebouncedSave((v: string) => onAccentColorSave(v))
@@ -1644,8 +1650,24 @@ function DesignPanel({
   const scheduleOverlayDarknessSave = useDebouncedSave((v: number) => onOverlayDarknessSave(v))
   useEffect(() => { setOverlayDarkness(website.heroOverlayDarkness ?? 70) }, [website.heroOverlayDarkness])
 
-  // V96 (issue #360): full-bleed vs framed hero. Default "full" preserves the original crop.
-  const heroLayout = website.heroLayout === 'framed' ? 'framed' : 'full'
+  // V96 (issue #360, extended #457): full-bleed, framed, or names-below hero. Default "full"
+  // preserves the original crop. Any unknown/legacy value falls back to "full".
+  const heroLayout =
+    website.heroLayout === 'framed' || website.heroLayout === 'names-below'
+      ? website.heroLayout
+      : 'full'
+
+  // Issue #457: focal-point sliders. Stored as 0.0-1.0 on the record; the sliders work in
+  // whole percent (0-100) so they read naturally, converting back to the 0-1 range on save.
+  // Debounced like the overlay slider so dragging does not hammer the PATCH endpoint; the save
+  // reloads the preview iframe because the focal point is server-rendered as objectPosition.
+  const [focalX, setFocalX] = useState(Math.round((website.heroFocalPointX ?? 0.5) * 100))
+  const [focalY, setFocalY] = useState(Math.round((website.heroFocalPointY ?? 0.5) * 100))
+  const scheduleFocalPointSave = useDebouncedSave(
+    ([x, y]: [number, number]) => onFocalPointSave(x / 100, y / 100),
+  )
+  useEffect(() => { setFocalX(Math.round((website.heroFocalPointX ?? 0.5) * 100)) }, [website.heroFocalPointX])
+  useEffect(() => { setFocalY(Math.round((website.heroFocalPointY ?? 0.5) * 100)) }, [website.heroFocalPointY])
 
   return (
     <div className="border-b border-stone-200 bg-stone-50 px-4 py-3 max-h-80 overflow-y-auto">
@@ -1836,15 +1858,81 @@ function DesignPanel({
         </p>
       </div>
 
-      {/* Hero photo layout (issue #360): full-bleed cover crop vs a framed fit that shows the
-          whole photo. Framed avoids the hard crop that portrait heroes get in the full-bleed
-          hero. Radio group so it is keyboard-operable and screen-reader labelled. */}
+      {/* Hero focal point (issue #457): two labelled, keyboard-operable range sliders that set
+          which part of the photo stays centered in the hero crop. Stored 0.0-1.0; shown as
+          percent. Debounce-saves (the crop is server-rendered as objectPosition, so the save
+          reloads the preview iframe). Complements the click picker in the hero editor. */}
+      <div className="mt-3 rounded border border-stone-200 bg-white px-2.5 py-2">
+        <p className="text-[11px] font-medium text-brown mb-1.5">Hero focal point</p>
+        <div className="flex items-center gap-2 mb-1.5">
+          <label htmlFor="design-focal-x" className="text-[11px] text-stone-500 w-16 shrink-0">
+            Horizontal
+          </label>
+          <input
+            id="design-focal-x"
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={focalX}
+            aria-valuetext={`${focalX} percent from the left`}
+            onChange={e => {
+              const v = Number(e.target.value)
+              setFocalX(v)
+              scheduleFocalPointSave([v, focalY])
+            }}
+            className="flex-1 accent-amber-600 cursor-pointer"
+          />
+          <span className="text-[11px] tabular-nums text-stone-500 w-9 text-right" aria-hidden="true">
+            {focalX}%
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="design-focal-y" className="text-[11px] text-stone-500 w-16 shrink-0">
+            Vertical
+          </label>
+          <input
+            id="design-focal-y"
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={focalY}
+            aria-valuetext={`${focalY} percent from the top`}
+            onChange={e => {
+              const v = Number(e.target.value)
+              setFocalY(v)
+              scheduleFocalPointSave([focalX, v])
+            }}
+            className="flex-1 accent-amber-600 cursor-pointer"
+          />
+          <span className="text-[11px] tabular-nums text-stone-500 w-9 text-right" aria-hidden="true">
+            {focalY}%
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => { setFocalX(50); setFocalY(50); scheduleFocalPointSave([50, 50]) }}
+          className="mt-1.5 text-[10px] text-stone-400 hover:text-stone-700 underline"
+          title="Recenter the photo"
+        >
+          Recenter
+        </button>
+        <p className="text-[10px] text-stone-400 mt-1 leading-snug">
+          Sets which part of the photo stays centered when it is cropped to the hero.
+        </p>
+      </div>
+
+      {/* Hero photo layout (issue #360, extended #457): full-bleed cover crop, a framed fit that
+          shows the whole photo, or names-below where the couple names sit beneath the photo with
+          no overlap. Radio group so it is keyboard-operable and screen-reader labelled. */}
       <fieldset className="mt-3 rounded border border-stone-200 bg-white px-2.5 py-2">
         <legend className="text-[11px] font-medium text-brown px-1">Hero photo layout</legend>
         <div className="space-y-1">
           {[
             { key: 'full', label: 'Full bleed', description: 'Fills the hero, cropping to fit (best for landscape photos).' },
             { key: 'framed', label: 'Framed', description: 'Shows the whole photo without cropping (best for portrait photos).' },
+            { key: 'names-below', label: 'Names below photo', description: 'Couple names appear beneath the photo with no overlap.' },
           ].map(option => {
             const isSelected = heroLayout === option.key
             return (

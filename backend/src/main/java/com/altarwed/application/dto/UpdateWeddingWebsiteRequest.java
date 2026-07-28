@@ -105,7 +105,10 @@ public record UpdateWeddingWebsiteRequest(
         // from this bounded integer, never a raw string. null = no change (default 70 applies).
         @Min(0) @Max(100) Integer heroOverlayDarkness,
 
-        // V96: hero fill mode (issue #360). Allowlisted key; @Pattern rejects anything else so a
-        // raw CSS value can never reach the public style path. null = no change (default "full").
-        @Pattern(regexp = "^(full|framed)$") @Size(max = 20) String heroLayout
+        // V96: hero fill mode (issue #360, extended #457). Allowlisted key; @Pattern rejects
+        // anything else so a raw CSS value can never reach the public style path. "names-below"
+        // (#457) renders the couple names in a block beneath the photo instead of over it.
+        // null = no change (default "full"). hero_layout is NVARCHAR(20), so "names-below" (11
+        // chars) fits without a migration.
+        @Pattern(regexp = "^(full|framed|names-below)$") @Size(max = 20) String heroLayout
 ) {}
