@@ -327,6 +327,13 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
   properties: {
     serverFarmId: planId
     httpsOnly: true
+    // ISR fix: this is a stateless JWT REST API, so ARR session affinity buys
+    // nothing, and the ARRAffinity Set-Cookie it injects on every response makes
+    // Next.js 15 treat each backend fetch as uncacheable and render the public
+    // wedding/blog pages dynamically (defeating ISR, so every guest hit fans out
+    // ~5 backend calls instead of serving a cached page). Off = no Set-Cookie on
+    // API responses, so the frontend-public ISR cache works as designed.
+    clientAffinityEnabled: false
     siteConfig: siteConfig
   }
 }
@@ -358,6 +365,13 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
   properties: {
     serverFarmId: planId
     httpsOnly: true
+    // ISR fix: this is a stateless JWT REST API, so ARR session affinity buys
+    // nothing, and the ARRAffinity Set-Cookie it injects on every response makes
+    // Next.js 15 treat each backend fetch as uncacheable and render the public
+    // wedding/blog pages dynamically (defeating ISR, so every guest hit fans out
+    // ~5 backend calls instead of serving a cached page). Off = no Set-Cookie on
+    // API responses, so the frontend-public ISR cache works as designed.
+    clientAffinityEnabled: false
     siteConfig: siteConfig
   }
 }
