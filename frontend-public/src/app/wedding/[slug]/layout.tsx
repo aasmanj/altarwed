@@ -13,14 +13,23 @@ import { safeFontTheme } from '@/lib/safeFontTheme'
 import { accentColorTokens } from '@/lib/accentColorTokens'
 import { safeHeroOverlayGradient, safeHeroLayout } from '@/lib/heroOverlay'
 
-// NOTE: intentionally NO generateStaticParams here. Pre-rendering the published catalog
-// at build was considered as a 504 mitigation but rejected: the per-slug prerender calls
-// getWedding(), which THROWS on any backend 5xx/timeout, so a backend hiccup mid-build
-// would fail the whole deploy (or bake a degraded page into the cache), and fanning out
-// ~7 fetches x N tabs x hundreds of slugs against the single backend instance can trigger
-// the very restart it aimed to render around. The 504 is instead handled at request time
-// by the AbortSignal timeouts in data.ts (graceful error page / stale ISR) plus backend
-// graceful shutdown. Wedding pages stay on-demand ISR (revalidate 60).
+// generateStaticParams returns an EMPTY array on purpose. In Next 15 a dynamic
+// segment with no generateStaticParams at all is rendered dynamically on every
+// request (Cache-Control: no-store), which silently disables ISR for the whole
+// wedding site, the primary SEO/ad-landing surface, so each guest hit fans ~5
+// calls out to the single backend instance. Declaring generateStaticParams (even
+// empty) opts the route back into the on-demand ISR pipeline: with dynamicParams
+// true (the default) unknown slugs are rendered on first request and then cached
+// for `revalidate` seconds. Returning [] means we still prerender NOTHING at build
+// time, so this keeps the deliberate rejection of build-time prerendering: no
+// per-slug getWedding() calls that THROW on a backend 5xx and fail the deploy, and
+// no fanout of ~7 fetches x N tabs x hundreds of slugs against the single backend
+// instance mid-build. The 504 path is unchanged (AbortSignal timeouts in data.ts +
+// backend graceful shutdown). Net: same build behavior as before, but on-demand
+// renders are cached again instead of running dynamically.
+export function generateStaticParams(): { slug: string }[] {
+  return []
+}
 
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
