@@ -1,7 +1,6 @@
-import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { BookHeart, Calendar, Camera, Clock, Gift, Hotel, Mail, MapPin, PenLine, Shirt, Users } from 'lucide-react'
-import { getWedding, hasWeddingPartyMembers, hasWeddingPhotos } from '@/app/wedding/[slug]/data'
+import { getPublishedWedding, hasWeddingPartyMembers, hasWeddingPhotos } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
 import TabBlocks from '@/components/blocks/TabBlocks'
 
@@ -9,8 +8,9 @@ export default async function WeddingHomePage(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params
-  const wedding = await getWedding(slug)
-  if (!wedding) notFound()
+  // Unpublished draft: render nothing; the layout shows ComingSoon (see data.ts).
+  const wedding = await getPublishedWedding(slug)
+  if (!wedding) return null
 
   // Mirror the nav's content gating so the "Explore" grid never links to an
   // empty Wedding Party or Photos page on a half-filled site. Cached fetches.
