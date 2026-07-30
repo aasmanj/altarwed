@@ -12,7 +12,7 @@ import { join, relative } from 'node:path'
 // the rule survive new tabs: every page.tsx in this route MUST fetch through
 // getPublishedWedding and MUST NOT call getWedding directly. The layout is the
 // single allowed getWedding caller (it needs the draft to render ComingSoon).
-const routeDir = join(__dirname)
+const routeDir = __dirname
 
 function collectPageFiles(dir: string): string[] {
   const out: string[] = []
