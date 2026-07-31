@@ -12,6 +12,9 @@
     "lint": "next lint",
     "test": "vitest run"
   },
+  "overrides": {
+    "postcss": "$postcss"
+  },
   "dependencies": {
     "@opentelemetry/resources": "^2.9.0",
     "@opentelemetry/semantic-conventions": "^1.43.0",
@@ -31,7 +34,7 @@
     "autoprefixer": "^10.0.1",
     "eslint": "^8",
     "eslint-config-next": "^15.3.1",
-    "postcss": "^8",
+    "postcss": "^8.5.18",
     "tailwindcss": "^3.4.0",
     "typescript": "^5",
     "vitest": "^2.1.6"

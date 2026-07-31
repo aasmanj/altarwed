@@ -27,10 +27,6 @@
 # ---------------------------------------------------------------------------
 
 # frontend-public --------------------------------------------------------------
-# postcss (transitive under next). Arbitrary file read / path traversal via
-# sourceMappingURL. Cleared by `npm audit fix` once next pulls a patched postcss.
-GHSA-6g55-p6wh-862q  # postcss: arbitrary file read via sourceMappingURL
-GHSA-r28c-9q8g-f849  # postcss: path traversal in source-map auto-loading
 # sharp: inherited libvips CVEs. Fix is a sharp minor bump (>=0.35.0).
 GHSA-f88m-g3jw-g9cj  # sharp: inherited libvips vulnerabilities
 # OpenTelemetry Jaeger propagator DoS via malformed header. We do not accept
