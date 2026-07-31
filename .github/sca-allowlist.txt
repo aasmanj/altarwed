@@ -27,8 +27,6 @@
 # ---------------------------------------------------------------------------
 
 # frontend-public --------------------------------------------------------------
-# sharp: inherited libvips CVEs. Fix is a sharp minor bump (>=0.35.0).
-GHSA-f88m-g3jw-g9cj  # sharp: inherited libvips vulnerabilities
 # OpenTelemetry Jaeger propagator DoS via malformed header. We do not accept
 # untrusted Jaeger headers at the edge; fix is an otel dependency bump.
 GHSA-45rx-2jwx-cxfr  # @opentelemetry/propagator-jaeger: DoS on malformed header
