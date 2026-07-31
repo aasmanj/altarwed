@@ -27,9 +27,6 @@
 # ---------------------------------------------------------------------------
 
 # frontend-app -----------------------------------------------------------------
-# axios high: proxy inherited after interceptor config cloning. Fix is an axios
-# patch bump; axios is a direct dependency so this is a clean upgrade.
-GHSA-gcfj-64vw-6mp9  # axios: inherited proxy after interceptor config cloning
 # brace-expansion DoS (transitive). Cleared by `npm audit fix`.
 GHSA-3jxr-9vmj-r5cp  # brace-expansion: DoS via exponential-time expansion
 GHSA-mh99-v99m-4gvg  # brace-expansion: DoS via unbounded expansion length
