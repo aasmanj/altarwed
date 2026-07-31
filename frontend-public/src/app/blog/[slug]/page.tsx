@@ -233,7 +233,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         {/* Article body */}
         <article className="max-w-3xl mx-auto px-6 pb-20">
           <div
-            className="prose prose-stone prose-lg max-w-none
+            className="prose prose-stone prose-lg max-w-none break-words
               prose-headings:font-serif prose-headings:text-[#3b2f2f]
               prose-p:text-[#5a4a3a] prose-p:leading-relaxed
               prose-a:text-[#d4af6a] prose-a:no-underline hover:prose-a:underline

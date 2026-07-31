@@ -280,7 +280,11 @@ export default async function WeddingLayout({
   )
 
   return (
-    <div className="aw-fonts min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f]" style={{ fontFamily: 'var(--body-font)' }}>
+    // [overflow-wrap:anywhere] is inherited by every descendant: couple-typed
+    // content (story blocks, venue fields, pasted URLs) can contain unbroken
+    // tokens wider than a phone screen, which would otherwise force the whole
+    // page to scroll horizontally. It only takes effect when a word cannot fit.
+    <div className="aw-fonts min-h-screen bg-[#fdfaf6] font-sans text-[#3b2f2f] [overflow-wrap:anywhere]" style={{ fontFamily: 'var(--body-font)' }}>
       <style>{`:root { --accent: ${accentColor}; --accent-on-dark: ${accentTokens.onDark}; --accent-on-light: ${accentTokens.onLight}; --on-accent: ${accentTokens.onAccent}; --name-font: ${nameFont}; --name-font-weight: ${nameFontWeight}; --heading-font: ${fontTheme.heading}; --body-font: ${fontTheme.body}; }
 .aw-fonts h1, .aw-fonts h2, .aw-fonts h3, .aw-fonts h4, .aw-fonts h5, .aw-fonts h6 { font-family: var(--heading-font); }`}</style>
 
