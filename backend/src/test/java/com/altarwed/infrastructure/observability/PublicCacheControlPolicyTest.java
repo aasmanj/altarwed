@@ -52,6 +52,7 @@ class PublicCacheControlPolicyTest {
             "/api/v1/wedding-websites/preview/some-token",
             "/api/v1/wedding-page-blocks/preview/some-token",
             "/api/v1/wedding-photos/website/preview/some-token",
+            "/api/v1/wedding-party/website/preview/some-slug",
             // RSVP token reads must never cache
             "/api/v1/guests/rsvp/find",
             "/api/v1/guests/rsvp/some-invite-token",
