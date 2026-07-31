@@ -27,11 +27,6 @@
 # ---------------------------------------------------------------------------
 
 # frontend-public --------------------------------------------------------------
-# Next.js high-severity advisories (SSRF in Server Actions / rewrites, App Router
-# DoS). Fix is a Next.js patch upgrade; verify the build + boot smoke gate after.
-GHSA-89xv-2m56-2m9x  # next: SSRF in Server Actions on custom servers
-GHSA-p9j2-gv94-2wf4  # next: SSRF in rewrites via attacker-controlled destination host
-GHSA-m99w-x7hq-7vfj  # next: DoS in App Router using Server Actions
 # postcss (transitive under next). Arbitrary file read / path traversal via
 # sourceMappingURL. Cleared by `npm audit fix` once next pulls a patched postcss.
 GHSA-6g55-p6wh-862q  # postcss: arbitrary file read via sourceMappingURL
