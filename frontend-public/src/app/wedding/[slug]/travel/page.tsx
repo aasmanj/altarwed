@@ -1,6 +1,5 @@
-import { notFound } from 'next/navigation'
 import { Hotel, MapPin, DollarSign } from 'lucide-react'
-import { getWedding } from '@/app/wedding/[slug]/data'
+import { getPublishedWedding } from '@/app/wedding/[slug]/data'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
 
@@ -29,8 +28,10 @@ export default async function TravelPage(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params
-  const wedding = await getWedding(slug)
-  if (!wedding) notFound()
+  // Unpublished draft: render nothing; the layout shows ComingSoon (see data.ts).
+  // Gate BEFORE the hotels fetch: that endpoint is publish-agnostic backend-side.
+  const wedding = await getPublishedWedding(slug)
+  if (!wedding) return null
 
   // Prefer multi-hotel table; fall back to legacy scalar fields for existing couples
   const hotels = await getHotels(wedding.id)

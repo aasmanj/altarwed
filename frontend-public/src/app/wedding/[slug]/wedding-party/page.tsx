@@ -1,5 +1,4 @@
-import { notFound } from 'next/navigation'
-import { getWedding } from '@/app/wedding/[slug]/data'
+import { getPublishedWedding } from '@/app/wedding/[slug]/data'
 import { framingStyle } from '@/lib/imageFraming'
 
 interface WeddingPartyMember {
@@ -31,8 +30,10 @@ export default async function WeddingPartyPage(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params
-  const wedding = await getWedding(slug)
-  if (!wedding) notFound()
+  // Unpublished draft: render nothing; the layout shows ComingSoon (see data.ts).
+  // Gate BEFORE the party fetch: that endpoint is publish-agnostic backend-side.
+  const wedding = await getPublishedWedding(slug)
+  if (!wedding) return null
 
   const party = await getWeddingParty(wedding.id)
   const bride = party.filter(m => m.side === 'BRIDE')

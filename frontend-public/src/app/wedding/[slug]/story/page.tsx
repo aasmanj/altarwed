@@ -1,13 +1,13 @@
-import { notFound } from 'next/navigation'
-import { getWedding } from '@/app/wedding/[slug]/data'
+import { getPublishedWedding } from '@/app/wedding/[slug]/data'
 import TabBlocks from '@/components/blocks/TabBlocks'
 
 export default async function StoryPage(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params
-  const wedding = await getWedding(slug)
-  if (!wedding) notFound()
+  // Unpublished draft: render nothing; the layout shows ComingSoon (see data.ts).
+  const wedding = await getPublishedWedding(slug)
+  if (!wedding) return null
 
   const fallback = wedding.ourStory ? (
     <div className="space-y-14">

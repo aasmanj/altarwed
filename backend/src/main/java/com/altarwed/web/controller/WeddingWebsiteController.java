@@ -44,6 +44,10 @@ public class WeddingWebsiteController {
     // see WeddingWebsiteService.getBySlugForPreview for the trust model. The slug is the only
     // capability check (no JWT crosses the iframe boundary), so this is anonymously reachable
     // the same as /slug/{slug} -- uses the same public DTO for the same reason (#97).
+    // ALSO load-bearing for the public site's "coming soon" page: after /slug/{slug} 404s,
+    // frontend-public probes this endpoint to distinguish an unpublished draft from a missing
+    // site (probeUnpublished in frontend-public wedding/[slug]/data.ts). Hardening this
+    // endpoint (auth, tokens) must give that probe an alternative or ComingSoon dies silently.
     @GetMapping("/preview/{slug}")
     public ResponseEntity<PublicWeddingWebsiteResponse> getBySlugForPreview(@PathVariable String slug) {
         return ResponseEntity.ok(mapper.toPublicResponse(websiteService.getBySlugForPreview(slug)));

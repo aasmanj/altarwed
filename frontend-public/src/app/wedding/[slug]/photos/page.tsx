@@ -1,6 +1,5 @@
-import { notFound } from 'next/navigation'
 import { Camera } from 'lucide-react'
-import { getWedding } from '@/app/wedding/[slug]/data'
+import { getPublishedWedding } from '@/app/wedding/[slug]/data'
 import TabBlocks from '@/components/blocks/TabBlocks'
 import PhotoGalleryClient, { type WeddingPhoto } from './PhotoGalleryClient'
 
@@ -19,8 +18,10 @@ export default async function PhotosPage(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params
-  const [wedding, photos] = await Promise.all([getWedding(slug), getPhotos(slug)])
-  if (!wedding) notFound()
+  // Unpublished draft: render nothing; the layout shows ComingSoon (see data.ts).
+  // The parallel photos fetch is publish-gated backend-side (routes via getBySlug).
+  const [wedding, photos] = await Promise.all([getPublishedWedding(slug), getPhotos(slug)])
+  if (!wedding) return null
 
   // Legacy scalar render (the existing photo grid + "coming soon" empty state).
   // This becomes the zero-block fallback so a couple who uploaded photos but has

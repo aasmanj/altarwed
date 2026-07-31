@@ -202,10 +202,13 @@ public class WeddingWebsiteService {
         return website;
     }
 
-    // Owner-only preview path (SideBySideEditor iframe -> frontend-public /preview/[slug]/[tab]).
+    // Preview path (SideBySideEditor iframe -> frontend-public /preview/[slug]/[tab]).
     // The two Next.js/Spring origins don't share a session, so no JWT crosses into the iframe;
     // the slug itself is the capability, same as before this method existed. Deliberately does
     // NOT gate on isPublished -- previewing a draft before publish is the entire point.
+    // No longer owner-only in practice: the public site's ComingSoon fallback also probes this
+    // path after a /slug 404 to tell an unpublished draft apart from a missing site (see the
+    // controller comment). Keep drafts reachable here, or provide a replacement signal.
     @Transactional(readOnly = true)
     public WeddingWebsite getBySlugForPreview(String slug) {
         WeddingWebsite website = websiteRepository.findBySlug(slug)

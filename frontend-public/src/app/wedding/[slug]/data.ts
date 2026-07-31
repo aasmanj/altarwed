@@ -1,3 +1,4 @@
+import { notFound } from 'next/navigation'
 import type { WeddingPartyMember, WeddingPhoto } from '@/components/blocks/BlockRenderer'
 
 // Hard client-side timeout for every backend fetch on the public wedding render
@@ -145,9 +146,60 @@ export async function getWedding(slug: string, fresh = false): Promise<WeddingWe
   // the common case once a slug has been hit), and on a cold cache the throw is
   // caught by the wedding/error.tsx boundary (a "temporary trouble, try again"
   // page), instead of the terminal "this wedding doesn't exist" page.
-  if (res.status === 404) return null
+  //
+  // A /slug 404 is ambiguous: the backend deliberately 404s BOTH missing sites and
+  // existing-but-unpublished drafts (WeddingWebsiteService.getBySlug, issue #91).
+  // Disambiguate through the public /preview endpoint (which serves drafts on the
+  // slug-as-capability trust model) so an unpublished site renders the ComingSoon
+  // page via the layout's isPublished gate instead of a dead 404. In fresh mode we
+  // already hit /preview directly, so a 404 there is final.
+  if (res.status === 404) return fresh ? null : probeUnpublished(apiUrl, slug)
   if (!res.ok) throw new Error(`API error ${res.status}`)
   return res.json()
+}
+
+// Probe budget is deliberately smaller than FETCH_TIMEOUT_MS: the probe runs
+// SEQUENTIALLY after the /slug fetch, and the combined budget must stay under the
+// SWA gateway timeout (see the FETCH_TIMEOUT_MS comment). A slow probe only delays
+// a not-found/ComingSoon page, never a published render.
+const PROBE_TIMEOUT_MS = 3000
+
+// Second-chance lookup after /slug/{slug} answered 404: returns the draft when the
+// slug exists unpublished, null when it truly does not exist (or was soft-deleted;
+// the preview endpoint 404s deleted sites too). Unlike getWedding, probe failures
+// return null rather than throw: the definitive /slug 404 already ruled out a
+// published site, so there is no false-404 risk on the SEO surface.
+async function probeUnpublished(apiUrl: string, slug: string): Promise<WeddingWebsite | null> {
+  try {
+    const res = await fetch(`${apiUrl}/api/v1/wedding-websites/preview/${slug}`, {
+      next: { revalidate: 60 },
+      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+    })
+    if (!res.ok) return null
+    const body = await res.json()
+    // Only trust a well-formed draft payload. A misshapen 200 (error envelope,
+    // empty object) would otherwise flow into the layout as isPublished:
+    // undefined and render "undefined & undefined | Coming Soon".
+    if (typeof body?.isPublished !== 'boolean') return null
+    return body
+  } catch {
+    return null
+  }
+}
+
+// The ONLY wedding fetch tab pages may use. Tab pages render in PARALLEL with the
+// layout in the App Router, so the layout's ComingSoon gate cannot protect them: a
+// segment-level RSC request (client-side tab navigation, or a hand-crafted RSC
+// fetch) renders the page alone, and an ungated page would serve an unpublished
+// draft's venue/story/party data. Missing or deleted slugs 404 here; an
+// unpublished draft returns null and the page must render nothing (`return null`),
+// which lets the full-render path show the layout's ComingSoon while a bare
+// segment response carries no draft data. Enforced by draftPageGate.test.ts.
+export async function getPublishedWedding(slug: string): Promise<WeddingWebsite | null> {
+  const wedding = await getWedding(slug)
+  if (!wedding) notFound()
+  if (!wedding.isPublished) return null
+  return wedding
 }
 
 // Lightweight content-presence checks used to gate the Wedding Party and Photos

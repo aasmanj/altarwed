@@ -27,7 +27,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'slug is required' }, { status: 400 })
   }
 
-  revalidatePath(`/wedding/${slug}`)
+  // 'layout' purges the segment AND every sub-path (/story, /details, /rsvp, ...).
+  // Without it only the exact path is revalidated, so after an unpublish the tab
+  // pages kept serving their stale ISR entries until natural expiry, and after a
+  // publish the tabs stayed on the pre-publish render.
+  revalidatePath(`/wedding/${slug}`, 'layout')
 
   return NextResponse.json({ revalidated: true, slug })
 }

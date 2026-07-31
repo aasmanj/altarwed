@@ -1,6 +1,5 @@
-import { notFound } from 'next/navigation'
 import { Calendar, Clock, MapPin, Shirt } from 'lucide-react'
-import { getWedding } from '@/app/wedding/[slug]/data'
+import { getPublishedWedding } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate as formatDate } from '@/lib/date'
 import TabBlocks from '@/components/blocks/TabBlocks'
 
@@ -8,8 +7,9 @@ export default async function DetailsPage(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params
-  const wedding = await getWedding(slug)
-  if (!wedding) notFound()
+  // Unpublished draft: render nothing; the layout shows ComingSoon (see data.ts).
+  const wedding = await getPublishedWedding(slug)
+  if (!wedding) return null
 
   const hasReception = !!wedding.receptionVenueName
 
