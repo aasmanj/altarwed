@@ -72,6 +72,21 @@ public class CoupleAccessGuard {
         assertOwns(ownerCoupleId, email);
     }
 
+    /**
+     * Non-throwing ownership check for endpoints that are public for published
+     * resources but owner-only for drafts (issue #536). Returns false for an
+     * anonymous or unknown principal instead of throwing, so the caller can map
+     * a draft read to the same 404 a missing site gets: a 403 here would confirm
+     * to a prober that the id exists.
+     */
+    public boolean owns(UUID ownerCoupleId, String email) {
+        if (email == null) return false;
+        return coupleRepository.findByEmail(email)
+                .map(Couple::id)
+                .map(ownerCoupleId::equals)
+                .orElse(false);
+    }
+
     private UUID authenticatedCoupleId(String email) {
         if (email == null) {
             log.warn("access denied, reason=unauthenticated");

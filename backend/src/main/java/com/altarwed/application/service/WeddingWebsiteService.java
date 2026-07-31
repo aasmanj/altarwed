@@ -217,6 +217,19 @@ public class WeddingWebsiteService {
         return website;
     }
 
+    // Id-keyed counterpart of getBySlug for the publish gate on the party/hotels list
+    // endpoints (issue #536). Deleted sites are invisible exactly like getBySlug, but the
+    // publish/ownership decision stays in the caller: those routes must serve drafts to
+    // the owner (the dashboard attaches a JWT even on permitAll routes) while 404ing
+    // everyone else, so this only resolves the row.
+    @Transactional(readOnly = true)
+    public WeddingWebsite getByIdForVisibilityCheck(UUID websiteId) {
+        WeddingWebsite website = websiteRepository.findById(websiteId)
+                .orElseThrow(() -> new WeddingWebsiteNotFoundException(websiteId));
+        if (website.isDeleted()) throw new WeddingWebsiteNotFoundException(websiteId);
+        return website;
+    }
+
     // Sitemap feed page-size ceiling. The public /published endpoint is unauthenticated, so a
     // caller must never be able to request an arbitrarily large page and stream the whole
     // published-sites table in one query (issue #241). 1000 keeps the number of sequential paged
