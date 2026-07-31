@@ -1,6 +1,7 @@
 package com.altarwed.web.controller;
 
 import com.altarwed.application.dto.CreateWeddingWebsiteRequest;
+import com.altarwed.application.dto.DraftWeddingWebsiteResponse;
 import com.altarwed.application.dto.PublicWeddingWebsiteResponse;
 import com.altarwed.application.dto.UpdateWeddingWebsiteRequest;
 import com.altarwed.application.dto.WeddingWebsiteResponse;
@@ -32,22 +33,30 @@ public class WeddingWebsiteController {
         this.accessGuard = accessGuard;
     }
 
-    // Public, fetched by the Next.js SSR page at /wedding/[slug]. 404s for unpublished sites (#91).
-    // Uses the public DTO (#97): omits coupleId and goalBudget, neither of which belongs in an
-    // anonymous-guest payload.
+    // Public, fetched by the Next.js SSR page at /wedding/[slug]. A published site returns the
+    // full public DTO (#97: omits coupleId and goalBudget, neither of which belongs in an
+    // anonymous-guest payload). An existing-but-unpublished draft returns 200 with the slim
+    // draft-state body instead of the pre-#537 404, so the SEO surface renders ComingSoon
+    // straight from this response without probing /preview and without Next's Data Cache ever
+    // holding a full draft DTO. Missing and soft-deleted slugs still 404
+    // (getBySlugForPreview enforces the deleted check).
     @GetMapping("/slug/{slug}")
-    public ResponseEntity<PublicWeddingWebsiteResponse> getBySlug(@PathVariable String slug) {
-        return ResponseEntity.ok(mapper.toPublicResponse(websiteService.getBySlug(slug)));
+    public ResponseEntity<Object> getBySlug(@PathVariable String slug) {
+        var website = websiteService.getBySlugForPreview(slug);
+        if (!website.isPublished()) {
+            return ResponseEntity.ok(DraftWeddingWebsiteResponse.of(website));
+        }
+        return ResponseEntity.ok(mapper.toPublicResponse(website));
     }
 
     // Preview, fetched by the Next.js /preview/[slug]/[tab] iframe. Renders drafts;
     // see WeddingWebsiteService.getBySlugForPreview for the trust model. The slug is the only
     // capability check (no JWT crosses the iframe boundary), so this is anonymously reachable
     // the same as /slug/{slug} -- uses the same public DTO for the same reason (#97).
-    // ALSO load-bearing for the public site's "coming soon" page: after /slug/{slug} 404s,
-    // frontend-public probes this endpoint to distinguish an unpublished draft from a missing
-    // site (probeUnpublished in frontend-public wedding/[slug]/data.ts). Hardening this
-    // endpoint (auth, tokens) must give that probe an alternative or ComingSoon dies silently.
+    // ALSO still a fallback for the public site's "coming soon" page: frontend-public keeps
+    // probeUnpublished (wedding/[slug]/data.ts) for deploy-skew windows where /slug/{slug}
+    // still 404s drafts (pre-#537 backend). DraftPreviewAnonymousReachabilityTest pins the
+    // anonymous draft reachability until that probe is deleted.
     @GetMapping("/preview/{slug}")
     public ResponseEntity<PublicWeddingWebsiteResponse> getBySlugForPreview(@PathVariable String slug) {
         return ResponseEntity.ok(mapper.toPublicResponse(websiteService.getBySlugForPreview(slug)));
