@@ -359,9 +359,11 @@ function RegistryCardBlock({ url, label, preview = false }: { url: string | null
       className="flex items-center gap-4 rounded-xl border border-[#e8dcc8] bg-white p-5 hover:border-[#d4af6a] hover:shadow-sm transition group"
     >
       <Gift className="w-6 h-6 text-[#d4af6a] shrink-0" strokeWidth={1.5} />
-      <div>
+      {/* min-w-0 lets this flex child shrink below the URL's intrinsic width so
+          truncate can clip it; a fixed max-w here overflowed narrow phones. */}
+      <div className="flex-1 min-w-0">
         <p className="font-medium text-[#3b2f2f] group-hover:underline">{label ?? 'Registry'}</p>
-        <p className="text-xs text-[#8a6a4a] mt-0.5 truncate max-w-[260px]">{url}</p>
+        <p className="text-xs text-[#8a6a4a] mt-0.5 truncate">{url}</p>
       </div>
       <ExternalLink className="w-4 h-4 text-[#8a6a4a] ml-auto shrink-0" strokeWidth={1.5} />
     </a>

@@ -112,11 +112,13 @@ export default function VendorPageClient({ vendor, portfolioPhotos, category }: 
         {(vendor.bio || vendor.description) && (
           <div className="mb-8 rounded-2xl border border-[#e8dcc8] bg-white p-6">
             <h2 className="font-serif text-lg font-semibold text-[#3b2f2f] mb-3">About</h2>
+            {/* break-words: vendor-typed text can contain long unbroken tokens
+                (pasted URLs) that otherwise force horizontal scroll on phones. */}
             {vendor.bio && (
-              <p className="text-[#3b2f2f] font-medium mb-3">{vendor.bio}</p>
+              <p className="text-[#3b2f2f] font-medium mb-3 break-words">{vendor.bio}</p>
             )}
             {vendor.description && (
-              <p className="text-[#6b5344] text-sm whitespace-pre-line">{vendor.description}</p>
+              <p className="text-[#6b5344] text-sm whitespace-pre-line break-words">{vendor.description}</p>
             )}
           </div>
         )}

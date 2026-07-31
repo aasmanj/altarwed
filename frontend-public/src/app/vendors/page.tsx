@@ -182,7 +182,7 @@ export default async function VendorsPage({
             defaultValue={city}
             placeholder="Filter by city…"
             aria-label="Filter by city"
-            className="flex-1 rounded-lg border border-[#e8dcc8] px-4 py-2 text-sm text-[#3b2f2f] focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
+            className="flex-1 min-w-0 rounded-lg border border-[#e8dcc8] px-4 py-2 text-sm text-[#3b2f2f] focus:border-[#d4af6a] focus:outline-none focus:ring-1 focus:ring-[#d4af6a]"
           />
           {category && <input type="hidden" name="category" value={category} />}
           {tier && <input type="hidden" name="tier" value={tier} />}
