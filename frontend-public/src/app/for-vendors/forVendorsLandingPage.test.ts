@@ -70,13 +70,30 @@ describe('for-vendors landing page #373', () => {
     expect(page).toContain('Indexed by Google')
   })
 
-  it('shows tier pricing with the live free and Pro numbers', () => {
-    expect(page).toContain('Free listing')
-    expect(page).toContain("name: 'Pro'")
-    expect(page).toContain("price: '$0'")
-    expect(page).toContain("price: '$29'")
+  it('shows the founding program and Pro pricing with the live numbers', () => {
+    // The founding-25 model: the first `founding-cap` vendors get 12 months free,
+    // everyone after pays $29/month to publish. Mirrors backend
+    // altarwed.vendor.founding-cap / founding-period-months and the dashboard billing.
+    expect(page).toContain('Founding vendor')
+    expect(page).toContain('for your first 12 months')
+    expect(page).toContain('>$0<')
+    expect(page).toContain('>$29<')
     // The annual price is quoted so the page mirrors the dashboard billing exactly.
     expect(page).toContain('$290 per year')
+    // The live scarcity counter is wired to the backend founding-spots endpoint.
+    expect(page).toContain('/api/v1/vendors/founding-spots')
+    expect(page).toContain('spots left')
+  })
+
+  it('never advertises an unconditional free tier or unbuilt features', () => {
+    // The pre-founding copy promised "Free listing ... forever" plus a featured badge
+    // and priority placement that do not exist for the $29 tier. Listing is paid after
+    // the founding window, so none of these claims may reappear.
+    expect(page).not.toContain('Free listing')
+    expect(page).not.toContain("'forever'")
+    expect(page).not.toContain('List your business free')
+    expect(page).not.toContain('Featured badge')
+    expect(page).not.toContain('Priority placement')
   })
 
   it('links every CTA to the vendor registration flow', () => {
