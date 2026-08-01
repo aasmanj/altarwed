@@ -45,9 +45,12 @@ const ALL_TABS: { tab: BlockTab; label: string; segment: string }[] = [
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://altarwed-prod-api.azurewebsites.net'
 
-async function getPartyMembers(websiteId: string): Promise<WeddingPartyMember[]> {
+async function getPartyMembers(slug: string): Promise<WeddingPartyMember[]> {
   try {
-    const res = await fetch(`${API}/api/v1/wedding-party/website/${websiteId}`, { cache: 'no-store' })
+    // /preview (not /website/{id}) so a draft's party still renders for the owner:
+    // the id-keyed endpoint now 404s drafts for anonymous callers (#536), and this
+    // server-side fetch carries no JWT. Same model as photos below (#91).
+    const res = await fetch(`${API}/api/v1/wedding-party/website/preview/${slug}`, { cache: 'no-store' })
     if (!res.ok) return []
     return res.json()
   } catch {
@@ -95,7 +98,7 @@ export default async function PreviewPage({
   // after the iframe loaded would otherwise render with empty data until the
   // next full reload. Cost is two cheap API calls per iframe hydration.
   const [partyMembers, photos] = await Promise.all([
-    getPartyMembers(wedding.id),
+    getPartyMembers(slug),
     getPhotos(slug),
   ])
 

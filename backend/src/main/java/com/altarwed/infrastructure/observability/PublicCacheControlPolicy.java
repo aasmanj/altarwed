@@ -83,6 +83,9 @@ public final class PublicCacheControlPolicy {
             new Rule("/api/v1/wedding-websites/preview/**", CachePolicy.NO_STORE),
             new Rule("/api/v1/wedding-page-blocks/preview/**", CachePolicy.NO_STORE),
             new Rule("/api/v1/wedding-photos/website/preview/**", CachePolicy.NO_STORE),
+            // Must precede the cacheable /wedding-party/website/** rule below: the preview
+            // variant serves drafts to the editor iframe (#536) and must never be cached.
+            new Rule("/api/v1/wedding-party/website/preview/**", CachePolicy.NO_STORE),
             new Rule("/api/v1/guests/rsvp/**", CachePolicy.NO_STORE),
             new Rule("/api/v1/vendors/me", CachePolicy.NO_STORE),
             new Rule("/api/v1/vendors/me/**", CachePolicy.NO_STORE),
