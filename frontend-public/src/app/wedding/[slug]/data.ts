@@ -147,11 +147,12 @@ export async function getWedding(slug: string, fresh = false): Promise<WeddingWe
   // caught by the wedding/error.tsx boundary (a "temporary trouble, try again"
   // page), instead of the terminal "this wedding doesn't exist" page.
   //
-  // A /slug 404 is ambiguous: the backend deliberately 404s BOTH missing sites and
-  // existing-but-unpublished drafts (WeddingWebsiteService.getBySlug, issue #91).
-  // Disambiguate through the public /preview endpoint (which serves drafts on the
-  // slug-as-capability trust model) so an unpublished site renders the ComingSoon
-  // page via the layout's isPublished gate instead of a dead 404. In fresh mode we
+  // Since #537 the backend answers an existing-but-unpublished draft with 200 and a
+  // slim draft-state body ({slug, names, weddingDate, isPublished:false}), which flows
+  // straight through to the layout's isPublished/ComingSoon gate below, so a /slug 404
+  // normally means only missing-or-deleted. The probe survives purely as a deploy-skew
+  // fallback (a pre-#537 backend still 404s drafts here); once the backend contract is
+  // everywhere, delete probeUnpublished and let a 404 be final. In fresh mode we
   // already hit /preview directly, so a 404 there is final.
   if (res.status === 404) return fresh ? null : probeUnpublished(apiUrl, slug)
   if (!res.ok) throw new Error(`API error ${res.status}`)
