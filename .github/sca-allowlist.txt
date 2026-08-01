@@ -21,31 +21,11 @@
 #
 # ---------------------------------------------------------------------------
 # Seeded 2026-07-24 from the state of main when the gate was introduced (#117).
-# These are the pre-existing highs the gate must not retroactively red-fail on.
-# All are FIXABLE and tracked for remediation in issue #532, so this list should
-# shrink to empty, it is a backlog freeze, not an exemption.
+# Worked to empty on 2026-07-31 by #532: all 10 seeded highs were remediated by
+# dependency upgrades (next 15.5.22, postcss 8.5.25, sharp 0.35.3,
+# @opentelemetry/propagator-jaeger 2.10.0, axios 1.19.0, brace-expansion
+# 1.1.18 / 2.1.4). The gate now enforces with an EMPTY allowlist: any high or
+# critical advisory in a production dependency fails CI. Do not re-seed this
+# file just to make CI green; add an id only after a human decision per the
+# rules above.
 # ---------------------------------------------------------------------------
-
-# frontend-public --------------------------------------------------------------
-# Next.js high-severity advisories (SSRF in Server Actions / rewrites, App Router
-# DoS). Fix is a Next.js patch upgrade; verify the build + boot smoke gate after.
-GHSA-89xv-2m56-2m9x  # next: SSRF in Server Actions on custom servers
-GHSA-p9j2-gv94-2wf4  # next: SSRF in rewrites via attacker-controlled destination host
-GHSA-m99w-x7hq-7vfj  # next: DoS in App Router using Server Actions
-# postcss (transitive under next). Arbitrary file read / path traversal via
-# sourceMappingURL. Cleared by `npm audit fix` once next pulls a patched postcss.
-GHSA-6g55-p6wh-862q  # postcss: arbitrary file read via sourceMappingURL
-GHSA-r28c-9q8g-f849  # postcss: path traversal in source-map auto-loading
-# sharp: inherited libvips CVEs. Fix is a sharp minor bump (>=0.35.0).
-GHSA-f88m-g3jw-g9cj  # sharp: inherited libvips vulnerabilities
-# OpenTelemetry Jaeger propagator DoS via malformed header. We do not accept
-# untrusted Jaeger headers at the edge; fix is an otel dependency bump.
-GHSA-45rx-2jwx-cxfr  # @opentelemetry/propagator-jaeger: DoS on malformed header
-
-# frontend-app -----------------------------------------------------------------
-# axios high: proxy inherited after interceptor config cloning. Fix is an axios
-# patch bump; axios is a direct dependency so this is a clean upgrade.
-GHSA-gcfj-64vw-6mp9  # axios: inherited proxy after interceptor config cloning
-# brace-expansion DoS (transitive). Cleared by `npm audit fix`.
-GHSA-3jxr-9vmj-r5cp  # brace-expansion: DoS via exponential-time expansion
-GHSA-mh99-v99m-4gvg  # brace-expansion: DoS via unbounded expansion length
