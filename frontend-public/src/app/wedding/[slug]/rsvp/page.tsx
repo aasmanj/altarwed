@@ -1,6 +1,7 @@
 import { getPublishedWedding } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate } from '@/lib/date'
 import FindInvitationWidget from './FindInvitationWidget'
+import ViralCtaLink from '@/components/ViralCtaLink'
 
 export default async function RsvpTabPage(
   { params }: { params: Promise<{ slug: string }> }
@@ -50,6 +51,24 @@ export default async function RsvpTabPage(
           {wedding.partnerTwoName} &amp; {wedding.partnerOneName}.
         </p>
       </div>
+
+      {/* Discreet viral affordance on the RSVP entry, the highest-traffic guest
+          surface on a couple's site. Kept small and visually secondary (a quiet
+          centered line, not a button) so it never cheapens the couple's page; the
+          site footer carries the fuller CTA. Distinct utm_campaign=rsvp-entry so
+          this surface is measured on its own, and the Meta Pixel Lead event is
+          consent-gated inside ViralCtaLink. Same muted brown as the sibling note
+          above (underline gives a non-color signal for the link). */}
+      <p className="text-center text-xs text-[#8a6a4a]">
+        Created on AltarWed.{' '}
+        <ViralCtaLink
+          href="https://app.altarwed.com/register?utm_source=wedding-site&utm_medium=referral&utm_campaign=rsvp-entry"
+          source="rsvp-entry"
+          className="underline hover:text-[#3b2f2f] transition"
+        >
+          Make your own Christian wedding website for free
+        </ViralCtaLink>
+      </p>
     </div>
   )
 }

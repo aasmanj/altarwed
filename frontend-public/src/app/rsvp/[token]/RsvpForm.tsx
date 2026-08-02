@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { PartyPopper, Clock, Mail, Check, X, CalendarPlus } from 'lucide-react'
 import { buildWeddingIcs, downloadIcs, icsFilename } from '@/lib/ics'
+import ViralCtaLink from '@/components/ViralCtaLink'
 
 // PENDING is the "remind me" path, status stays PENDING, remindInDays is sent.
 type Status = 'ATTENDING' | 'DECLINING' | 'PENDING'
@@ -276,12 +277,13 @@ export default function RsvpForm({
             one measurable campaign, distinct from the wedding-footer viral-footer. */}
         <div className="mt-6 border-t border-[#f0e8da] pt-4 text-sm text-[#6b5344]">
           Getting married too?{' '}
-          <a
+          <ViralCtaLink
             href="https://app.altarwed.com/register?utm_source=wedding-site&utm_medium=referral&utm_campaign=rsvp-thankyou"
+            source="rsvp-thankyou"
             className="font-medium text-[#4a1942] underline hover:text-[#3b1235]"
           >
             Create your Christian wedding website for free
-          </a>
+          </ViralCtaLink>
         </div>
       </div>
     )

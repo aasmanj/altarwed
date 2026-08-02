@@ -4,6 +4,7 @@ import Image from 'next/image'
 import WeddingNav from './WeddingNav'
 import ComingSoon from './ComingSoon'
 import PinterestShareButton from './PinterestShareButton'
+import ViralCtaLink from '@/components/ViralCtaLink'
 import { parseTabCustomisation, hasWeddingPartyMembers, hasWeddingPhotos, getAllBlocks, computeTabsWithContent } from './data'
 import { getWedding } from '@/app/wedding/[slug]/data'
 import { formatWeddingDate, daysUntilDate } from '@/lib/date'
@@ -420,12 +421,13 @@ export default async function WeddingLayout({
               <p className="text-[#6b5344] mb-3">
                 Getting married? Create your Christian wedding website for free.
               </p>
-              <a
+              <ViralCtaLink
                 href="https://app.altarwed.com/register?utm_source=wedding-site&utm_medium=referral&utm_campaign=viral-footer"
+                source="viral-footer"
                 className="inline-block px-6 py-2.5 rounded-full bg-[#3b2f2f] text-white text-xs font-semibold hover:bg-[#5c4033] transition"
               >
                 Start for free →
-              </a>
+              </ViralCtaLink>
             </div>
           </div>
         </div>
