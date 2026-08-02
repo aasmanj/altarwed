@@ -413,6 +413,124 @@ class GuestServiceTest {
     }
 
     // ---------------------------------------------------------------------------
+    // Tokenized name matching (issue #549). The old design LIKE-matched the WHOLE query as one
+    // substring, so a two-word query missed a household row, a middle-name row, and a partial
+    // first name. The broad DB fetch now keys on the LONGEST token and the service AND-filters so
+    // every token must appear across the guest's name and plus-one name. Each test below stubs the
+    // repository for the LONGEST token; before the fix the service queried the whole string, that
+    // stub never matched, and the result was empty, so these fail before and pass after.
+    // ---------------------------------------------------------------------------
+
+    // Shared wiring for a matching find: a published wedding, a valid captcha, and token
+    // rotation stubs so the mint path can run for each matched guest.
+    private WeddingWebsite stubPublishedWeddingForFind(UUID coupleId, String slug) {
+        WeddingWebsite website = mock(WeddingWebsite.class);
+        when(website.isPublished()).thenReturn(true);
+        when(website.coupleId()).thenReturn(coupleId);
+        when(websiteRepository.findBySlug(slug)).thenReturn(Optional.of(website));
+        when(tokenRepository.findValidSearchToken(any(), any())).thenReturn(Optional.empty());
+        when(tokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        return website;
+    }
+
+    private Guest guestWithPlusOne(UUID coupleId, String name, String plusOneName) {
+        return new Guest(
+                UUID.randomUUID(), coupleId, name, null, null,
+                GuestRsvpStatus.PENDING, true, plusOneName, null, null,
+                null, null, null,
+                null, null, null, null, null,
+                null, 0,
+                null, null, null, null, null, null,
+                null, null, null,
+                null, false, null, null);
+    }
+
+    @Test
+    void findGuestsByName_matchesHouseholdRow_whenBothTokensAppearAcrossTheStoredName() {
+        UUID coupleId = UUID.randomUUID();
+        String slug = "jordan-and-eden";
+        stubPublishedWeddingForFind(coupleId, slug);
+        Guest household = guest(coupleId, "John & Jane Smith", null);
+        // The broad candidate fetch keys on the longest token ("Smith"), not the whole query.
+        when(guestRepository.findByCoupleIdAndNameContaining(coupleId, "Smith"))
+                .thenReturn(List.of(household));
+
+        List<RsvpFindResult> result = service()
+                .findGuestsByName(slug, "John Smith", "captcha-token", "203.0.113.1");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).maskedName()).isEqualTo("John S.");
+    }
+
+    @Test
+    void findGuestsByName_matchesMiddleNameRow_whenQueryOmitsTheMiddleName() {
+        UUID coupleId = UUID.randomUUID();
+        String slug = "jordan-and-eden";
+        stubPublishedWeddingForFind(coupleId, slug);
+        Guest middleName = guest(coupleId, "John Michael Smith", null);
+        when(guestRepository.findByCoupleIdAndNameContaining(coupleId, "Smith"))
+                .thenReturn(List.of(middleName));
+
+        List<RsvpFindResult> result = service()
+                .findGuestsByName(slug, "John Smith", "captcha-token", "203.0.113.1");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).maskedName()).isEqualTo("John S.");
+    }
+
+    @Test
+    void findGuestsByName_matchesPartialFirstNameNickname_asASubstringOfAToken() {
+        UUID coupleId = UUID.randomUUID();
+        String slug = "jordan-and-eden";
+        stubPublishedWeddingForFind(coupleId, slug);
+        Guest full = guest(coupleId, "John Smith", null);
+        when(guestRepository.findByCoupleIdAndNameContaining(coupleId, "Smith"))
+                .thenReturn(List.of(full));
+
+        // "Jo Smith" is 8 chars so it clears the 4-char FULL-query floor; the "Jo" token is a
+        // case-insensitive substring of "John", the "Smith" token matches exactly.
+        List<RsvpFindResult> result = service()
+                .findGuestsByName(slug, "Jo Smith", "captcha-token", "203.0.113.1");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).maskedName()).isEqualTo("John S.");
+    }
+
+    @Test
+    void findGuestsByName_dropsCandidatesMissingAToken_soTheWholeQueryIsNotOneSubstring() {
+        UUID coupleId = UUID.randomUUID();
+        String slug = "jordan-and-eden";
+        stubPublishedWeddingForFind(coupleId, slug);
+        Guest johnSmith = guest(coupleId, "John Smith", null);
+        Guest bobSmith  = guest(coupleId, "Bob Smith", null); // shares "Smith" but not "John"
+        when(guestRepository.findByCoupleIdAndNameContaining(coupleId, "Smith"))
+                .thenReturn(List.of(johnSmith, bobSmith));
+
+        List<RsvpFindResult> result = service()
+                .findGuestsByName(slug, "John Smith", "captcha-token", "203.0.113.1");
+
+        // Only the guest whose name covers BOTH tokens survives the AND filter.
+        assertThat(result).extracting(RsvpFindResult::maskedName).containsExactly("John S.");
+    }
+
+    @Test
+    void findGuestsByName_coversTokensAcrossNameAndPlusOneName() {
+        UUID coupleId = UUID.randomUUID();
+        String slug = "jordan-and-eden";
+        stubPublishedWeddingForFind(coupleId, slug);
+        Guest guestWithGuest = guestWithPlusOne(coupleId, "John Smith", "Jane Doe");
+        when(guestRepository.findByCoupleIdAndNameContaining(coupleId, "John"))
+                .thenReturn(List.of(guestWithGuest));
+
+        // Neither the name nor the plus-one name alone contains both "John" and "Jane"; the folded
+        // name + plus-one haystack does, so a guest searching for themselves and their plus-one matches.
+        List<RsvpFindResult> result = service()
+                .findGuestsByName(slug, "John Jane", "captcha-token", "203.0.113.1");
+
+        assertThat(result).hasSize(1);
+    }
+
+    // ---------------------------------------------------------------------------
     // sendAllPendingInvites is resilient to an over-cap guest: it skips the guest already at
     // MAX_INVITE_SENDS instead of letting issueInvite throw mid-loop and roll back the whole
     // @Transactional batch (which previously returned 500 and re-sent everyone on retry).

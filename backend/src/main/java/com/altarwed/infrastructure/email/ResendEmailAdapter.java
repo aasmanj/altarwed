@@ -271,7 +271,7 @@ public class ResendEmailAdapter implements EmailPort {
                   </a>
                   <p style="color:#888;font-size:13px;">
                     If you have any questions, reply to this email.<br>
-                    This RSVP link expires in 30 days.
+                    This RSVP link stays valid through the wedding day.
                   </p>
                 </div>
                 """.formatted(guestName, coupleNames, weddingDate, rsvpUrl);
@@ -286,7 +286,7 @@ public class ResendEmailAdapter implements EmailPort {
                 Please RSVP by visiting this link:
                 %s
 
-                This link expires in 30 days.
+                This RSVP link stays valid through the wedding day.
                 If you have any questions, reply to this email.
                 """.formatted(guestName, coupleNames, weddingDate, rsvpUrl);
 

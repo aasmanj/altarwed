@@ -773,9 +773,25 @@ public class GuestService {
         // Charge this attempt against the wedding's budget regardless of whether it matches below.
         rsvpSearchThrottlePort.recordAttempt(throttleKey);
 
+        // Tokenized name match (issue #549). The old design LIKE-matched the WHOLE query as one
+        // substring, so "John Smith" missed a household row stored as "John & Jane Smith" and a
+        // middle-name row "John Michael Smith". Instead split the query on whitespace and require
+        // EVERY token to appear (case-insensitive) across the guest's name and plus-one name, which
+        // covers households, middle names, and partial-first-name nicknames. The 4-char floor above
+        // stays on the FULL query (not per token) so a legitimate short-token query like "Jo Li"
+        // still runs. The broad candidate fetch keys on the LONGEST token via the existing
+        // case-insensitive Containing query, then this filter narrows it: one cheap DB round-trip,
+        // with the AND-of-tokens applied in memory rather than as an awkward dynamic AND of LIKEs.
+        String query = name.trim();
+        String[] tokens = query.split("\\s+");
+        String longestToken = tokens[0];
+        for (String t : tokens) {
+            if (t.length() > longestToken.length()) longestToken = t;
+        }
         List<Guest> matches = guestRepository
-                .findByCoupleIdAndNameContaining(website.coupleId(), name.trim())
+                .findByCoupleIdAndNameContaining(website.coupleId(), longestToken)
                 .stream()
+                .filter(g -> matchesAllTokens(g, tokens))
                 .limit(5)
                 .toList();
 
@@ -1243,6 +1259,36 @@ public class GuestService {
             throw new InvalidRsvpTokenException();
         }
         return token;
+    }
+
+    /**
+     * True when every whitespace-separated token of the search query appears (case-insensitive)
+     * somewhere in the guest's name or plus-one name (issue #549). AND-ing the tokens is what lets
+     * "John Smith" match a household row stored as "John & Jane Smith" or a middle-name row "John
+     * Michael Smith", and a partial first name ("Jo Smith") match "John Smith", none of which a
+     * single whole-query substring match could do. The plus-one name is folded into the haystack so
+     * a query naming both the guest and their plus-one still matches. Static and pure so it is unit
+     * testable without a Spring context. Empty tokens (only possible on an all-whitespace query,
+     * which the length floor already rejects) are skipped defensively.
+     */
+    private static boolean matchesAllTokens(Guest guest, String[] tokens) {
+        StringBuilder haystack = new StringBuilder();
+        if (guest.name() != null) {
+            haystack.append(guest.name());
+        }
+        if (guest.plusOneName() != null && !guest.plusOneName().isBlank()) {
+            haystack.append(' ').append(guest.plusOneName());
+        }
+        String hay = haystack.toString().toLowerCase();
+        for (String token : tokens) {
+            if (token.isEmpty()) {
+                continue;
+            }
+            if (!hay.contains(token.toLowerCase())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
