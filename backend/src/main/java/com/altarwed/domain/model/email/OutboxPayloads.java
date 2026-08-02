@@ -83,4 +83,11 @@ public final class OutboxPayloads {
                                     String weddingDate, String venueAddress, String venueCity,
                                     String venueState, String ceremonyTime,
                                     String googleCalendarUrl) {}
+
+    // Couple win-back nudge (issue #551). Couple-facing mail, so it carries only the couple's own
+    // details; the editor/dashboard link is built in the adapter from the configured base URL, and
+    // the unsubscribe footer is couple-agnostic (null couple scoping) exactly like the welcome mail.
+    // touch selects which of the three copy variants (day 2 / 7 / 21) the sender renders.
+    public record CoupleWinback(String toEmail, String partnerOneName, String partnerTwoName,
+                                CoupleWinbackTouch touch) {}
 }

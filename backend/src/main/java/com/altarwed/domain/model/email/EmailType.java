@@ -27,5 +27,9 @@ public enum EmailType {
     VENDOR_INQUIRY_CONFIRMATION,
     // Date-offset RSVP campaign reminders (issue #458), enqueued by CampaignReminderService.
     RSVP_NONRESPONDER_REMINDER,
-    ATTENDING_REMINDER
+    ATTENDING_REMINDER,
+    // Couple win-back nudges for signups with no published website (issue #551), enqueued by
+    // CoupleWinbackService. One type for all three touches; the payload carries which touch it is
+    // (CoupleWinbackTouch) so the sender renders the matching copy.
+    COUPLE_WINBACK
 }

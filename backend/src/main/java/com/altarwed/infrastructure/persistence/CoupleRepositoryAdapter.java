@@ -8,6 +8,7 @@ import com.altarwed.infrastructure.persistence.repository.CoupleJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -42,6 +43,11 @@ public class CoupleRepositoryAdapter implements CoupleRepository {
     @Override
     public List<Couple> findAll() {
         return jpaRepository.findAll().stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public List<Couple> findActiveCreatedBetween(LocalDateTime from, LocalDateTime to) {
+        return jpaRepository.findActiveCreatedBetween(from, to).stream().map(this::toDomain).toList();
     }
 
     @Override

@@ -2,6 +2,7 @@ package com.altarwed.domain.port;
 
 import com.altarwed.domain.model.EmailRecipient;
 import com.altarwed.domain.model.RsvpInviteRecipient;
+import com.altarwed.domain.model.email.CoupleWinbackTouch;
 
 import java.util.List;
 import java.util.UUID;
@@ -108,4 +109,12 @@ public interface EmailPort {
     void sendAttendingReminderEmail(String toEmail, String guestName, String coupleNames,
                                     String weddingDate, String venueAddress, String venueCity,
                                     String venueState, String ceremonyTime, String googleCalendarUrl);
+
+    // Couple win-back nudge (issue #551), sent to a couple who signed up but has not yet
+    // published their wedding website. touch picks which step of the day-2 / day-7 / day-21
+    // sequence this is, and therefore the warm, faith-aligned copy the implementation renders.
+    // Couple-facing marketing mail: it must carry the unsubscribe footer and one-click header and
+    // honour the suppression list exactly like the welcome mail.
+    void sendCoupleWinbackEmail(String toEmail, String partnerOneName, String partnerTwoName,
+                                CoupleWinbackTouch touch);
 }
