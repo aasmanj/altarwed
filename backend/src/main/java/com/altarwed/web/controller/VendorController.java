@@ -1,6 +1,7 @@
 package com.altarwed.web.controller;
 
 import com.altarwed.application.dto.AuthResponse;
+import com.altarwed.application.dto.FoundingSpotsResponse;
 import com.altarwed.application.dto.InquiryResponse;
 import com.altarwed.application.dto.ListingStatusRequest;
 import com.altarwed.application.dto.PromoCodeRequest;
@@ -176,6 +177,14 @@ public class VendorController {
                 .map(vendorMapper::toResponse)
                 .toList();
         return ResponseEntity.ok(new VendorPageResponse(vendors, result.total()));
+    }
+
+    // Public founding-program availability for the /for-vendors pricing page ("X of 25
+    // founding spots left"). Literal path, so it wins over the /{id} UUID pattern below.
+    // No vendor data in the body; cached under the public /vendors/** Cache-Control tier.
+    @GetMapping("/founding-spots")
+    public ResponseEntity<FoundingSpotsResponse> foundingSpots() {
+        return ResponseEntity.ok(vendorAuthService.foundingSpots());
     }
 
     @GetMapping("/{id}")

@@ -1,6 +1,7 @@
 package com.altarwed.application.service;
 
 import com.altarwed.application.dto.AuthResponse;
+import com.altarwed.application.dto.FoundingSpotsResponse;
 import com.altarwed.application.dto.LoginRequest;
 import com.altarwed.application.dto.RegisterVendorRequest;
 import com.altarwed.domain.exception.EmailAlreadyExistsException;
@@ -58,6 +59,20 @@ public class VendorAuthService {
         this.publicBaseUrl = publicBaseUrl;
         this.appBaseUrl = appBaseUrl;
         this.foundingVendorCap = foundingVendorCap;
+    }
+
+    // Live founding-program availability for the public /for-vendors pricing page. Uses the
+    // SAME countVerified-vs-cap comparison as the registration gate in register() below, so
+    // the number a visitor sees is exactly the decision the next registration will make.
+    // Clamped at zero: once paid (non-founding) vendors push countVerified past the cap the
+    // program reads as full rather than negative. Cap 0 disables the program entirely.
+    @Transactional(readOnly = true)
+    public FoundingSpotsResponse foundingSpots() {
+        if (foundingVendorCap <= 0) {
+            return new FoundingSpotsResponse(0, 0);
+        }
+        long remaining = Math.max(0, foundingVendorCap - vendorRepository.countVerified());
+        return new FoundingSpotsResponse((int) foundingVendorCap, (int) remaining);
     }
 
     @Transactional
