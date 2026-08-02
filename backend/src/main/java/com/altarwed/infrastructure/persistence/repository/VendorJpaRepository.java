@@ -72,4 +72,17 @@ public interface VendorJpaRepository extends JpaRepository<VendorEntity, UUID> {
     @Modifying
     @Query("UPDATE VendorEntity v SET v.viewCount = v.viewCount + 1 WHERE v.id = :id")
     void incrementViewCount(UUID id);
+
+    // Atomic founding-25 slot allocation (issue #554). The guard and the increment are a single
+    // statement, so concurrent registrations serialize on the founding_program row's exclusive lock
+    // (SQL Server, READ COMMITTED): the second writer blocks until the first commits, then
+    // re-evaluates slots_claimed < :cap against the committed value. Returns the affected row count:
+    // 1 = a slot was claimed, 0 = the program is full. Single-row update, so no write-skew. Native
+    // query because founding_program has no JPA entity (it is a pure counter, see migration V106).
+    @Transactional
+    @Modifying
+    @Query(value = "UPDATE founding_program "
+            + "SET slots_claimed = slots_claimed + 1, updated_at = GETUTCDATE() "
+            + "WHERE program_key = 'FOUNDING_25' AND slots_claimed < :cap", nativeQuery = true)
+    int claimFoundingSlot(@Param("cap") long cap);
 }

@@ -61,9 +61,19 @@ public class SecurityConfig {
                         // path (e.g. "/vendors/**" does not match "/vendors"). Any public endpoint
                         // that can be called without a path variable needs both the exact path and
                         // the wildcard listed explicitly.
-                        // /me routes require ROLE_VENDOR; the wildcard below would otherwise permit them as public GET.
+                        // /me routes require ROLE_VENDOR; the narrowed public matchers below never
+                        // match /me, but this stays first as defence in depth.
                         .requestMatchers("/api/v1/vendors/me", "/api/v1/vendors/me/**").hasAuthority("ROLE_VENDOR")
-                        .requestMatchers(HttpMethod.GET, "/api/v1/vendors", "/api/v1/vendors/**").permitAll()
+                        // Only the specific public vendor GETs are permitAll (issue #554). The old
+                        // "/api/v1/vendors/**" wildcard made EVERY current and future vendor GET public,
+                        // so any later GET /vendors/{id}/... that trusted the path id would be silently
+                        // unauthenticated. Enumerating the real public reads lets anyRequest().authenticated()
+                        // guard everything else by default. "*" is a single path segment, so
+                        // "/api/v1/vendors/*" covers /{id} and /founding-spots but NOT /me/... (two-plus
+                        // segments), and the portfolio-photos read needs its own two-segment matcher.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/vendors").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/vendors/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/vendors/*/portfolio-photos").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/denominations", "/api/v1/denominations/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/wedding-websites/slug/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/wedding-websites/published").permitAll()

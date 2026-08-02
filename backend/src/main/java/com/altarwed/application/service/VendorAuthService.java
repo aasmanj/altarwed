@@ -84,8 +84,12 @@ public class VendorAuthService {
             throw new EmailAlreadyExistsException(request.email());
         }
 
-        // Check before saving so we get an accurate pre-registration count.
-        boolean isFoundingVendor = foundingVendorCap > 0 && vendorRepository.countVerified() < foundingVendorCap;
+        // Founding-25 slot allocation (issue #554). This USED to be check-then-act
+        // (countVerified() < cap, then grant), which a concurrent registration burst could race to
+        // admit more than the cap. It is now a single atomic reservation: tryClaimFoundingSlot both
+        // checks the cap and consumes the slot in one DB-serialized UPDATE, inside this same
+        // transaction, so the reservation commits or rolls back with the vendor row below.
+        boolean isFoundingVendor = foundingVendorCap > 0 && vendorRepository.tryClaimFoundingSlot(foundingVendorCap);
 
         var vendor = new Vendor(
                 null,

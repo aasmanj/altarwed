@@ -48,4 +48,12 @@ public interface VendorRepository {
     void incrementViewCount(UUID id);
 
     long countVerified();
+
+    // Atomic founding-25 slot allocation (issue #554). Returns true and consumes one slot only if
+    // fewer than {@code cap} founding slots have been claimed, serialized at the database so a
+    // concurrent registration burst can never push founding grants past the cap. This REPLACES the
+    // old check-then-act (countVerified() < cap, then grant): the check and the reservation are now
+    // one atomic conditional UPDATE, so there is no stale window between them. Must be called inside
+    // the registering transaction so the reservation commits or rolls back with the vendor row.
+    boolean tryClaimFoundingSlot(long cap);
 }
