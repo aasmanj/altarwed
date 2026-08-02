@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Printer, ArrowLeft, Pencil, Check, X } from 'lucide-react'
+import { Printer, ArrowLeft, Pencil, Check, X, AlertTriangle } from 'lucide-react'
 import { useAuth } from '@/core/auth/AuthContext'
 import QueryErrorState from '@/components/QueryErrorState'
 import { useGuests, type Guest } from '@/features/couple/guests/useGuests'
 import { useSeatingTables } from './useSeatingTables'
+import { countUnseatedAttending } from './seatingGroups'
 import TableShapeIcon from './TableShapeIcon'
 import { useWeddingWebsite, useUpdateWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 
@@ -91,8 +92,13 @@ export default function SeatingBoardPage() {
 
   // Build the alphabetical "find your seat" rows. Each guest and any named
   // plus-one becomes its own row so a guest searching for either name finds it.
+  // Declined guests are dropped: a guest who RSVP'd no must never print on the
+  // board the reception hands out, even if they were seated before they declined
+  // (issue #548 acceptance). The unseated-attending banner and the editor badge
+  // make that omission non-silent.
   const rows: BoardRow[] = []
   for (const g of guests) {
+    if (g.rsvpStatus === 'DECLINING') continue
     const tableLabel = tableNameFor(g)
     if (!tableLabel) continue // only assigned guests belong on the board
     rows.push({ display: g.name, sortKey: lastNameKey(g.name), tableLabel })
@@ -103,9 +109,14 @@ export default function SeatingBoardPage() {
   rows.sort((a, b) => a.sortKey.localeCompare(b.sortKey) || a.display.localeCompare(b.display))
 
   const assignedGuestsByTable = (idx: number): Guest[] =>
-    guests.filter(g => g.tableNumber === idx + 1).sort((a, b) => lastNameKey(a.name).localeCompare(lastNameKey(b.name)))
+    guests
+      .filter(g => g.tableNumber === idx + 1 && g.rsvpStatus !== 'DECLINING')
+      .sort((a, b) => lastNameKey(a.name).localeCompare(lastNameKey(b.name)))
 
   const hasContent = rows.length > 0
+  // Attending guests still missing a table: the couple should resolve these before
+  // they print, so surface the count as a banner above the Print button.
+  const unseatedAttending = countUnseatedAttending(guests, tables.length)
 
   if (isLoading) {
     return (
@@ -145,6 +156,23 @@ export default function SeatingBoardPage() {
             Print / Save as PDF
           </button>
         </div>
+        {unseatedAttending > 0 && (
+          <div className="max-w-4xl mx-auto px-4 pb-3">
+            <div
+              role="status"
+              className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+            >
+              <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
+              <span>
+                <strong className="font-semibold">
+                  {unseatedAttending} attending {unseatedAttending === 1 ? 'guest is' : 'guests are'} not seated yet.
+                </strong>{' '}
+                They will not appear on this board until you{' '}
+                <Link to="/dashboard/seating" className="underline hover:text-amber-900">assign them a table</Link>.
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {!hasContent ? (

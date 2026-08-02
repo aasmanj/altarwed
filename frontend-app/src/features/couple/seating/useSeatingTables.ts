@@ -50,7 +50,15 @@ export function useDeleteSeatingTable(coupleId: string) {
   return useMutation({
     mutationFn: (tableId: string) =>
       apiClient.delete(`/api/v1/seating-tables/couple/${coupleId}/${tableId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: key(coupleId) }),
+    // Tables are addressed positionally: a guest's tableNumber is index+1 into the
+    // tables array. Deleting a table server-side reindexes the survivors, so every
+    // seated guest's tableNumber can shift. Invalidate the guests cache too, or the
+    // seating chart keeps painting guests at their old (now wrong) tables until the
+    // next unrelated refetch (audit P1-3).
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: key(coupleId) })
+      qc.invalidateQueries({ queryKey: ['guests', coupleId] })
+    },
     onError: (err: unknown) => toast.error(errorDetail(err)),
   })
 }
