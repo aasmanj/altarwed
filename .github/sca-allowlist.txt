@@ -29,3 +29,23 @@
 # file just to make CI green; add an id only after a human decision per the
 # rules above.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Re-seeded 2026-08-03: the #532 dependency upgrades (next 15.5.22, sharp
+# 0.35.3, propagator-jaeger 2.10.0, postcss 8.5.25) break Azure SWA deploys.
+# Every deploy-landing run since #542 merged failed with "Web app warm up
+# timed out" (600s; healthy warm-up is ~273s). A 7-run bisect on branch
+# fix/landing-warmup-sharp-bisect proved it: the pre-#542 dependency set
+# deployed green twice; every partial revert (each package individually
+# cleared, every pair) failed. The set below pins back the four packages and
+# accepts their advisories with the per-line justifications. Remediation
+# tracker: issue #566 (re-attempt each upgrade individually against SWA).
+# The frontend-app remediations from #532 (axios, brace-expansion) are
+# unaffected and stay upgraded.
+# ---------------------------------------------------------------------------
+GHSA-45rx-2jwx-cxfr  # jaeger DoS via malformed header; only if JaegerPropagator is the registered global propagator. Ours never is: instrumentation.ts uses useAzureMonitor (W3C TraceContext+Baggage). Do not set OTEL_PROPAGATORS=jaeger while pinned. Security-audit verdict 2026-08-03: zero exploitability.
+GHSA-6g55-p6wh-862q  # postcss arbitrary file read via sourceMappingURL: build-time only, postcss processes our own Tailwind CSS in CI, never attacker-controlled CSS.
+GHSA-r28c-9q8g-f849  # postcss path traversal in source-map auto-loading: same build-time-own-CSS scoping as above.
+GHSA-89xv-2m56-2m9x  # next SSRF in Server Actions on custom servers: zero 'use server' directives in frontend-public and no custom server.
+GHSA-m99w-x7hq-7vfj  # next DoS in App Router Server Actions: zero 'use server' directives in frontend-public.
+GHSA-p9j2-gv94-2wf4  # next SSRF in rewrites via attacker-controlled destination: our only redirect destination is the static apex-to-www hostname in next.config.ts.
+GHSA-f88m-g3jw-g9cj  # sharp/libvips CVEs: image optimizer decodes only our pinned storage account + media.altarwed.com (remotePatterns narrowing, issue #98); upload path requires an authenticated couple session.
