@@ -1,5 +1,26 @@
 # DECISION: CDN / Front Door for blob media and the public API origin (issues #246, #375)
 
+## OUTCOME (2026-08-02): AFD Standard, adopted into Bicep
+
+Events overtook the Cloudflare recommendation below: an Azure Front Door Standard
+profile (`altarwed-cdn`) was created outside IaC and `media.altarwed.com` already
+CNAMEs to it, with the custom domain validated. Deleting a purchased, validated
+profile to save the base fee and rebuild the same protection as untracked
+Cloudflare click-ops would have been churn, so the decision landed as:
+
+- Keep AFD for media; the profile is adopted by `modules/frontdoor.bicep`, which
+  also ENABLES route caching (as found, caching was off: `X-Cache: CONFIG_NOCACHE`,
+  base fee paid for zero edge value).
+- Flyway `V104` backfills pre-CDN blob URLs onto `media.altarwed.com` so old rows
+  stop bypassing the CDN (the adapter only rewrites at upload time).
+- The API origin stays OFF Front Door for now: origin `Cache-Control` headers are
+  live on public GETs and #245 ISR verification passed, so ISR plus the edge cache
+  on media covers the marketing push. Adding the API as a second origin group is
+  incremental (no new base fee) and gets its own change when WAF or failover is
+  actually needed.
+- The Cloudflare zone stays DNS-only for `media`/`api`/`www` (verified: their
+  CNAMEs resolve publicly). The options analysis below is retained for history.
+
 ## Current state (grounded in the repo)
 
 - No CDN exists. `grep` for `Microsoft.Cdn` / Front Door across `infrastructure/`

@@ -116,19 +116,17 @@ var appSettings = [
   }
   {
     // Shared-state Redis URL for the per-IP rate limiter, RSVP search throttle, and
-    // Google OAuth CSRF state (issues #109/#414). Deliberately a literal empty string
-    // until an Azure Cache for Redis is provisioned (Jordan's spend decision, see the
-    // #109 PR for the az CLI steps): empty keeps today's in-memory per-instance stores,
-    // which is correct at App Service capacity 1. NOT yet a Key Vault reference for the
-    // same reason as TURNSTILE_SECRET_KEY above: an unresolved KV pointer passes its
-    // literal reference text through as the value, which RedisClient.create() would
-    // treat as a (garbage) connection URL and crash startup. The URL embeds the cache
-    // access key, so once the cache exists, create a REDIS-URL secret in Key Vault
-    // (rediss://:{access-key}@{cache-name}.redis.cache.windows.net:6380/0) FIRST, then
-    // switch this line to the KV-reference pattern used by REVALIDATION_SECRET. Must be
-    // set before scaling plan capacity past 1.
+    // Google OAuth CSRF state (issues #109/#414). The REDIS-URL secret (the full
+    // rediss:// URL embedding the cache access key) is written into Key Vault by
+    // modules/redis.bicep in this same template, and main.bicep gives this module an
+    // explicit dependsOn the redis module, so this reference always resolves by the
+    // time the app boots. That ordering matters: an unresolved KV pointer would pass
+    // its literal reference text through as the value, which RedisClient.create()
+    // would treat as a (garbage) connection URL and crash startup. Required before
+    // running plan capacity above 1; empty would silently fall back to in-memory
+    // per-instance stores.
     name: 'REDIS_URL'
-    value: ''
+    value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=REDIS-URL)'
   }
   {
     name: 'GOOGLE_OAUTH_CLIENT_ID'

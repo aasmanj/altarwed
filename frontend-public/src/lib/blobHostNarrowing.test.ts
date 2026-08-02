@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { BLOB_STORAGE, buildContentSecurityPolicy } from './csp'
+import { BLOB_STORAGE, MEDIA_CDN, buildContentSecurityPolicy } from './csp'
 // next.config.ts lives at the workspace root, outside src/, so the @/ alias cannot
 // reach it; this parent import is the only way to test the emitted images config.
 // eslint-disable-next-line no-restricted-imports
@@ -15,20 +15,25 @@ describe('blob host narrowing (issue #98)', () => {
     expect(BLOB_STORAGE).not.toContain('*')
   })
 
-  it('emits the pinned host, not a wildcard, in CSP media-src', () => {
+  it('pins MEDIA_CDN to the Front Door domain with no wildcard (issue #375)', () => {
+    expect(MEDIA_CDN).toBe('https://media.altarwed.com')
+    expect(MEDIA_CDN).not.toContain('*')
+  })
+
+  it('emits both pinned hosts, not a wildcard, in CSP media-src', () => {
     const csp = buildContentSecurityPolicy({ isDev: false })
     const mediaSrc = csp.split(';').find(d => d.trim().startsWith('media-src'))
     expect(mediaSrc).toContain('https://altarwedprodstorage.blob.core.windows.net')
+    expect(mediaSrc).toContain('https://media.altarwed.com')
     expect(mediaSrc).not.toContain('*.blob.core.windows.net')
   })
 
-  it('restricts image optimizer remotePatterns to the pinned host only', () => {
+  it('restricts image optimizer remotePatterns to the two pinned hosts only', () => {
     const patterns = nextConfig.images?.remotePatterns ?? []
-    expect(patterns).toHaveLength(1)
-    expect(patterns[0]).toMatchObject({
-      protocol: 'https',
-      hostname: 'altarwedprodstorage.blob.core.windows.net',
-    })
+    expect(patterns).toHaveLength(2)
+    const hostnames = patterns.map(p => p.hostname)
+    expect(hostnames).toContain('media.altarwed.com')
+    expect(hostnames).toContain('altarwedprodstorage.blob.core.windows.net')
     for (const p of patterns) {
       expect(String(p.hostname)).not.toContain('*')
     }
