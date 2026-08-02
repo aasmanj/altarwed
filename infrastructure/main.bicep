@@ -73,12 +73,21 @@ param googlePickerAppId string = ''
 // guard existed because the rate limiter and Resend pacer were in-memory and
 // per-instance; issue #109 shipped (PR #454) and this template now provisions the
 // Redis they share (modules/redis.bicep) and wires REDIS_URL, so multi-instance is
-// safe. Autoscale (modules/app-service-plan.bicep) is enabled in the same change,
-// floor 2, ceiling 3.
-@description('App Service Plan instance count baseline; autoscale may add up to the ceiling of 3.')
+// safe. Basic supports manual scale-out to 3, so HA does not require a tier bump.
+@description('App Service Plan instance count baseline; on S1/P1v3 autoscale may add up to the ceiling of 3.')
 @minValue(1)
 @maxValue(3)
 param appServicePlanCapacity int = 2
+
+// Tier is a deploy-time decision, not a template edit (issue #376 / #379). B2 is
+// the committed default at today's scale (~12 couples): two B2 instances give HA
+// for roughly a third of the P1v3 pair's cost. Pass planSku=P1v3 for the
+// marketing push; that single parameter also brings autoscale (floor 2/ceiling 3)
+// and the zero-downtime staging slot with its Key Vault grant, which Basic cannot
+// host (the template skips both on B2 so the apply stays clean).
+@description('App Service Plan SKU. B2 (default) = manual-scale HA; S1/P1v3 add autoscale + staging slot.')
+@allowed(['B2', 'S1', 'P1v3'])
+param planSku string = 'B2'
 
 var appName = 'altarwed'
 var prefix = '${appName}-${environment}'
@@ -94,6 +103,7 @@ module appServicePlan 'modules/app-service-plan.bicep' = {
     name: '${prefix}-plan'
     location: location
     capacity: appServicePlanCapacity
+    skuName: planSku
   }
 }
 
@@ -196,6 +206,7 @@ module appService 'modules/app-service.bicep' = {
     nextjsBaseUrl: nextjsBaseUrl
     googleOauthRedirectUri: googleOauthRedirectUri
     googlePickerAppId: googlePickerAppId
+    enableStagingSlot: planSku != 'B2'
   }
 }
 
@@ -212,7 +223,7 @@ module keyVaultAccess 'modules/keyvault-access.bicep' = {
 // principal from prod), so it needs the same Key Vault Secrets User grant for its
 // @Microsoft.KeyVault(...) app-setting references to resolve. Without this the slot
 // boots but every secret read fails.
-module keyVaultAccessSlot 'modules/keyvault-access.bicep' = {
+module keyVaultAccessSlot 'modules/keyvault-access.bicep' = if (planSku != 'B2') {
   name: 'keyVaultAccessSlot'
   params: {
     keyVaultName: keyVault.outputs.name

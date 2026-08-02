@@ -336,6 +336,11 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
   }
 }
 
+// Whether to provision the staging slot. Deployment slots require Standard tier
+// or above; deploying one against a Basic (B2) plan fails the whole apply, so
+// main.bicep passes this as planSku != 'B2'.
+param enableStagingSlot bool = false
+
 // Staging deployment slot (PremiumV3 allows up to 20 slots; we provision one
 // staging slot). This is the
 // zero-downtime deploy primitive: publish the new JAR here, let it warm up and pass
@@ -353,7 +358,7 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
 // references above to resolve. That grant is wired in main.bicep via a second
 // keyvault-access module against slotPrincipalId; without it the slot starts but
 // every secret reference fails to resolve.
-resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
+resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = if (enableStagingSlot) {
   parent: appService
   name: 'staging'
   location: location
@@ -376,4 +381,6 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
 
 output url string = 'https://${appService.properties.defaultHostName}'
 output principalId string = appService.identity.principalId
-output slotPrincipalId string = stagingSlot.identity.principalId
+// Empty string when the slot is disabled (Basic tier); main.bicep skips the
+// slot's Key Vault grant in that case.
+output slotPrincipalId string = enableStagingSlot ? stagingSlot!.identity.principalId : ''
