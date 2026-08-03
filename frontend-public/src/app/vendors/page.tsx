@@ -7,7 +7,7 @@ import { vendorLandingPath } from '@/lib/vendorLanding'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Find Christian Wedding Vendors | AltarWed',
+  title: { absolute: 'Find Christian Wedding Vendors | AltarWed' },
   description: 'Browse faith-aligned photographers, florists, venues, officiants, and more for your Christian wedding.',
   alternates: { canonical: 'https://www.altarwed.com/vendors' },
   openGraph: {

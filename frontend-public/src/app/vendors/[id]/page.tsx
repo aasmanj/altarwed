@@ -49,14 +49,14 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { id } = await params
   const [vendor, portfolioPhotos] = await Promise.all([getVendor(id), getPortfolioPhotos(id)])
-  if (!vendor) return { title: 'Vendor Not Found | AltarWed' }
+  if (!vendor) return { title: { absolute: 'Vendor Not Found | AltarWed' } }
   const category = CATEGORY_LABELS[vendor.category] ?? vendor.category
   const url = `https://www.altarwed.com/vendors/${id}`
   const metaDesc = vendor.bio
     ?? `${vendor.businessName} is a ${category.toLowerCase()} serving ${vendor.city}, ${vendor.state}${vendor.isChristianOwned ? ', a Christian-owned business' : ''}.`
   const ogImage = portfolioPhotos[0]?.photoUrl ?? vendor.logoUrl ?? undefined
   return {
-    title: `${vendor.businessName}: ${category} in ${vendor.city} | AltarWed`,
+    title: { absolute: `${vendor.businessName}: ${category} in ${vendor.city} | AltarWed` },
     description: metaDesc,
     alternates: { canonical: url },
     openGraph: {

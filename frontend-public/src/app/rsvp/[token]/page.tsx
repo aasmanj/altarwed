@@ -7,10 +7,10 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { token } = await params
   const result = await getRsvpData(token)
-  if (result.status !== 'ok') return { title: 'RSVP | AltarWed', robots: { index: false } }
+  if (result.status !== 'ok') return { title: { absolute: 'RSVP | AltarWed' }, robots: { index: false } }
   const data = result.data
   return {
-    title: `RSVP to ${data.coupleNames}'s Wedding | AltarWed`,
+    title: { absolute: `RSVP to ${data.coupleNames}'s Wedding | AltarWed` },
     description: `${data.guestName}, you're invited to celebrate ${data.coupleNames}${data.weddingDate ? ` on ${data.weddingDate}` : ''}.`,
     // RSVP pages are personal token-gated links. They should never appear in search
     // results, each URL is unique to one guest and has no SEO value.

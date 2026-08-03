@@ -5,7 +5,7 @@ import SiteFooter from '@/components/SiteFooter'
 import UnsubscribeClient from './UnsubscribeClient'
 
 export const metadata: Metadata = {
-  title: 'Unsubscribe | AltarWed',
+  title: { absolute: 'Unsubscribe | AltarWed' },
   description: 'Manage your AltarWed email preferences.',
   alternates: { canonical: 'https://www.altarwed.com/unsubscribe' },
   robots: { index: false },

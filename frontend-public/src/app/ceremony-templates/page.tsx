@@ -5,7 +5,7 @@ import SiteFooter from '@/components/SiteFooter'
 import { CEREMONY_GUIDES } from './data'
 
 export const metadata: Metadata = {
-  title: 'Christian Wedding Ceremony Templates by Denomination | AltarWed',
+  title: { absolute: 'Christian Wedding Ceremony Templates by Denomination | AltarWed' },
   description:
     'Free Christian wedding ceremony order templates by denomination: Catholic, Baptist, and non-denominational, with the readings, traditions, and order of service for each.',
   alternates: { canonical: 'https://www.altarwed.com/ceremony-templates' },

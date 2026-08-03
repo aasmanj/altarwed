@@ -4,7 +4,7 @@ import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
-  title: 'List Your Christian Wedding Business | AltarWed for Vendors',
+  title: { absolute: 'List Your Christian Wedding Business | AltarWed for Vendors' },
   description:
     'The first 25 vendors list free for a full year. After that, one flat $29/month puts your business in front of Christian couples planning their weddings.',
   alternates: { canonical: 'https://www.altarwed.com/for-vendors' },
