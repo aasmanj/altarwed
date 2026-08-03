@@ -18,9 +18,9 @@ import {
   useDroppable,
   useDraggable,
 } from '@dnd-kit/core'
-import { Printer, Users, Search } from 'lucide-react'
+import { Printer, Users, Search, X, Circle, CircleCheck, CircleX, Pencil, AlertTriangle } from 'lucide-react'
 import { TOUCH_REVEAL } from '@/lib/touchReveal'
-import { useGuests, useAssignGuestTable, type Guest } from '@/features/couple/guests/useGuests'
+import { useGuests, useAssignGuestTable, type Guest, type RsvpStatus } from '@/features/couple/guests/useGuests'
 import {
   useSeatingTables,
   useCreateSeatingTable,
@@ -35,7 +35,30 @@ import {
   shapeLabel,
   type TableShape,
 } from './tableShape'
+import {
+  groupUnassignedByParty,
+  partyHeadcountById,
+  countUnseatedAttending,
+  rsvpStatusLabel,
+  rsvpColorClass,
+  seatedNonAttendingFlag,
+  type GroupedUnassigned,
+  type PartyGroup,
+} from './seatingGroups'
 import TableShapeIcon from './TableShapeIcon'
+
+// ─── RSVP status indicator ───────────────────────────────────────────────────
+// A distinct icon shape per status (check / x / hollow circle) plus an accessible
+// label, so the status is never conveyed by color alone (WCAG 1.4.1).
+function RsvpStatusDot({ status }: { status: RsvpStatus }) {
+  const Icon = status === 'ATTENDING' ? CircleCheck : status === 'DECLINING' ? CircleX : Circle
+  return (
+    <span className="flex-shrink-0 inline-flex items-center" title={rsvpStatusLabel(status)}>
+      <Icon size={13} className={rsvpColorClass(status)} aria-hidden="true" />
+      <span className="sr-only">RSVP: {rsvpStatusLabel(status)}</span>
+    </span>
+  )
+}
 
 // ─── Guest chip (draggable on desktop) ──────────────────────────────────────
 
@@ -45,12 +68,18 @@ function GuestChip({
   onUnassign,
   tables,
   onAssignTo,
+  partyName,
+  partyHeadcount,
 }: {
   guest: Guest
   isAssigned?: boolean
   onUnassign?: () => void
   tables: SeatingTable[]
   onAssignTo: (tableNumber: number | null) => void
+  // Household label + size to show on the chip. Omitted (null) when the chip already
+  // sits inside a household group, where repeating the name on every row is noise.
+  partyName?: string | null
+  partyHeadcount?: number
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: guest.id })
   const style = transform
@@ -61,6 +90,11 @@ function GuestChip({
   // wrapper, otherwise dnd-kit treats interacting with the select as a drag start.
   const stop = (e: React.SyntheticEvent) => e.stopPropagation()
 
+  // Flag a seated guest who is not attending: a declined guest left on the chart would
+  // otherwise silently ride onto the printed board.
+  const flag = seatedNonAttendingFlag(guest, isAssigned)
+  const showSubline = !!partyName || !!flag
+
   return (
     <div
       ref={setNodeRef}
@@ -70,7 +104,7 @@ function GuestChip({
       {/* Drag handle row. Listeners live here (not on the whole chip) so the picker
           below stays clickable. */}
       <div className="flex items-center gap-2 cursor-grab active:cursor-grabbing" {...listeners} {...attributes}>
-        <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+        <RsvpStatusDot status={guest.rsvpStatus} />
         <span className="truncate flex-1">{guest.name}</span>
         {guest.plusOneName && (
           <span className="text-xs text-stone-400 flex-shrink-0">+{guest.plusOneName}</span>
@@ -83,10 +117,30 @@ function GuestChip({
             title="Remove from table"
             aria-label={`Unassign ${guest.name}`}
           >
-            ✕
+            <X className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
+      {showSubline && (
+        <div className="flex items-center gap-1.5 flex-wrap pl-[21px]">
+          {partyName && (
+            <span className="text-[11px] text-stone-400 truncate">
+              {partyName}{partyHeadcount ? ` · ${partyHeadcount}` : ''}
+            </span>
+          )}
+          {flag && (
+            <span
+              className={`text-[10px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 ${
+                flag.tone === 'danger'
+                  ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                  : 'bg-stone-100 text-stone-500'
+              }`}
+            >
+              {flag.label}
+            </span>
+          )}
+        </div>
+      )}
       {/* Click-to-assign: pick a table directly, no dragging required. Same target set
           as the drag-and-drop columns, plus an Unassigned option. */}
       <select
@@ -119,6 +173,9 @@ function TableColumn({
   sticky = false,
   filtersActive = false,
   totalCount,
+  groups,
+  onSeatParty,
+  partyHeadcounts,
 }: {
   table: SeatingTable | null
   guests: Guest[]
@@ -132,6 +189,12 @@ function TableColumn({
   // wrongly implying everyone is seated.
   filtersActive?: boolean
   totalCount?: number
+  // Unassigned column only: households + individuals to render as grouped, one-click
+  // seatable sections. When absent the column falls back to a flat chip list.
+  groups?: GroupedUnassigned
+  onSeatParty?: (members: Guest[], tableNumber: number) => void
+  // partyId -> household headcount, for the household label shown on each chip.
+  partyHeadcounts?: Map<string, number>
 }) {
   const id = table ? table.id : 'unassigned'
   const { setNodeRef, isOver } = useDroppable({ id })
@@ -155,11 +218,11 @@ function TableColumn({
       <div className={`px-3 py-2 border-b rounded-t-xl ${isUnassigned ? 'border-amber-200 bg-amber-50' : 'border-stone-200 bg-white'}`}>
         <div className="flex items-center justify-between gap-1">
           <div className="flex items-center gap-1.5 min-w-0">
-            {table && (
-              <TableShapeIcon shape={table.shape} capacity={table.capacity} size={18} className="text-stone-500 flex-shrink-0" />
-            )}
+            {table
+              ? <TableShapeIcon shape={table.shape} capacity={table.capacity} size={18} className="text-stone-500 flex-shrink-0" />
+              : <Circle size={14} className="text-amber-500 flex-shrink-0" aria-hidden="true" />}
             <p className={`text-xs font-semibold truncate ${isUnassigned ? 'text-amber-900' : 'text-stone-700'}`}>
-              {table ? table.name : '○ Unassigned'}
+              {table ? table.name : 'Unassigned'}
             </p>
           </div>
           {table && onEdit && (
@@ -167,10 +230,9 @@ function TableColumn({
               onClick={() => onEdit(table)}
               className="text-stone-300 hover:text-stone-600 flex-shrink-0"
               title="Edit table"
+              aria-label="Edit table"
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
+              <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
           )}
         </div>
@@ -188,16 +250,28 @@ function TableColumn({
         )}
       </div>
       <div className="p-2 space-y-1.5 flex-1 min-h-[80px]">
-        {guests.map(g => (
-          <GuestChip
-            key={g.id}
-            guest={g}
-            isAssigned={!isUnassigned}
-            onUnassign={onUnassign ? () => onUnassign(g.id) : undefined}
+        {isUnassigned && groups && onSeatParty ? (
+          <UnassignedGroupedBody
+            groups={groups}
             tables={tables}
-            onAssignTo={(tn) => onAssign(g.id, tn)}
+            onAssign={onAssign}
+            onSeatParty={onSeatParty}
+            partyHeadcounts={partyHeadcounts}
           />
-        ))}
+        ) : (
+          guests.map(g => (
+            <GuestChip
+              key={g.id}
+              guest={g}
+              isAssigned={!isUnassigned}
+              onUnassign={onUnassign ? () => onUnassign(g.id) : undefined}
+              tables={tables}
+              onAssignTo={(tn) => onAssign(g.id, tn)}
+              partyName={g.partyName}
+              partyHeadcount={g.partyId ? partyHeadcounts?.get(g.partyId) : undefined}
+            />
+          ))
+        )}
         {isUnassigned && filled === 0 && (
           <p className="text-xs text-amber-700/60 italic px-1 py-2">
             {filtersActive && (totalCount ?? 0) > 0
@@ -210,33 +284,144 @@ function TableColumn({
   )
 }
 
+// ─── Grouped unassigned pool (desktop) ───────────────────────────────────────
+// Households first (each with a one-click "seat all" picker), then everyone with
+// no household under Individuals. Individual chips keep drag-and-drop and the
+// per-chip picker, so no existing single-guest flow changes.
+
+function SeatAllPicker({ group, tables, onSeatParty }: {
+  group: PartyGroup
+  tables: SeatingTable[]
+  onSeatParty: (members: Guest[], tableNumber: number) => void
+}) {
+  const selectId = `seat-all-${group.partyId}`
+  return (
+    <>
+      <label htmlFor={selectId} className="sr-only">Seat the {group.partyName} household at a table</label>
+      <select
+        id={selectId}
+        value=""
+        onChange={e => { if (e.target.value) onSeatParty(group.guests, Number(e.target.value)) }}
+        className="w-full rounded border border-amber-300 bg-amber-50 px-1.5 py-1 text-xs font-medium text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400"
+      >
+        <option value="">Seat all {group.headcount} at...</option>
+        {tables.map((t, i) => (
+          <option key={t.id} value={i + 1}>{t.name}</option>
+        ))}
+      </select>
+    </>
+  )
+}
+
+function PartyGroupBlock({ group, tables, onAssign, onSeatParty }: {
+  group: PartyGroup
+  tables: SeatingTable[]
+  onAssign: (guestId: string, tableNumber: number | null) => void
+  onSeatParty: (members: Guest[], tableNumber: number) => void
+}) {
+  return (
+    <div className="rounded-lg border border-amber-200 bg-white/60 p-1.5 space-y-1.5">
+      <div className="flex items-center justify-between gap-1 px-0.5">
+        <p className="text-xs font-semibold text-amber-900 truncate">
+          {group.partyName}
+          <span className="font-normal text-amber-700"> · {group.headcount}</span>
+        </p>
+      </div>
+      <SeatAllPicker group={group} tables={tables} onSeatParty={onSeatParty} />
+      <div className="space-y-1.5">
+        {group.guests.map(g => (
+          <GuestChip
+            key={g.id}
+            guest={g}
+            tables={tables}
+            onAssignTo={(tn) => onAssign(g.id, tn)}
+            partyName={null}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function UnassignedGroupedBody({ groups, tables, onAssign, onSeatParty, partyHeadcounts }: {
+  groups: GroupedUnassigned
+  tables: SeatingTable[]
+  onAssign: (guestId: string, tableNumber: number | null) => void
+  onSeatParty: (members: Guest[], tableNumber: number) => void
+  partyHeadcounts?: Map<string, number>
+}) {
+  return (
+    <div className="space-y-2">
+      {groups.parties.map(group => (
+        <PartyGroupBlock
+          key={group.partyId}
+          group={group}
+          tables={tables}
+          onAssign={onAssign}
+          onSeatParty={onSeatParty}
+        />
+      ))}
+      {groups.individuals.length > 0 && (
+        <div className="space-y-1.5">
+          {groups.parties.length > 0 && (
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-700/70 px-0.5 pt-1">
+              Individuals
+            </p>
+          )}
+          {groups.individuals.map(g => (
+            <GuestChip
+              key={g.id}
+              guest={g}
+              tables={tables}
+              onAssignTo={(tn) => onAssign(g.id, tn)}
+              partyName={g.partyName}
+              partyHeadcount={g.partyId ? partyHeadcounts?.get(g.partyId) : undefined}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Mobile tap-to-assign card ───────────────────────────────────────────────
 
 function MobileGuestChip({
   guest,
   isSelected,
   onTap,
+  partyName,
+  partyHeadcount,
 }: {
   guest: Guest
   isSelected: boolean
   onTap: () => void
+  partyName?: string | null
+  partyHeadcount?: number
 }) {
   return (
     <button
       onClick={onTap}
-      className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm text-left transition ${
+      className={`w-full flex flex-col gap-0.5 px-3 py-2.5 rounded-lg border text-sm text-left transition ${
         isSelected
           ? 'border-amber-400 bg-amber-50 ring-2 ring-amber-300'
           : 'border-stone-200 bg-white text-stone-800'
       }`}
     >
-      <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
-      <span className="truncate font-medium">{guest.name}</span>
-      {guest.plusOneName && (
-        <span className="text-xs text-stone-400 flex-shrink-0 ml-auto">+{guest.plusOneName}</span>
-      )}
-      {isSelected && (
-        <span className="text-xs text-amber-600 font-semibold flex-shrink-0 ml-auto">Selected</span>
+      <span className="flex items-center gap-2 w-full">
+        <RsvpStatusDot status={guest.rsvpStatus} />
+        <span className="truncate font-medium">{guest.name}</span>
+        {guest.plusOneName && !isSelected && (
+          <span className="text-xs text-stone-400 flex-shrink-0 ml-auto">+{guest.plusOneName}</span>
+        )}
+        {isSelected && (
+          <span className="text-xs text-amber-600 font-semibold flex-shrink-0 ml-auto">Selected</span>
+        )}
+      </span>
+      {partyName && (
+        <span className="text-[11px] text-stone-400 truncate pl-[21px]">
+          {partyName}{partyHeadcount ? ` · ${partyHeadcount}` : ''}
+        </span>
       )}
     </button>
   )
@@ -283,23 +468,33 @@ function MobileTableCard({
             onClick={() => onEdit(table)}
             className="text-stone-300 hover:text-stone-600"
             title="Edit table"
+            aria-label="Edit table"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
+            <Pencil className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
       </div>
       {guests.length > 0 && (
         <div className="p-3 flex flex-wrap gap-2">
-          {guests.map(g => (
-            <span
-              key={g.id}
-              className="text-xs bg-white border border-stone-200 rounded-full px-2.5 py-1 text-stone-700"
-            >
-              {g.name}
-            </span>
-          ))}
+          {guests.map(g => {
+            const flag = seatedNonAttendingFlag(g, true)
+            return (
+              <span
+                key={g.id}
+                className={`text-xs bg-white border rounded-full px-2.5 py-1 inline-flex items-center gap-1.5 ${
+                  flag?.tone === 'danger' ? 'border-rose-200 text-rose-700' : 'border-stone-200 text-stone-700'
+                }`}
+              >
+                <RsvpStatusDot status={g.rsvpStatus} />
+                {g.name}
+                {flag && (
+                  <span className={`font-semibold uppercase tracking-wide ${flag.tone === 'danger' ? 'text-rose-600' : 'text-stone-400'}`}>
+                    {flag.label}
+                  </span>
+                )}
+              </span>
+            )
+          })}
         </div>
       )}
       {guests.length === 0 && (
@@ -470,9 +665,11 @@ export default function SeatingPage() {
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [seatingSearch, setSeatingSearch] = useState('')
-  // Off by default: couples often seat guests before everyone has RSVP'd, so we don't
-  // hide the un-replied by default. The toggle is there for the final attending-only pass.
-  const [attendingOnly, setAttendingOnly] = useState(false)
+  // On by default: the pool you work from is the people who are actually coming, so
+  // declined/unreplied guests do not clutter it. This only filters the *unassigned*
+  // pool; a guest who was seated and later declined is never hidden, they stay on the
+  // chart with a "Declined" badge so the couple notices before printing.
+  const [attendingOnly, setAttendingOnly] = useState(true)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -524,12 +721,26 @@ export default function SeatingPage() {
     setSelectedGuestId(null)
   }
 
+  // Seat every member of a household at one table in a single action. Members already at
+  // the target table are skipped so we don't fire no-op writes.
+  function seatParty(members: Guest[], tableNumber: number) {
+    for (const g of members) {
+      if (g.tableNumber === tableNumber) continue
+      assignTable.mutate({ guestId: g.id, tableNumber })
+    }
+    setSelectedGuestId(null)
+  }
+
   function guestsForTable(table: SeatingTable) {
     const idx = tables.indexOf(table) + 1
     return guests.filter(g => g.tableNumber === idx)
   }
   const unassignedGuests = guests.filter(g => !g.tableNumber || !tables[g.tableNumber - 1])
   const assignedCount = guests.filter(g => g.tableNumber && tables[g.tableNumber - 1]).length
+  // Household sizes across the whole list, so a chip shows its household even when some
+  // members are already seated.
+  const partyHeadcounts = partyHeadcountById(guests)
+  const unseatedAttending = countUnseatedAttending(guests, tables.length)
 
   // Search + attending filter only narrow the unassigned pool, the list you work from
   // when seating. Seated guests stay visible at their tables so the chart always shows
@@ -539,6 +750,7 @@ export default function SeatingPage() {
     !sq || g.name.toLowerCase().includes(sq) || (g.plusOneName ?? '').toLowerCase().includes(sq)
   const passesAttending = (g: Guest) => !attendingOnly || g.rsvpStatus === 'ATTENDING'
   const visibleUnassigned = unassignedGuests.filter(g => matchesSearch(g) && passesAttending(g))
+  const groupedUnassigned = groupUnassignedByParty(visibleUnassigned)
   const filtersActive = sq !== '' || attendingOnly
 
   const assignSeat = (guestId: string, tableNumber: number | null) =>
@@ -562,6 +774,35 @@ export default function SeatingPage() {
         <PageHeader title="Seating Chart" subtitle="Drag guests between tables to assign seats" />
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
           <QueryErrorState what="your seating chart" onRetry={refetch} />
+        </div>
+      </div>
+    )
+  }
+
+  // Seating has a hard prerequisite: guests. Adding tables before there is anyone to
+  // seat is a dead end, so when the guest list is empty we point the couple there first
+  // instead of showing an empty board.
+  if (guests.length === 0) {
+    return (
+      <div className="min-h-screen bg-ivory flex flex-col">
+        <PageHeader title="Seating Chart" subtitle="Arrange your guests at reception tables" />
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="max-w-md text-center">
+            <div className="flex justify-center mb-4">
+              <Users className="w-12 h-12 text-stone-300" strokeWidth={1.5} />
+            </div>
+            <h3 className="text-lg font-medium text-stone-800 mb-2">No guests to seat yet</h3>
+            <p className="text-stone-500 text-sm mb-6">
+              Add your guest list first, then come back to arrange them at tables. Guests you
+              group into a household can be seated together in one click.
+            </p>
+            <Link
+              to="/dashboard/guests"
+              className="inline-block px-5 py-2.5 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700"
+            >
+              Go to guest list
+            </Link>
+          </div>
         </div>
       </div>
     )
@@ -621,6 +862,20 @@ export default function SeatingPage() {
             </label>
           </div>
         )}
+        {tables.length > 0 && unseatedAttending > 0 && (
+          <div
+            role="status"
+            className="mb-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+          >
+            <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
+            <span>
+              <strong className="font-semibold">
+                {unseatedAttending} attending {unseatedAttending === 1 ? 'guest is' : 'guests are'} not seated yet.
+              </strong>{' '}
+              Seat them before you print the board.
+            </span>
+          </div>
+        )}
         {tables.length === 0 ? (
           <div className="max-w-md mx-auto mt-16 text-center">
             <div className="flex justify-center mb-4">
@@ -650,7 +905,7 @@ export default function SeatingPage() {
               </div>
             )}
 
-            {/* Unassigned pool */}
+            {/* Unassigned pool, grouped by household */}
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-stone-500 mb-2">
                 Unassigned ({visibleUnassigned.length}{filtersActive ? ` of ${unassignedGuests.length}` : ''})
@@ -660,15 +915,60 @@ export default function SeatingPage() {
               ) : visibleUnassigned.length === 0 ? (
                 <p className="text-xs text-stone-400 italic">No unseated guests match your search.</p>
               ) : (
-                <div className="space-y-2">
-                  {visibleUnassigned.map(g => (
-                    <MobileGuestChip
-                      key={g.id}
-                      guest={g}
-                      isSelected={selectedGuestId === g.id}
-                      onTap={() => setSelectedGuestId(prev => prev === g.id ? null : g.id)}
-                    />
+                <div className="space-y-3">
+                  {groupedUnassigned.parties.map(group => (
+                    <div key={group.partyId} className="rounded-xl border border-amber-200 bg-amber-50/60 p-2 space-y-2">
+                      <div className="flex items-center justify-between gap-2 px-1">
+                        <p className="text-sm font-semibold text-amber-900 truncate">
+                          {group.partyName}
+                          <span className="font-normal text-amber-700"> · {group.headcount}</span>
+                        </p>
+                      </div>
+                      <label htmlFor={`m-seat-all-${group.partyId}`} className="sr-only">
+                        Seat the {group.partyName} household at a table
+                      </label>
+                      <select
+                        id={`m-seat-all-${group.partyId}`}
+                        value=""
+                        onChange={e => { if (e.target.value) seatParty(group.guests, Number(e.target.value)) }}
+                        className="w-full rounded-lg border border-amber-300 bg-white px-2.5 py-2 text-sm font-medium text-amber-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      >
+                        <option value="">Seat all {group.headcount} at...</option>
+                        {tables.map((t, i) => (
+                          <option key={t.id} value={i + 1}>{t.name}</option>
+                        ))}
+                      </select>
+                      <div className="space-y-2">
+                        {group.guests.map(g => (
+                          <MobileGuestChip
+                            key={g.id}
+                            guest={g}
+                            isSelected={selectedGuestId === g.id}
+                            onTap={() => setSelectedGuestId(prev => prev === g.id ? null : g.id)}
+                          />
+                        ))}
+                      </div>
+                    </div>
                   ))}
+                  {groupedUnassigned.individuals.length > 0 && (
+                    <div className="space-y-2">
+                      {groupedUnassigned.parties.length > 0 && (
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-400 px-1">
+                          Individuals
+                        </p>
+                      )}
+                      {groupedUnassigned.individuals.map(g => (
+                        <MobileGuestChip
+                          key={g.id}
+                          guest={g}
+                          isSelected={selectedGuestId === g.id}
+                          onTap={() => setSelectedGuestId(prev => prev === g.id ? null : g.id)}
+                          partyName={g.partyName}
+                          partyHeadcount={g.partyId ? partyHeadcounts.get(g.partyId) : undefined}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -689,17 +989,28 @@ export default function SeatingPage() {
                     {/* Show assigned guests with unassign option */}
                     {tableGuests.length > 0 && (
                       <div className="mt-2 space-y-1.5 px-1">
-                        {tableGuests.map(g => (
-                          <div key={g.id} className="flex items-center justify-between gap-2">
-                            <span className="text-xs text-stone-600 truncate">{g.name}</span>
-                            <button
-                              onClick={() => handleMobileUnassign(g.id)}
-                              className="text-xs text-stone-400 hover:text-rose-500 flex-shrink-0"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ))}
+                        {tableGuests.map(g => {
+                          const flag = seatedNonAttendingFlag(g, true)
+                          return (
+                            <div key={g.id} className="flex items-center justify-between gap-2">
+                              <span className="flex items-center gap-1.5 min-w-0">
+                                <RsvpStatusDot status={g.rsvpStatus} />
+                                <span className="text-xs text-stone-600 truncate">{g.name}</span>
+                                {flag && (
+                                  <span className={`text-[10px] font-semibold uppercase tracking-wide flex-shrink-0 ${flag.tone === 'danger' ? 'text-rose-600' : 'text-stone-400'}`}>
+                                    {flag.label}
+                                  </span>
+                                )}
+                              </span>
+                              <button
+                                onClick={() => handleMobileUnassign(g.id)}
+                                className="text-xs text-stone-400 hover:text-rose-500 flex-shrink-0"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                   </div>
@@ -712,7 +1023,7 @@ export default function SeatingPage() {
           <>
             <p className="text-sm text-stone-500 mb-4">
               Drag guests between tables, or drop them on the Unassigned column to remove a seat assignment.
-              Hover a seated guest and click ✕ for a one-click unassign.
+              Seat a whole household in one click with the picker at the top of its group.
             </p>
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
               <div className="flex gap-4 items-start pb-4 overflow-x-auto">
@@ -724,6 +1035,9 @@ export default function SeatingPage() {
                   onAssign={assignSeat}
                   filtersActive={filtersActive}
                   totalCount={unassignedGuests.length}
+                  groups={groupedUnassigned}
+                  onSeatParty={seatParty}
+                  partyHeadcounts={partyHeadcounts}
                 />
                 {tables.map(t => (
                   <TableColumn
@@ -734,6 +1048,7 @@ export default function SeatingPage() {
                     onUnassign={(guestId) => assignTable.mutate({ guestId, tableNumber: null })}
                     onAssign={assignSeat}
                     tables={tables}
+                    partyHeadcounts={partyHeadcounts}
                   />
                 ))}
               </div>
