@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * JPA entity for the couple_winback_touches table (V106), the send-once ledger for the couple
+ * JPA entity for the couple_winback_touches table (V107), the send-once ledger for the couple
  * win-back sequence (issue #551). One row per (couple_id, touch); the unique constraint on that
  * pair is the hard dedupe guarantee (see the migration). The domain model is the pure
  * {@link com.altarwed.domain.model.email.CoupleWinbackTouch} enum plus the couple id; mapping

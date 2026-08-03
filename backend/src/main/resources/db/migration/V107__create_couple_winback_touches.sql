@@ -30,3 +30,11 @@ CREATE TABLE couple_winback_touches (
     CONSTRAINT pk_couple_winback_touches PRIMARY KEY NONCLUSTERED (id),
     CONSTRAINT uq_couple_winback_touch UNIQUE CLUSTERED (couple_id, touch)
 );
+
+-- The hourly candidate scan (CoupleJpaRepository.findActiveCreatedBetween) filters couples on
+-- is_active = 1 AND created_at BETWEEN :from AND :to. couples is indexed only on email and
+-- wedding_date (V1), so without this the job full-scans the table every hour, forever, and the
+-- cost grows with every signup. A filtered index matches the query's predicate exactly and stays
+-- small: it only contains active couples, ordered by created_at, which is precisely the slice the
+-- window reads.
+CREATE INDEX ix_couples_active_created ON couples (created_at) WHERE is_active = 1;

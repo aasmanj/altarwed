@@ -14,6 +14,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
@@ -115,7 +116,10 @@ public class CoupleWinbackService {
         LockAssert.assertLocked();
         UUID runId = UUID.randomUUID();
         long startMs = System.currentTimeMillis();
-        LocalDateTime now = LocalDateTime.now();
+        // Explicit UTC: couples.created_at is written with GETUTCDATE(), and a bare now() follows
+        // the JVM zone, which is UTC on Azure only until someone sets WEBSITE_TIME_ZONE. Pinning
+        // the zone keeps the age windows correct instead of silently shifting by the offset.
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
 
         // Age >= EARLIEST means createdAt <= now - EARLIEST; age <= LATEST means createdAt >= now -
         // LATEST. The window is inclusive on both ends.

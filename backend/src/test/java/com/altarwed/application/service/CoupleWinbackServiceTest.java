@@ -18,6 +18,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
@@ -236,9 +237,12 @@ class CoupleWinbackServiceTest {
         verify(coupleRepository).findActiveCreatedBetween(from.capture(), to.capture());
         // The window spans exactly (latest - earliest) days, and its young edge is at least the
         // earliest age back from now, so no couple younger than the first touch is ever fetched.
+        // Compared in UTC: the service pins its clock to UTC to match couples.created_at
+        // (GETUTCDATE()), so the bound must use the same zone or this fails on any non-UTC machine.
         assertThat(ChronoUnit.DAYS.between(from.getValue(), to.getValue()))
                 .isEqualTo(CoupleWinbackService.LATEST_AGE_DAYS - CoupleWinbackService.EARLIEST_AGE_DAYS);
-        assertThat(to.getValue()).isBeforeOrEqualTo(LocalDateTime.now().minusDays(CoupleWinbackService.EARLIEST_AGE_DAYS));
+        assertThat(to.getValue()).isBeforeOrEqualTo(
+                LocalDateTime.now(ZoneOffset.UTC).minusDays(CoupleWinbackService.EARLIEST_AGE_DAYS));
     }
 
     // --- structural guard ---------------------------------------------------------------------

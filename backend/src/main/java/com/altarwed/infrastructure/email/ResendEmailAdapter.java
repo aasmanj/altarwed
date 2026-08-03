@@ -199,13 +199,25 @@ public class ResendEmailAdapter implements EmailPort {
         }
     }
 
+    // The "why you received this" line must be true for the audience: guests were added to a
+    // wedding, but couples (welcome, win-back) registered themselves, and an inaccurate reason
+    // line is exactly what a spam complaint or a CAN-SPAM reviewer seizes on.
+    private static final String GUEST_FOOTER_REASON =
+            "You received this because you were added to an AltarWed wedding.";
+    private static final String COUPLE_FOOTER_REASON =
+            "You received this because you created a free AltarWed account.";
+
     private String unsubscribeFooterHtml(String unsubUrl) {
+        return unsubscribeFooterHtml(unsubUrl, GUEST_FOOTER_REASON);
+    }
+
+    private String unsubscribeFooterHtml(String unsubUrl, String reason) {
         return """
                 <div style="margin-top:32px;border-top:1px solid #e8dcc8;padding-top:16px;text-align:center;color:#a08060;font-size:11px;font-family:sans-serif;">
-                  You received this because you were added to an AltarWed wedding.<br>
+                  %s<br>
                   <a href="%s" style="color:#a08060;">Unsubscribe</a> &nbsp;|&nbsp; %s
                 </div>
-                """.formatted(unsubUrl, postalAddress);
+                """.formatted(reason, unsubUrl, postalAddress);
     }
 
     private String unsubscribeFooterText(String unsubUrl) {
@@ -1034,7 +1046,7 @@ public class ResendEmailAdapter implements EmailPort {
         body.put("from", "AltarWed <" + fromEmail + ">");
         body.put("to", List.of(toEmail));
         body.put("subject", "Welcome to AltarWed, let's build your wedding website");
-        body.put("html", html + unsubscribeFooterHtml(displayUnsubUrl));
+        body.put("html", html + unsubscribeFooterHtml(displayUnsubUrl, COUPLE_FOOTER_REASON));
         body.put("text", text);
         body.put("headers", Map.of(
                 "List-Unsubscribe", "<" + oneClickUnsubUrl + ">",
@@ -1194,7 +1206,7 @@ public class ResendEmailAdapter implements EmailPort {
         body.put("from", "AltarWed <" + fromEmail + ">");
         body.put("to", List.of(toEmail));
         body.put("subject", copy.subject());
-        body.put("html", html + unsubscribeFooterHtml(displayUnsubUrl));
+        body.put("html", html + unsubscribeFooterHtml(displayUnsubUrl, COUPLE_FOOTER_REASON));
         body.put("text", text);
         body.put("headers", Map.of(
                 "List-Unsubscribe", "<" + oneClickUnsubUrl + ">",
