@@ -127,6 +127,18 @@ public class EmailSuppressionService {
         return suppressionPort.isSuppressed(emailHash) || optOutPort.isOptedOut(coupleId, emailHash);
     }
 
+    /**
+     * True if the address is suppressed at the address level (bounce, complaint, or a voluntary
+     * opt-out from a couple-facing footer link, which is minted without couple scoping).
+     *
+     * The right check for account-lifecycle mail to the couple themselves (win-back nudges, issue
+     * #551): there is no sending couple to scope against, so a per-couple guest opt-out is simply
+     * not applicable. Callers with a sending couple should use {@link #isSuppressed} instead.
+     */
+    public boolean isGloballySuppressed(String emailHash) {
+        return suppressionPort.isSuppressed(emailHash);
+    }
+
     /** Global suppression from a bounce/complaint webhook (address-level, couple-agnostic). */
     @Transactional
     public void suppressGlobal(String emailHash, String source) {

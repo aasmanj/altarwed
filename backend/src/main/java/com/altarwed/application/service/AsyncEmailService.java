@@ -2,6 +2,7 @@ package com.altarwed.application.service;
 
 import com.altarwed.domain.model.EmailRecipient;
 import com.altarwed.domain.model.RsvpInviteRecipient;
+import com.altarwed.domain.model.email.CoupleWinbackTouch;
 import com.altarwed.domain.model.email.EmailOutboxEntry;
 import com.altarwed.domain.model.email.EmailType;
 import com.altarwed.domain.model.email.OutboxPayloads;
@@ -171,6 +172,14 @@ public class AsyncEmailService {
         enqueue(EmailType.ATTENDING_REMINDER, toEmail,
                 new OutboxPayloads.AttendingReminder(toEmail, guestName, coupleNames, weddingDate,
                         venueAddress, venueCity, venueState, ceremonyTime, googleCalendarUrl));
+    }
+
+    // Couple activation win-back sequence (issue #551). The touch selects the EmailType, so each
+    // nudge lands in the outbox under its own discriminator and stays individually traceable.
+    public void sendCoupleWinbackEmail(String toEmail, String partnerOneName, String partnerTwoName,
+                                       CoupleWinbackTouch touch) {
+        enqueue(touch.emailType(), toEmail,
+                new OutboxPayloads.CoupleWinback(toEmail, partnerOneName, partnerTwoName));
     }
 
     // Serialises the payload and writes one PENDING row. recipient is a single low-cardinality

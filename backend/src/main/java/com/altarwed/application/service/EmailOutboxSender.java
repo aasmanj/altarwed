@@ -1,5 +1,6 @@
 package com.altarwed.application.service;
 
+import com.altarwed.domain.model.email.CoupleWinbackTouch;
 import com.altarwed.domain.model.email.EmailOutboxEntry;
 import com.altarwed.domain.model.email.OutboxPayloads;
 import com.altarwed.domain.port.EmailOutboxRepository;
@@ -205,7 +206,17 @@ public class EmailOutboxSender {
                         p.weddingDate(), p.venueAddress(), p.venueCity(), p.venueState(),
                         p.ceremonyTime(), p.googleCalendarUrl());
             }
+            // Couple activation win-back sequence (issue #551). All three touches share one payload
+            // envelope; the row's type is what selects the copy, so the touch is derived here.
+            case COUPLE_WINBACK_DAY_2 -> dispatchWinback(json, CoupleWinbackTouch.DAY_2);
+            case COUPLE_WINBACK_DAY_7 -> dispatchWinback(json, CoupleWinbackTouch.DAY_7);
+            case COUPLE_WINBACK_DAY_21 -> dispatchWinback(json, CoupleWinbackTouch.DAY_21);
         }
+    }
+
+    private void dispatchWinback(String json, CoupleWinbackTouch touch) throws Exception {
+        var p = objectMapper.readValue(json, OutboxPayloads.CoupleWinback.class);
+        emailPort.sendCoupleWinbackEmail(p.toEmail(), p.partnerOneName(), p.partnerTwoName(), touch);
     }
 
     private long backoffSeconds(int attempts) {

@@ -4,6 +4,7 @@ import com.altarwed.application.service.EmailSuppressionService;
 import com.altarwed.domain.model.EmailAddresses;
 import com.altarwed.domain.model.EmailRecipient;
 import com.altarwed.domain.model.RsvpInviteRecipient;
+import com.altarwed.domain.model.email.CoupleWinbackTouch;
 import com.altarwed.domain.port.EmailPort;
 import com.altarwed.domain.port.EmailSuppressionPort;
 import com.altarwed.infrastructure.observability.LogSanitizer;
@@ -32,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -1286,6 +1288,138 @@ public class ResendEmailAdapter implements EmailPort {
         ));
         body.put("tags", guestTags(null, null, "attending-reminder"));
         postEmail("attending-reminder", toEmail, body);
+    }
+
+    @Override
+    public void sendCoupleWinbackEmail(String toEmail, String partnerOneName, String partnerTwoName,
+                                       CoupleWinbackTouch touch) {
+        if (!isValidEmailAddress(toEmail)) {
+            log.warn("couple winback skipped, invalid recipient address, type=couple-winback, touch={}", touch);
+            return;
+        }
+        Map<String, Object> body = buildCoupleWinbackBody(toEmail, partnerOneName, partnerTwoName, touch);
+        postMarketingEmail(winbackEmailType(touch), toEmail, body);
+    }
+
+    // Stable, low-cardinality log/type label per touch, e.g. "couple-winback-day-2".
+    private static String winbackEmailType(CoupleWinbackTouch touch) {
+        return "couple-winback-" + touch.name().toLowerCase(Locale.ROOT).replace('_', '-');
+    }
+
+    /**
+     * Builds the win-back nudge (issue #551). Package-private so the template test can assert the
+     * copy, the CTA, and the intact compliance footer without a live Resend call.
+     *
+     * The copy is warm and faith-aligned rather than growth-hacky on purpose: this lands in the
+     * inbox of a couple in the middle of engagement season who has not come back. Each touch says
+     * something genuinely different (encouragement, then the practical reason, then permission to
+     * take their time) and the last one tells them plainly that it is the last, which is what earns
+     * the reply instead of the spam report.
+     */
+    Map<String, Object> buildCoupleWinbackBody(String toEmail, String partnerOneName,
+                                               String partnerTwoName, CoupleWinbackTouch touch) {
+        // Land them on the page builder, the single highest-value action for an unactivated couple.
+        String editorUrl = appBaseUrl + "/dashboard/website/editor"
+                + "?utm_source=lifecycle_email&utm_medium=email&utm_campaign=" + winbackEmailType(touch);
+        String greetingHtml = escapeHtml(partnerOneName) + " &amp; " + escapeHtml(partnerTwoName);
+        String greetingText = partnerOneName + " & " + partnerTwoName;
+
+        WinbackCopy copy = winbackCopy(touch);
+
+        String html = """
+                <div style="font-family:Georgia,serif;max-width:540px;margin:0 auto;background:#fdfaf6;padding:40px;border-radius:8px;">
+                  <p style="text-align:center;color:#a08060;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">AltarWed</p>
+                  <h1 style="text-align:center;color:#3b2f2f;font-size:26px;margin:0 0 8px;">%s</h1>
+                  <p style="text-align:center;color:#a08060;font-size:13px;margin:0 0 24px;">%s</p>
+                  <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">%s</p>
+                  <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">%s</p>
+                  <div style="text-align:center;margin:28px 0 16px;">
+                    <a href="%s"
+                       style="display:inline-block;padding:14px 32px;background:#3b2f2f;color:#d4af6a;text-decoration:none;border-radius:4px;font-size:14px;letter-spacing:0.1em;text-transform:uppercase;">
+                      %s
+                    </a>
+                  </div>
+                  <p style="text-align:center;color:#a08060;font-size:11px;margin-top:32px;">%s</p>
+                </div>
+                """.formatted(
+                escapeHtml(copy.heading()), greetingHtml,
+                escapeHtml(copy.paragraphOne()), escapeHtml(copy.paragraphTwo()),
+                editorUrl, escapeHtml(copy.ctaLabel()), escapeHtml(copy.scripture()));
+
+        String displayUnsubUrl = unsubscribeDisplayUrl(toEmail, null);
+        String oneClickUnsubUrl = unsubscribeOneClickUrl(toEmail, null);
+
+        String text = """
+                %s
+
+                Hi %s,
+
+                %s
+
+                %s
+
+                %s:
+                %s
+
+                %s
+                """.formatted(copy.heading(), greetingText, copy.paragraphOne(), copy.paragraphTwo(),
+                copy.ctaLabel(), editorUrl, copy.scripture())
+                + unsubscribeFooterText(displayUnsubUrl);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("from", "AltarWed <" + fromEmail + ">");
+        body.put("to", List.of(EmailAddresses.normalize(toEmail)));
+        body.put("subject", copy.subject());
+        body.put("html", html + unsubscribeFooterHtml(displayUnsubUrl));
+        body.put("text", text);
+        // RFC 8058 one-click unsubscribe, the same compliance surface the welcome mail carries.
+        // Lifecycle marketing without it is what gets a sending domain into the spam folder.
+        body.put("headers", Map.of(
+                "List-Unsubscribe", "<" + oneClickUnsubUrl + ">",
+                "List-Unsubscribe-Post", "List-Unsubscribe=One-Click"
+        ));
+        return body;
+    }
+
+    // The per-touch copy. Kept as data rather than three near-duplicate template methods so the
+    // shared layout (and its compliance footer) has exactly one definition.
+    private record WinbackCopy(String subject, String heading, String paragraphOne,
+                               String paragraphTwo, String ctaLabel, String scripture) {}
+
+    private static WinbackCopy winbackCopy(CoupleWinbackTouch touch) {
+        return switch (touch) {
+            case DAY_2 -> new WinbackCopy(
+                    "Your wedding website is waiting",
+                    "Your wedding website is waiting",
+                    "You created your AltarWed account a couple of days ago, and your free wedding "
+                            + "website is already set up and saved. It just needs your story: how you met, "
+                            + "the day you chose, and the people you want beside you.",
+                    "Most couples get theirs looking beautiful in about ten minutes. You can add the "
+                            + "venue, the registry, and your photos later, so there is nothing to finish "
+                            + "before you start.",
+                    "Build Your Website",
+                    "\"Commit to the Lord whatever you do, and he will establish your plans.\" (Proverbs 16:3)");
+            case DAY_7 -> new WinbackCopy(
+                    "One link for everything your guests keep asking",
+                    "One link your family can keep",
+                    "About now, the questions start: what is the date, where is it, what should we wear, "
+                            + "where do we stay. Publishing your AltarWed website answers all of them in one "
+                            + "link you can text to anyone who asks.",
+                    "It also collects RSVPs for you, so you are not counting replies across group chats "
+                            + "and voicemails. Your website is still saved exactly where you left it.",
+                    "Finish And Publish",
+                    "\"Two are better than one, because they have a good return for their labor.\" (Ecclesiastes 4:9)");
+            case DAY_21 -> new WinbackCopy(
+                    "Still here whenever you are ready",
+                    "Still here whenever you are ready",
+                    "Engagement seasons have quiet stretches, and that is a good thing. We are not going "
+                            + "to keep filling your inbox: this is the last note in this series.",
+                    "Your free wedding website is saved and will be right where you left it whenever the "
+                            + "season is right. We are praying for you both as you plan a marriage, not just "
+                            + "a wedding day.",
+                    "Open My Website",
+                    "\"There is a time for everything, and a season for every activity under the heavens.\" (Ecclesiastes 3:1)");
+        };
     }
 
     private static String buildVenueDisplay(String address, String city, String state) {

@@ -83,4 +83,9 @@ public final class OutboxPayloads {
                                     String weddingDate, String venueAddress, String venueCity,
                                     String venueState, String ceremonyTime,
                                     String googleCalendarUrl) {}
+
+    // Couple activation win-back sequence (issue #551). One shared envelope for all three touches:
+    // which touch this row is, is already carried by the row's EmailType, so duplicating it in the
+    // payload would let the two drift apart after a rename or a hand-edited row.
+    public record CoupleWinback(String toEmail, String partnerOneName, String partnerTwoName) {}
 }

@@ -27,5 +27,11 @@ public enum EmailType {
     VENDOR_INQUIRY_CONFIRMATION,
     // Date-offset RSVP campaign reminders (issue #458), enqueued by CampaignReminderService.
     RSVP_NONRESPONDER_REMINDER,
-    ATTENDING_REMINDER
+    ATTENDING_REMINDER,
+    // Couple activation win-back sequence (issue #551), enqueued by CoupleWinbackService for a
+    // couple who registered but still has no published wedding website. One value per touch so
+    // the outbox row itself records which nudge went out; see CoupleWinbackTouch for the offsets.
+    COUPLE_WINBACK_DAY_2,
+    COUPLE_WINBACK_DAY_7,
+    COUPLE_WINBACK_DAY_21
 }
