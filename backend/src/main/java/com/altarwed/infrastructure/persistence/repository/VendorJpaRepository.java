@@ -72,4 +72,25 @@ public interface VendorJpaRepository extends JpaRepository<VendorEntity, UUID> {
     @Modifying
     @Query("UPDATE VendorEntity v SET v.viewCount = v.viewCount + 1 WHERE v.id = :id")
     void incrementViewCount(UUID id);
+
+    // Atomic founding-25 slot allocation (issue #554). The guard and the increment are a single
+    // statement, so concurrent registrations serialize on the founding_program row's exclusive lock
+    // (SQL Server, READ COMMITTED): the second writer blocks until the first commits, then
+    // re-evaluates slots_claimed < :cap against the committed value. Returns the affected row count:
+    // 1 = a slot was claimed, 0 = the program is full. Single-row update, so no write-skew. Native
+    // query because founding_program has no JPA entity (it is a pure counter, see migration V106).
+    @Transactional
+    @Modifying
+    @Query(value = "UPDATE founding_program "
+            + "SET slots_claimed = slots_claimed + 1, updated_at = GETUTCDATE() "
+            + "WHERE program_key = 'FOUNDING_25' AND slots_claimed < :cap", nativeQuery = true)
+    int claimFoundingSlot(@Param("cap") long cap);
+
+    // Committed claims for the public founding-spots read. Boxed Long, not long: the counter row
+    // does not exist until V106 runs, and a native scalar query maps a missing row to null.
+    // CAST to BIGINT because slots_claimed is INT: without it JDBC hands back an Integer and the
+    // Long-typed proxy return can ClassCastException at runtime, which no mocked unit test sees.
+    @Query(value = "SELECT CAST(slots_claimed AS BIGINT) FROM founding_program "
+            + "WHERE program_key = 'FOUNDING_25'", nativeQuery = true)
+    Long countFoundingSlotsClaimed();
 }

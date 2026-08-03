@@ -84,6 +84,20 @@ public class VendorRepositoryAdapter implements VendorRepository {
     }
 
     @Override
+    public boolean tryClaimFoundingSlot(long cap) {
+        // rowsAffected is 1 when the conditional UPDATE consumed a slot, 0 when the program is full.
+        return jpaRepository.claimFoundingSlot(cap) == 1;
+    }
+
+    @Override
+    public long countFoundingSlotsClaimed() {
+        // Null only before V106 has seeded the counter row; read that as zero claims rather than
+        // failing the public pricing page.
+        Long claimed = jpaRepository.countFoundingSlotsClaimed();
+        return claimed != null ? claimed : 0L;
+    }
+
+    @Override
     public void deleteById(UUID id) {
         jpaRepository.deleteById(id);
     }

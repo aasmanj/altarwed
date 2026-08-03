@@ -147,7 +147,8 @@ use the new packages; the old ones DO NOT EXIST in 4.x:**
 ### Public endpoint whitelist (everything else requires auth)
 ```
 POST /api/v1/auth/**, POST /api/v1/couples/register, POST /api/v1/vendors/register,
-GET  /api/v1/vendors/**, GET /api/v1/denominations/**,
+GET  /api/v1/vendors, GET /api/v1/vendors/{id}, GET /api/v1/vendors/{id}/portfolio-photos,
+GET  /api/v1/vendors/founding-spots, GET /api/v1/denominations/**,
 GET  /api/v1/wedding-websites/slug/**, GET /api/v1/wedding-websites/published,
 GET  /api/v1/wedding-websites/search, GET /api/v1/wedding-websites/*/hotels,
 GET  /api/v1/guests/rsvp/**, POST /api/v1/guests/rsvp,

@@ -14,10 +14,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for the public founding-spots counter. It must mirror the registration
- * gate's countVerified-vs-cap comparison exactly (same repository count, same cap),
- * clamp at zero once paid vendors push the verified count past the cap, and read as
- * a disabled program when the cap is configured to 0.
+ * Unit tests for the public founding-spots counter. It must read the SAME
+ * slots_claimed counter the registration gate consumes (issue #554), never the
+ * broader countVerified() (which also counts paid/comped verifications and
+ * would under-report remaining spots), clamp at zero if the counter ever
+ * exceeds the cap, and read as a disabled program when the cap is 0.
  */
 class VendorAuthServiceFoundingSpotsTest {
 
@@ -38,16 +39,27 @@ class VendorAuthServiceFoundingSpotsTest {
 
     @Test
     void spotsRemaining_underCap() {
-        when(vendorRepository.countVerified()).thenReturn(5L);
+        when(vendorRepository.countFoundingSlotsClaimed()).thenReturn(5L);
         assertThat(service(25).foundingSpots())
                 .isEqualTo(new FoundingSpotsResponse(25, 20));
     }
 
     @Test
+    void spotsRemaining_readsTheGateCounter_notCountVerified() {
+        // A comped/paid vendor raises countVerified without consuming a founding
+        // slot. The public number must follow the gate's counter, so the page
+        // still shows 20 spots, not 15.
+        when(vendorRepository.countFoundingSlotsClaimed()).thenReturn(5L);
+        when(vendorRepository.countVerified()).thenReturn(10L);
+        assertThat(service(25).foundingSpots())
+                .isEqualTo(new FoundingSpotsResponse(25, 20));
+        verify(vendorRepository, never()).countVerified();
+    }
+
+    @Test
     void spotsRemaining_clampsToZeroPastCap() {
-        // Paid vendors keep growing countVerified after the founding window closes;
-        // the public counter must read "full", never a negative number.
-        when(vendorRepository.countVerified()).thenReturn(40L);
+        // An over-seeded counter must read "full", never a negative number.
+        when(vendorRepository.countFoundingSlotsClaimed()).thenReturn(40L);
         assertThat(service(25).foundingSpots())
                 .isEqualTo(new FoundingSpotsResponse(25, 0));
     }
@@ -56,6 +68,6 @@ class VendorAuthServiceFoundingSpotsTest {
     void capZero_readsAsDisabledWithoutTouchingTheRepository() {
         assertThat(service(0).foundingSpots())
                 .isEqualTo(new FoundingSpotsResponse(0, 0));
-        verify(vendorRepository, never()).countVerified();
+        verify(vendorRepository, never()).countFoundingSlotsClaimed();
     }
 }
