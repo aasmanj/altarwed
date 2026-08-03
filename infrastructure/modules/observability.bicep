@@ -296,6 +296,71 @@ traces
   }
 }
 
+// ── RSVP-path failures (issue #553) ──────────────────────────────────────────
+// Jordan's invitations mailed 2026-08-02, so a broken RSVP flow this week is a
+// launch emergency, not a background metric. The existing metric alerts only fire
+// on availability loss or exception-rate >20/15min; a deterministic per-guest 500
+// (one malformed token, one constraint the service check missed) repeats a handful
+// of times and never crosses that global rate, so today it pages nobody.
+//
+// Signal: two ERROR trace messages the backend GlobalExceptionHandler emits for the
+// only two failure modes that matter here -- "unhandled exception, exceptionType=..."
+// (handleUnexpected, every catch-all 500) and "data integrity violation"
+// (handleDataIntegrityViolation, a DB constraint that slipped past a service check).
+// Those messages are global, so we correlate to the RSVP flow via operation_Name /
+// url: the App Insights Java agent stamps every trace emitted during a request with
+// that request's operation context, and the RSVP endpoints live under
+// /api/v1/guests/rsvp. Message prefixes and the path are a contract with the backend;
+// renaming either must update this query.
+//
+// Threshold is GreaterThanOrEqual 2 (not >0 like the money-path rules) precisely
+// because a deterministic single-guest failure repeats: 2 in 15 min separates a real
+// broken path from a lone transient blip, while still paging fast during the mail-out
+// window. Severity 1 to page, same tier as the availability and money-path alerts.
+//
+// Not covered here on purpose: "email outbox send exhausted" (a lost RSVP-confirmation
+// email) is already caught by the emailLossAlert rule above; duplicating it would
+// double-page for one failure. This rule is only the RSVP request-path server errors.
+//
+// NOTE: like the #540 alert trio, this resource only exists in Azure after the next
+// main.bicep apply (az deployment group create); that apply is tracked in PR #547's
+// runbook. Adding it to Bicep does not create it in prod on its own.
+resource rsvpFailureAlert 'Microsoft.Insights/scheduledQueryRules@2022-06-15' = {
+  name: '${prefix}-rsvp-failures'
+  location: location
+  properties: {
+    description: 'Server errors on the guest RSVP path (unhandled exception or data integrity violation traces correlated to /guests/rsvp). During the invitation mail-out window a broken RSVP flow must page immediately.'
+    severity: 1
+    enabled: true
+    evaluationFrequency: 'PT15M'
+    windowSize: 'PT15M'
+    scopes: [ appInsights.id ]
+    autoMitigate: true
+    criteria: {
+      allOf: [
+        {
+          query: '''
+traces
+| where operation_Name has "/guests/rsvp" or tostring(customDimensions.url) has "/guests/rsvp"
+| where severityLevel >= 3
+| where message startswith "unhandled exception" or message startswith "data integrity violation"
+'''
+          timeAggregation: 'Count'
+          operator: 'GreaterThanOrEqual'
+          threshold: 2
+          failingPeriods: {
+            numberOfEvaluationPeriods: 1
+            minFailingPeriodsToAlert: 1
+          }
+        }
+      ]
+    }
+    actions: {
+      actionGroups: [ actionGroup.id ]
+    }
+  }
+}
+
 output connectionString string = appInsights.properties.ConnectionString
 output appInsightsName string = appInsights.name
 output workspaceId string = workspace.id
