@@ -74,11 +74,19 @@ export default function RsvpForm({
     hasExistingResponse ? (currentRsvpStatus as Status) : null
   )
   const [remindInDays, setRemindInDays] = useState<number | null>(null)
-  // partyStatuses: keyed by guestId, value is ATTENDING/DECLINING/PENDING. Pre-filled from
-  // each member's existing response so re-RSVPing shows their prior choice, not a reset.
+  // partyStatuses: keyed by guestId, value is ATTENDING/DECLINING. Pre-filled ONLY from a known
+  // prior response. On a search-token (masked household) view the backend withholds each member's
+  // status (currentRsvpStatus === null), so those members start with NO selection: an untouched
+  // masked member must submit no status change rather than defaulting to ATTENDING and silently
+  // overwriting a relative's prior DECLINE (issue #549). A member with no entry here is "not
+  // chosen" and is omitted from the submission below.
   const [partyStatuses, setPartyStatuses] = useState<Record<string, PartyStatus>>(() => {
     const init: Record<string, PartyStatus> = {}
-    partyMembers?.forEach(m => { init[m.guestId] = m.currentRsvpStatus === 'DECLINING' ? 'DECLINING' : 'ATTENDING' })
+    partyMembers?.forEach(m => {
+      if (m.currentRsvpStatus === 'ATTENDING' || m.currentRsvpStatus === 'DECLINING') {
+        init[m.guestId] = m.currentRsvpStatus
+      }
+    })
     return init
   })
   // Per-member dietary + song, collected for each attending member (note-to-couple stays a
@@ -143,11 +151,17 @@ export default function RsvpForm({
     setSubmitting(true)
     setError(null)
     try {
-      // Build party responses for other members. Dietary/song only ride along for members
-      // marked attending; a declining member sends just their status.
-      const partyResponses = partyMembers && partyMembers.length > 0
-        ? partyMembers.map(m => {
-            const memberStatus = partyStatuses[m.guestId] ?? 'ATTENDING'
+      // Build party responses only for members the contact actually chose a status for. A member
+      // left with no selection (a masked household member nobody touched) is omitted entirely so
+      // the backend leaves their existing RSVP untouched, instead of the old code defaulting every
+      // member to ATTENDING and overwriting a prior DECLINE (issue #549). Dietary/song only ride
+      // along for members marked attending; a declining member sends just their status.
+      const chosenMembers = (partyMembers ?? []).filter(
+        m => partyStatuses[m.guestId] === 'ATTENDING' || partyStatuses[m.guestId] === 'DECLINING',
+      )
+      const partyResponses = chosenMembers.length > 0
+        ? chosenMembers.map(m => {
+            const memberStatus: PartyStatus = partyStatuses[m.guestId] === 'DECLINING' ? 'DECLINING' : 'ATTENDING'
             const attending = memberStatus === 'ATTENDING'
             return {
               guestId: m.guestId,

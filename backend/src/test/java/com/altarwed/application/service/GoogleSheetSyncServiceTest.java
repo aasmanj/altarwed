@@ -365,6 +365,49 @@ class GoogleSheetSyncServiceTest {
         assertThat(saved.getValue().get(0).tableNumber()).isNull(); // healed back onto the board
     }
 
+    /**
+     * Issue #549: the sheet sync is a read-modify-write, and the sheet's cells are authoritative,
+     * so a routine sheet edit to ANY cell in a guest's row re-saved the whole row and clobbered a
+     * response the guest had just submitted through the RSVP page. Once respondedAt is non-null the
+     * guest-owned fields (rsvpStatus, dietary, plusOneName; songRequest and noteForCouple are never
+     * sheet-sourced) must survive, while the sheet stays authoritative for contact/address/table.
+     * Here the couple edits the phone while the sheet's stale RSVP/dietary/plus-one cells disagree
+     * with the guest's live answer. Fails before the guard (row becomes DECLINING), passes after.
+     */
+    @Test
+    void respondedGuest_keepsOwnRsvpFields_whenSheetEditsAnotherCellInTheirRow() {
+        UUID coupleId = UUID.randomUUID();
+        GoogleSheetSync sync = activeSync(coupleId);
+        Guest responded = respondedGuest(coupleId, "Grace Miller",
+                GuestRsvpStatus.ATTENDING, "Sam", "Vegetarian", "555-0001");
+
+        when(syncRepository.findAllActive()).thenReturn(List.of(sync));
+        when(googleOAuthService.hasOAuthTokens(coupleId)).thenReturn(true);
+        // The couple edits the phone; the RSVP Status / Dietary / Plus One cells in the sheet
+        // disagree with what the guest submitted on the RSVP page after the last export.
+        when(googleOAuthService.readSheet(any(), any())).thenReturn(List.of(
+                new String[]{"Guest Name(s)", "Phone Number", "RSVP Status", "Dietary Restriction", "Plus One Name"},
+                new String[]{"Grace Miller", "555-9999", "Declining", "Gluten-free", "Alex"}
+        ));
+        when(guestRepository.findAllByCoupleId(coupleId)).thenReturn(List.of(responded));
+        when(seatingTableRepository.findAllByCoupleId(coupleId)).thenReturn(List.of());
+        when(syncRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service().runAllActive();
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<Guest>> saved = ArgumentCaptor.forClass(List.class);
+        verify(guestRepository).saveAll(saved.capture());
+        assertThat(saved.getValue()).hasSize(1);
+        Guest merged = saved.getValue().get(0);
+        // Guest-owned answers survive the sheet edit.
+        assertThat(merged.rsvpStatus()).isEqualTo(GuestRsvpStatus.ATTENDING);
+        assertThat(merged.dietaryRestrictions()).isEqualTo("Vegetarian");
+        assertThat(merged.plusOneName()).isEqualTo("Sam");
+        // Contact stays sheet-authoritative: the phone edit still lands.
+        assertThat(merged.phone()).isEqualTo("555-9999");
+    }
+
     @Test
     void resolveMergedTableNumber_prefersValidSheet_thenValidStored_elseNull() {
         assertThat(GoogleSheetSyncService.resolveMergedTableNumber(3, 1, 4)).isEqualTo(3);   // valid sheet wins
@@ -383,6 +426,22 @@ class GoogleSheetSyncServiceTest {
         assertThat(GoogleSheetSyncService.isTableNumberOutOfRange(4, 4)).isFalse();     // last table
         assertThat(GoogleSheetSyncService.isTableNumberOutOfRange(5, 4)).isTrue();      // past the end
         assertThat(GoogleSheetSyncService.isTableNumberOutOfRange(1, 0)).isTrue();      // no tables yet
+    }
+
+    // A guest who has already submitted their RSVP (respondedAt non-null), used by the sheet-merge
+    // protection test (issue #549). Matched by name (sheetSyncId null) so no AltarWed ID column is
+    // needed in the stub sheet.
+    private Guest respondedGuest(UUID coupleId, String name, GuestRsvpStatus status,
+                                 String plusOneName, String dietary, String phone) {
+        return new Guest(
+                UUID.randomUUID(), coupleId, name, "grace@example.com", phone,
+                status, true, plusOneName, dietary, null,
+                null, null, null,
+                null, null, null, null, null,
+                null, 0,
+                null, null, LocalDateTime.now().minusDays(1), null, null, null,
+                null, null, null,
+                null, true, null, null);
     }
 
     private Guest guestWithTable(UUID coupleId, String name, Integer tableNumber) {

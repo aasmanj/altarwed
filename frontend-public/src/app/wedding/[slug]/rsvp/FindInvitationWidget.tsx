@@ -54,7 +54,18 @@ export default function FindInvitationWidget({ slug }: Props) {
       const url = buildFindUrl(process.env.NEXT_PUBLIC_API_URL ?? '', slug, trimmed, captchaToken)
       const res = await fetch(url)
       if (res.status === 429) {
-        setError('Too many searches from your network. Please wait a minute and try again.')
+        // The throttle is per-wedding, not per-network (issue #549): the old "from your network"
+        // copy misled a guest into thinking their own connection was the problem when the budget
+        // is actually shared across everyone looking up this wedding right after an invite blast.
+        setError('There have been a lot of invitation lookups for this wedding. Please wait a minute and try again.')
+        return
+      }
+      // A 400 from this endpoint means the Turnstile captcha token failed to verify (issue #549):
+      // the guest's browser blocked Cloudflare's script (a privacy extension or network filter),
+      // so no token was sent, or the token expired before submit. Retrying the same way will not
+      // help, so give them an actionable path instead of the generic "something went wrong".
+      if (res.status === 400) {
+        setError('We could not verify your browser. Please turn off any ad or privacy blocker for this page and try again, or contact the couple directly for your invitation link.')
         return
       }
       // Backend fail-closed (issue #413): in prod with no Turnstile secret configured, every
@@ -86,7 +97,7 @@ export default function FindInvitationWidget({ slug }: Props) {
           type="text"
           value={query}
           onChange={e => setQuery(e.target.value)}
-          placeholder="Type your first and last name..."
+          placeholder="Type your first or last name..."
           className="flex-1 rounded-xl border border-[color-mix(in_srgb,var(--accent)_50%,transparent)] bg-white px-4 py-3 text-[#3b2f2f] placeholder-[#8a6a4a] shadow-sm focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[color-mix(in_srgb,var(--accent)_30%,transparent)]"
           autoComplete="off"
           aria-label="Your name"

@@ -554,14 +554,29 @@ public class GoogleSheetSyncService {
                 // We then equals-check against the existing DB row so unchanged rows are NOT
                 // counted as "updated" in the toast (and not re-saved either, small DB win).
                 seenExistingIds.add(g.id());
+                // Guest-owned RSVP fields are protected once the guest has actually responded
+                // (issue #549): respondedAt non-null means their own answers are authoritative, so a
+                // later sheet edit to ANY cell in this row must not clobber them. rsvpStatus, dietary,
+                // and plusOneName were sheet-wins here and are the fields at risk; respondedAt,
+                // songRequest, and noteForCouple are already never sourced from the sheet. The sheet
+                // stays authoritative for contact/address/table/side fields below (a couple can still
+                // fix a phone number or seat after a guest RSVPs). plusOneAllowed is the couple's
+                // call, not the guest's, so it stays sheet-driven.
+                boolean responded = g.respondedAt() != null;
+                com.altarwed.domain.model.GuestRsvpStatus mergedRsvp =
+                        responded ? g.rsvpStatus() : (rsvpStatus != null ? rsvpStatus : g.rsvpStatus());
+                String mergedDietary =
+                        responded ? g.dietaryRestrictions() : (dietary != null ? dietary : g.dietaryRestrictions());
+                String mergedPlusOneName =
+                        responded ? g.plusOneName() : (plusOneName != null ? plusOneName : g.plusOneName());
                 Guest merged = new Guest(
                         g.id(), g.coupleId(), name,
                         emailVal    != null ? emailVal    : g.email(),
                         phone       != null ? phone       : g.phone(),
-                        rsvpStatus  != null ? rsvpStatus  : g.rsvpStatus(),
+                        mergedRsvp,
                         plusOneRaw  != null ? plusOneAllowed : g.plusOneAllowed(),
-                        plusOneName != null ? plusOneName : g.plusOneName(),
-                        dietary     != null ? dietary     : g.dietaryRestrictions(),
+                        mergedPlusOneName,
+                        mergedDietary,
                         g.songRequest(),
                         tableNumber, // effective merged+healed seat (see resolveMergedTableNumber)
                         sideVal     != null ? sideVal     : g.side(),
@@ -753,14 +768,25 @@ public class GoogleSheetSyncService {
                 // Only save + count as "updated" if something actually changed.
                 // CSV path has no stable row identity: a name change looks like delete + add.
                 seenExistingIds.add(g.id());
+                // Same guest-owned RSVP protection as the OAuth path (issue #549): once respondedAt
+                // is non-null the guest's own rsvpStatus, dietary, and plusOneName win over the sheet
+                // so a later sheet edit to another cell in the row cannot silently overwrite their
+                // reply. Contact/address/table/side fields stay sheet-authoritative.
+                boolean responded = g.respondedAt() != null;
+                com.altarwed.domain.model.GuestRsvpStatus mergedRsvp =
+                        responded ? g.rsvpStatus() : (rsvpStatus != null ? rsvpStatus : g.rsvpStatus());
+                String mergedDietary =
+                        responded ? g.dietaryRestrictions() : (dietary != null ? dietary : g.dietaryRestrictions());
+                String mergedPlusOneName =
+                        responded ? g.plusOneName() : (plusOneName != null ? plusOneName : g.plusOneName());
                 Guest merged = new Guest(
                         g.id(), g.coupleId(), name,
                         emailVal    != null ? emailVal    : g.email(),
                         phone       != null ? phone       : g.phone(),
-                        rsvpStatus  != null ? rsvpStatus  : g.rsvpStatus(),
+                        mergedRsvp,
                         plusOneRaw  != null ? plusOneAllowed : g.plusOneAllowed(),
-                        plusOneName != null ? plusOneName : g.plusOneName(),
-                        dietary     != null ? dietary     : g.dietaryRestrictions(),
+                        mergedPlusOneName,
+                        mergedDietary,
                         g.songRequest(),
                         tableNumber, // effective merged+healed seat (see resolveMergedTableNumber)
                         sideVal     != null ? sideVal     : g.side(),
