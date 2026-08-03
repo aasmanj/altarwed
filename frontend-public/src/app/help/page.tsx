@@ -5,7 +5,7 @@ import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
-  title: 'Help & How to Use AltarWed | AltarWed',
+  title: { absolute: 'Help & How to Use AltarWed | AltarWed' },
   description:
     'Answers to common questions about building your wedding website, guest list and RSVPs, save-the-dates, photos, and your account on AltarWed.',
   alternates: { canonical: 'https://www.altarwed.com/help' },

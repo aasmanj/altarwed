@@ -4,7 +4,7 @@ import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | AltarWed',
+  title: { absolute: 'Privacy Policy | AltarWed' },
   description: 'How AltarWed collects, uses, and protects your personal information.',
   alternates: { canonical: 'https://www.altarwed.com/privacy' },
 }

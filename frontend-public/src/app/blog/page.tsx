@@ -7,7 +7,7 @@ import SiteFooter from '@/components/SiteFooter'
 export const revalidate = 3600
 
 export const metadata: Metadata = {
-  title: 'Blog: Christian Wedding Planning Guides | AltarWed',
+  title: { absolute: 'Blog: Christian Wedding Planning Guides | AltarWed' },
   description:
     'Faith-based wedding planning articles: Bible verses for weddings, Christian vow examples, ceremony order guides, denomination-specific planning tips, and more.',
   alternates: { canonical: 'https://www.altarwed.com/blog' },

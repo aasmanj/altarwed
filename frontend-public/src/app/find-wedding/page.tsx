@@ -6,7 +6,7 @@ import SearchForm from './SearchForm'
 import { formatShortDate } from '@/lib/date'
 
 export const metadata: Metadata = {
-  title: 'Find a Wedding | AltarWed',
+  title: { absolute: 'Find a Wedding | AltarWed' },
   description: 'Search for a couple\'s wedding website by name or wedding year on AltarWed.',
   alternates: { canonical: 'https://www.altarwed.com/find-wedding' },
   openGraph: {

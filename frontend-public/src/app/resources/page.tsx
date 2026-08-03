@@ -5,7 +5,7 @@ import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
-  title: 'Resources for Christian Couples | AltarWed',
+  title: { absolute: 'Resources for Christian Couples | AltarWed' },
   description: 'Books, registries, and tools to help Christian couples build a faith-based marriage. Curated by AltarWed.',
   alternates: { canonical: 'https://www.altarwed.com/resources' },
   openGraph: {

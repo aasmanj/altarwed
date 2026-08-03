@@ -4,7 +4,7 @@ import SiteFooter from '@/components/SiteFooter'
 import DoNotSellClient from './DoNotSellClient'
 
 export const metadata: Metadata = {
-  title: 'Do Not Sell or Share My Personal Information | AltarWed',
+  title: { absolute: 'Do Not Sell or Share My Personal Information | AltarWed' },
   description: 'Exercise your CCPA/CPRA right to opt out of the sale or sharing of your personal information for cross-context behavioral advertising.',
   alternates: { canonical: 'https://www.altarwed.com/do-not-sell' },
   robots: { index: false },

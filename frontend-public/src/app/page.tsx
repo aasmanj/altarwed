@@ -5,7 +5,7 @@ import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
-  title: 'AltarWed: Christian Wedding Planning Platform',
+  title: { absolute: 'AltarWed: Christian Wedding Planning Platform' },
   description:
     'Plan your Christian wedding with faith-aligned vendors, a free shareable wedding website, guest management, ceremony builder, and more. Built for covenant couples.',
   alternates: {

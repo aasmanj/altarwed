@@ -100,14 +100,14 @@ export async function generateMetadata({ params }: LandingParams): Promise<Metad
   const { category, city } = await params
   const resolved = await resolveLanding(category, city)
   if (!resolved) {
-    return { title: 'Vendors Not Found | AltarWed', robots: { index: false, follow: false } }
+    return { title: { absolute: 'Vendors Not Found | AltarWed' }, robots: { index: false, follow: false } }
   }
   const { categoryEnum, location } = resolved
   const canonical = landingCanonical(category, city)
   const title = landingTitle(categoryEnum, location)
   const description = landingDescription(categoryEnum, location)
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: { canonical },
     openGraph: {

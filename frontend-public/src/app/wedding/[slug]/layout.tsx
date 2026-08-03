@@ -37,7 +37,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { slug } = await params
   const wedding = await getWedding(slug)
-  if (!wedding) return { title: 'Wedding Not Found | AltarWed' }
+  if (!wedding) return { title: { absolute: 'Wedding Not Found | AltarWed' } }
 
   // Unpublished sites render a "coming soon" page (200), so they must be marked
   // noindex, otherwise Google could index a draft slug that returns 200 instead
@@ -80,7 +80,7 @@ export async function generateMetadata(
   // real wedding photo. Next also emits these tags for Facebook, which treats an
   // unknown-but-valid type as a link share, so nothing regresses there.
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: { canonical: canonicalUrl },
     openGraph: {

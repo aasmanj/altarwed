@@ -86,7 +86,7 @@ function safeJsonLd(data: unknown): string {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
   const post = await getPost(slug)
-  if (!post) return { title: 'Not Found | AltarWed' }
+  if (!post) return { title: { absolute: 'Not Found | AltarWed' } }
 
   // seoTitle values may already carry a "| AltarWed" brand suffix; strip it so we
   // don't double-brand (e.g. "... | AltarWed | AltarWed Blog") in the title and
@@ -103,7 +103,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const ogImages = post.coverImage ? [post.coverImage] : undefined
 
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: { canonical: url },
     openGraph: {

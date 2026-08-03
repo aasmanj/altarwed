@@ -26,11 +26,11 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { denomination } = await params
   const guide = getGuide(denomination)
-  if (!guide) return { title: 'Not Found | AltarWed' }
+  if (!guide) return { title: { absolute: 'Not Found | AltarWed' } }
 
   const url = `https://www.altarwed.com/ceremony-templates/${guide.slug}`
   return {
-    title: `${guide.metaTitle} | AltarWed`,
+    title: { absolute: `${guide.metaTitle} | AltarWed` },
     description: guide.metaDescription,
     alternates: { canonical: url },
     openGraph: {
