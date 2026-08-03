@@ -12,6 +12,14 @@ import type { Guest, RsvpStatus } from '@/features/couple/guests/useGuests'
 // sync (they call the same helpers).
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Alphabetical key for a person: the last whitespace-separated token of their
+// name, lowercased. Falls back to the whole name for single-word entries. Shared
+// by the printed board and the escort cards so both sort people identically.
+export function lastNameKey(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  return (parts[parts.length - 1] || name).toLowerCase()
+}
+
 // Seats a single guest record needs: the guest plus a named plus-one. A plus-one
 // with no name yet is not a real head, so it does not reserve a seat (matches how
 // the printed board only emits a row per *named* plus-one).

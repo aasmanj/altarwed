@@ -5,7 +5,7 @@ import { useAuth } from '@/core/auth/AuthContext'
 import QueryErrorState from '@/components/QueryErrorState'
 import { useGuests, type Guest } from '@/features/couple/guests/useGuests'
 import { useSeatingTables } from './useSeatingTables'
-import { countUnseatedAttending } from './seatingGroups'
+import { countUnseatedAttending, lastNameKey } from './seatingGroups'
 import TableShapeIcon from './TableShapeIcon'
 import { useWeddingWebsite, useUpdateWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 
@@ -24,13 +24,6 @@ import { useWeddingWebsite, useUpdateWeddingWebsite } from '@/features/couple/we
 // Sort and grouping happen here, not in the seating editor, so the editor stays
 // free-form drag-and-drop and this view is always the clean finalized cut.
 // ─────────────────────────────────────────────────────────────────────────────
-
-// Last name = last whitespace-separated token, used as the alphabetical key.
-// Falls back to the full name for single-word entries.
-function lastNameKey(name: string): string {
-  const parts = name.trim().split(/\s+/)
-  return (parts[parts.length - 1] || name).toLowerCase()
-}
 
 interface BoardRow {
   display: string
