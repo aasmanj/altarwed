@@ -8,37 +8,72 @@ altarwed.com. For a solo founder with zero ad budget, Pinterest compounds; Insta
 Goal hierarchy (in order): couples creating free wedding websites, blog traffic that
 converts to couples, then vendor discovery later. Do not market to vendors on Pinterest yet.
 
-## 1. Account setup (one-time, ~30 minutes)
+## 1. Account setup (mostly DONE, verify the rest, ~15 minutes)
 
-1. Create a Pinterest BUSINESS account (free) named "AltarWed | Christian Wedding Planning".
-2. Claim the altarwed.com domain (Settings, Claimed accounts; requires adding an HTML tag
-   to the site head or a DNS TXT record; the DNS route through Cloudflare is cleanest).
-   Claiming attributes every pin of our content to the account and unlocks analytics.
-3. Enable Rich Pins (they auto-pull title/description from our Open Graph tags, which every
+The business account exists (pinterest.com/AltarWed): AltarWed logo avatar, bio with the
+faith-first positioning, and the altarwed.com link are live. Remaining setup:
+
+1. VERIFY the altarwed.com domain claim (Settings, Claimed accounts; requires adding an
+   HTML tag to the site head or a DNS TXT record; the DNS route through Cloudflare is
+   cleanest). Claiming attributes every pin of our content to the account and unlocks
+   analytics. If the profile link does not show a checkmark, this is not done.
+2. Enable Rich Pins (they auto-pull title/description from our Open Graph tags, which every
    page already has per the SEO rules). Validate one blog URL in the Rich Pins validator.
-4. Profile: warm one-sentence bio with the keyword "Christian wedding planning", link to
-   https://www.altarwed.com, the AltarWed logo as avatar.
+3. Add "Christian wedding planning" keyword phrasing to the bio if not already present
+   verbatim; the bio is searchable.
 
-## 2. Boards to create (10 to start)
+## 2. Boards: 9 live on the account, 6 to add later
 
 Board names are search terms; Pinterest is a search engine, not a social feed. Each board
 gets a 2-3 sentence keyword-rich description.
 
-| Board | Anchor keyword | Seeded from |
-|---|---|---|
-| Christian Wedding Planning | christian wedding planning | checklist post + homepage |
-| Bible Verses for Weddings | bible verses for weddings | verses post (highest-volume evergreen) |
-| Christian Wedding Vows | christian wedding vows | vows post |
-| Christian Wedding Ceremony | wedding ceremony order christian | ceremony-order + program-wording + officiant posts |
-| Wedding Website Ideas | wedding website ideas | christian-wedding-website post + live couple sites |
-| Christian Wedding Songs and Music | christian wedding songs | songs post |
-| Unity Ceremony Ideas | unity ceremony ideas christian | unity post |
-| Wedding Guest Outfits and Dress Codes | wedding dress code | dress-code post (broad, non-faith traffic feeder) |
-| Faith-Filled Wedding Details | christian wedding decor scripture signs | curated repins + our images |
-| Real AltarWed Weddings | christian wedding website examples | eden-faith-and-jordan + future couple sites |
+### Live now: the 9 boards already created (use these first)
 
-The last two boards mix our pins with curated repins of others' content (aim 60/40 ours
-to repins overall); an account that only self-promotes grows slower.
+Status as of 2026-08-02: 9 boards, created about 2 months ago, 1 pin total on the whole
+account. Two fixes before any pinning:
+
+- **Visibility:** only 4 boards appear on the public logged-out profile (Christian
+  Marriage Resources, Scripture Wedding Decor, Faith-Based Wedding Venues, Christian
+  Wedding Photography Inspiration). Open each of the other 5 and check board settings for
+  Privacy = Secret. This matters more than it sounds: the account's single pin lives on
+  Christian Wedding Ceremony Ideas, one of the hidden five, so the only content on the
+  account today is invisible to Pinterest search and to logged-out visitors. Make all 9
+  public.
+- **Descriptions:** most boards appear to have none; write them per the rule above.
+
+| Board (live today) | Anchor keyword | Seed from |
+|---|---|---|
+| Bible Verses for Weddings | bible verses for weddings | verses post (highest-volume evergreen) |
+| Christian Wedding Ceremony Ideas | wedding ceremony order christian | ceremony-order + program-wording + officiant posts (already has the account's 1 pin) |
+| Christian Wedding Vows and Scripts | christian wedding vows | vows post |
+| Scripture Wedding Decor | christian wedding decor scripture signs | verse quote pins + curated repins |
+| Christian Marriage Resources | christian marriage resources | checklist post + homepage + devotional repins |
+| Christian Wedding Photography Inspiration | christian wedding photography | eden-faith-and-jordan photos + curated repins |
+| Faith-Based Wedding Venues | church wedding venue ideas | curated repins now; vendor directory pages when vendor GTM starts |
+| Nondenominational Wedding Ideas | nondenominational wedding ceremony | ceremony-order + vows posts framed nondenominational |
+| Baptist Wedding Traditions | baptist wedding ceremony | ceremony-order post framed baptist + curated repins |
+
+The photography, venues, and denominational boards will lean on curated repins early since
+we have little owned imagery there (aim 60/40 ours to repins overall across the account);
+an account that only self-promotes grows slower. The two denomination boards are a
+differentiator no generic wedding brand bothers with; if they show traction in analytics,
+extend the pattern (Catholic, Methodist, Pentecostal) before competitors do.
+
+### Add later: the 6 recommended boards (once each live board has ~5+ pins)
+
+| Board (to create) | Anchor keyword | Seed from | Why it matters |
+|---|---|---|---|
+| Wedding Website Ideas | wedding website ideas | christian-wedding-website post + live couple sites | closest board to the product; highest conversion intent |
+| Real AltarWed Weddings | christian wedding website examples | eden-faith-and-jordan + future couple sites | the viral loop seed; every couple site is pinnable inventory |
+| Christian Wedding Planning | christian wedding planning | checklist post + homepage | flagship head term for the whole niche |
+| Christian Wedding Songs and Music | christian wedding songs | songs post | dedicated home for an existing post |
+| Unity Ceremony Ideas | unity ceremony ideas christian | unity post | dedicated home for an existing post |
+| Wedding Guest Outfits and Dress Codes | wedding dress code | dress-code post | broad, non-faith traffic feeder |
+
+Create Wedding Website Ideas and Real AltarWed Weddings first; they are the two boards
+that link pins directly to signups rather than to blog content. One exception to the
+~5-pin gate: create Real AltarWed Weddings the moment the first real-wedding pin set
+(section 3, format 3) is ready. Do not sit on that inventory to satisfy a threshold.
 
 ## 3. Pin content engine (what to actually post)
 
@@ -53,7 +88,8 @@ Pin formats that fit what we already have:
 2. Checklist/template pins: a visual crop of the planning checklist or program wording
    with "get the full checklist" framing.
 3. Real-wedding pins: screenshots and photos from the eden-faith-and-jordan site pinned to
-   Real AltarWed Weddings, linking to the live wedding page. This is the viral loop seed:
+   Real AltarWed Weddings (create that board from the add-later list when this format
+   starts), linking to the live wedding page. This is the viral loop seed:
    every future couple's site is pinnable inventory, and the wedding pages already ship a
    "Save to Pinterest" button (PR #431).
 4. Quote pins: a single scripture verse beautifully typeset, linking to the verses post.
@@ -72,12 +108,15 @@ URL always the canonical https://www.altarwed.com/... page.
 
 Pinterest rewards consistency over volume. 1-2 pins per DAY beats 10 pins one Saturday.
 
-- Week 1: account setup, 10 boards, 15 seed pins (one per board plus extras on the two
-  biggest posts: bible verses, ceremony order). Repin 10-15 quality third-party pins so
-  boards do not look empty.
+- Week 1: finish the domain claim, enable Rich Pins, make all 9 live boards public with
+  keyword descriptions, then 15 seed pins across them (at least one per board
+  plus extras on the two biggest posts: bible verses, ceremony order). Repin 10-15 quality
+  third-party pins so boards do not look empty.
 - Weeks 2-4: 1-2 pins/day from the runway (use Pinterest's native scheduler, free, up to
-  2 weeks ahead; batch the scheduling in one weekly sitting). Join 2-3 relevant group
-  boards if invites are attainable, but do not chase them hard; they matter less now.
+  2 weeks ahead; batch the scheduling in one weekly sitting). Create the add-later boards
+  (Wedding Website Ideas and Real AltarWed Weddings first) as the live boards fill to ~5
+  pins each. Join 2-3 relevant group boards if invites are attainable, but do not chase
+  them hard; they matter less now.
 - Monthly: every new blog post (the biweekly drafter routine keeps producing) immediately
   gets its 3-5 pin set; every new published couple site gets asked/prompted to share via
   the on-page Pinterest button.
