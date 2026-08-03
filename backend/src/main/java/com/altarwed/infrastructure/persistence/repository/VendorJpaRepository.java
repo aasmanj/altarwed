@@ -88,7 +88,9 @@ public interface VendorJpaRepository extends JpaRepository<VendorEntity, UUID> {
 
     // Committed claims for the public founding-spots read. Boxed Long, not long: the counter row
     // does not exist until V106 runs, and a native scalar query maps a missing row to null.
-    @Query(value = "SELECT slots_claimed FROM founding_program WHERE program_key = 'FOUNDING_25'",
-            nativeQuery = true)
+    // CAST to BIGINT because slots_claimed is INT: without it JDBC hands back an Integer and the
+    // Long-typed proxy return can ClassCastException at runtime, which no mocked unit test sees.
+    @Query(value = "SELECT CAST(slots_claimed AS BIGINT) FROM founding_program "
+            + "WHERE program_key = 'FOUNDING_25'", nativeQuery = true)
     Long countFoundingSlotsClaimed();
 }

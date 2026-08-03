@@ -85,6 +85,14 @@ class FoundingCapRaceConcurrencyTest {
             assertThat(finalClaimed)
                     .as("the counter lands exactly at the cap, proving no over-increment")
                     .isEqualTo((int) cap);
+
+            // Exercise the PUBLIC read path on the real dialect too: countFoundingSlotsClaimed()
+            // is a native scalar query over an INT column returned as Long (CAST in the query);
+            // a type-mapping mistake there only surfaces against real SQL Server, never in the
+            // mocked unit tests. It must agree with the raw counter the gate just consumed.
+            assertThat(vendorRepository.countFoundingSlotsClaimed())
+                    .as("the public founding-spots read returns the same committed counter")
+                    .isEqualTo((long) cap);
         } finally {
             pool.shutdownNow();
             // Restore the shared counter so reruns and other schema-validation tests see the seed value.
