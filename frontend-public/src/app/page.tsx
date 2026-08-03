@@ -72,7 +72,25 @@ const features = [
       </svg>
     ),
     title: 'Guest List & RSVP',
-    description: 'Manage your guest list, send RSVP links, track meal preferences, and coordinate seating. All in one place.',
+    description: 'Manage your guest list, send RSVP links, and track meal preferences. All in one place.',
+  },
+  {
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 13.5V5.625m0 0A1.125 1.125 0 014.5 4.5h15a1.125 1.125 0 011.125 1.125m0 0v13.5m0-13.5v13.5m0 0a1.125 1.125 0 01-1.125 1.125m1.125-1.125h-7.5m0 0c0 .621.504 1.125 1.125 1.125M12 4.5v15" />
+      </svg>
+    ),
+    title: 'Seating Chart Builder',
+    description: 'Arrange your reception tables with drag and drop, seat every guest, then print a clean chart for the big day. Part of your Christian wedding planning dashboard.',
+  },
+  {
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+      </svg>
+    ),
+    title: 'Save-the-Dates & Invitations',
+    description: 'Design your save-the-dates and invitations, then send them as real printed mail to your guests without leaving AltarWed.',
   },
   {
     icon: (
