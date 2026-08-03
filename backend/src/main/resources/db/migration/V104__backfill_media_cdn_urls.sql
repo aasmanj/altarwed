@@ -10,6 +10,20 @@
 --
 -- Idempotent by predicate: each WHERE matches only rows still on the storage
 -- host, so a re-run is a no-op. New uploads are already rewritten by the adapter.
+--
+-- ROLLBACK (documented per the 2026-08-03 review; there is no automatic down path):
+-- the swap is host-for-host, so the reverse is these same statements with
+-- @storageOrigin and @cdnOrigin swapped, shipped as a NEW forward migration
+-- (never by editing this file; applied migrations are immutable). After
+-- reverting, also swap BLOB_PUBLIC_BASE_URL back and redeploy frontend-public
+-- so ISR-cached HTML stops referencing media.altarwed.com.
+--
+-- ORDERING: media.altarwed.com already CNAMEs to the Front Door endpoint and
+-- serves blobs today (see docs/DECISION-cdn-front-door.md), so this backfill is
+-- safe to run BEFORE the Bicep caching apply; the apply is a performance step,
+-- not a correctness prerequisite. The one unsafe sequence is restoring a
+-- pre-CNAME database backup and replaying migrations after tearing the domain
+-- down: confirm the domain still resolves before any such replay.
 DECLARE @storageOrigin NVARCHAR(100) = 'https://altarwedprodstorage.blob.core.windows.net/';
 DECLARE @cdnOrigin NVARCHAR(100) = 'https://media.altarwed.com/';
 

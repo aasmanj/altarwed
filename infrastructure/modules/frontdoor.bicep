@@ -60,9 +60,16 @@ resource originGroup 'Microsoft.Cdn/profiles/originGroups@2024-02-01' = {
       additionalLatencyInMilliseconds: 50
     }
     healthProbeSettings: {
-      probePath: '/'
+      // Probe a real, always-present sentinel blob over HTTPS. The previous probe
+      // (HEAD / over plain HTTP) hit the storage account root, which returns 400
+      // (no container in the path), and with secure-transfer-required the HTTP
+      // probe fails outright, so the only origin sat permanently "unhealthy" and
+      // the health signal was noise. Upload the sentinel ONCE before applying:
+      //   az storage blob upload --account-name altarwedprodstorage \
+      //     -c altarwed-media -n healthz.txt --data 'ok' --overwrite
+      probePath: '/altarwed-media/healthz.txt'
       probeRequestType: 'HEAD'
-      probeProtocol: 'Http'
+      probeProtocol: 'Https'
       probeIntervalInSeconds: 100
     }
     sessionAffinityState: 'Disabled'
@@ -128,6 +135,12 @@ resource route 'Microsoft.Cdn/profiles/afdEndpoints/routes@2024-02-01' = {
     // IgnoreQueryString: blob URLs carry no meaningful query params, so one cache
     // entry per path maximizes hit rate. Compression only helps text-like types;
     // JPEG/PNG/WebP are already compressed and are excluded on purpose.
+    // COUPLING (security review, 2026-08-03): IgnoreQueryString is safe ONLY
+    // while the blob container stays anonymous-read with unguessable UUID paths.
+    // If media ever moves to per-file SAS-token URLs, this setting caches one
+    // caller's authorized blob under the bare path and serves it to everyone,
+    // and strips the SAS from origin fetches. Change to UseQueryString in the
+    // same PR that introduces SAS, or the cache leaks authorized content.
     cacheConfiguration: {
       queryStringCachingBehavior: 'IgnoreQueryString'
       compressionSettings: {

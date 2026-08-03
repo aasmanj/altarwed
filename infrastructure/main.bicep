@@ -89,6 +89,11 @@ param appServicePlanCapacity int = 2
 @allowed(['B2', 'S1', 'P1v3'])
 param planSku string = 'B2'
 
+// Redis firewall allowlist (see modules/redis.bicep for the fetch command and the
+// two-phase apply). Empty on the first apply; populate and re-apply as part of the
+// Redis cutover, and refresh after any planSku change (the outbound IP set moves).
+param redisAllowedClientIps array = []
+
 var appName = 'altarwed'
 var prefix = '${appName}-${environment}'
 // Derived from the App Service name pattern below, so observability can reference
@@ -169,6 +174,7 @@ module redis 'modules/redis.bicep' = {
     name: '${prefix}-redis'
     location: location
     keyVaultName: keyVault.outputs.name
+    allowedClientIps: redisAllowedClientIps
   }
 }
 

@@ -20,6 +20,17 @@ param location string
 @description('Key Vault that receives the REDIS-URL connection secret')
 param keyVaultName string
 
+@description('''App Service outbound IPs allowed through the Redis firewall. Basic tier cannot
+VNet-inject, so IP firewall rules are the only network control: the moment ANY rule exists,
+Azure denies every other public IP, closing the internet-reachable-key-only exposure flagged in
+the 2026-08-03 security review. Populate from:
+  az webapp show -g altarwed-rg -n altarwed-prod-api --query possibleOutboundIpAddresses -o tsv
+then split on commas. Left empty the cache stays open to the internet (key-only), so treat the
+two-phase apply (deploy, fetch IPs, redeploy with this set) as part of the Redis cutover.
+NOTE: the outbound IP SET CHANGES when the plan tier changes (B2 to P1v3), so refresh this
+parameter and re-apply after any planSku change or the app loses Redis connectivity.''')
+param allowedClientIps array = []
+
 resource redis 'Microsoft.Cache/redis@2024-03-01' = {
   name: name
   location: location
@@ -35,6 +46,17 @@ resource redis 'Microsoft.Cache/redis@2024-03-01' = {
     minimumTlsVersion: '1.2'
   }
 }
+
+// One allow rule per App Service outbound IP; see the allowedClientIps description
+// for why this exists and how to populate it. Rule names must be alphanumeric.
+resource firewallRules 'Microsoft.Cache/redis/firewallRules@2024-03-01' = [for (ip, i) in allowedClientIps: {
+  parent: redis
+  name: 'appservice${i}'
+  properties: {
+    startIP: ip
+    endIP: ip
+  }
+}]
 
 resource kv 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
   name: keyVaultName
