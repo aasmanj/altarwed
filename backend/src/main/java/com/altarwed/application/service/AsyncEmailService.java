@@ -2,6 +2,7 @@ package com.altarwed.application.service;
 
 import com.altarwed.domain.model.EmailRecipient;
 import com.altarwed.domain.model.RsvpInviteRecipient;
+import com.altarwed.domain.model.email.CoupleWinbackTouch;
 import com.altarwed.domain.model.email.EmailOutboxEntry;
 import com.altarwed.domain.model.email.EmailType;
 import com.altarwed.domain.model.email.OutboxPayloads;
@@ -171,6 +172,15 @@ public class AsyncEmailService {
         enqueue(EmailType.ATTENDING_REMINDER, toEmail,
                 new OutboxPayloads.AttendingReminder(toEmail, guestName, coupleNames, weddingDate,
                         venueAddress, venueCity, venueState, ceremonyTime, googleCalendarUrl));
+    }
+
+    // Couple win-back nudge (issue #551). Same enqueue-only pattern as every other send here: one
+    // durable PENDING row, drained off-thread by EmailOutboxSender. The touch rides in the payload
+    // so the sender renders the right day-2 / day-7 / day-21 copy.
+    public void sendCoupleWinbackEmail(String toEmail, String partnerOneName, String partnerTwoName,
+                                       CoupleWinbackTouch touch) {
+        enqueue(EmailType.COUPLE_WINBACK, toEmail,
+                new OutboxPayloads.CoupleWinback(toEmail, partnerOneName, partnerTwoName, touch));
     }
 
     // Serialises the payload and writes one PENDING row. recipient is a single low-cardinality

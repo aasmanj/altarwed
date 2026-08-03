@@ -4,6 +4,7 @@ import com.altarwed.application.service.EmailSuppressionService;
 import com.altarwed.domain.model.EmailAddresses;
 import com.altarwed.domain.model.EmailRecipient;
 import com.altarwed.domain.model.RsvpInviteRecipient;
+import com.altarwed.domain.model.email.CoupleWinbackTouch;
 import com.altarwed.domain.port.EmailPort;
 import com.altarwed.domain.port.EmailSuppressionPort;
 import com.altarwed.infrastructure.observability.LogSanitizer;
@@ -198,17 +199,35 @@ public class ResendEmailAdapter implements EmailPort {
         }
     }
 
+    // The "why you received this" line must be true for the audience: guests were added to a
+    // wedding, but couples (welcome, win-back) registered themselves, and an inaccurate reason
+    // line is exactly what a spam complaint or a CAN-SPAM reviewer seizes on.
+    private static final String GUEST_FOOTER_REASON =
+            "You received this because you were added to an AltarWed wedding.";
+    private static final String COUPLE_FOOTER_REASON =
+            "You received this because you created a free AltarWed account.";
+
     private String unsubscribeFooterHtml(String unsubUrl) {
+        return unsubscribeFooterHtml(unsubUrl, GUEST_FOOTER_REASON);
+    }
+
+    private String unsubscribeFooterHtml(String unsubUrl, String reason) {
         return """
                 <div style="margin-top:32px;border-top:1px solid #e8dcc8;padding-top:16px;text-align:center;color:#a08060;font-size:11px;font-family:sans-serif;">
-                  You received this because you were added to an AltarWed wedding.<br>
+                  %s<br>
                   <a href="%s" style="color:#a08060;">Unsubscribe</a> &nbsp;|&nbsp; %s
                 </div>
-                """.formatted(unsubUrl, postalAddress);
+                """.formatted(reason, unsubUrl, postalAddress);
     }
 
     private String unsubscribeFooterText(String unsubUrl) {
-        return "\n\nTo unsubscribe: " + unsubUrl + "\n" + postalAddress;
+        return unsubscribeFooterText(unsubUrl, GUEST_FOOTER_REASON);
+    }
+
+    // The text/plain part must carry the same truthful "why you received this" line as the HTML
+    // part; a compliance reviewer (or a recipient's mail client) may only ever render this one.
+    private String unsubscribeFooterText(String unsubUrl, String reason) {
+        return "\n\n" + reason + "\nTo unsubscribe: " + unsubUrl + "\n" + postalAddress;
     }
 
     // The growth CTA (the viral loop): guest-facing invite and save-the-date mail lands in the
@@ -1027,13 +1046,13 @@ public class ResendEmailAdapter implements EmailPort {
 
                 "Therefore what God has joined together, let no one separate." (Mark 10:9)
                 """.formatted(partnerOneName, partnerTwoName, dashboardUrl)
-                + unsubscribeFooterText(displayUnsubUrl);
+                + unsubscribeFooterText(displayUnsubUrl, COUPLE_FOOTER_REASON);
 
         Map<String, Object> body = new HashMap<>();
         body.put("from", "AltarWed <" + fromEmail + ">");
         body.put("to", List.of(toEmail));
         body.put("subject", "Welcome to AltarWed, let's build your wedding website");
-        body.put("html", html + unsubscribeFooterHtml(displayUnsubUrl));
+        body.put("html", html + unsubscribeFooterHtml(displayUnsubUrl, COUPLE_FOOTER_REASON));
         body.put("text", text);
         body.put("headers", Map.of(
                 "List-Unsubscribe", "<" + oneClickUnsubUrl + ">",
@@ -1149,6 +1168,144 @@ public class ResendEmailAdapter implements EmailPort {
         );
 
         postEmail("wedding-published", toEmail, body);
+    }
+
+    @Override
+    public void sendCoupleWinbackEmail(String toEmail, String partnerOneName, String partnerTwoName,
+                                       CoupleWinbackTouch touch) {
+        // app.altarwed.com is the SPA; land them on the highest-value next action. The day-7 note
+        // is about the dashboard as a whole (guest list, save the dates, seating), the others go
+        // straight to the website editor, the single first step that matters for couples-shipped.
+        String editorUrl = appBaseUrl + "/dashboard/website/editor";
+        String dashboardUrl = appBaseUrl + "/dashboard";
+        String names = escapeHtml(partnerOneName) + " &amp; " + escapeHtml(partnerTwoName);
+
+        WinbackCopy copy = winbackCopy(touch, editorUrl, dashboardUrl);
+
+        String html = """
+                <div style="font-family:Georgia,serif;max-width:540px;margin:0 auto;background:#fdfaf6;padding:40px;border-radius:8px;">
+                  <p style="text-align:center;color:#a08060;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">AltarWed</p>
+                  <h1 style="text-align:center;color:#3b2f2f;font-size:28px;margin:0 0 8px;">%s</h1>
+                  <p style="text-align:center;color:#d4af6a;font-size:16px;margin:0 0 24px;">%s</p>
+                  %s
+                  <div style="text-align:center;margin:28px 0 16px;">
+                    <a href="%s"
+                       style="display:inline-block;padding:14px 32px;background:#3b2f2f;color:#d4af6a;text-decoration:none;border-radius:4px;font-size:14px;letter-spacing:0.1em;text-transform:uppercase;">
+                      %s
+                    </a>
+                  </div>
+                  <p style="text-align:center;color:#a08060;font-size:11px;margin-top:32px;">%s</p>
+                </div>
+                """.formatted(copy.heading(), names, copy.bodyHtml(), copy.ctaUrl(),
+                        copy.ctaLabel(), copy.verse());
+
+        // Couple-facing marketing mail: no couple scoping, a legacy global opt-out link, exactly
+        // like the welcome email.
+        String displayUnsubUrl = unsubscribeDisplayUrl(toEmail, null);
+        String oneClickUnsubUrl = unsubscribeOneClickUrl(toEmail, null);
+        String text = copy.bodyText().formatted(partnerOneName, partnerTwoName)
+                + "\n\n" + copy.ctaLabel() + ": " + copy.ctaUrl()
+                + "\n\n" + copy.verse()
+                + unsubscribeFooterText(displayUnsubUrl, COUPLE_FOOTER_REASON);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("from", "AltarWed <" + fromEmail + ">");
+        body.put("to", List.of(toEmail));
+        body.put("subject", copy.subject());
+        body.put("html", html + unsubscribeFooterHtml(displayUnsubUrl, COUPLE_FOOTER_REASON));
+        body.put("text", text);
+        body.put("headers", Map.of(
+                "List-Unsubscribe", "<" + oneClickUnsubUrl + ">",
+                "List-Unsubscribe-Post", "List-Unsubscribe=One-Click"
+        ));
+
+        postMarketingEmail("couple-winback", toEmail, body);
+    }
+
+    // The per-touch copy for the win-back sequence, kept in one place so the send method stays a
+    // single template. bodyText carries two %s placeholders for the couple's first names. Every
+    // subject line is under 60 characters. No feature is promised that AltarWed does not have.
+    private record WinbackCopy(String subject, String heading, String bodyHtml, String bodyText,
+                               String ctaLabel, String ctaUrl, String verse) {}
+
+    private static WinbackCopy winbackCopy(CoupleWinbackTouch touch, String editorUrl, String dashboardUrl) {
+        return switch (touch) {
+            case DAY_2 -> new WinbackCopy(
+                    "Your wedding website is one step away",
+                    "One step away",
+                    """
+                    <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
+                      You created your AltarWed account, and your free wedding website is ready whenever you are. It takes about ten minutes to look beautiful.
+                    </p>
+                    <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
+                      Add your names, your date, and your story, then share the link with the people you love. We would be honored to help you tell it.
+                    </p>
+                    """,
+                    """
+                    One step away
+
+                    Hi %s and %s,
+
+                    You created your AltarWed account, and your free wedding website is ready whenever you are. It takes about ten minutes to look beautiful.
+
+                    Add your names, your date, and your story, then share the link with the people you love.""",
+                    "Open the website editor",
+                    editorUrl,
+                    "\"Every good and perfect gift is from above.\" (James 1:17)");
+            case DAY_7 -> new WinbackCopy(
+                    "3 things couples do first on AltarWed",
+                    "Three things couples do first",
+                    """
+                    <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
+                      Planning is lighter one step at a time. Here is where most couples begin:
+                    </p>
+                    <ol style="color:#3b2f2f;font-size:15px;line-height:1.8;padding-left:20px;">
+                      <li>Add your guest list so you are ready when it is time to invite.</li>
+                      <li>Send your save the dates and let everyone hold the day.</li>
+                      <li>Sketch your seating chart as your guest list grows.</li>
+                    </ol>
+                    <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
+                      Each one lives in your dashboard, ready when you are.
+                    </p>
+                    """,
+                    """
+                    Three things couples do first
+
+                    Hi %s and %s,
+
+                    Planning is lighter one step at a time. Here is where most couples begin:
+
+                    1. Add your guest list so you are ready when it is time to invite.
+                    2. Send your save the dates and let everyone hold the day.
+                    3. Sketch your seating chart as your guest list grows.
+
+                    Each one lives in your dashboard, ready when you are.""",
+                    "Go to your dashboard",
+                    dashboardUrl,
+                    "\"Commit to the Lord whatever you do, and he will establish your plans.\" (Proverbs 16:3)");
+            case DAY_21 -> new WinbackCopy(
+                    "Your wedding page is waiting for you",
+                    "Your wedding page is waiting",
+                    """
+                    <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
+                      A wedding page is one of the first things couples share once they are engaged: your story, your photos, and your details, all in one link for family and friends.
+                    </p>
+                    <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
+                      Yours is still here, ready the moment you are. This is the last note we will send about getting started, so keep it for whenever the time feels right.
+                    </p>
+                    """,
+                    """
+                    Your wedding page is waiting
+
+                    Hi %s and %s,
+
+                    A wedding page is one of the first things couples share once they are engaged: your story, your photos, and your details, all in one link for family and friends.
+
+                    Yours is still here, ready the moment you are. This is the last note we will send about getting started, so keep it for whenever the time feels right.""",
+                    "Finish your wedding page",
+                    editorUrl,
+                    "\"May the Lord bless you and keep you.\" (Numbers 6:24)");
+        };
     }
 
     @Override

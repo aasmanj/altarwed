@@ -205,6 +205,11 @@ public class EmailOutboxSender {
                         p.weddingDate(), p.venueAddress(), p.venueCity(), p.venueState(),
                         p.ceremonyTime(), p.googleCalendarUrl());
             }
+            case COUPLE_WINBACK -> {
+                var p = objectMapper.readValue(json, OutboxPayloads.CoupleWinback.class);
+                emailPort.sendCoupleWinbackEmail(p.toEmail(), p.partnerOneName(),
+                        p.partnerTwoName(), p.touch());
+            }
         }
     }
 
