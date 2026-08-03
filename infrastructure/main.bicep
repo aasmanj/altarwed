@@ -68,15 +68,31 @@ param nextjsBaseUrl string = 'https://www.altarwed.com'
 @description('Numeric Google Cloud project number, used as the Picker app id (not a secret)')
 param googlePickerAppId string = ''
 
-// App Service Plan instance count. Committed default is 1 ON PURPOSE. The backend
-// rate limiter and Resend pacer are in-memory and per-instance, so 2+ instances
-// multiply both (see modules/app-service-plan.bicep). Do NOT raise this to 2 until
-// issue #109 (move those buckets to Redis) has shipped. When it has, set this to 2
-// and, in the same change, flip the autoscale resource to enabled: true.
-@description('App Service Plan instance count. Keep at 1 until issue #109 (Redis) ships, then raise to 2+.')
+// App Service Plan instance count. Default is 2 (issue #376: capacity 1 meant any
+// crash or in-place deploy restart was a full API outage). The old "keep at 1"
+// guard existed because the rate limiter and Resend pacer were in-memory and
+// per-instance; issue #109 shipped (PR #454) and this template now provisions the
+// Redis they share (modules/redis.bicep) and wires REDIS_URL, so multi-instance is
+// safe. Basic supports manual scale-out to 3, so HA does not require a tier bump.
+@description('App Service Plan instance count baseline; on S1/P1v3 autoscale may add up to the ceiling of 3.')
 @minValue(1)
 @maxValue(3)
-param appServicePlanCapacity int = 1
+param appServicePlanCapacity int = 2
+
+// Tier is a deploy-time decision, not a template edit (issue #376 / #379). B2 is
+// the committed default at today's scale (~12 couples): two B2 instances give HA
+// for roughly a third of the P1v3 pair's cost. Pass planSku=P1v3 for the
+// marketing push; that single parameter also brings autoscale (floor 2/ceiling 3)
+// and the zero-downtime staging slot with its Key Vault grant, which Basic cannot
+// host (the template skips both on B2 so the apply stays clean).
+@description('App Service Plan SKU. B2 (default) = manual-scale HA; S1/P1v3 add autoscale + staging slot.')
+@allowed(['B2', 'S1', 'P1v3'])
+param planSku string = 'B2'
+
+// Redis firewall allowlist (see modules/redis.bicep for the fetch command and the
+// two-phase apply). Empty on the first apply; populate and re-apply as part of the
+// Redis cutover, and refresh after any planSku change (the outbound IP set moves).
+param redisAllowedClientIps array = []
 
 var appName = 'altarwed'
 var prefix = '${appName}-${environment}'
@@ -92,6 +108,7 @@ module appServicePlan 'modules/app-service-plan.bicep' = {
     name: '${prefix}-plan'
     location: location
     capacity: appServicePlanCapacity
+    skuName: planSku
   }
 }
 
@@ -148,9 +165,39 @@ module storage 'modules/storage.bicep' = {
   }
 }
 
+// ── Azure Cache for Redis (shared throttle/CSRF state, issues #109/#414/#376) ─
+// Writes the REDIS-URL secret into Key Vault; the appService module below reads
+// it via a Key Vault reference, hence its explicit dependsOn.
+module redis 'modules/redis.bicep' = {
+  name: 'redis'
+  params: {
+    name: '${prefix}-redis'
+    location: location
+    keyVaultName: keyVault.outputs.name
+    allowedClientIps: redisAllowedClientIps
+  }
+}
+
+// ── Azure Front Door (edge cache for public media, issues #246/#375) ─────────
+// Adopts the existing 'altarwed-cdn' profile (was portal-created, untracked) and
+// enables caching on the media.altarwed.com route. Names inside the module match
+// the deployed resources exactly so this is an in-place update, not a rebuild.
+module frontDoor 'modules/frontdoor.bicep' = {
+  name: 'frontDoor'
+  params: {
+    originHost: '${storage.outputs.accountName}.blob.core.windows.net'
+  }
+}
+
 // ── App Service (Spring Boot) ────────────────────────────────────────────────
 module appService 'modules/app-service.bicep' = {
   name: 'appService'
+  // The REDIS_URL app setting is a Key Vault reference to the REDIS-URL secret
+  // created by the redis module; deploy the cache and secret first so the app
+  // never boots with an unresolved reference.
+  dependsOn: [
+    redis
+  ]
   params: {
     name: '${prefix}-api'
     location: location
@@ -165,6 +212,7 @@ module appService 'modules/app-service.bicep' = {
     nextjsBaseUrl: nextjsBaseUrl
     googleOauthRedirectUri: googleOauthRedirectUri
     googlePickerAppId: googlePickerAppId
+    enableStagingSlot: planSku != 'B2'
   }
 }
 
@@ -181,7 +229,7 @@ module keyVaultAccess 'modules/keyvault-access.bicep' = {
 // principal from prod), so it needs the same Key Vault Secrets User grant for its
 // @Microsoft.KeyVault(...) app-setting references to resolve. Without this the slot
 // boots but every secret read fails.
-module keyVaultAccessSlot 'modules/keyvault-access.bicep' = {
+module keyVaultAccessSlot 'modules/keyvault-access.bicep' = if (planSku != 'B2') {
   name: 'keyVaultAccessSlot'
   params: {
     keyVaultName: keyVault.outputs.name

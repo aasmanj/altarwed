@@ -46,6 +46,13 @@ const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com'
 // infrastructure/CLAUDE.md); exported so tests can assert the narrowing holds.
 export const BLOB_STORAGE = 'https://altarwedprodstorage.blob.core.windows.net'
 
+// Azure Front Door custom domain fronting that same storage account (issue #375,
+// infrastructure/modules/frontdoor.bicep). New uploads and the V104-backfilled
+// rows carry this host; BLOB_STORAGE stays allowed alongside it because cached
+// pages rendered before the backfill can still reference the raw storage host.
+// Same single-tenant narrowing as BLOB_STORAGE: both hosts serve only our account.
+export const MEDIA_CDN = 'https://media.altarwed.com'
+
 /** Reduce a full URL (may include a path) to its scheme+host origin. */
 function originOf(url: string | undefined, fallback: string): string {
   if (!url) return fallback
@@ -91,7 +98,7 @@ export function buildContentSecurityPolicy(opts: CspOptions = {}): string {
     'font-src': ["'self'", 'data:'],
     'connect-src': connectSrc,
     'frame-src': ["'self'", FB_TRACK_ORIGIN, TURNSTILE_ORIGIN],
-    'media-src': ["'self'", BLOB_STORAGE, 'data:'],
+    'media-src': ["'self'", MEDIA_CDN, BLOB_STORAGE, 'data:'],
     'worker-src': ["'self'", 'blob:'],
     'manifest-src': ["'self'"],
     'form-action': ["'self'"],

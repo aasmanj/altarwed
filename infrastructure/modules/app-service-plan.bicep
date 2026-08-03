@@ -1,36 +1,44 @@
 param name string
 param location string
 
-// Instance count baked into the committed default.
-//
-// WHY 1 AND NOT 2: the backend rate limiter (RateLimitingFilter) and the Resend
-// send pacer (RESEND_RATE_LIMIT_PER_SECOND=2/sec) are in-memory and PER INSTANCE.
-// Every extra instance multiplies both: 2 instances = 4/sec of Resend traffic
-// against a 5/sec account cap, and the login/RSVP rate limits double, so an
-// attacker gets 2x the allowance. Issue #109 moves those buckets to Redis (a
-// shared store). Until #109 lands, running more than one instance silently
-// degrades those limits, so the committed default stays at 1.
-//
-// TO SCALE OUT (only after #109 Redis ships): raise this to 2 (or more) and, if
-// desired, flip the autoscale resource below to enabled: true. Both are one-line
-// changes, intentionally left off so a plain `az deployment group create` cannot
-// multiply the rate limits by surprise.
-@description('App Service Plan instance count. Keep at 1 until issue #109 (Redis) ships; then raise to 2+.')
+// Instance count baseline (issue #376). The historical "keep at 1" guard is gone:
+// issue #109 shipped (PR #454 moved the rate-limit buckets, RSVP throttle, and
+// OAuth CSRF state behind a shared store), and main.bicep now provisions the
+// Redis that backs it and wires REDIS_URL, so instances no longer multiply rate
+// limits or break OAuth callbacks. Two instances is the HA floor: one can restart
+// (crash, deploy) while the other keeps the public wedding sites up.
+@description('App Service Plan instance count baseline; autoscale floor matches this.')
 @minValue(1)
 @maxValue(3)
-param capacity int = 1
+param capacity int = 2
 
-// P1v3 (PremiumV3): 2 vCPU / 8 GB, the first tier that supports both autoscale
-// and a real (non-shared) deployment slot for zero-downtime swaps. B2 (Basic)
-// supports neither. Signup and login are synchronous BCrypt-12 hashes, the most
-// CPU-expensive request in the system, so headroom + horizontal scale during the
-// marketing push is the load-bearing reason to move off a single Basic box.
+// Tier ladder (issue #376). B2 (Basic) is the committed default at today's scale
+// (~12 couples): it supports MANUAL scale-out to 3 instances, which is all HA
+// needs, but no autoscale and no deployment slots. P1v3 (PremiumV3, 2 vCPU/8 GB)
+// adds autoscale, a real staging slot for zero-downtime swaps (#379), and BCrypt
+// headroom (signup/login are synchronous BCrypt-12 hashes, the most CPU-expensive
+// request in the system); step up to it for the marketing push by passing
+// planSku=P1v3 at deploy time, no template edit needed. S1 is the cheap middle
+// step if autoscale/slots are wanted before Premium prices are.
+@description('Plan SKU. B2 = HA-capable baseline (manual scale only); S1/P1v3 add autoscale + staging slot.')
+@allowed(['B2', 'S1', 'P1v3'])
+param skuName string = 'B2'
+
+var skuTiers = {
+  B2: 'Basic'
+  S1: 'Standard'
+  P1v3: 'PremiumV3'
+}
+
+// Basic tier cannot have autoscale settings or slots; both are gated on this.
+var supportsAutoscale = skuName != 'B2'
+
 resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: name
   location: location
   sku: {
-    name: 'P1v3'
-    tier: 'PremiumV3'
+    name: skuName
+    tier: skuTiers[skuName]
     capacity: capacity
   }
   kind: 'linux'
@@ -39,31 +47,29 @@ resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
   }
 }
 
-// Autoscale, staged but DISABLED by default (enabled: false).
-//
-// WHY DISABLED: autoscale would spin up 2-3 instances under load, and every extra
-// instance multiplies the in-memory rate limiter and the Resend pacer (see the
-// capacity note above). Enabling this before issue #109 (Redis) would let a CPU
-// spike silently blow past the Resend 5/sec account cap and weaken the login/RSVP
-// limits. It is defined here so the rule set is reviewed and ready; flip
-// enabled: true in the SAME change that raises capacity, and only after #109.
+// Autoscale, deployed and enabled ONLY on tiers that support it (Basic does not;
+// deploying autoscale settings against a Basic plan fails the apply). The #109
+// Redis gate is satisfied, so instances no longer multiply rate limits.
 //
 // Rule shape: scale OUT when average CPU > 65% for 5 min (add 1, cool down 5 min),
 // scale IN when average CPU < 30% for 10 min (remove 1, cool down 10 min). The
 // asymmetric windows (out fast, in slow) avoid flapping around a steady load.
-resource autoscale 'Microsoft.Insights/autoscalesettings@2022-10-01' = {
+// Floor is 2, matching the capacity baseline: autoscale owns the instance count
+// once enabled, and a floor of 1 would quietly scale the HA pair back down to a
+// single point of failure on the first quiet night.
+resource autoscale 'Microsoft.Insights/autoscalesettings@2022-10-01' = if (supportsAutoscale) {
   name: '${name}-autoscale'
   location: location
   properties: {
-    enabled: false  // gated on issue #109 (Redis); do not enable until then
+    enabled: true
     targetResourceUri: plan.id
     profiles: [
       {
         name: 'cpu-scale-out'
         capacity: {
-          minimum: '1'
+          minimum: '2'
           maximum: '3'
-          default: '1'
+          default: '2'
         }
         rules: [
           {

@@ -1,5 +1,5 @@
 import type { NextConfig } from 'next'
-import { buildContentSecurityPolicy, BLOB_STORAGE } from './src/lib/csp'
+import { buildContentSecurityPolicy, BLOB_STORAGE, MEDIA_CDN } from './src/lib/csp'
 
 // Built once at config load. NEXT_PUBLIC_API_URL is inlined at build time and is
 // the origin client components fetch (RSVP find, vendor inquiry), so it must be on
@@ -31,13 +31,16 @@ const nextConfig: NextConfig = {
   ],
   images: {
     formats: ['image/avif', 'image/webp'],
-    // Pinned to our storage account, not the *.blob.core.windows.net wildcard
+    // Pinned to OUR two media hosts, never the *.blob.core.windows.net wildcard
     // (issue #98): the wildcard let the image optimizer fetch and DECODE an image
     // hosted on any Azure customer's account, so a decompression bomb on an
-    // attacker-controlled account could exhaust the shared SSR server. Derived
-    // from the same constant the CSP uses so the two can never drift. Dev is
-    // unaffected: local image URLs never matched the Azure wildcard either.
+    // attacker-controlled account could exhaust the shared SSR server. Both hosts
+    // serve only our storage account: MEDIA_CDN is the Front Door domain in front
+    // of it (issue #375), BLOB_STORAGE the raw origin still present in rows and
+    // cached HTML from before the V104 backfill. Derived from the same constants
+    // the CSP uses so the two can never drift.
     remotePatterns: [
+      { protocol: 'https', hostname: new URL(MEDIA_CDN).hostname },
       { protocol: 'https', hostname: new URL(BLOB_STORAGE).hostname },
     ],
   },

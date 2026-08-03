@@ -11,7 +11,12 @@ resources are managed separately and are intentionally NOT in `main.bicep` (see 
   via `AZURE_STORAGE_CONNECTION_STRING`. Container public access = "Blob" so image URLs are
   publicly readable. Vendor logos under `vendor-logos/{vendorId}/`.
 - **Azure Key Vault**: `altarwed-prod-kv` — ALL secrets (never hardcode). All 16 secrets present.
-- **Azure CDN**: static assets and media delivery.
+- **Azure Front Door Standard**: `altarwed-cdn`, endpoint `altarwed-media`. Serves
+  `media.altarwed.com` (edge cache in front of the blob storage account; `modules/frontdoor.bicep`).
+  The API and the two Static Web Apps are NOT behind it.
+- **Azure Cache for Redis**: `altarwed-prod-redis` (Basic C0), cross-instance rate-limit
+  buckets, RSVP throttle, and OAuth CSRF state (`modules/redis.bicep`; `REDIS-URL` secret
+  written to Key Vault by the same module).
 - **Azure Application Insights**: observability (parses MDC fields from stdout; see
   `backend/CLAUDE.md` Observability Rules).
 

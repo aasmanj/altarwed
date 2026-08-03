@@ -1,6 +1,20 @@
 # PLAN: App Service scale-out and autoscale (issue #376, blocked on Redis #109)
 
-## Status: blocked, and the block is real
+## OUTCOME (2026-08-02): unblocked and implemented, pending the Bicep apply
+
+The #109 code shipped in PR #454 (Redis-backed stores behind `REDIS_URL`, in-memory
+fallback when blank). The infra side now lives in this repo: `modules/redis.bicep`
+(Basic C0 + `REDIS-URL` Key Vault secret), `REDIS_URL` switched to a Key Vault
+reference in `modules/app-service.bicep`, and capacity baseline 2. The plan tier is
+a deploy-time parameter (`planSku`, default `B2`): at today's scale (~12 couples)
+HA comes from two B2 instances (manual scale, roughly a third of the Premium
+pair's cost); passing `planSku=P1v3` at the marketing push brings autoscale
+(floor 2 / ceiling 3) and the #379 staging slot automatically. Nothing changes in
+prod until `main.bicep` is applied; that apply is the spend approval (B2 second
+instance plus ~USD 16/month Redis at the default). The analysis below is retained
+for history.
+
+## Status at time of writing: blocked, and the block was real
 
 Do not raise capacity yet. Three pieces of state are in-memory and per-instance:
 
