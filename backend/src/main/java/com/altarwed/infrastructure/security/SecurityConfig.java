@@ -71,6 +71,10 @@ public class SecurityConfig {
                         // guard everything else by default. "*" is a single path segment, so
                         // "/api/v1/vendors/*" covers /{id} and /founding-spots but NOT /me/... (two-plus
                         // segments), and the portfolio-photos read needs its own two-segment matcher.
+                        // RESIDUAL FOOTGUN: any FUTURE single-segment vendor GET (e.g. a hypothetical
+                        // GET /api/v1/vendors/pending-payouts) is auto-public under "/vendors/*". Before
+                        // adding one, either accept that it is public or give it an explicit
+                        // authenticated matcher ABOVE these permitAll lines (first match wins).
                         .requestMatchers(HttpMethod.GET, "/api/v1/vendors").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/vendors/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/vendors/*/portfolio-photos").permitAll()

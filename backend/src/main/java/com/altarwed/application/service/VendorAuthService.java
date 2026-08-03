@@ -61,17 +61,18 @@ public class VendorAuthService {
         this.foundingVendorCap = foundingVendorCap;
     }
 
-    // Live founding-program availability for the public /for-vendors pricing page. Uses the
-    // SAME countVerified-vs-cap comparison as the registration gate in register() below, so
-    // the number a visitor sees is exactly the decision the next registration will make.
-    // Clamped at zero: once paid (non-founding) vendors push countVerified past the cap the
-    // program reads as full rather than negative. Cap 0 disables the program entirely.
+    // Live founding-program availability for the public /for-vendors pricing page. Reads the
+    // SAME slots_claimed counter the registration gate consumes in register() below, so the
+    // number a visitor sees is exactly the decision the next registration will make. The old
+    // countVerified() read drifted: paid/comped verifications raised it past slots_claimed and
+    // made this surface under-report remaining spots. Clamped at zero so an over-seeded counter
+    // reads as full rather than negative. Cap 0 disables the program entirely.
     @Transactional(readOnly = true)
     public FoundingSpotsResponse foundingSpots() {
         if (foundingVendorCap <= 0) {
             return new FoundingSpotsResponse(0, 0);
         }
-        long remaining = Math.max(0, foundingVendorCap - vendorRepository.countVerified());
+        long remaining = Math.max(0, foundingVendorCap - vendorRepository.countFoundingSlotsClaimed());
         return new FoundingSpotsResponse((int) foundingVendorCap, (int) remaining);
     }
 

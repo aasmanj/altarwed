@@ -56,4 +56,9 @@ public interface VendorRepository {
     // one atomic conditional UPDATE, so there is no stale window between them. Must be called inside
     // the registering transaction so the reservation commits or rolls back with the vendor row.
     boolean tryClaimFoundingSlot(long cap);
+
+    // Committed founding-slot claims. The public founding-spots surface must read the SAME counter
+    // the grant gate consumes: countVerified() also counts paid/comped verifications, so it drifts
+    // above slots_claimed and would under-report remaining spots on /for-vendors.
+    long countFoundingSlotsClaimed();
 }

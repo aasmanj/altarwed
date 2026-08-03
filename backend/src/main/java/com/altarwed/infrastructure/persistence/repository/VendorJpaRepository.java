@@ -85,4 +85,10 @@ public interface VendorJpaRepository extends JpaRepository<VendorEntity, UUID> {
             + "SET slots_claimed = slots_claimed + 1, updated_at = GETUTCDATE() "
             + "WHERE program_key = 'FOUNDING_25' AND slots_claimed < :cap", nativeQuery = true)
     int claimFoundingSlot(@Param("cap") long cap);
+
+    // Committed claims for the public founding-spots read. Boxed Long, not long: the counter row
+    // does not exist until V106 runs, and a native scalar query maps a missing row to null.
+    @Query(value = "SELECT slots_claimed FROM founding_program WHERE program_key = 'FOUNDING_25'",
+            nativeQuery = true)
+    Long countFoundingSlotsClaimed();
 }

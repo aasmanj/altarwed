@@ -21,9 +21,12 @@
 -- neutral. Before this migration the gate closed once countVerified() reached the cap, so seeding
 -- from that same count reproduces today's remaining-slots value exactly. From here on the counter
 -- moves by exactly one per founding grant (the gate no longer conflates paid/comped verifications
--- with founding grants). The counter is never larger than countVerified(), so the public
--- founding-spots surface (which still reads countVerified()) can only ever under-report, never
--- advertise a slot the gate would then deny.
+-- with founding grants). The public founding-spots surface reads this same counter
+-- (VendorAuthService.foundingSpots), so the number a visitor sees and the admission decision can
+-- never diverge. Seeding note: COUNT of is_verified includes paid/comped/test verifications, so
+-- any verified vendor that was NOT a founding grant permanently consumes a founding slot here.
+-- Confirm the verified set is exactly the founding cohort before this runs in prod (at ~0 real
+-- vendors this is a no-op; with even one verified test vendor the program starts at 24 slots).
 --
 -- cap is NOT stored here: it stays config-driven (altarwed.vendor.founding-cap, default 25) and is
 -- passed into the guard at grant time, so raising the cap simply reopens grants.
