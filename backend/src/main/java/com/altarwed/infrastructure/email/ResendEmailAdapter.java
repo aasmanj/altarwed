@@ -221,7 +221,13 @@ public class ResendEmailAdapter implements EmailPort {
     }
 
     private String unsubscribeFooterText(String unsubUrl) {
-        return "\n\nTo unsubscribe: " + unsubUrl + "\n" + postalAddress;
+        return unsubscribeFooterText(unsubUrl, GUEST_FOOTER_REASON);
+    }
+
+    // The text/plain part must carry the same truthful "why you received this" line as the HTML
+    // part; a compliance reviewer (or a recipient's mail client) may only ever render this one.
+    private String unsubscribeFooterText(String unsubUrl, String reason) {
+        return "\n\n" + reason + "\nTo unsubscribe: " + unsubUrl + "\n" + postalAddress;
     }
 
     // The growth CTA (the viral loop): guest-facing invite and save-the-date mail lands in the
@@ -1040,7 +1046,7 @@ public class ResendEmailAdapter implements EmailPort {
 
                 "Therefore what God has joined together, let no one separate." (Mark 10:9)
                 """.formatted(partnerOneName, partnerTwoName, dashboardUrl)
-                + unsubscribeFooterText(displayUnsubUrl);
+                + unsubscribeFooterText(displayUnsubUrl, COUPLE_FOOTER_REASON);
 
         Map<String, Object> body = new HashMap<>();
         body.put("from", "AltarWed <" + fromEmail + ">");
@@ -1200,7 +1206,7 @@ public class ResendEmailAdapter implements EmailPort {
         String text = copy.bodyText().formatted(partnerOneName, partnerTwoName)
                 + "\n\n" + copy.ctaLabel() + ": " + copy.ctaUrl()
                 + "\n\n" + copy.verse()
-                + unsubscribeFooterText(displayUnsubUrl);
+                + unsubscribeFooterText(displayUnsubUrl, COUPLE_FOOTER_REASON);
 
         Map<String, Object> body = new HashMap<>();
         body.put("from", "AltarWed <" + fromEmail + ">");
