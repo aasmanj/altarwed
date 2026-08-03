@@ -124,6 +124,15 @@ export function planAutoSeat(guests: Guest[], tables: SeatingTable[]): AutoSeatP
     if (tn != null && isSeated(g, tables.length)) occupied[tn - 1] += guestSeats(g)
   }
 
+  // Parties that already have a seated anchor: the unseated remainder must join
+  // that same table, never be split to wherever first-fit lands them.
+  const anchorByParty = new Map<string, number>()
+  for (const g of guests) {
+    if (g.partyId && isSeated(g, tables.length)) {
+      anchorByParty.set(g.partyId, g.tableNumber!)
+    }
+  }
+
   const pool = guests.filter(g => g.rsvpStatus === 'ATTENDING' && !isSeated(g, tables.length))
   if (pool.length === 0) return EMPTY_PLAN
 
@@ -134,11 +143,31 @@ export function planAutoSeat(guests: Guest[], tables: SeatingTable[]): AutoSeatP
   let seatedSeats = 0
 
   for (const household of buildHouseholds(pool)) {
-    const tableIdx = tables.findIndex((t, i) => t.capacity - occupied[i] >= household.seats)
-    if (tableIdx === -1) {
-      unplaced.push({ label: household.label, seats: household.seats })
-      continue
+    // All members of a pool household share the same partyId (or none).
+    const anchorTable = household.members[0].partyId
+      ? anchorByParty.get(household.members[0].partyId)
+      : undefined
+
+    let tableIdx: number
+    if (anchorTable != null) {
+      // Honour the anchor: only seat at the table where their family already sits.
+      // If that table has no room, leave the household for a human decision rather
+      // than splitting them across two tables.
+      const idx = anchorTable - 1
+      if (tables[idx] && tables[idx].capacity - occupied[idx] >= household.seats) {
+        tableIdx = idx
+      } else {
+        unplaced.push({ label: household.label, seats: household.seats })
+        continue
+      }
+    } else {
+      tableIdx = tables.findIndex((t, i) => t.capacity - occupied[i] >= household.seats)
+      if (tableIdx === -1) {
+        unplaced.push({ label: household.label, seats: household.seats })
+        continue
+      }
     }
+
     occupied[tableIdx] += household.seats
     touched.add(tableIdx)
     seatedGuests += household.members.length

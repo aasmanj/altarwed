@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/core/auth/AuthContext'
@@ -681,6 +682,7 @@ export default function SeatingPage() {
   // second wave of writes on top of one still in flight.
   const [bulkBusy, setBulkBusy] = useState(false)
   const confirm = useConfirm()
+  const qc = useQueryClient()
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -746,8 +748,7 @@ export default function SeatingPage() {
   // calls to the existing per-guest endpoint, throttled to BULK_BATCH_SIZE at a time:
   // unbounded Promise.all over an 80-guest list would open 80 sockets at once and
   // interleave 80 optimistic-cache snapshots. On the first failure we stop instead of
-  // pushing the rest, so a couple sees one error toast rather than a wall of them and
-  // the chart is left in a state they can re-run auto-seat on.
+  // pushing the rest so the chart is left in a state they can re-run auto-seat on.
   async function applySeatWrites(writes: { guestId: string; tableNumber: number | null }[]) {
     let applied = 0
     for (let i = 0; i < writes.length; i += BULK_BATCH_SIZE) {
@@ -784,6 +785,7 @@ export default function SeatingPage() {
       toast.success(autoSeatSummary(plan.seatedGuests, plan.tablesUsed, plan.unplaced.length))
     } finally {
       setBulkBusy(false)
+      await qc.invalidateQueries({ queryKey: ['guests', coupleId] })
     }
   }
 
@@ -812,6 +814,7 @@ export default function SeatingPage() {
       toast.success(`Cleared ${applied} seat ${applied === 1 ? 'assignment' : 'assignments'}.`)
     } finally {
       setBulkBusy(false)
+      await qc.invalidateQueries({ queryKey: ['guests', coupleId] })
     }
   }
 

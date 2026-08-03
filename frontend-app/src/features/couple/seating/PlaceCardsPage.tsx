@@ -151,8 +151,8 @@ export default function PlaceCardsPage() {
               >
                 <p className="font-serif text-xl leading-tight text-stone-900 break-words">{card.name}</p>
                 <span
-                  className="my-2 block h-px w-10"
-                  style={{ backgroundColor: accentColor }}
+                  className="my-2 block w-10 border-t"
+                  style={{ borderColor: accentColor }}
                   aria-hidden="true"
                 />
                 <p className="text-[11px] uppercase tracking-[0.25em] text-stone-500 break-words">
@@ -167,7 +167,7 @@ export default function PlaceCardsPage() {
       {/* Print styles: letter portrait, strip chrome, never split a card across pages. */}
       <style>{`
         @media print {
-          @page { size: letter portrait; margin: 0.5in; }
+          @page { size: letter portrait; margin: 0.45in 0.5in; }
           body { background: white !important; }
           .cards-sheet {
             width: 100% !important;
