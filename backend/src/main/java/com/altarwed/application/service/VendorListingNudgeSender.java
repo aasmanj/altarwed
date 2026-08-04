@@ -49,7 +49,7 @@ public class VendorListingNudgeSender {
         asyncEmailService.sendVendorListingNurtureEmail(
                 vendor.email(),
                 vendor.businessName(),
-                appBaseUrl + "/dashboard",
+                appBaseUrl + "/vendor/listing",
                 gaps.missingLogo(),
                 gaps.missingBio(),
                 gaps.missingPhotos());

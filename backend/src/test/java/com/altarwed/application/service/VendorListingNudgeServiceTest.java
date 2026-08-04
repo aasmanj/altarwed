@@ -78,7 +78,7 @@ class VendorListingNudgeServiceTest {
         // email renders a one-item checklist rather than a generic nag.
         verify(asyncEmailService).sendVendorListingNurtureEmail(
                 eq("vendor@example.com"), eq("Grace Photography"),
-                eq("https://app.altarwed.com/dashboard"),
+                eq("https://app.altarwed.com/vendor/listing"),
                 eq(true), eq(false), eq(false));
         // The receipt is written in the same unit of work, so this vendor is never nudged again.
         verify(nudgeRepository).markSent(vendor.id());
@@ -143,8 +143,10 @@ class VendorListingNudgeServiceTest {
 
         verify(asyncEmailService, never()).sendVendorListingNurtureEmail(
                 anyString(), anyString(), anyString(), anyBoolean(), anyBoolean(), anyBoolean());
-        // No receipt: a bounce/complaint that is later cleared should not have burned the one shot.
-        verify(nudgeRepository, never()).markSent(any());
+        // Receipt IS written: global suppression is permanent (bounce/complaint list), so writing
+        // the receipt removes this vendor from the candidate set and prevents slot exhaustion on
+        // future batch runs. No email was sent, but the receipt records "this vendor was handled."
+        verify(nudgeRepository).markSent(vendor.id());
     }
 
     @Test

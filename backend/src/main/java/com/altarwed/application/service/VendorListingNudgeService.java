@@ -74,15 +74,18 @@ public class VendorListingNudgeService {
         this.sender = sender;
     }
 
-    // Daily is the right cadence for a day-3 nudge: the trigger has a one-day resolution, so
-    // polling more often would only re-scan the same candidate set. initialDelay keeps it off
-    // the startup path. @SchedulerLock (issue #44 idiom) stops a scaled-out deployment from
-    // running the scan once per instance; lockAtMostFor is a crash safety net well under the
-    // interval, and correctness does not depend on it because the unique constraint is the real
-    // dedup guarantee.
-    @Scheduled(fixedRate = 86_400_000L, initialDelay = 300_000L)
+    // Daily at 03:15 UTC is the right cadence for a day-3 nudge: the trigger has a one-day
+    // resolution, so polling more often would only re-scan the same candidate set. A cron
+    // expression avoids the fixedRate hazard where every App Service restart fires an extra
+    // run 5 minutes later (which would double-attempt the batch mid-day). lockAtLeastFor=23h
+    // prevents a second instance from picking up the lock immediately after a crash recovery
+    // within the same 24-hour window. @SchedulerLock (issue #44 idiom) stops a scaled-out
+    // deployment from running the scan once per instance; lockAtMostFor is a crash safety
+    // net well under the interval, and correctness does not depend on it because the unique
+    // constraint is the real dedup guarantee.
+    @Scheduled(cron = "0 15 3 * * *", zone = "UTC")
     @SchedulerLock(name = "VendorListingNudgeService_sendNudges",
-            lockAtMostFor = "20m", lockAtLeastFor = "1m")
+            lockAtMostFor = "20m", lockAtLeastFor = "23h")
     public void sendNudges() {
         // Catches an AOP misconfiguration (missing proxy, self-invocation) that would silently
         // disable the lock. Unit tests call LockAssert.TestHelper.makeAllAssertsPass(true).
@@ -110,8 +113,11 @@ public class VendorListingNudgeService {
                     continue;
                 }
                 if (isSuppressed(vendor.email())) {
-                    // Bounced or complained before. Skip without a receipt so the vendor is not
-                    // permanently burned if the address is later cleared.
+                    // Bounced or complained before. Write the receipt so this vendor is removed
+                    // from the candidate set and does not consume a BATCH_LIMIT slot on every
+                    // future run. Global suppression is permanent (bounce/complaint list); the
+                    // vendor can re-engage via a fresh registration if the address is cleared.
+                    nudgeRepository.markSent(vendor.id());
                     suppressed++;
                     continue;
                 }
