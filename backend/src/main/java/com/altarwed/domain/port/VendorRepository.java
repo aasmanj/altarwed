@@ -3,6 +3,7 @@ package com.altarwed.domain.port;
 import com.altarwed.domain.model.Vendor;
 import com.altarwed.domain.model.VendorCategory;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -42,6 +43,20 @@ public interface VendorRepository {
     // advertises, or lets an unauthenticated caller page past, the first 100 matches
     // (egress / DoS bound).
     long countDirectory(VendorCategory category, String city, String priceTier);
+
+    /**
+     * Candidates for the one-time listing-completion nudge (issue #557): active vendors that
+     * registered on or before {@code createdOnOrBefore}, have no nudge receipt yet, and still
+     * have an incomplete listing (no logo, or a blank bio, or zero portfolio photos).
+     *
+     * All four predicates are applied in the database rather than by filtering a full vendor
+     * scan in memory, so the job cost tracks the (small, shrinking) candidate set rather than
+     * the vendor table. {@code limit} caps one run's blast radius: the remainder is picked up on
+     * the next run, so a backlog drains gradually instead of firing thousands of emails at once
+     * and torching the sending reputation. Oldest registrations first, tie-broken on id so the
+     * ordering is total and a capped run never starves the same vendors forever.
+     */
+    List<Vendor> findListingNudgeCandidates(LocalDateTime createdOnOrBefore, int limit);
 
     void deleteById(UUID id);
 

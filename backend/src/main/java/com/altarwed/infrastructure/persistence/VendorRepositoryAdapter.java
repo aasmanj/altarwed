@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -76,6 +77,15 @@ public class VendorRepositoryAdapter implements VendorRepository {
     @Override
     public long countDirectory(VendorCategory category, String city, String priceTier) {
         return jpaRepository.countDirectory(category, blankToNull(city), blankToNull(priceTier));
+    }
+
+    // The Pageable carries only the page slice (page 0, size = limit); the ordering lives in the
+    // query's own ORDER BY, so no Sort is attached here.
+    @Override
+    public List<Vendor> findListingNudgeCandidates(LocalDateTime createdOnOrBefore, int limit) {
+        Pageable pageable = PageRequest.of(0, Math.max(1, limit));
+        return jpaRepository.findListingNudgeCandidates(createdOnOrBefore, pageable)
+                .stream().map(this::toDomain).toList();
     }
 
     @Override

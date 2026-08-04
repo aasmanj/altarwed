@@ -173,6 +173,17 @@ public class AsyncEmailService {
                         venueAddress, venueCity, venueState, ceremonyTime, googleCalendarUrl));
     }
 
+    // One-time day-3 vendor listing-completion nudge (issue #557). Enqueued inside the same
+    // transaction as the nudge receipt insert (see VendorListingNudgeSender), so a queued nudge
+    // and its dedup receipt commit or roll back together.
+    public void sendVendorListingNurtureEmail(String toEmail, String businessName,
+                                              String dashboardUrl, boolean missingLogo,
+                                              boolean missingBio, boolean missingPhotos) {
+        enqueue(EmailType.VENDOR_LISTING_NURTURE, toEmail,
+                new OutboxPayloads.VendorListingNurture(toEmail, businessName, dashboardUrl,
+                        missingLogo, missingBio, missingPhotos));
+    }
+
     // Serialises the payload and writes one PENDING row. recipient is a single low-cardinality
     // address kept only for operational queries (null for batch sends). We never log the address;
     // only the type and the internal outbox UUID reach the logs.
