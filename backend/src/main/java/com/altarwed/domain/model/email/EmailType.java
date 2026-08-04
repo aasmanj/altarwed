@@ -27,5 +27,8 @@ public enum EmailType {
     VENDOR_INQUIRY_CONFIRMATION,
     // Date-offset RSVP campaign reminders (issue #458), enqueued by CampaignReminderService.
     RSVP_NONRESPONDER_REMINDER,
-    ATTENDING_REMINDER
+    ATTENDING_REMINDER,
+    // One-time day-3 listing-completion nudge (issue #557), enqueued by VendorListingNudgeService
+    // for vendors whose listing is still missing a logo, a bio, or portfolio photos.
+    VENDOR_LISTING_NURTURE
 }

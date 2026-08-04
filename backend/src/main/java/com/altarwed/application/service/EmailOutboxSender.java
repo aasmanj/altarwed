@@ -205,6 +205,12 @@ public class EmailOutboxSender {
                         p.weddingDate(), p.venueAddress(), p.venueCity(), p.venueState(),
                         p.ceremonyTime(), p.googleCalendarUrl());
             }
+            case VENDOR_LISTING_NURTURE -> {
+                var p = objectMapper.readValue(json, OutboxPayloads.VendorListingNurture.class);
+                emailPort.sendVendorListingNurtureEmail(p.toEmail(), p.businessName(),
+                        p.dashboardUrl(), Boolean.TRUE.equals(p.missingLogo()),
+                        Boolean.TRUE.equals(p.missingBio()), Boolean.TRUE.equals(p.missingPhotos()));
+            }
         }
     }
 

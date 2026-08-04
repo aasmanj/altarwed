@@ -889,6 +889,109 @@ public class ResendEmailAdapter implements EmailPort {
         postEmail("vendor-verified", toEmail, body);
     }
 
+    /**
+     * One-time day-3 listing-completion nudge (issue #557). Marketing-class, not transactional:
+     * it goes through postMarketingEmail so the global suppression list is honoured, and it
+     * carries the unsubscribe footer plus the RFC 8058 one-click List-Unsubscribe header Gmail
+     * and Yahoo expect on bulk mail. Vendor mail has no couple context, so the unsubscribe links
+     * are the global (null coupleId) form, exactly like the couple welcome email.
+     */
+    @Override
+    public void sendVendorListingNurtureEmail(String toEmail, String businessName, String dashboardUrl,
+                                              boolean missingLogo, boolean missingBio, boolean missingPhotos) {
+        String checklistHtml = listingChecklistHtml(missingLogo, missingBio, missingPhotos);
+        String checklistText = listingChecklistText(missingLogo, missingBio, missingPhotos);
+
+        String html = """
+                <div style="font-family:Georgia,serif;max-width:540px;margin:0 auto;background:#fdfaf6;padding:40px;border-radius:8px;">
+                  <p style="text-align:center;color:#a08060;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">AltarWed Vendors</p>
+                  <h1 style="text-align:center;color:#3b2f2f;font-size:26px;margin:0 0 16px;">Your listing is almost ready</h1>
+                  <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
+                    Christian couples are searching AltarWed right now for vendors who share their faith, and %s is already in front of them. A finished listing is what turns that visit into an inquiry.
+                  </p>
+                  <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
+                    A few minutes is all it takes. Here is what your listing is still missing:
+                  </p>
+                  %s
+                  <p style="color:#3b2f2f;font-size:15px;line-height:1.7;">
+                    Couples want to see the work and hear the heart behind it before they reach out. Show them both, and let your craft speak for itself.
+                  </p>
+                  <div style="text-align:center;margin:28px 0 12px;">
+                    <a href="%s"
+                       style="display:inline-block;padding:12px 28px;background:#3b2f2f;color:#d4af6a;text-decoration:none;border-radius:4px;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">
+                      Finish your listing
+                    </a>
+                  </div>
+                  <p style="text-align:center;color:#a08060;font-size:11px;margin-top:32px;">
+                    "Whatever you do, work at it with all your heart, as working for the Lord." (Col 3:23)
+                  </p>
+                </div>
+                """.formatted(escapeHtml(businessName), checklistHtml, dashboardUrl);
+
+        // Vendor-facing mail: no couple scoping, so a global opt-out link.
+        String displayUnsubUrl = unsubscribeDisplayUrl(toEmail, null);
+        String oneClickUnsubUrl = unsubscribeOneClickUrl(toEmail, null);
+
+        String text = """
+                Your AltarWed listing is almost ready
+
+                Christian couples are searching AltarWed right now for vendors who share their faith, and %s is already in front of them. A finished listing is what turns that visit into an inquiry.
+
+                A few minutes is all it takes. Here is what your listing is still missing:
+                %s
+                Couples want to see the work and hear the heart behind it before they reach out. Show them both, and let your craft speak for itself.
+
+                Finish your listing: %s
+
+                "Whatever you do, work at it with all your heart, as working for the Lord." (Col 3:23)
+                """.formatted(businessName, checklistText, dashboardUrl)
+                + unsubscribeFooterText(displayUnsubUrl);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("from", "AltarWed <" + fromEmail + ">");
+        body.put("to", List.of(toEmail));
+        body.put("subject", "Your listing is almost ready, couples are waiting");
+        body.put("html", html + unsubscribeFooterHtml(displayUnsubUrl));
+        body.put("text", text);
+        body.put("headers", Map.of(
+                "List-Unsubscribe", "<" + oneClickUnsubUrl + ">",
+                "List-Unsubscribe-Post", "List-Unsubscribe=One-Click"
+        ));
+
+        postMarketingEmail("vendor-listing-nurture", toEmail, body);
+    }
+
+    // Renders only the gaps this vendor actually has, so the email reads as a short personal
+    // to-do list rather than a generic "complete your profile" nag. The caller never sends when
+    // all three are false, so the list is never empty.
+    private static String listingChecklistHtml(boolean missingLogo, boolean missingBio, boolean missingPhotos) {
+        StringBuilder items = new StringBuilder();
+        if (missingLogo) {
+            items.append("<li style=\"margin-bottom:8px;\"><strong>Your logo.</strong> It is the first thing a couple sees next to your name.</li>");
+        }
+        if (missingBio) {
+            items.append("<li style=\"margin-bottom:8px;\"><strong>A short bio.</strong> Two or three sentences on who you serve and why this work matters to you.</li>");
+        }
+        if (missingPhotos) {
+            items.append("<li style=\"margin-bottom:8px;\"><strong>Portfolio photos.</strong> Even three or four real weddings make a listing feel trustworthy.</li>");
+        }
+        return "<ul style=\"color:#3b2f2f;font-size:15px;line-height:1.7;padding-left:20px;\">" + items + "</ul>";
+    }
+
+    private static String listingChecklistText(boolean missingLogo, boolean missingBio, boolean missingPhotos) {
+        StringBuilder items = new StringBuilder();
+        if (missingLogo) {
+            items.append("\n- Your logo. It is the first thing a couple sees next to your name.");
+        }
+        if (missingBio) {
+            items.append("\n- A short bio. Two or three sentences on who you serve and why this work matters to you.");
+        }
+        if (missingPhotos) {
+            items.append("\n- Portfolio photos. Even three or four real weddings make a listing feel trustworthy.");
+        }
+        return items + "\n";
+    }
+
     // Routes guest replies to the couple's own inbox. Skipped when the couple address is
     // missing or invalid (the reply then falls back to the From address) rather than
     // sending Resend a malformed reply_to that could 422 the whole message. We never put

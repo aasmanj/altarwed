@@ -83,4 +83,13 @@ public final class OutboxPayloads {
                                     String weddingDate, String venueAddress, String venueCity,
                                     String venueState, String ceremonyTime,
                                     String googleCalendarUrl) {}
+
+    // One-time day-3 vendor listing-completion nudge (issue #557). The three missing* flags are
+    // the gaps measured when the nudge was queued, so the email renders a checklist of exactly
+    // what that vendor still has to add rather than a generic "finish your profile". Boxed
+    // Booleans because these round-trip through JSON: an absent field must deserialise to null
+    // (and be read as "not missing") rather than silently defaulting a primitive to false.
+    public record VendorListingNurture(String toEmail, String businessName, String dashboardUrl,
+                                       Boolean missingLogo, Boolean missingBio,
+                                       Boolean missingPhotos) {}
 }

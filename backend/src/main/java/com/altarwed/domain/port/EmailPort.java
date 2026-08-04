@@ -108,4 +108,11 @@ public interface EmailPort {
     void sendAttendingReminderEmail(String toEmail, String guestName, String coupleNames,
                                     String weddingDate, String venueAddress, String venueCity,
                                     String venueState, String ceremonyTime, String googleCalendarUrl);
+
+    // Sent once, on or after day 3 after registration, to a vendor whose listing is still
+    // missing the assets couples judge it on (issue #557). The three missing* flags drive a
+    // checklist of exactly what that vendor still has to add. Marketing-class mail: it honours
+    // the global suppression list and carries an unsubscribe footer.
+    void sendVendorListingNurtureEmail(String toEmail, String businessName, String dashboardUrl,
+                                       boolean missingLogo, boolean missingBio, boolean missingPhotos);
 }
