@@ -30,7 +30,17 @@ public class AdminMetricsService {
         // subscription state we already store; no Stripe API call. Annual plans map to the
         // same paid tier and are approximated at the monthly rate for this display figure.
         long mrrCents = base.activePaidSubscriptions() * paidPlanMonthlyPriceCents;
-        return base.withMrrCents(mrrCents);
+        return base.withMrrCents(mrrCents)
+                .withSignupToPublishedRate(signupToPublishedRate(base));
+    }
+
+    // Activation conversion: of everyone who signed up, what share got a website published.
+    // Derived from counts we already have, so it belongs in the application layer next to MRR
+    // rather than in the persistence adapter. max(totalCouples, 1) is the division-by-zero
+    // guard: with no couples there is nothing to convert, and publishedWebsites is 0 too
+    // (a published website cannot exist without its couple), so the rate reads 0.0.
+    private double signupToPublishedRate(MetricsSnapshot base) {
+        return (double) base.publishedWebsites() / Math.max(base.totalCouples(), 1L);
     }
 
     public WebsiteRoster websiteRoster(int page, int size, String callerEmail) {
