@@ -31,8 +31,10 @@ public record MetricsSnapshot(
         // persistence adapter, because it is a derived business figure rather than a stored count.
         //
         // Funnel step 2 (published->shared) has no server-side source of truth: share actions
-        // fire client-side analytics only, there is no shares table to query. Read it from PostHog.
-        // Published->shared: PostHog query -- select count(distinct person) where event = 'share_link_copied' or event = 'share_sms_clicked' or event = 'share_facebook_clicked', grouped by has_published_website
+        // fire client-side analytics only (shareAnalytics.ts: captureEvent('share_clicked', { channel })),
+        // there is no shares table to query. Read from PostHog:
+        // count(distinct person) where event = 'share_clicked', group by properties.channel
+        // (channel values: 'copy_link', 'native', 'facebook', 'sms')
         Double signupToPublishedRate
 ) {
     public MetricsSnapshot {

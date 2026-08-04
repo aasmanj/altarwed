@@ -13,6 +13,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -57,7 +58,7 @@ class AdminMetricsServiceTest {
 
         MetricsSnapshot result = service.snapshot(ADMIN);
 
-        assertThat(result.signupToPublishedRate()).isEqualTo(0.4d);
+        assertThat(result.signupToPublishedRate()).isCloseTo(0.4d, within(1e-9));
         // Raw counts must survive the derivation untouched.
         assertThat(result.totalCouples()).isEqualTo(100L);
         assertThat(result.publishedWebsites()).isEqualTo(40L);
