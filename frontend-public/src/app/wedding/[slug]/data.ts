@@ -248,6 +248,7 @@ export type BlockType =
   | 'VENUE_CARD' | 'HOTEL_CARD' | 'REGISTRY_CARD'
   | 'COUNTDOWN' | 'RSVP_CTA'
   | 'WEDDING_PARTY_GRID' | 'PHOTO_ALBUM_GRID' | 'VOWS_PREVIEW'
+  | 'DAY_OF_TIMELINE'
 
 export interface WeddingPageBlock {
   id: string
@@ -361,6 +362,22 @@ export function blockHasContent(
     case 'WEDDING_PARTY_GRID': return hasPartyMembers
     case 'PHOTO_ALBUM_GRID': return hasPhotosPresent
     case 'VOWS_PREVIEW': return !!(wedding.partnerOneVows || wedding.partnerTwoVows)
+    case 'DAY_OF_TIMELINE': {
+      // A timeline owns its data (contentJson holds the rows; there is no scalar
+      // column), so presence is decided here rather than from `wedding`. The extra
+      // `some(...)` beyond a bare length check is deliberate: a newly added block
+      // ships with one BLANK row, and BlockRenderer's DayOfTimelineBlock drops rows
+      // with neither a time nor a title and returns null when none survive. Without
+      // the same filter here, adding a timeline and typing nothing would light up
+      // the Details tab in the nav and land guests on a blank section. Keep in sync
+      // with BlockRenderer's DAY_OF_TIMELINE null-return.
+      const items = Array.isArray(c.items) ? c.items : []
+      if (items.length === 0) return false
+      return items.some(entry => {
+        const row = (entry && typeof entry === 'object' ? entry : {}) as Record<string, unknown>
+        return !!(s(row.time) || s(row.title))
+      })
+    }
     case 'DIVIDER': return false
     default: return false
   }
