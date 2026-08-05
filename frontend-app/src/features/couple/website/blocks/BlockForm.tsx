@@ -506,9 +506,9 @@ function TimelineFields({
           // Index keys are safe here: the rows have no identity of their own and
           // every input is controlled, so a removal re-renders each surviving row
           // from its new props rather than carrying stale DOM state.
-          <li key={index} className="rounded-md border border-stone-200 bg-stone-50/60 p-3">
+          <li key={index} role="group" aria-labelledby={`timeline-item-label-${index}`} className="rounded-md border border-stone-200 bg-stone-50/60 p-3">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-400">
+              <span id={`timeline-item-label-${index}`} className="text-[10px] font-semibold uppercase tracking-wider text-stone-400">
                 Item {index + 1}
               </span>
               <button

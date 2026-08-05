@@ -7,6 +7,7 @@
 import { Calendar, Clock, ExternalLink, Hotel, MapPin, Gift, type LucideIcon } from 'lucide-react'
 import type { WeddingWebsite, WeddingPageBlock } from '@/app/wedding/[slug]/data'
 import { daysUntilDate, formatWeddingDate } from '@/lib/date'
+import { parseTimelineItems, type TimelineItem } from '@/lib/timeline'
 
 // ── Auxiliary data passed by the preview page for dynamic blocks ──
 export interface WeddingPartyMember {
@@ -159,28 +160,6 @@ function safeParseJson(json: string): Record<string, unknown> {
   try { return JSON.parse(json) } catch { return {} }
 }
 
-interface TimelineItem {
-  time: string
-  title: string
-  notes: string
-}
-
-// contentJson is opaque to the backend (no server-side validation of the row
-// shape), so treat every field as untrusted. Rows with neither a time nor a
-// title are dropped: the editor seeds a new block with one blank row, and a
-// guest should never see an empty line on the couple's public site. The
-// DAY_OF_TIMELINE branch of blockHasContent in wedding/[slug]/data.ts applies
-// the same filter, so nav gating and rendering stay consistent.
-function parseTimelineItems(raw: unknown): TimelineItem[] {
-  if (!Array.isArray(raw)) return []
-  return raw
-    .map(entry => {
-      const row = (entry && typeof entry === 'object' ? entry : {}) as Record<string, unknown>
-      const s = (k: string) => (typeof row[k] === 'string' ? row[k].trim() : '')
-      return { time: s('time'), title: s('title'), notes: s('notes') }
-    })
-    .filter(item => item.time || item.title)
-}
 
 // ── Block sub-components ─────────────────────────────────────────────────────
 
@@ -611,7 +590,7 @@ function DayOfTimelineBlock({ items }: { items: TimelineItem[] }) {
               <p className="font-serif font-semibold text-[#3b2f2f] leading-snug">{item.title}</p>
             )}
             {item.notes && (
-              <p className="mt-1 text-sm text-[#8a6a4a] leading-relaxed whitespace-pre-line">{item.notes}</p>
+              <p className="mt-1 text-sm text-[#8a6a4a] leading-relaxed">{item.notes}</p>
             )}
           </div>
         </li>

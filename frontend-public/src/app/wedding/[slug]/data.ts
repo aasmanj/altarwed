@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import type { WeddingPartyMember, WeddingPhoto } from '@/components/blocks/BlockRenderer'
+import { parseTimelineItems } from '@/lib/timeline'
 
 // Hard client-side timeout for every backend fetch on the public wedding render
 // path. Without it a slow/wedged backend leaves the SSR render blocked until the
@@ -362,22 +363,10 @@ export function blockHasContent(
     case 'WEDDING_PARTY_GRID': return hasPartyMembers
     case 'PHOTO_ALBUM_GRID': return hasPhotosPresent
     case 'VOWS_PREVIEW': return !!(wedding.partnerOneVows || wedding.partnerTwoVows)
-    case 'DAY_OF_TIMELINE': {
-      // A timeline owns its data (contentJson holds the rows; there is no scalar
-      // column), so presence is decided here rather than from `wedding`. The extra
-      // `some(...)` beyond a bare length check is deliberate: a newly added block
-      // ships with one BLANK row, and BlockRenderer's DayOfTimelineBlock drops rows
-      // with neither a time nor a title and returns null when none survive. Without
-      // the same filter here, adding a timeline and typing nothing would light up
-      // the Details tab in the nav and land guests on a blank section. Keep in sync
-      // with BlockRenderer's DAY_OF_TIMELINE null-return.
-      const items = Array.isArray(c.items) ? c.items : []
-      if (items.length === 0) return false
-      return items.some(entry => {
-        const row = (entry && typeof entry === 'object' ? entry : {}) as Record<string, unknown>
-        return !!(s(row.time) || s(row.title))
-      })
-    }
+    case 'DAY_OF_TIMELINE':
+      // parseTimelineItems (shared with BlockRenderer) trims and drops blank rows,
+      // so this matches exactly what the renderer will draw.
+      return parseTimelineItems(c.items).length > 0
     case 'DIVIDER': return false
     default: return false
   }
