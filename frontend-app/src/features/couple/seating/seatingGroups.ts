@@ -14,7 +14,7 @@ import type { Guest, RsvpStatus } from '@/features/couple/guests/useGuests'
 
 // Alphabetical key for a person: the last whitespace-separated token of their
 // name, lowercased. Falls back to the whole name for single-word entries. Shared
-// by the printed board and the escort cards so both sort people identically.
+// by the printed boards and the table cards so all sort people identically.
 export function lastNameKey(name: string): string {
   const parts = name.trim().split(/\s+/)
   return (parts[parts.length - 1] || name).toLowerCase()

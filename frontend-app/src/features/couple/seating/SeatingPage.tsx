@@ -20,7 +20,7 @@ import {
   useDraggable,
 } from '@dnd-kit/core'
 import { toast } from 'sonner'
-import { Printer, Users, Search, X, Circle, CircleCheck, CircleX, Pencil, AlertTriangle, WandSparkles, Eraser, IdCard } from 'lucide-react'
+import { Printer, Users, Search, X, Circle, CircleCheck, CircleX, Pencil, AlertTriangle, WandSparkles, Eraser, LayoutGrid } from 'lucide-react'
 import { TOUCH_REVEAL } from '@/lib/touchReveal'
 import { useGuests, useAssignGuestTable, type Guest, type RsvpStatus } from '@/features/couple/guests/useGuests'
 import {
@@ -909,18 +909,18 @@ export default function SeatingPage() {
             <Link
               to="/dashboard/seating/board"
               className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-50 transition"
-              title="Print a Find Your Seat board for the reception"
+              title="Print an alphabetical Find Your Seat board for the reception"
             >
               <Printer size={14} />
-              Print seating board
+              Print find-your-seat board
             </Link>
             <Link
-              to="/dashboard/seating/place-cards"
+              to="/dashboard/seating/table-board"
               className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-50 transition"
-              title="Print cut-apart escort cards, one per guest with their table"
+              title="Print table assignments as one big 24x36 board or one card per table"
             >
-              <IdCard size={14} />
-              Print place cards
+              <LayoutGrid size={14} />
+              Print by-table board
             </Link>
             <button
               onClick={() => setEditingTable('new')}
