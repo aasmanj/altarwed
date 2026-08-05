@@ -25,6 +25,7 @@ import SaveTheDatePage from '@/features/couple/savethedate/SaveTheDatePage'
 import PhotosPage from '@/features/couple/photos/PhotosPage'
 import SeatingPage from '@/features/couple/seating/SeatingPage'
 import SeatingBoardPage from '@/features/couple/seating/SeatingBoardPage'
+import TableBoardPage from '@/features/couple/seating/TableBoardPage'
 import ScripturePage from '@/features/couple/scripture/ScripturePage'
 import VowsPage from '@/features/couple/vows/VowsPage'
 import CeremonyPage from '@/features/couple/ceremony/CeremonyPage'
@@ -159,6 +160,14 @@ function AnimatedRoutes() {
             element={
               <ProtectedRoute role="COUPLE">
                 <SeatingBoardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/seating/table-board"
+            element={
+              <ProtectedRoute role="COUPLE">
+                <TableBoardPage />
               </ProtectedRoute>
             }
           />

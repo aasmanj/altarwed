@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/core/auth/AuthContext'
@@ -18,7 +19,8 @@ import {
   useDroppable,
   useDraggable,
 } from '@dnd-kit/core'
-import { Printer, Users, Search, X, Circle, CircleCheck, CircleX, Pencil, AlertTriangle } from 'lucide-react'
+import { toast } from 'sonner'
+import { Printer, Users, Search, X, Circle, CircleCheck, CircleX, Pencil, AlertTriangle, WandSparkles, Eraser, LayoutGrid } from 'lucide-react'
 import { TOUCH_REVEAL } from '@/lib/touchReveal'
 import { useGuests, useAssignGuestTable, type Guest, type RsvpStatus } from '@/features/couple/guests/useGuests'
 import {
@@ -45,6 +47,7 @@ import {
   type GroupedUnassigned,
   type PartyGroup,
 } from './seatingGroups'
+import { planAutoSeat, seatedGuestIds, autoSeatSummary } from './autoSeat'
 import TableShapeIcon from './TableShapeIcon'
 
 // ─── RSVP status indicator ───────────────────────────────────────────────────
@@ -653,6 +656,11 @@ function TableModal({
 
 // ─── Main page ───────────────────────────────────────────────────────────────
 
+// Concurrency cap for the bulk seat actions. Small enough to be polite to the API
+// and to keep the optimistic-cache snapshots from stacking, large enough that an
+// 80-guest auto-seat still feels instant.
+const BULK_BATCH_SIZE = 5
+
 export default function SeatingPage() {
   const { user } = useAuth()
   const coupleId = user?.id ?? ''
@@ -670,6 +678,11 @@ export default function SeatingPage() {
   // pool; a guest who was seated and later declined is never hidden, they stay on the
   // chart with a "Declined" badge so the couple notices before printing.
   const [attendingOnly, setAttendingOnly] = useState(true)
+  // Guards the two bulk actions (auto-seat / clear all) so a couple cannot fire a
+  // second wave of writes on top of one still in flight.
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const confirm = useConfirm()
+  const qc = useQueryClient()
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -729,6 +742,80 @@ export default function SeatingPage() {
       assignTable.mutate({ guestId: g.id, tableNumber })
     }
     setSelectedGuestId(null)
+  }
+
+  // Apply a batch of seat writes. There is no bulk-assign endpoint, so this is N
+  // calls to the existing per-guest endpoint, throttled to BULK_BATCH_SIZE at a time:
+  // unbounded Promise.all over an 80-guest list would open 80 sockets at once and
+  // interleave 80 optimistic-cache snapshots. On the first failure we stop instead of
+  // pushing the rest so the chart is left in a state they can re-run auto-seat on.
+  async function applySeatWrites(writes: { guestId: string; tableNumber: number | null }[]) {
+    let applied = 0
+    for (let i = 0; i < writes.length; i += BULK_BATCH_SIZE) {
+      const chunk = writes.slice(i, i + BULK_BATCH_SIZE)
+      const results = await Promise.all(
+        chunk.map(w => assignTable.mutateAsync(w).then(() => true, () => false)),
+      )
+      applied += results.filter(Boolean).length
+      if (results.some(ok => !ok)) return { applied, failed: true }
+    }
+    return { applied, failed: false }
+  }
+
+  // One click that turns ~80 placements into ~10 corrections: fill the tables the
+  // couple already built with whole households, largest first. Purely additive, it
+  // never moves someone who is already seated, so "Clear all seats" is its inverse.
+  async function handleAutoSeat() {
+    const plan = planAutoSeat(guests, tables)
+    if (plan.assignments.length === 0) {
+      toast.info(
+        plan.unplaced.length > 0
+          ? 'No household fits in the seats left. Add a table or raise a capacity, then try again.'
+          : 'Nothing to auto-seat. Every attending guest already has a table.',
+      )
+      return
+    }
+    setBulkBusy(true)
+    try {
+      const { applied, failed } = await applySeatWrites(plan.assignments)
+      if (failed) {
+        toast.warning(`Auto-seat stopped early. ${applied} of ${plan.assignments.length} guests were seated.`)
+        return
+      }
+      toast.success(autoSeatSummary(plan.seatedGuests, plan.tablesUsed, plan.unplaced.length))
+    } finally {
+      setBulkBusy(false)
+      await qc.invalidateQueries({ queryKey: ['guests', coupleId] })
+    }
+  }
+
+  // The single-action inverse of auto-seat. Destructive to the arrangement (though
+  // never to the guest list), so it asks first.
+  async function handleClearAllSeats() {
+    const ids = seatedGuestIds(guests, tables.length)
+    if (ids.length === 0) {
+      toast.info('No one is seated yet.')
+      return
+    }
+    const ok = await confirm({
+      title: `Clear all ${ids.length} seat assignments?`,
+      message: 'Everyone moves back to the unassigned pool. Your guest list, tables and RSVPs are not affected.',
+      tone: 'danger',
+      confirmLabel: 'Clear all seats',
+    })
+    if (!ok) return
+    setBulkBusy(true)
+    try {
+      const { applied, failed } = await applySeatWrites(ids.map(guestId => ({ guestId, tableNumber: null })))
+      if (failed) {
+        toast.warning(`Stopped early. ${applied} of ${ids.length} guests were unseated.`)
+        return
+      }
+      toast.success(`Cleared ${applied} seat ${applied === 1 ? 'assignment' : 'assignments'}.`)
+    } finally {
+      setBulkBusy(false)
+      await qc.invalidateQueries({ queryKey: ['guests', coupleId] })
+    }
   }
 
   function guestsForTable(table: SeatingTable) {
@@ -822,10 +909,18 @@ export default function SeatingPage() {
             <Link
               to="/dashboard/seating/board"
               className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-50 transition"
-              title="Print a Find Your Seat board for the reception"
+              title="Print an alphabetical Find Your Seat board for the reception"
             >
               <Printer size={14} />
-              Print seating board
+              Print find-your-seat board
+            </Link>
+            <Link
+              to="/dashboard/seating/table-board"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-50 transition"
+              title="Print table assignments as one big 24x36 board or one card per table"
+            >
+              <LayoutGrid size={14} />
+              Print by-table board
             </Link>
             <button
               onClick={() => setEditingTable('new')}
@@ -860,6 +955,27 @@ export default function SeatingPage() {
               />
               Attending only
             </label>
+            {/* Bulk actions: one click to fill the tables, one click to undo it. */}
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                onClick={handleAutoSeat}
+                disabled={bulkBusy}
+                title="Fill your tables with whole households, largest first. Nobody already seated is moved."
+                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+              >
+                <WandSparkles size={14} aria-hidden="true" />
+                {bulkBusy ? 'Working…' : 'Auto-seat by household'}
+              </button>
+              <button
+                onClick={handleClearAllSeats}
+                disabled={bulkBusy}
+                title="Move every seated guest back to the unassigned pool"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-60 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+              >
+                <Eraser size={14} aria-hidden="true" />
+                Clear all seats
+              </button>
+            </div>
           </div>
         )}
         {tables.length > 0 && unseatedAttending > 0 && (

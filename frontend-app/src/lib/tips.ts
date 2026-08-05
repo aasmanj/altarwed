@@ -28,9 +28,4 @@ export const TIPS: Record<string, Tip> = {
     title: 'Set a goal before you spend',
     body: 'Couples who set a written budget goal up front are far more likely to stay under it. Use the goal field at the top.',
   },
-  seatingBeforeLock: {
-    id: 'seatingBeforeLock',
-    title: 'Lock the chart when you finalize',
-    body: 'Once seating is set, hit "Lock chart" to alphabetize each table by name. Makes printing place cards easy.',
-  },
 }

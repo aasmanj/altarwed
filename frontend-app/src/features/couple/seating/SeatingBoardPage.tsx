@@ -5,7 +5,8 @@ import { useAuth } from '@/core/auth/AuthContext'
 import QueryErrorState from '@/components/QueryErrorState'
 import { useGuests, type Guest } from '@/features/couple/guests/useGuests'
 import { useSeatingTables } from './useSeatingTables'
-import { countUnseatedAttending } from './seatingGroups'
+import { countUnseatedAttending, lastNameKey } from './seatingGroups'
+import { buildTableGroups } from './tableBoard'
 import TableShapeIcon from './TableShapeIcon'
 import { useWeddingWebsite, useUpdateWeddingWebsite } from '@/features/couple/website/useWeddingWebsite'
 
@@ -24,13 +25,6 @@ import { useWeddingWebsite, useUpdateWeddingWebsite } from '@/features/couple/we
 // Sort and grouping happen here, not in the seating editor, so the editor stays
 // free-form drag-and-drop and this view is always the clean finalized cut.
 // ─────────────────────────────────────────────────────────────────────────────
-
-// Last name = last whitespace-separated token, used as the alphabetical key.
-// Falls back to the full name for single-word entries.
-function lastNameKey(name: string): string {
-  const parts = name.trim().split(/\s+/)
-  return (parts[parts.length - 1] || name).toLowerCase()
-}
 
 interface BoardRow {
   display: string
@@ -108,10 +102,9 @@ export default function SeatingBoardPage() {
   }
   rows.sort((a, b) => a.sortKey.localeCompare(b.sortKey) || a.display.localeCompare(b.display))
 
-  const assignedGuestsByTable = (idx: number): Guest[] =>
-    guests
-      .filter(g => g.tableNumber === idx + 1 && g.rsvpStatus !== 'DECLINING')
-      .sort((a, b) => lastNameKey(a.name).localeCompare(lastNameKey(b.name)))
+  // Shared with TableBoardPage: same grouping, same exclusions, so this
+  // cross-check can never disagree with the by-table board or table cards.
+  const tableGroups = buildTableGroups(guests, tables)
 
   const hasContent = rows.length > 0
   // Attending guests still missing a table: the couple should resolve these before
@@ -259,23 +252,22 @@ export default function SeatingBoardPage() {
               Tables at a Glance
             </h2>
             <div className="grid grid-cols-2 gap-x-10 gap-y-6">
-              {tables.map((t, idx) => {
-                const seated = assignedGuestsByTable(idx)
-                if (seated.length === 0) return null
+              {tableGroups.map(group => {
+                const t = tables[group.tableNumber - 1]
                 return (
-                  <div key={t.id} className="break-inside-avoid">
+                  <div key={group.key} className="break-inside-avoid">
                     <p
                       className="font-serif font-semibold text-stone-800 mb-1.5 pb-1 border-b flex items-center gap-1.5"
                       style={{ borderColor: accentColor }}
                     >
                       <TableShapeIcon shape={t.shape} capacity={t.capacity} size={18} className="text-stone-500 flex-shrink-0" />
-                      <span>{t.name}</span>{' '}
-                      <span className="text-xs font-normal text-stone-400">({seated.length}/{t.capacity})</span>
+                      <span>{group.tableLabel}</span>{' '}
+                      <span className="text-xs font-normal text-stone-400">({group.names.length}/{t.capacity})</span>
                     </p>
                     <ul className="space-y-0.5">
-                      {seated.map(g => (
-                        <li key={g.id} className="text-sm text-stone-700">
-                          {g.name}{g.plusOneName ? <span className="text-stone-400"> &amp; {g.plusOneName}</span> : ''}
+                      {group.names.map((name, i) => (
+                        <li key={`${group.key}-${i}`} className="text-sm text-stone-700">
+                          {name}
                         </li>
                       ))}
                     </ul>
