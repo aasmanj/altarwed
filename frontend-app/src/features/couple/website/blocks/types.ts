@@ -40,6 +40,7 @@ export const BLOCK_TYPES = [
   'WEDDING_PARTY_GRID',
   'PHOTO_ALBUM_GRID',
   'VOWS_PREVIEW',
+  'DAY_OF_TIMELINE',
 ] as const
 
 export type BlockType = (typeof BLOCK_TYPES)[number]
@@ -59,6 +60,7 @@ export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   WEDDING_PARTY_GRID: 'Wedding party grid',
   PHOTO_ALBUM_GRID: 'Photo album',
   VOWS_PREVIEW: 'Vows preview',
+  DAY_OF_TIMELINE: 'Day-of timeline',
 }
 
 // One-sentence descriptions for the block picker. Couples (especially older
@@ -79,6 +81,7 @@ export const BLOCK_TYPE_DESCRIPTIONS: Record<BlockType, string> = {
   WEDDING_PARTY_GRID: 'Photo grid of wedding party members for one side (bride or groom).',
   PHOTO_ALBUM_GRID:   'All photos uploaded to the Photos page in a flowing gallery.',
   VOWS_PREVIEW:       'Side-by-side preview of both partners’ vows (visible to guests after publishing).',
+  DAY_OF_TIMELINE:    'A schedule of your wedding day: a time, what happens, and an optional note.',
 }
 
 // Which block types each tab is allowed to add. Keeps the editor coherent  
@@ -91,7 +94,7 @@ export const ALLOWED_TYPES_PER_TAB: Record<BlockTab, BlockType[]> = {
   // blocks of the dropped types on already-built sites still render.
   HOME: ['IMAGE', 'VENUE_CARD', 'COUNTDOWN', 'RSVP_CTA'],
   OUR_STORY: ['STORY_ENTRY', 'HEADING', 'TEXT', 'IMAGE', 'SCRIPTURE', 'DIVIDER'],
-  DETAILS: ['HEADING', 'TEXT', 'IMAGE', 'SCRIPTURE', 'DIVIDER', 'VENUE_CARD'],
+  DETAILS: ['HEADING', 'TEXT', 'IMAGE', 'SCRIPTURE', 'DIVIDER', 'VENUE_CARD', 'DAY_OF_TIMELINE'],
   WEDDING_PARTY: ['HEADING', 'TEXT', 'DIVIDER', 'WEDDING_PARTY_GRID'],
   REGISTRY: ['HEADING', 'TEXT', 'DIVIDER', 'REGISTRY_CARD'],
   TRAVEL: ['HEADING', 'TEXT', 'IMAGE', 'DIVIDER', 'HOTEL_CARD'],
@@ -131,6 +134,11 @@ export function defaultContentJson(type: BlockType): string {
       // venueSlot selects which venue the card renders (ceremony vs reception). New
       // cards default to CEREMONY; the rest of the payload is the venue's scalar fields.
       return JSON.stringify({ venueSlot: 'CEREMONY' })
+    case 'DAY_OF_TIMELINE':
+      // Unlike the card blocks, the timeline owns its data: there is no scalar column
+      // for a wedding-day schedule. One empty row so the couple lands on a form with
+      // something to type into rather than an empty block.
+      return JSON.stringify({ items: [{ time: '', title: '', notes: '' }] })
     default:
       // DIVIDER, HOTEL_CARD, COUNTDOWN, RSVP_CTA, PHOTO_ALBUM_GRID, VOWS_PREVIEW:
       // payload pulled from the website's scalar fields at render time.

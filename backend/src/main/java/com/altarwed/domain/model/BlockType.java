@@ -17,5 +17,6 @@ public enum BlockType {
     WEDDING_PARTY_GRID,
     PHOTO_ALBUM_GRID,
     VOWS_PREVIEW,
-    STORY_ENTRY
+    STORY_ENTRY,
+    DAY_OF_TIMELINE
 }

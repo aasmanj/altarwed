@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ImagePlus, Loader2, RotateCcw, Pencil } from 'lucide-react'
+import { ImagePlus, Loader2, RotateCcw, Pencil, Plus, Trash2 } from 'lucide-react'
 import { apiClient } from '@/core/api/client'
 import { useWeddingWebsite } from '../useWeddingWebsite'
 import { useAuth } from '@/core/auth/AuthContext'
@@ -416,6 +416,14 @@ function FieldsFor({
           Write them in the <EditorLink tab="vows">Vows dashboard</EditorLink>.
         </BlockHint>
       )
+
+    case 'DAY_OF_TIMELINE':
+      return (
+        <TimelineFields
+          items={parseTimelineItems(content.items)}
+          onChange={next => onChange('items', next)}
+        />
+      )
   }
 }
 
@@ -437,6 +445,124 @@ function BlockHint({ children }: { children: React.ReactNode }) {
     <p className="text-xs text-stone-500 leading-relaxed bg-stone-50 border border-stone-200 rounded-md px-3 py-2.5">
       {children}
     </p>
+  )
+}
+
+// ── DAY_OF_TIMELINE ──────────────────────────────────────────────────────────
+// The only block whose data lives entirely in contentJson as an array. Every
+// other multi-row block (hotels, wedding party, photos) is backed by its own
+// table, but a day-of schedule is display-only: guests read it, nothing else
+// joins to it, so a JSON array on the block avoids a table + endpoint + DTO for
+// no gain. The trade-off is no server-side validation of the rows, so the
+// renderer on the public site has to treat every field as untrusted.
+
+export interface TimelineItem {
+  time: string
+  title: string
+  notes: string
+}
+
+// contentJson is opaque to the backend, so a block could hold anything: a
+// hand-edited payload, a shape from an older release, or "{}" from a reset.
+// Coerce whatever is there into a well-formed row list rather than trusting it.
+export function parseTimelineItems(raw: unknown): TimelineItem[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map(entry => {
+    const row = (entry && typeof entry === 'object' ? entry : {}) as Record<string, unknown>
+    const s = (k: string) => (typeof row[k] === 'string' ? (row[k] as string) : '')
+    return { time: s('time'), title: s('title'), notes: s('notes') }
+  })
+}
+
+export const EMPTY_TIMELINE_ITEM: TimelineItem = { time: '', title: '', notes: '' }
+
+function TimelineFields({
+  items,
+  onChange,
+}: {
+  items: TimelineItem[]
+  onChange: (items: TimelineItem[]) => void
+}) {
+  // A block that lost its rows (reset, hand-edited JSON) still needs one row to
+  // type into, otherwise the couple sees an empty panel with no way back in.
+  const rows = items.length > 0 ? items : [EMPTY_TIMELINE_ITEM]
+
+  const updateRow = (index: number, key: keyof TimelineItem, value: string) => {
+    onChange(rows.map((row, i) => (i === index ? { ...row, [key]: value } : row)))
+  }
+  const addRow = () => onChange([...rows, { ...EMPTY_TIMELINE_ITEM }])
+  const removeRow = (index: number) => {
+    const next = rows.filter((_, i) => i !== index)
+    onChange(next.length > 0 ? next : [{ ...EMPTY_TIMELINE_ITEM }])
+  }
+
+  return (
+    <div>
+      <BlockHint>
+        Your wedding-day schedule, in order. Guests see each time next to what happens.
+      </BlockHint>
+      <ol className="mt-3 space-y-3">
+        {rows.map((row, index) => (
+          // Index keys are safe here: the rows have no identity of their own and
+          // every input is controlled, so a removal re-renders each surviving row
+          // from its new props rather than carrying stale DOM state.
+          <li key={index} role="group" aria-labelledby={`timeline-item-label-${index}`} className="rounded-md border border-stone-200 bg-stone-50/60 p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span id={`timeline-item-label-${index}`} className="text-[10px] font-semibold uppercase tracking-wider text-stone-400">
+                Item {index + 1}
+              </span>
+              <button
+                type="button"
+                onClick={() => removeRow(index)}
+                aria-label={`Remove timeline item ${index + 1}`}
+                title="Remove this item"
+                className="text-stone-400 hover:text-red-600 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 transition"
+              >
+                <Trash2 size={12} aria-hidden="true" />
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <Field label="Time">
+                <input
+                  type="text"
+                  value={row.time}
+                  onChange={e => updateRow(index, 'time', e.target.value)}
+                  className={inputClass}
+                  placeholder="3:00 PM"
+                />
+              </Field>
+              <div className="col-span-2">
+                <Field label="What happens">
+                  <input
+                    type="text"
+                    value={row.title}
+                    onChange={e => updateRow(index, 'title', e.target.value)}
+                    className={inputClass}
+                    placeholder="Ceremony begins"
+                  />
+                </Field>
+              </div>
+            </div>
+            <Field label="Note (optional)">
+              <input
+                type="text"
+                value={row.notes}
+                onChange={e => updateRow(index, 'notes', e.target.value)}
+                className={inputClass}
+                placeholder="Please be seated by 2:45"
+              />
+            </Field>
+          </li>
+        ))}
+      </ol>
+      <button
+        type="button"
+        onClick={addRow}
+        className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 transition"
+      >
+        <Plus size={12} aria-hidden="true" /> Add item
+      </button>
+    </div>
   )
 }
 

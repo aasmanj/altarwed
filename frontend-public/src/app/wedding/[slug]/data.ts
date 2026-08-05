@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import type { WeddingPartyMember, WeddingPhoto } from '@/components/blocks/BlockRenderer'
+import { parseTimelineItems } from '@/lib/timeline'
 
 // Hard client-side timeout for every backend fetch on the public wedding render
 // path. Without it a slow/wedged backend leaves the SSR render blocked until the
@@ -248,6 +249,7 @@ export type BlockType =
   | 'VENUE_CARD' | 'HOTEL_CARD' | 'REGISTRY_CARD'
   | 'COUNTDOWN' | 'RSVP_CTA'
   | 'WEDDING_PARTY_GRID' | 'PHOTO_ALBUM_GRID' | 'VOWS_PREVIEW'
+  | 'DAY_OF_TIMELINE'
 
 export interface WeddingPageBlock {
   id: string
@@ -361,6 +363,10 @@ export function blockHasContent(
     case 'WEDDING_PARTY_GRID': return hasPartyMembers
     case 'PHOTO_ALBUM_GRID': return hasPhotosPresent
     case 'VOWS_PREVIEW': return !!(wedding.partnerOneVows || wedding.partnerTwoVows)
+    case 'DAY_OF_TIMELINE':
+      // parseTimelineItems (shared with BlockRenderer) trims and drops blank rows,
+      // so this matches exactly what the renderer will draw.
+      return parseTimelineItems(c.items).length > 0
     case 'DIVIDER': return false
     default: return false
   }

@@ -4,9 +4,10 @@
 // the WeddingWebsite scalar fields rather than the block's contentJson, so the couple
 // only maintains one source of truth for those fields.
 
-import { Calendar, ExternalLink, Hotel, MapPin, Gift, type LucideIcon } from 'lucide-react'
+import { Calendar, Clock, ExternalLink, Hotel, MapPin, Gift, type LucideIcon } from 'lucide-react'
 import type { WeddingWebsite, WeddingPageBlock } from '@/app/wedding/[slug]/data'
 import { daysUntilDate, formatWeddingDate } from '@/lib/date'
+import { parseTimelineItems, type TimelineItem } from '@/lib/timeline'
 
 // ── Auxiliary data passed by the preview page for dynamic blocks ──
 export interface WeddingPartyMember {
@@ -125,6 +126,19 @@ export default function BlockRenderer({ block, wedding, partyMembers = [], photo
     case 'PHOTO_ALBUM_GRID':
       if (photos.length === 0 && !preview) return null
       return <PhotoAlbumGridBlock photos={photos} wedding={wedding} />
+    case 'DAY_OF_TIMELINE': {
+      const items = parseTimelineItems(content.items)
+      if (items.length === 0) {
+        return preview ? (
+          <EmptyCardPlaceholder
+            icon={Clock}
+            title="Day-of timeline"
+            hint="Add a time and what happens for each moment of the day to fill this in."
+          />
+        ) : null
+      }
+      return <DayOfTimelineBlock items={items} />
+    }
     case 'VOWS_PREVIEW':
       if (!wedding.partnerOneVows && !wedding.partnerTwoVows && !preview) return null
       return (
@@ -145,6 +159,7 @@ export default function BlockRenderer({ block, wedding, partyMembers = [], photo
 function safeParseJson(json: string): Record<string, unknown> {
   try { return JSON.parse(json) } catch { return {} }
 }
+
 
 // ── Block sub-components ─────────────────────────────────────────────────────
 
@@ -539,6 +554,48 @@ function VowCard({ name, vows }: { name: string; vows: string }) {
       <div className="absolute inset-x-6 h-px bg-[#d4af6a]/30" />
       <p className="text-sm text-[#3b2f2f] leading-relaxed whitespace-pre-wrap">{vows}</p>
     </div>
+  )
+}
+
+// ── DayOfTimelineBlock ────────────────────────────────────────────────────────
+// The couple's wedding-day schedule. Semantically an ordered list: the sequence
+// carries meaning, so a screen reader should announce "list, 6 items" and the
+// position of each one. The gold rail and dots are decoration on top of that,
+// not the structure itself.
+//
+// Gold (#d4af6a) is used only for the rail and dots, never for text: it measures
+// ~2.1:1 against the cream page background and would fail WCAG AA (4.5:1) for
+// body copy. The time and title use #3b2f2f and the note uses #8a6a4a (~5:1).
+function DayOfTimelineBlock({ items }: { items: TimelineItem[] }) {
+  if (items.length === 0) return null
+  return (
+    <ol className="rounded-2xl border border-[#e8dcc8] bg-white px-6 py-7 sm:px-8">
+      {items.map((item, i) => (
+        <li key={i} className="flex gap-4 sm:gap-5">
+          {/* Time column, fixed width so every row's title starts on the same line. */}
+          <p className="w-16 sm:w-20 shrink-0 pt-0.5 text-right text-sm font-medium text-[#3b2f2f]">
+            {item.time}
+          </p>
+
+          {/* Decorative rail: a dot per row plus a connector that stops at the last row. */}
+          <div className="flex flex-col items-center shrink-0" aria-hidden="true">
+            <span className="mt-1.5 h-2 w-2 rounded-full bg-[#d4af6a]" />
+            {i < items.length - 1 && <span className="w-px flex-1 bg-[#d4af6a]/40" />}
+          </div>
+
+          {/* Body. The bottom padding is what spaces the rows, so the rail above
+              stays visually connected instead of breaking at every gap. */}
+          <div className={`min-w-0 flex-1 ${i < items.length - 1 ? 'pb-6' : ''}`}>
+            {item.title && (
+              <p className="font-serif font-semibold text-[#3b2f2f] leading-snug">{item.title}</p>
+            )}
+            {item.notes && (
+              <p className="mt-1 text-sm text-[#8a6a4a] leading-relaxed">{item.notes}</p>
+            )}
+          </div>
+        </li>
+      ))}
+    </ol>
   )
 }
 
